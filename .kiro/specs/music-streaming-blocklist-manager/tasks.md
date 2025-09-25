@@ -8,15 +8,15 @@
   - Create database connection pools and basic CRUD operations in Rust
   - _Requirements: 2.1, 2.2, 7.1_
 
-- [ ] 2. Implement entity resolution service
-  - [ ] 2.1 Create high-performance artist entity resolution with external ID mapping
+- [-] 2. Implement entity resolution service
+  - [x] 2.1 Create high-performance artist entity resolution with external ID mapping
     - Build Rust Artist struct with canonical_artist_id and external_ids using serde for JSON serialization
     - Implement concurrent artist search and disambiguation using tokio for async processing
     - Create ML-based artist alias handling with confidence scoring using parallel processing
     - Write comprehensive unit tests for entity resolution edge cases with mock data
     - _Requirements: 1.1, 1.5_
 
-  - [ ] 2.2 Integrate MusicBrainz and ISNI for canonical artist identification
+  - [-] 2.2 Integrate MusicBrainz and ISNI for canonical artist identification
     - Implement high-performance MusicBrainz API client using reqwest with connection pooling
     - Add ISNI integration for authoritative artist identification with async processing
     - Create circuit breaker fallback strategies when external services are unavailable

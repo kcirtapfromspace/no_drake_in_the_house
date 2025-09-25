@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{extract::Extension, http::StatusCode, response::Json};
 use uuid::Uuid;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 const MOCK_USER_ID: &str = "550e8400-e29b-41d4-a716-446655440000";
 
 pub async fn get_user_dnp_list(
-    State(state): State<AppState>,
+    Extension(state): Extension<AppState>,
 ) -> Result<Json<Vec<UserArtistBlock>>, StatusCode> {
     let user_id = Uuid::parse_str(MOCK_USER_ID).unwrap();
     
@@ -22,7 +22,7 @@ pub async fn get_user_dnp_list(
 }
 
 pub async fn add_artist_to_dnp(
-    State(state): State<AppState>,
+    Extension(state): Extension<AppState>,
     Json(request): Json<AddArtistToDnpRequest>,
 ) -> Result<Json<UserArtistBlock>, StatusCode> {
     let user_id = Uuid::parse_str(MOCK_USER_ID).unwrap();

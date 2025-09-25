@@ -166,9 +166,10 @@ pub struct IsniDocument {
 }
 
 /// High-performance MusicBrainz API client with connection pooling
+#[derive(Clone)]
 pub struct MusicBrainzClient {
     client: reqwest::Client,
-    base_url: String,
+    pub base_url: String,
     circuit_breaker: Arc<tokio::sync::Mutex<CircuitBreaker>>,
     rate_limiter: Arc<tokio::sync::Semaphore>,
 }
@@ -299,7 +300,7 @@ impl MusicBrainzClient {
     }
 
     /// Convert MusicBrainz artist to our Artist model
-    fn convert_musicbrainz_artist(&self, mb_artist: MusicBrainzArtist) -> Artist {
+    pub fn convert_musicbrainz_artist(&self, mb_artist: MusicBrainzArtist) -> Artist {
         let mut external_ids = ExternalIds::new().with_musicbrainz(mb_artist.id.clone());
         
         // Extract ISNI from relations if available
@@ -362,7 +363,7 @@ impl MusicBrainzClient {
     }
 
     /// Extract ISNI from URL
-    fn extract_isni_from_url(&self, url: &str) -> Option<String> {
+    pub fn extract_isni_from_url(&self, url: &str) -> Option<String> {
         if url.contains("isni.org") {
             url.split('/').last().map(|s| s.to_string())
         } else {
@@ -378,9 +379,10 @@ impl Default for MusicBrainzClient {
 }
 
 /// ISNI API client for authoritative artist identification
+#[derive(Clone)]
 pub struct IsniClient {
     client: reqwest::Client,
-    base_url: String,
+    pub base_url: String,
     circuit_breaker: Arc<tokio::sync::Mutex<CircuitBreaker>>,
     rate_limiter: Arc<tokio::sync::Semaphore>,
 }
@@ -475,9 +477,10 @@ impl Default for IsniClient {
 }
 
 /// Combined external API service with fallback strategies
+#[derive(Clone)]
 pub struct ExternalApiService {
-    musicbrainz_client: MusicBrainzClient,
-    isni_client: IsniClient,
+    pub musicbrainz_client: MusicBrainzClient,
+    pub isni_client: IsniClient,
 }
 
 impl ExternalApiService {

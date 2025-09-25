@@ -1,4 +1,4 @@
-use axum::{extract::{Query, State}, http::StatusCode, response::Json};
+use axum::{extract::{Query, Extension}, http::StatusCode, response::Json};
 
 use crate::{
     models::{ArtistResponse, SearchArtistRequest},
@@ -7,7 +7,7 @@ use crate::{
 };
 
 pub async fn search_artists(
-    State(state): State<AppState>,
+    Extension(state): Extension<AppState>,
     Query(request): Query<SearchArtistRequest>,
 ) -> Result<Json<Vec<ArtistResponse>>, StatusCode> {
     match artist_service::search_artists(&state.db, request).await {

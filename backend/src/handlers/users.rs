@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, response::Json};
+use axum::{extract::Extension, http::StatusCode, response::Json};
 use uuid::Uuid;
 
 use crate::{
@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub async fn create_user(
-    State(state): State<AppState>,
+    Extension(state): Extension<AppState>,
     Json(request): Json<CreateUserRequest>,
 ) -> Result<Json<UserResponse>, StatusCode> {
     match user_service::create_user(&state.db, request).await {

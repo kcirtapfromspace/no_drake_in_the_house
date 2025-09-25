@@ -1,9 +1,9 @@
 use axum::{
-    extract::State,
+    extract::Extension,
     http::StatusCode,
     response::Json,
     routing::{get, post},
-    Router,
+    Router, Server,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -68,14 +68,15 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/v1/artists/search", get(handlers::artists::search_artists))
         .route("/api/v1/dnp", get(handlers::dnp::get_user_dnp_list))
         .route("/api/v1/dnp", post(handlers::dnp::add_artist_to_dnp))
+        .layer(Extension(state))
         .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .layer(TraceLayer::new_for_http());
 
-    let listener = tokio::net::TcpListener::bind(&config.server_address).await?;
     tracing::info!("Server listening on {}", config.server_address);
     
-    axum::serve(listener, app).await?;
+    Server::bind(&config.server_address.parse()?)
+        .serve(app.into_make_service())
+        .await?;
 
     Ok(())
 }

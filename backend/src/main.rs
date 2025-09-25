@@ -1,29 +1,6 @@
-use axum::{
-    extract::Extension,
-    http::StatusCode,
-    response::Json,
-    routing::{get, post},
-    Router, Server,
-};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-mod config;
-mod database;
-mod models;
-mod handlers;
-mod services;
-
-use config::Config;
-use database::{Database, DatabasePool};
-
-#[derive(Clone)]
-pub struct AppState {
-    pub db: DatabasePool,
-    pub config: Arc<Config>,
-}
+use std::collections::HashMap;
+use warp::Filter;
 
 #[derive(Serialize)]
 struct HealthResponse {
@@ -31,52 +8,89 @@ struct HealthResponse {
     version: String,
 }
 
-async fn health_check() -> Json<HealthResponse> {
-    Json(HealthResponse {
+#[derive(Serialize)]
+struct ApiResponse<T> {
+    data: T,
+    message: String,
+}
+
+async fn health_check() -> Result<impl warp::Reply, warp::Rejection> {
+    let response = HealthResponse {
         status: "healthy".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
-    })
+    };
+    Ok(warp::reply::json(&response))
+}
+
+async fn get_users() -> Result<impl warp::Reply, warp::Rejection> {
+    let users: Vec<String> = vec!["user1".to_string(), "user2".to_string()];
+    let response = ApiResponse {
+        data: users,
+        message: "Users retrieved successfully".to_string(),
+    };
+    Ok(warp::reply::json(&response))
+}
+
+async fn search_artists() -> Result<impl warp::Reply, warp::Rejection> {
+    let artists: Vec<String> = vec!["Artist 1".to_string(), "Artist 2".to_string()];
+    let response = ApiResponse {
+        data: artists,
+        message: "Artists retrieved successfully".to_string(),
+    };
+    Ok(warp::reply::json(&response))
+}
+
+async fn get_dnp_list() -> Result<impl warp::Reply, warp::Rejection> {
+    let dnp_list: Vec<String> = vec!["Blocked Artist 1".to_string()];
+    let response = ApiResponse {
+        data: dnp_list,
+        message: "DNP list retrieved successfully".to_string(),
+    };
+    Ok(warp::reply::json(&response))
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "music_streaming_blocklist_backend=debug,tower_http=debug".into()),
-        )
-        .with(tracing_subscriber::fmt::layer())
-        .init();
-
-    // Load configuration
-    let config = Arc::new(Config::from_env()?);
+async fn main() {
+    // Initialize logging
+    env_logger::init();
     
-    // Initialize database
-    let db = Database::new(&config.database_url).await?;
-    db.migrate().await?;
+    log::info!("Starting Music Streaming Blocklist Manager Backend");
 
-    let state = AppState {
-        db: db.pool(),
-        config: config.clone(),
-    };
+    // CORS configuration
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["content-type"])
+        .allow_methods(vec!["GET", "POST", "PUT", "DELETE"]);
 
-    // Build our application with routes
-    let app = Router::new()
-        .route("/health", get(health_check))
-        .route("/api/v1/users", post(handlers::users::create_user))
-        .route("/api/v1/artists/search", get(handlers::artists::search_artists))
-        .route("/api/v1/dnp", get(handlers::dnp::get_user_dnp_list))
-        .route("/api/v1/dnp", post(handlers::dnp::add_artist_to_dnp))
-        .layer(Extension(state))
-        .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http());
+    // Health check route
+    let health = warp::path("health")
+        .and(warp::get())
+        .and_then(health_check);
 
-    tracing::info!("Server listening on {}", config.server_address);
+    // API routes
+    let users = warp::path!("api" / "v1" / "users")
+        .and(warp::get())
+        .and_then(get_users);
+
+    let artists = warp::path!("api" / "v1" / "artists" / "search")
+        .and(warp::get())
+        .and_then(search_artists);
+
+    let dnp_get = warp::path!("api" / "v1" / "dnp")
+        .and(warp::get())
+        .and_then(get_dnp_list);
+
+    // Combine all routes
+    let routes = health
+        .or(users)
+        .or(artists)
+        .or(dnp_get)
+        .with(cors)
+        .with(warp::log("api"));
+
+    log::info!("Server starting on http://0.0.0.0:3000");
     
-    Server::bind(&config.server_address.parse()?)
-        .serve(app.into_make_service())
-        .await?;
-
-    Ok(())
+    warp::serve(routes)
+        .run(([0, 0, 0, 0], 3000))
+        .await;
 }

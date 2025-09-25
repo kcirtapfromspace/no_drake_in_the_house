@@ -4,14 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Web framework
-axum = { version = "0.6", features = ["macros"] }
-tower = { version = "0.4", features = ["util"] }
-tower-http = { version = "0.4", features = ["fs", "trace", "cors"] }
-tokio = { version = "1.0", features = ["full"] }
-
-# Database
-sqlx = { version = "0.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+# Web framework - using older stable versions
+warp = "0.3"
+tokio = { version = "1.20", features = ["full"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -21,26 +16,12 @@ serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
-# Async
-futures = "0.3"
-
-# Logging and tracing
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# Environment and configuration
-dotenvy = "0.15"
+# Environment
+dotenv = "0.15"
 
 # Error handling
 anyhow = "1.0"
-thiserror = "1.0"
 
-# HTTP client for external APIs
-reqwest = { version = "0.11", features = ["json"] }
-
-# Security
-argon2 = "0.5"
-jsonwebtoken = "8.0"
-
-[dev-dependencies]
-tokio-test = "0.4"
+# Logging
+env_logger = "0.10"
+log = "0.4"

@@ -18,7 +18,7 @@ pub struct EntityResolutionService {
     /// Alias confidence threshold
     confidence_threshold: f64,
     /// External API service for MusicBrainz and ISNI integration
-    external_api_service: ExternalApiService,
+    pub external_api_service: ExternalApiService,
 }
 
 impl EntityResolutionService {

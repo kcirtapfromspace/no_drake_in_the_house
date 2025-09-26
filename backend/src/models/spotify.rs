@@ -283,7 +283,7 @@ pub struct PlannedAction {
 }
 
 /// Type of action to perform
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum ActionType {
     RemoveLikedSong,
     RemovePlaylistTrack,
@@ -404,6 +404,30 @@ impl Default for AlbumImpact {
             albums_to_remove: 0,
             exact_matches: 0,
             collaboration_albums: 0,
+        }
+    }
+}
+
+// Display trait implementations for ActionType and EntityType
+impl std::fmt::Display for ActionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ActionType::RemoveLikedSong => write!(f, "remove_liked_song"),
+            ActionType::RemovePlaylistTrack => write!(f, "remove_playlist_track"),
+            ActionType::UnfollowArtist => write!(f, "unfollow_artist"),
+            ActionType::RemoveSavedAlbum => write!(f, "remove_saved_album"),
+            ActionType::SkipTrack => write!(f, "skip_track"),
+        }
+    }
+}
+
+impl std::fmt::Display for EntityType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EntityType::Track => write!(f, "track"),
+            EntityType::Artist => write!(f, "artist"),
+            EntityType::Album => write!(f, "album"),
+            EntityType::Playlist => write!(f, "playlist"),
         }
     }
 }

@@ -38,7 +38,7 @@
     - Add token health checking and automatic refresh capabilities
     - _Requirements: 2.2, 2.4, 7.1, 7.2_
 
-- [-] 4. Develop Spotify integration adapter
+- [x] 4. Develop Spotify integration adapter
   - [x] 4.1 Implement Spotify OAuth and connection management
     - Create Spotify OAuth 2.0 flow with PKCE for secure authorization
     - Implement connection storage with encrypted token management
@@ -53,81 +53,81 @@
     - Add collaboration and featuring detection logic
     - _Requirements: 3.1, 3.2, 5.2_
 
-  - [-] 4.3 Create Spotify enforcement execution engine
+  - [x] 4.3 Create Spotify enforcement execution engine
     - Implement batch operations for library modifications (remove liked songs, unfollow artists)
     - Build playlist scrubbing with delta removal to minimize API calls
     - Add idempotent operation handling to prevent duplicate actions
     - Create detailed action logging and rollback capabilities
     - _Requirements: 3.2, 3.3, 3.4, 8.1, 8.5_
 
-- [ ] 5. Implement DNP list management system
-  - [ ] 5.1 Create personal DNP list CRUD operations
+- [x] 5. Implement DNP list management system
+  - [x] 5.1 Create personal DNP list CRUD operations
     - Build DNP list creation, modification, and deletion functionality
     - Implement artist search with provider badge display for accurate selection
     - Add bulk import/export functionality for CSV and JSON formats
     - Create tagging and note system for DNP list organization
     - _Requirements: 1.1, 1.2, 1.4_
 
-  - [ ] 5.2 Build community list subscription system
+  - [x] 5.2 Build community list subscription system
     - Implement community list creation with governance requirements
     - Create list subscription and version pinning functionality
     - Build preview system showing impact before applying community lists
     - Add notification system for community list updates with diff previews
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [ ] 6. Develop web application frontend
-  - [ ] 6.1 Create user dashboard and DNP management interface with Svelte
+- [x] 6. Develop web application frontend
+  - [x] 6.1 Create user dashboard and DNP management interface with Svelte
     - Build responsive Svelte components for dashboard showing connected services and DNP list status
     - Implement artist search and selection interface with provider badges using Svelte stores
     - Create DNP list management UI with tagging and bulk operations using reactive updates
     - Add service connection management with OAuth flow integration
     - _Requirements: 1.1, 1.2, 1.4, 2.1, 2.4_
 
-  - [ ] 6.2 Build enforcement planning and execution interface with Svelte
+  - [x] 6.2 Build enforcement planning and execution interface with Svelte
     - Create dry-run preview interface using Svelte's reactive derived stores for impact calculation
     - Implement enforcement execution UI with real-time progress tracking using Svelte stores
     - Build action history and undo interface with per-item rollback using Svelte transitions
     - Add settings interface for aggressiveness levels and collaboration blocking with two-way binding
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 6.3 Implement community list browsing and subscription interface with Svelte
+  - [x] 6.3 Implement community list browsing and subscription interface with Svelte
     - Build community list directory with search and filtering using Svelte's reactive filtering
     - Create list detail view showing criteria, governance, and sample impact with Svelte components
     - Implement subscription management with version control using Svelte stores
     - Add appeals and moderation interface for list disputes with form handling
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 6.4, 6.5_
 
-- [ ] 7. Create browser extension for web interface blocking
-  - [ ] 7.1 Build extension core architecture and content scripts
+- [x] 7. Create browser extension for web interface blocking
+  - [x] 7.1 Build extension core architecture and content scripts
     - Create Manifest v3 browser extension with content scripts for major streaming services
     - Implement MutationObserver for resilient DOM monitoring
     - Build shadow DOM isolation for extension UI components
     - Create secure communication between content scripts and background service worker
     - _Requirements: 4.1, 4.4_
 
-  - [ ] 7.2 Implement content filtering and auto-skip functionality
+  - [x] 7.2 Implement content filtering and auto-skip functionality
     - Build artist detection using multiple strategies (data attributes, ARIA labels, text content)
     - Implement content hiding with subtle "Hidden by Kiro" badges
     - Create auto-skip functionality for blocked tracks with media event hooks
     - Add override controls with "play once" and "add/remove from DNP" options
     - _Requirements: 4.1, 4.2, 4.3, 4.5_
 
-  - [ ] 7.3 Optimize extension performance with bloom filters
+  - [x] 7.3 Optimize extension performance with bloom filters
     - Implement bloom filter for O(1) DNP list lookups in extension
     - Create signed, cached DNP filter updates from server
     - Add offline functionality when server is unavailable
     - Build telemetry for selector drift detection and performance monitoring
     - _Requirements: 4.1, 4.4, 8.2_
 
-- [ ] 8. Implement rate limiting and job processing system
-  - [ ] 8.1 Create rate-limit aware batching system
+- [x] 8. Implement rate limiting and job processing system
+  - [x] 8.1 Create rate-limit aware batching system
     - Build rate limiting framework using provider API response headers
     - Implement optimal batching strategies grouped by playlist and operation type
     - Create resumable batch processing with checkpoint recovery
     - Add exponential backoff and circuit breaker patterns for API failures
     - _Requirements: 8.1, 8.2, 8.5_
 
-  - [ ] 8.2 Build background job processing with Redis queues
+  - [x] 8.2 Build background job processing with Redis queues
     - Implement Redis-based job queue for enforcement operations
     - Create worker processes for asynchronous enforcement execution
     - Add job progress tracking and user notification system

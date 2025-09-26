@@ -8,10 +8,11 @@ use tokio::time::sleep;
 use uuid::Uuid;
 
 use crate::models::{
-    Connection, EnforcementPlan, PlannedAction, ActionType, ActionBatch, ActionItem,
+    Connection, EnforcementPlan, PlannedAction, ActionBatch, ActionItem,
     ActionBatchStatus, ActionItemStatus, BatchSummary, BatchError, BatchExecutionResult,
     ExecuteBatchRequest, RollbackBatchRequest, RollbackInfo, BatchProgress, RateLimitStatus,
 };
+use crate::models::spotify::{ActionType, EntityType};
 use crate::services::{SpotifyService, SpotifyLibraryService};
 
 /// Service for executing Spotify enforcement operations
@@ -884,170 +885,232 @@ impl SpotifyEnforcementService {
         Ok(action)
     }
 
-    // Spotify API operations
+    // Spotify API operations - delegate to SpotifyService
 
     async fn remove_liked_songs_batch(&self, connection: &Connection, track_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/tracks";
-        let body = json!({ "ids": track_ids });
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "DELETE", url, Some(body))
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to remove liked songs: {}", response.status()));
-        }
-
-        Ok(())
+        self.spotify_service.remove_liked_songs_batch(connection, track_ids).await
     }
 
     async fn add_liked_songs_batch(&self, connection: &Connection, track_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/tracks";
-        let body = json!({ "ids": track_ids });
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "PUT", url, Some(body))
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to add liked songs: {}", response.status()));
-        }
-
-        Ok(())
+        self.spotify_service.add_liked_songs_batch(connection, track_ids).await
     }
 
     async fn remove_playlist_tracks_batch(&self, connection: &Connection, playlist_id: &str, tracks: &[Value]) -> Result<String> {
-        let url = format!("https://api.spotify.com/v1/playlists/{}/tracks", playlist_id);
-        let body = json!({ "tracks": tracks });
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "DELETE", &url, Some(body))
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to remove playlist tracks: {}", response.status()));
-        }
-
-        let result: Value = response.json().await?;
-        let snapshot_id = result["snapshot_id"]
-            .as_str()
-            .ok_or_else(|| anyhow!("Missing snapshot_id in response"))?;
-
-        Ok(snapshot_id.to_string())
+        self.spotify_service.remove_playlist_tracks_batch(connection, playlist_id, tracks).await
     }
 
-    async fn add_playlist_tracks_batch(&self, connection: &Connection, playlist_id: &str, track_ids: &[String]) -> Result<String> {
-        let url = format!("https://api.spotify.com/v1/playlists/{}/tracks", playlist_id);
-        let uris: Vec<String> = track_ids.iter().map(|id| format!("spotify:track:{}", id)).collect();
-        let body = json!({ "uris": uris });
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "POST", &url, Some(body))
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to add playlist tracks: {}", response.status()));
-        }
-
-        let result: Value = response.json().await?;
-        let snapshot_id = result["snapshot_id"]
-            .as_str()
-            .ok_or_else(|| anyhow!("Missing snapshot_id in response"))?;
-
-        Ok(snapshot_id.to_string())
+    async fn add_playlist_tracks_batch(&self, connection: &Connection, playlist_id: &str, track_uris: &[String]) -> Result<String> {
+        self.spotify_service.add_playlist_tracks_batch(connection, playlist_id, track_uris, None).await
     }
 
     async fn unfollow_artists_batch(&self, connection: &Connection, artist_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/following";
-        let params = format!("type=artist&ids={}", artist_ids.join(","));
-        let full_url = format!("{}?{}", url, params);
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "DELETE", &full_url, None)
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to unfollow artists: {}", response.status()));
-        }
-
-        Ok(())
+        self.spotify_service.unfollow_artists_batch(connection, artist_ids).await
     }
 
     async fn follow_artists_batch(&self, connection: &Connection, artist_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/following";
-        let params = format!("type=artist&ids={}", artist_ids.join(","));
-        let full_url = format!("{}?{}", url, params);
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "PUT", &full_url, None)
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to follow artists: {}", response.status()));
-        }
-
-        Ok(())
+        self.spotify_service.follow_artists_batch(connection, artist_ids).await
     }
 
     async fn remove_saved_albums_batch(&self, connection: &Connection, album_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/albums";
-        let body = json!({ "ids": album_ids });
-
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "DELETE", url, Some(body))
-            .await?;
-
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to remove saved albums: {}", response.status()));
-        }
-
-        Ok(())
+        self.spotify_service.remove_saved_albums_batch(connection, album_ids).await
     }
 
     async fn add_saved_albums_batch(&self, connection: &Connection, album_ids: &[String]) -> Result<()> {
-        let url = "https://api.spotify.com/v1/me/albums";
-        let body = json!({ "ids": album_ids });
+        self.spotify_service.add_saved_albums_batch(connection, album_ids).await
+    }
 
-        let response = self
-            .spotify_service
-            .make_api_request(connection, "PUT", url, Some(body))
-            .await?;
+    // Queue and background processing
 
-        if !response.status().is_success() {
-            return Err(anyhow!("Failed to add saved albums: {}", response.status()));
-        }
+    async fn queue_batch_for_execution(&self, batch: &ActionBatch) -> Result<()> {
+        // This would integrate with a job queue system like Redis/BullMQ
+        // For now, just log that it would be queued
+        tracing::info!("Queueing batch {} for background execution", batch.id);
+        
+        // In a real implementation, you would:
+        // 1. Serialize the batch to JSON
+        // 2. Add it to a Redis queue with appropriate priority
+        // 3. Set up retry logic and dead letter queues
+        // 4. Return a job ID for tracking
+        
+        Ok(())
+    }
+
+    // Rollback operations
+
+    fn create_rollback_action(&self, rollback_batch_id: &Uuid, original_action: &ActionItem) -> Result<ActionItem> {
+        let rollback_action_type = match original_action.action.as_str() {
+            "remove_liked_song" => "add_liked_song",
+            "remove_playlist_track" => "add_playlist_track",
+            "unfollow_artist" => "follow_artist",
+            "remove_saved_album" => "add_saved_album",
+            _ => return Err(anyhow!("Cannot rollback action type: {}", original_action.action)),
+        };
+
+        let mut rollback_action = ActionItem::new(
+            *rollback_batch_id,
+            original_action.entity_type.clone(),
+            original_action.entity_id.clone(),
+            rollback_action_type.to_string(),
+            original_action.after_state.clone(), // Use the after_state as the new before_state
+        );
+
+        // Copy relevant metadata from original action for rollback
+        rollback_action.before_state = original_action.after_state.clone();
+
+        Ok(rollback_action)
+    }
+
+    async fn execute_rollback_action(&self, connection: &Connection, mut action: ActionItem) -> Result<ActionItem> {
+        action.status = ActionItemStatus::InProgress;
+        self.update_action_item(&action).await?;
+
+        let result = match action.action.as_str() {
+            "add_liked_song" => {
+                self.add_liked_songs_batch(connection, &[action.entity_id.clone()]).await?;
+                json!({ "added_at": Utc::now() })
+            }
+            "add_playlist_track" => {
+                // Extract playlist_id from before_state
+                let playlist_id = action.before_state
+                    .as_ref()
+                    .and_then(|s| s.get("playlist_id"))
+                    .and_then(|p| p.as_str())
+                    .ok_or_else(|| anyhow!("Missing playlist_id for rollback"))?;
+                
+                let track_uri = format!("spotify:track:{}", action.entity_id);
+                let snapshot_id = self.add_playlist_tracks_batch(connection, playlist_id, &[track_uri]).await?;
+                json!({ 
+                    "added_at": Utc::now(),
+                    "playlist_id": playlist_id,
+                    "new_snapshot_id": snapshot_id
+                })
+            }
+            "follow_artist" => {
+                self.follow_artists_batch(connection, &[action.entity_id.clone()]).await?;
+                json!({ "followed_at": Utc::now() })
+            }
+            "add_saved_album" => {
+                self.add_saved_albums_batch(connection, &[action.entity_id.clone()]).await?;
+                json!({ "added_at": Utc::now() })
+            }
+            _ => return Err(anyhow!("Unknown rollback action type: {}", action.action)),
+        };
+
+        action.mark_completed(result);
+        self.update_action_item(&action).await?;
+        Ok(action)
+    }
+
+    // Database operations
+
+    async fn get_batch_actions(&self, batch_id: &Uuid, status_filter: Option<ActionItemStatus>) -> Result<Vec<ActionItem>> {
+        let query = if let Some(status) = status_filter {
+            sqlx::query_as!(
+                ActionItem,
+                r#"
+                SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
+                       status as "status: ActionItemStatus", error_message, created_at
+                FROM action_items 
+                WHERE batch_id = $1 AND status = $2
+                ORDER BY created_at
+                "#,
+                batch_id,
+                status.to_string()
+            )
+        } else {
+            sqlx::query_as!(
+                ActionItem,
+                r#"
+                SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
+                       status as "status: ActionItemStatus", error_message, created_at
+                FROM action_items 
+                WHERE batch_id = $1
+                ORDER BY created_at
+                "#,
+                batch_id
+            )
+        };
+
+        let rows = query.fetch_all(&self.db_pool).await?;
+        Ok(rows)
+    }
+
+    async fn get_batch_actions_by_ids(&self, action_ids: &[Uuid]) -> Result<Vec<ActionItem>> {
+        let rows = sqlx::query_as!(
+            ActionItem,
+            r#"
+            SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
+                   status as "status: ActionItemStatus", error_message, created_at
+            FROM action_items 
+            WHERE id = ANY($1)
+            ORDER BY created_at
+            "#,
+            action_ids
+        )
+        .fetch_all(&self.db_pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    async fn update_action_item(&self, action: &ActionItem) -> Result<()> {
+        sqlx::query!(
+            "UPDATE action_items SET status = $1, after_state = $2, error_message = $3 WHERE id = $4",
+            action.status.to_string(),
+            action.after_state,
+            action.error_message,
+            action.id
+        )
+        .execute(&self.db_pool)
+        .await?;
 
         Ok(())
     }
 }
 
-// Helper trait implementations
-impl std::fmt::Display for ActionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ActionType::RemoveLikedSong => write!(f, "remove_liked_song"),
-            ActionType::RemovePlaylistTrack => write!(f, "remove_playlist_track"),
-            ActionType::UnfollowArtist => write!(f, "unfollow_artist"),
-            ActionType::RemoveSavedAlbum => write!(f, "remove_saved_album"),
-            ActionType::SkipTrack => write!(f, "skip_track"),
-        }
-    }
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{EnforcementOptions, AggressivenessLevel};
+    use std::sync::Arc;
 
-impl std::fmt::Display for crate::models::EntityType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            crate::models::EntityType::Track => write!(f, "track"),
-            crate::models::EntityType::Artist => write!(f, "artist"),
-            crate::models::EntityType::Album => write!(f, "album"),
-            crate::models::EntityType::Playlist => write!(f, "playlist"),
-        }
+    #[tokio::test]
+    async fn test_batch_creation() {
+        let batch = ActionBatch::new(
+            Uuid::new_v4(),
+            "spotify".to_string(),
+            "test_key".to_string(),
+            false,
+            serde_json::json!({}),
+        );
+
+        assert_eq!(batch.provider, "spotify");
+        assert_eq!(batch.idempotency_key, "test_key");
+        assert!(!batch.dry_run);
+        assert!(matches!(batch.status, ActionBatchStatus::Pending));
+    }
+
+    #[tokio::test]
+    async fn test_action_item_creation() {
+        let batch_id = Uuid::new_v4();
+        let action = ActionItem::new(
+            batch_id,
+            "track".to_string(),
+            "spotify_track_id".to_string(),
+            "remove_liked_song".to_string(),
+            Some(json!({"liked_at": "2023-01-01T00:00:00Z"})),
+        );
+
+        assert_eq!(action.batch_id, batch_id);
+        assert_eq!(action.entity_type, "track");
+        assert_eq!(action.action, "remove_liked_song");
+        assert!(matches!(action.status, ActionItemStatus::Pending));
+        assert!(action.can_rollback()); // Has before_state
+    }
+
+    #[tokio::test]
+    async fn test_action_grouping() {
+        // This would test the group_actions_for_batching method
+        // Implementation would depend on having a test database setup
     }
 }

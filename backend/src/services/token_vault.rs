@@ -256,6 +256,14 @@ impl TokenVaultService {
             .collect()
     }
 
+    /// Get all connections (for statistics)
+    pub async fn get_all_connections(&self) -> Vec<Connection> {
+        self.connections
+            .iter()
+            .map(|entry| entry.value().clone())
+            .collect()
+    }
+
     /// Revoke a connection and its tokens
     pub async fn revoke_connection(&self, connection_id: Uuid) -> Result<()> {
         let mut connection = self.connections.get_mut(&connection_id)

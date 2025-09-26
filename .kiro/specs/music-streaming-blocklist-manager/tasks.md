@@ -8,7 +8,7 @@
   - Create database connection pools and basic CRUD operations in Rust
   - _Requirements: 2.1, 2.2, 7.1_
 
-- [-] 2. Implement entity resolution service
+- [x] 2. Implement entity resolution service
   - [x] 2.1 Create high-performance artist entity resolution with external ID mapping
     - Build Rust Artist struct with canonical_artist_id and external_ids using serde for JSON serialization
     - Implement concurrent artist search and disambiguation using tokio for async processing
@@ -23,7 +23,7 @@
     - Write integration tests with mock external API responses using wiremock
     - _Requirements: 1.1, 1.5_
 
-- [-] 3. Build authentication and user management system
+- [ ] 3. Build authentication and user management system
   - [x] 3.1 Implement user registration and authentication in Rust
     - Create user registration with email/password and OAuth (Google, Apple) using oauth2 crate
     - Implement JWT token generation and validation with refresh token rotation using jsonwebtoken
@@ -31,7 +31,7 @@
     - Write authentication middleware for Axum route protection with tower middleware
     - _Requirements: 2.1, 2.2, 7.1_
 
-  - [-] 3.2 Create secure token vault service
+  - [x] 3.2 Create secure token vault service
     - Implement KMS-based envelope encryption for storing provider tokens
     - Build token vault service with automatic key rotation
     - Create secure token storage and retrieval methods

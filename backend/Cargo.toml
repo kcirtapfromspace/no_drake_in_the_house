@@ -16,6 +16,7 @@ dashmap = "6.0"
 levenshtein = "1.0"
 reqwest = { version = "0.12", features = ["json"] }
 urlencoding = "2.1"
+regex = "1.0"
 
 # Authentication dependencies
 axum = "0.7"
@@ -37,6 +38,9 @@ sha2 = "0.10"
 aes-gcm = "0.10"
 ring = "0.17"
 base64 = "0.22"
+
+# Database dependencies
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
 
 [dev-dependencies]
 tokio-test = "0.4"

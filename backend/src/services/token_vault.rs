@@ -264,6 +264,53 @@ impl TokenVaultService {
             .collect()
     }
 
+    /// Get decrypted token by connection ID
+    pub async fn get_decrypted_token(&self, connection_id: Uuid) -> Result<DecryptedToken> {
+        let connection = self.connections.get(&connection_id)
+            .ok_or_else(|| anyhow!("Connection not found"))?;
+
+        if connection.status != ConnectionStatus::Active {
+            return Err(anyhow!("Connection is not active: {:?}", connection.status));
+        }
+
+        // Get data key for decryption
+        let key_id = format!("user-{}-{}", connection.user_id, connection.provider.as_str());
+        let data_key = self.get_data_key(&key_id).await?;
+
+        // Decrypt access token
+        let encrypted_access_token: EncryptedToken = serde_json::from_str(&connection.access_token_encrypted)?;
+        let access_token = self.decrypt_token(&encrypted_access_token, &data_key)?;
+
+        // Decrypt refresh token if present
+        let refresh_token = if let Some(ref encrypted_refresh_str) = connection.refresh_token_encrypted {
+            let encrypted_refresh_token: EncryptedToken = serde_json::from_str(encrypted_refresh_str)?;
+            Some(self.decrypt_token(&encrypted_refresh_token, &data_key)?)
+        } else {
+            None
+        };
+
+        Ok(DecryptedToken {
+            access_token,
+            refresh_token,
+            expires_at: connection.expires_at,
+            scopes: connection.scopes.clone(),
+        })
+    }
+
+    /// Delete a connection completely
+    pub async fn delete_connection(&self, connection_id: Uuid) -> Result<()> {
+        let connection = self.connections.get(&connection_id)
+            .ok_or_else(|| anyhow!("Connection not found"))?;
+
+        let connection_key = (connection.user_id, connection.provider.clone());
+        
+        // Remove from both maps
+        self.connections.remove(&connection_id);
+        self.connections_by_user_provider.remove(&connection_key);
+
+        Ok(())
+    }
+
     /// Revoke a connection and its tokens
     pub async fn revoke_connection(&self, connection_id: Uuid) -> Result<()> {
         let mut connection = self.connections.get_mut(&connection_id)

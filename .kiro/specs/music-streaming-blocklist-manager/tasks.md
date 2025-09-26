@@ -23,7 +23,7 @@
     - Write integration tests with mock external API responses using wiremock
     - _Requirements: 1.1, 1.5_
 
-- [ ] 3. Build authentication and user management system
+- [-] 3. Build authentication and user management system
   - [x] 3.1 Implement user registration and authentication in Rust
     - Create user registration with email/password and OAuth (Google, Apple) using oauth2 crate
     - Implement JWT token generation and validation with refresh token rotation using jsonwebtoken

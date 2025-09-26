@@ -34,6 +34,10 @@ struct AppState {
     spotify_service: Arc<SpotifyService>,
     spotify_library_service: Arc<SpotifyLibraryService>,
     spotify_enforcement_service: Arc<SpotifyEnforcementService>,
+    dnp_list_service: Arc<DnpListService>,
+    community_list_service: Arc<CommunityListService>,
+    rate_limiting_service: Arc<RateLimitingService>,
+    job_queue_service: Arc<JobQueueService>,
     db_pool: sqlx::PgPool,
 }
 
@@ -96,6 +100,60 @@ async fn main() {
         db_pool.clone(),
     ));
 
+    // Initialize DNP list service
+    let dnp_list_service = Arc::new(DnpListService::new(
+        db_pool.clone(),
+        entity_service.clone(),
+    ));
+
+    // Initialize community list service
+    let community_list_service = Arc::new(CommunityListService::new(
+        db_pool.clone(),
+        entity_service.clone(),
+    ));
+
+    // Initialize rate limiting service
+    let redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let rate_limiting_service = Arc::new(RateLimitingService::new(&redis_url)
+        .expect("Failed to initialize rate limiting service"));
+
+    // Initialize job queue service
+    let job_queue_service = Arc::new(JobQueueService::new(&redis_url, rate_limiting_service.clone())
+        .expect("Failed to initialize job queue service"));
+
+    // Register job handlers
+    let enforcement_handler = EnforcementJobHandler::new(
+        spotify_service.clone(),
+        spotify_enforcement_service.clone(),
+        rate_limiting_service.clone(),
+    );
+    job_queue_service.register_handler(enforcement_handler).await
+        .expect("Failed to register enforcement job handler");
+
+    let rollback_handler = RollbackJobHandler::new(
+        spotify_enforcement_service.clone(),
+        rate_limiting_service.clone(),
+    );
+    job_queue_service.register_handler(rollback_handler).await
+        .expect("Failed to register rollback job handler");
+
+    let token_refresh_handler = TokenRefreshJobHandler::new(spotify_service.clone());
+    job_queue_service.register_handler(token_refresh_handler).await
+        .expect("Failed to register token refresh job handler");
+
+    // Start background workers
+    let worker_config = WorkerConfig {
+        worker_id: "main_worker".to_string(),
+        concurrency: 2,
+        job_types: vec![JobType::EnforcementExecution, JobType::BatchRollback, JobType::TokenRefresh],
+        poll_interval_ms: 1000,
+        max_execution_time_ms: 600000, // 10 minutes
+        heartbeat_interval_ms: 30000,  // 30 seconds
+    };
+    job_queue_service.start_worker(worker_config).await
+        .expect("Failed to start background worker");
+
     let app_state = AppState {
         auth_service: auth_service.clone(),
         entity_service: entity_service.clone(),
@@ -103,6 +161,10 @@ async fn main() {
         spotify_service: spotify_service.clone(),
         spotify_library_service: spotify_library_service.clone(),
         spotify_enforcement_service: spotify_enforcement_service.clone(),
+        dnp_list_service: dnp_list_service.clone(),
+        community_list_service: community_list_service.clone(),
+        rate_limiting_service: rate_limiting_service.clone(),
+        job_queue_service: job_queue_service.clone(),
         db_pool,
     };
 
@@ -126,6 +188,34 @@ async fn main() {
         .route("/api/v1/spotify/enforcement/execute", post(spotify_execute_enforcement_handler))
         .route("/api/v1/spotify/enforcement/progress/:batch_id", get(spotify_enforcement_progress_handler))
         .route("/api/v1/spotify/enforcement/rollback", post(spotify_rollback_enforcement_handler))
+        // DNP list management endpoints
+        .route("/api/v1/dnp/list", get(get_dnp_list_handler))
+        .route("/api/v1/dnp/artists", post(add_artist_to_dnp_handler))
+        .route("/api/v1/dnp/artists/:artist_id", delete(remove_artist_from_dnp_handler))
+        .route("/api/v1/dnp/artists/:artist_id", put(update_dnp_entry_handler))
+        .route("/api/v1/dnp/search", get(search_artists_for_dnp_handler))
+        .route("/api/v1/dnp/import", post(bulk_import_dnp_handler))
+        .route("/api/v1/dnp/export", get(export_dnp_list_handler))
+        // Community list endpoints
+        .route("/api/v1/community/lists", get(browse_community_lists_handler))
+        .route("/api/v1/community/lists", post(create_community_list_handler))
+        .route("/api/v1/community/lists/:list_id", get(get_community_list_handler))
+        .route("/api/v1/community/lists/:list_id/artists", get(get_community_list_with_artists_handler))
+        .route("/api/v1/community/lists/:list_id/artists", post(add_artist_to_community_list_handler))
+        .route("/api/v1/community/lists/:list_id/artists/:artist_id", delete(remove_artist_from_community_list_handler))
+        .route("/api/v1/community/lists/:list_id/subscribe", post(subscribe_to_community_list_handler))
+        .route("/api/v1/community/lists/:list_id/unsubscribe", post(unsubscribe_from_community_list_handler))
+        .route("/api/v1/community/lists/:list_id/subscription", put(update_subscription_handler))
+        .route("/api/v1/community/lists/:list_id/impact", get(get_subscription_impact_preview_handler))
+        .route("/api/v1/community/subscriptions", get(get_user_subscriptions_handler))
+        // Job management endpoints
+        .route("/api/v1/jobs", get(get_user_jobs_handler))
+        .route("/api/v1/jobs/:job_id", get(get_job_status_handler))
+        .route("/api/v1/jobs/:job_id/retry", post(retry_job_handler))
+        .route("/api/v1/jobs/queue", post(enqueue_job_handler))
+        .route("/api/v1/jobs/workers/stats", get(get_worker_stats_handler))
+        // Rate limiting endpoints
+        .route("/api/v1/rate-limits/:provider/status", get(get_rate_limit_status_handler))
         .route_layer(from_fn_with_state(
             auth_service.clone(),
             auth_middleware,
@@ -182,8 +272,250 @@ async fn main() {
     println!("  POST   /api/v1/spotify/enforcement/execute");
     println!("  GET    /api/v1/spotify/enforcement/progress/:batch_id");
     println!("  POST   /api/v1/spotify/enforcement/rollback");
+    println!("DNP List endpoints (require auth):");
+    println!("  GET    /api/v1/dnp/list");
+    println!("  POST   /api/v1/dnp/artists");
+    println!("  DELETE /api/v1/dnp/artists/:artist_id");
+    println!("  PUT    /api/v1/dnp/artists/:artist_id");
+    println!("  GET    /api/v1/dnp/search");
+    println!("  POST   /api/v1/dnp/import");
+    println!("  GET    /api/v1/dnp/export");
+    println!("Community List endpoints (require auth):");
+    println!("  GET    /api/v1/community/lists");
+    println!("  POST   /api/v1/community/lists");
+    println!("  GET    /api/v1/community/lists/:list_id");
+    println!("  GET    /api/v1/community/lists/:list_id/artists");
+    println!("  POST   /api/v1/community/lists/:list_id/artists");
+    println!("  DELETE /api/v1/community/lists/:list_id/artists/:artist_id");
+    println!("  POST   /api/v1/community/lists/:list_id/subscribe");
+    println!("  POST   /api/v1/community/lists/:list_id/unsubscribe");
+    println!("  PUT    /api/v1/community/lists/:list_id/subscription");
+    println!("  GET    /api/v1/community/lists/:list_id/impact");
+    println!("  GET    /api/v1/community/subscriptions");
+    println!("Job Management endpoints (require auth):");
+    println!("  GET    /api/v1/jobs");
+    println!("  GET    /api/v1/jobs/:job_id");
+    println!("  POST   /api/v1/jobs/:job_id/retry");
+    println!("  POST   /api/v1/jobs/queue");
+    println!("  GET    /api/v1/jobs/workers/stats");
+    println!("Rate Limiting endpoints (require auth):");
+    println!("  GET    /api/v1/rate-limits/:provider/status");
 
     axum::serve(listener, app).await.unwrap();
+}
+
+// DNP List handler functions
+
+async fn get_dnp_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.get_user_dnp_list(user.id).await {
+        Ok(dnp_list) => Ok(Json(json!({
+            "success": true,
+            "data": dnp_list,
+            "message": "DNP list retrieved successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get DNP list: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn add_artist_to_dnp_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    Json(request): Json<AddArtistToDnpRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.add_artist_to_dnp_list(user.id, request).await {
+        Ok(entry) => Ok(Json(json!({
+            "success": true,
+            "data": entry,
+            "message": "Artist added to DNP list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("already in your DNP list") {
+                StatusCode::CONFLICT
+            } else if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to add artist to DNP list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn remove_artist_from_dnp_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(artist_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.remove_artist_from_dnp_list(user.id, artist_id).await {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "data": null,
+            "message": "Artist removed from DNP list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to remove artist from DNP list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn update_dnp_entry_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(artist_id): axum::extract::Path<Uuid>,
+    Json(request): Json<UpdateDnpEntryRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.update_dnp_entry(user.id, artist_id, request).await {
+        Ok(entry) => Ok(Json(json!({
+            "success": true,
+            "data": entry,
+            "message": "DNP entry updated successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to update DNP entry: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct SearchArtistsQuery {
+    q: String,
+    limit: Option<usize>,
+}
+
+async fn search_artists_for_dnp_handler(
+    State(app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    axum::extract::Query(query): axum::extract::Query<SearchArtistsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.search_artists(&query.q, query.limit).await {
+        Ok(results) => Ok(Json(json!({
+            "success": true,
+            "data": results,
+            "message": "Artist search completed successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Artist search failed: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn bulk_import_dnp_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    Json(request): Json<BulkImportRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.dnp_list_service.bulk_import(user.id, request).await {
+        Ok(result) => Ok(Json(json!({
+            "success": true,
+            "data": result,
+            "message": "Bulk import completed"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Bulk import failed: {}", e)
+            })),
+        )),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct ExportQuery {
+    format: Option<String>,
+}
+
+async fn export_dnp_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Query(query): axum::extract::Query<ExportQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let format = match query.format.as_deref() {
+        Some("csv") => ImportFormat::Csv,
+        Some("json") | None => ImportFormat::Json,
+        Some(other) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Unsupported export format: {}", other)
+                })),
+            ));
+        }
+    };
+
+    match app_state.dnp_list_service.export_dnp_list(user.id, format).await {
+        Ok(data) => Ok(Json(json!({
+            "success": true,
+            "data": {
+                "content": data,
+                "format": match format {
+                    ImportFormat::Csv => "csv",
+                    ImportFormat::Json => "json",
+                }
+            },
+            "message": "DNP list exported successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Export failed: {}", e)
+            })),
+        )),
+    }
 }
 
 // Handler functions
@@ -888,6 +1220,602 @@ async fn spotify_rollback_enforcement_handler(
                 "success": false,
                 "data": null,
                 "message": format!("Failed to get connection: {}", e)
+            })),
+        )),
+    }
+}//
+ Community List handler functions
+
+async fn browse_community_lists_handler(
+    State(app_state): State<AppState>,
+    axum::extract::Query(query): axum::extract::Query<CommunityListQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.browse_community_lists(query).await {
+        Ok(directory) => Ok(Json(json!({
+            "success": true,
+            "data": directory,
+            "message": "Community lists retrieved successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to browse community lists: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn create_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    Json(request): Json<CreateCommunityListRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.create_community_list(user.id, request).await {
+        Ok(list) => Ok(Json(json!({
+            "success": true,
+            "data": list,
+            "message": "Community list created successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("neutral") {
+                StatusCode::BAD_REQUEST
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to create community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn get_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.get_community_list_by_id(list_id, Some(user.id)).await {
+        Ok(list) => Ok(Json(json!({
+            "success": true,
+            "data": list,
+            "message": "Community list retrieved successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") || e.to_string().contains("not accessible") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to get community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn get_community_list_with_artists_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.get_community_list_with_artists(list_id, Some(user.id)).await {
+        Ok(list_with_artists) => Ok(Json(json!({
+            "success": true,
+            "data": list_with_artists,
+            "message": "Community list with artists retrieved successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") || e.to_string().contains("not accessible") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to get community list with artists: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn add_artist_to_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+    Json(request): Json<AddArtistToCommunityListRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.add_artist_to_community_list(user.id, list_id, request).await {
+        Ok(artist_entry) => Ok(Json(json!({
+            "success": true,
+            "data": artist_entry,
+            "message": "Artist added to community list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not authorized") {
+                StatusCode::FORBIDDEN
+            } else if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else if e.to_string().contains("already in") {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to add artist to community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn remove_artist_from_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path((list_id, artist_id)): axum::extract::Path<(Uuid, Uuid)>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.remove_artist_from_community_list(user.id, list_id, artist_id).await {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "data": null,
+            "message": "Artist removed from community list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not authorized") {
+                StatusCode::FORBIDDEN
+            } else if e.to_string().contains("not found") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to remove artist from community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn subscribe_to_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+    Json(request): Json<SubscribeToCommunityListRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.subscribe_to_community_list(user.id, list_id, request).await {
+        Ok(subscription_details) => Ok(Json(json!({
+            "success": true,
+            "data": subscription_details,
+            "message": "Subscribed to community list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") || e.to_string().contains("not accessible") {
+                StatusCode::NOT_FOUND
+            } else if e.to_string().contains("already subscribed") {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to subscribe to community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn unsubscribe_from_community_list_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.unsubscribe_from_community_list(user.id, list_id).await {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "data": null,
+            "message": "Unsubscribed from community list successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not subscribed") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to unsubscribe from community list: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn update_subscription_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+    Json(request): Json<UpdateSubscriptionRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.update_subscription(user.id, list_id, request).await {
+        Ok(subscription_details) => Ok(Json(json!({
+            "success": true,
+            "data": subscription_details,
+            "message": "Subscription updated successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not subscribed") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to update subscription: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn get_subscription_impact_preview_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(list_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.get_subscription_impact_preview(user.id, list_id).await {
+        Ok(impact_preview) => Ok(Json(json!({
+            "success": true,
+            "data": impact_preview,
+            "message": "Subscription impact preview generated successfully"
+        }))),
+        Err(e) => {
+            let status = if e.to_string().contains("not found") || e.to_string().contains("not accessible") {
+                StatusCode::NOT_FOUND
+            } else {
+                StatusCode::INTERNAL_SERVER_ERROR
+            };
+            
+            Err((
+                status,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to generate impact preview: {}", e)
+                })),
+            ))
+        }
+    }
+}
+
+async fn get_user_subscriptions_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.community_list_service.get_user_subscriptions(user.id).await {
+        Ok(subscriptions) => Ok(Json(json!({
+            "success": true,
+            "data": {
+                "subscriptions": subscriptions,
+                "total": subscriptions.len()
+            },
+            "message": "User subscriptions retrieved successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get user subscriptions: {}", e)
+            })),
+        )),
+    }
+}// Job
+ management handler functions
+
+async fn get_user_jobs_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let status_filter = params.get("status").and_then(|s| {
+        match s.as_str() {
+            "pending" => Some(JobStatus::Pending),
+            "processing" => Some(JobStatus::Processing),
+            "completed" => Some(JobStatus::Completed),
+            "failed" => Some(JobStatus::Failed),
+            "retrying" => Some(JobStatus::Retrying),
+            _ => None,
+        }
+    });
+
+    let limit = params.get("limit")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(50);
+
+    match app_state.job_queue_service.get_user_jobs(&user.id, status_filter, Some(limit)).await {
+        Ok(jobs) => Ok(Json(json!({
+            "success": true,
+            "data": jobs,
+            "message": "User jobs retrieved successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get user jobs: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn get_job_status_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(job_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.job_queue_service.get_job_status(&job_id).await {
+        Ok(Some(job)) => {
+            // Verify the job belongs to the user
+            if job.user_id != Some(user.id) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "data": null,
+                        "message": "Access denied to this job"
+                    })),
+                ));
+            }
+
+            Ok(Json(json!({
+                "success": true,
+                "data": job,
+                "message": "Job status retrieved successfully"
+            })))
+        }
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": "Job not found"
+            })),
+        )),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get job status: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn retry_job_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    axum::extract::Path(job_id): axum::extract::Path<Uuid>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    // First verify the job belongs to the user
+    match app_state.job_queue_service.get_job_status(&job_id).await {
+        Ok(Some(job)) => {
+            if job.user_id != Some(user.id) {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    Json(json!({
+                        "success": false,
+                        "data": null,
+                        "message": "Access denied to this job"
+                    })),
+                ));
+            }
+        }
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": "Job not found"
+                })),
+            ));
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Failed to verify job: {}", e)
+                })),
+            ));
+        }
+    }
+
+    match app_state.job_queue_service.retry_job(&job_id).await {
+        Ok(_) => Ok(Json(json!({
+            "success": true,
+            "data": null,
+            "message": "Job retry initiated successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to retry job: {}", e)
+            })),
+        )),
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct EnqueueJobRequest {
+    job_type: String,
+    payload: serde_json::Value,
+    priority: Option<String>,
+    provider: Option<String>,
+    scheduled_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+async fn enqueue_job_handler(
+    State(app_state): State<AppState>,
+    Extension(user): Extension<User>,
+    Json(request): Json<EnqueueJobRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let job_type = match request.job_type.as_str() {
+        "enforcement_execution" => JobType::EnforcementExecution,
+        "batch_rollback" => JobType::BatchRollback,
+        "token_refresh" => JobType::TokenRefresh,
+        "library_scan" => JobType::LibraryScan,
+        "community_list_update" => JobType::CommunityListUpdate,
+        "health_check" => JobType::HealthCheck,
+        _ => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Unknown job type: {}", request.job_type)
+                })),
+            ));
+        }
+    };
+
+    let priority = match request.priority.as_deref() {
+        Some("low") => JobPriority::Low,
+        Some("normal") | None => JobPriority::Normal,
+        Some("high") => JobPriority::High,
+        Some("critical") => JobPriority::Critical,
+        Some(other) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "success": false,
+                    "data": null,
+                    "message": format!("Unknown priority: {}", other)
+                })),
+            ));
+        }
+    };
+
+    match app_state.job_queue_service.enqueue_job(
+        job_type,
+        request.payload,
+        priority,
+        Some(user.id),
+        request.provider,
+        request.scheduled_at,
+    ).await {
+        Ok(job_id) => Ok(Json(json!({
+            "success": true,
+            "data": {
+                "job_id": job_id,
+                "status": "queued"
+            },
+            "message": "Job enqueued successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to enqueue job: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn get_worker_stats_handler(
+    State(app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.job_queue_service.get_worker_stats().await {
+        Ok(stats) => Ok(Json(json!({
+            "success": true,
+            "data": stats,
+            "message": "Worker statistics retrieved successfully"
+        }))),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get worker stats: {}", e)
+            })),
+        )),
+    }
+}
+
+async fn get_rate_limit_status_handler(
+    State(app_state): State<AppState>,
+    Extension(_user): Extension<User>,
+    axum::extract::Path(provider): axum::extract::Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match app_state.rate_limiting_service.can_proceed(&provider).await {
+        Ok(can_proceed) => {
+            // Get additional rate limit information
+            let status = json!({
+                "provider": provider,
+                "can_proceed": can_proceed,
+                "timestamp": chrono::Utc::now()
+            });
+
+            Ok(Json(json!({
+                "success": true,
+                "data": status,
+                "message": "Rate limit status retrieved successfully"
+            })))
+        }
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "success": false,
+                "data": null,
+                "message": format!("Failed to get rate limit status: {}", e)
             })),
         )),
     }

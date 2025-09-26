@@ -4,6 +4,9 @@ pub mod auth;
 pub mod token_vault;
 pub mod spotify;
 pub mod action;
+pub mod dnp_list;
+pub mod community_list;
+pub mod rate_limit;
 
 pub use artist::*;
 pub use user::*;
@@ -11,3 +14,6 @@ pub use auth::*;
 pub use token_vault::*;
 pub use spotify::*;
 pub use action::*;
+pub use dnp_list::*;
+pub use community_list::*;
+pub use rate_limit::*;

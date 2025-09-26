@@ -452,6 +452,237 @@ impl SpotifyService {
 
         Ok(())
     }
+
+    // Batch enforcement operations
+
+    /// Remove multiple liked songs in a single API call
+    pub async fn remove_liked_songs_batch(&self, connection: &Connection, track_ids: &[String]) -> Result<()> {
+        if track_ids.is_empty() {
+            return Ok(());
+        }
+
+        // Spotify allows up to 50 tracks per request
+        if track_ids.len() > 50 {
+            return Err(anyhow!("Cannot remove more than 50 tracks at once"));
+        }
+
+        let url = "https://api.spotify.com/v1/me/tracks";
+        let body = serde_json::json!({ "ids": track_ids });
+
+        let response = self.make_api_request(connection, "DELETE", url, Some(body)).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully removed {} liked songs", track_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to remove liked songs: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Remove multiple tracks from a playlist with delta removal
+    pub async fn remove_playlist_tracks_batch(
+        &self, 
+        connection: &Connection, 
+        playlist_id: &str, 
+        tracks: &[serde_json::Value]
+    ) -> Result<String> {
+        if tracks.is_empty() {
+            return Err(anyhow!("No tracks to remove"));
+        }
+
+        // Spotify allows up to 100 tracks per request for playlist modifications
+        if tracks.len() > 100 {
+            return Err(anyhow!("Cannot remove more than 100 tracks at once"));
+        }
+
+        let url = format!("https://api.spotify.com/v1/playlists/{}/tracks", playlist_id);
+        let body = serde_json::json!({ "tracks": tracks });
+
+        let response = self.make_api_request(connection, "DELETE", &url, Some(body)).await?;
+
+        if response.status().is_success() {
+            let response_json: serde_json::Value = response.json().await?;
+            let snapshot_id = response_json
+                .get("snapshot_id")
+                .and_then(|s| s.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            
+            tracing::info!("Successfully removed {} tracks from playlist {}", tracks.len(), playlist_id);
+            Ok(snapshot_id)
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to remove playlist tracks: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Unfollow multiple artists in a single API call
+    pub async fn unfollow_artists_batch(&self, connection: &Connection, artist_ids: &[String]) -> Result<()> {
+        if artist_ids.is_empty() {
+            return Ok(());
+        }
+
+        // Spotify allows up to 50 artists per request
+        if artist_ids.len() > 50 {
+            return Err(anyhow!("Cannot unfollow more than 50 artists at once"));
+        }
+
+        let url = format!(
+            "https://api.spotify.com/v1/me/following?type=artist&ids={}", 
+            artist_ids.join(",")
+        );
+
+        let response = self.make_api_request(connection, "DELETE", &url, None).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully unfollowed {} artists", artist_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to unfollow artists: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Remove multiple saved albums in a single API call
+    pub async fn remove_saved_albums_batch(&self, connection: &Connection, album_ids: &[String]) -> Result<()> {
+        if album_ids.is_empty() {
+            return Ok(());
+        }
+
+        // Spotify allows up to 50 albums per request
+        if album_ids.len() > 50 {
+            return Err(anyhow!("Cannot remove more than 50 albums at once"));
+        }
+
+        let url = "https://api.spotify.com/v1/me/albums";
+        let body = serde_json::json!({ "ids": album_ids });
+
+        let response = self.make_api_request(connection, "DELETE", url, Some(body)).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully removed {} saved albums", album_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to remove saved albums: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Add multiple liked songs (for rollback operations)
+    pub async fn add_liked_songs_batch(&self, connection: &Connection, track_ids: &[String]) -> Result<()> {
+        if track_ids.is_empty() {
+            return Ok(());
+        }
+
+        if track_ids.len() > 50 {
+            return Err(anyhow!("Cannot add more than 50 tracks at once"));
+        }
+
+        let url = "https://api.spotify.com/v1/me/tracks";
+        let body = serde_json::json!({ "ids": track_ids });
+
+        let response = self.make_api_request(connection, "PUT", url, Some(body)).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully added {} liked songs", track_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to add liked songs: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Follow multiple artists (for rollback operations)
+    pub async fn follow_artists_batch(&self, connection: &Connection, artist_ids: &[String]) -> Result<()> {
+        if artist_ids.is_empty() {
+            return Ok(());
+        }
+
+        if artist_ids.len() > 50 {
+            return Err(anyhow!("Cannot follow more than 50 artists at once"));
+        }
+
+        let url = format!(
+            "https://api.spotify.com/v1/me/following?type=artist&ids={}", 
+            artist_ids.join(",")
+        );
+
+        let response = self.make_api_request(connection, "PUT", &url, None).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully followed {} artists", artist_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to follow artists: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Add multiple saved albums (for rollback operations)
+    pub async fn add_saved_albums_batch(&self, connection: &Connection, album_ids: &[String]) -> Result<()> {
+        if album_ids.is_empty() {
+            return Ok(());
+        }
+
+        if album_ids.len() > 50 {
+            return Err(anyhow!("Cannot add more than 50 albums at once"));
+        }
+
+        let url = "https://api.spotify.com/v1/me/albums";
+        let body = serde_json::json!({ "ids": album_ids });
+
+        let response = self.make_api_request(connection, "PUT", url, Some(body)).await?;
+
+        if response.status().is_success() {
+            tracing::info!("Successfully added {} saved albums", album_ids.len());
+            Ok(())
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to add saved albums: {} - {}", response.status(), error_text))
+        }
+    }
+
+    /// Add tracks back to a playlist (for rollback operations)
+    pub async fn add_playlist_tracks_batch(
+        &self,
+        connection: &Connection,
+        playlist_id: &str,
+        track_uris: &[String],
+        position: Option<u32>,
+    ) -> Result<String> {
+        if track_uris.is_empty() {
+            return Err(anyhow!("No tracks to add"));
+        }
+
+        if track_uris.len() > 100 {
+            return Err(anyhow!("Cannot add more than 100 tracks at once"));
+        }
+
+        let url = format!("https://api.spotify.com/v1/playlists/{}/tracks", playlist_id);
+        let mut body = serde_json::json!({ "uris": track_uris });
+        
+        if let Some(pos) = position {
+            body["position"] = serde_json::json!(pos);
+        }
+
+        let response = self.make_api_request(connection, "POST", &url, Some(body)).await?;
+
+        if response.status().is_success() {
+            let response_json: serde_json::Value = response.json().await?;
+            let snapshot_id = response_json
+                .get("snapshot_id")
+                .and_then(|s| s.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+            
+            tracing::info!("Successfully added {} tracks to playlist {}", track_uris.len(), playlist_id);
+            Ok(snapshot_id)
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!("Failed to add playlist tracks: {} - {}", response.status(), error_text))
+        }
+    }
 }
 
 #[cfg(test)]

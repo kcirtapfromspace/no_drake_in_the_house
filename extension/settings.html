@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kiro Extension Settings</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #1db954, #1ed760);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: #ccc;
+      font-size: 16px;
+    }
+
+    .section {
+      background: #222;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #fff;
+    }
+
+    .setting-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .setting-item:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info {
+      flex: 1;
+    }
+
+    .setting-label {
+      font-size: 16px;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .setting-description {
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    .setting-control {
+      margin-left: 20px;
+    }
+
+    .toggle {
+      position: relative;
+      width: 50px;
+      height: 24px;
+      background: #444;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .toggle.active {
+      background: #1db954;
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s;
+    }
+
+    .toggle.active::after {
+      transform: translateX(26px);
+    }
+
+    .button {
+      background: #1db954;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .button:hover {
+      background: #1ed760;
+    }
+
+    .button.secondary {
+      background: #444;
+    }
+
+    .button.secondary:hover {
+      background: #555;
+    }
+
+    .button.danger {
+      background: #ff4444;
+    }
+
+    .button.danger:hover {
+      background: #ff6666;
+    }
+
+    .input {
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 200px;
+    }
+
+    .input:focus {
+      outline: none;
+      border-color: #1db954;
+    }
+
+    .status {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .status.success {
+      background: rgba(29, 185, 84, 0.1);
+      border: 1px solid #1db954;
+      color: #1db954;
+    }
+
+    .status.error {
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid #ff4444;
+      color: #ff4444;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .stat-card {
+      background: #333;
+      padding: 16px;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1db954;
+      margin-bottom: 4px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #ccc;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎵 Kiro Settings</h1>
+      <p>Configure your music blocklist extension</p>
+    </div>
+
+    <div id="status-message" class="status hidden"></div>
+
+    <div class="section">
+      <div class="section-title">Account</div>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Server Connection</div>
+          <div class="setting-description">Connect to your Kiro account for sync</div>
+        </div>
+        <div class="setting-control">
+          <input type="text" id="server-url" class="input" placeholder="http://localhost:3000" />
+          <button id="connect-btn" class="button">Connect</button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Authentication Token</div>
+          <div class="setting-description">Your login token for server sync</div>
+        </div>
+        <div class="setting-control">
+          <input type="password" id="auth-token" class="input" placeholder="Enter token..." />
+          <button id="save-token-btn" class="button">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Extension Behavior</div>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Auto-Skip Blocked Tracks</div>
+          <div class="setting-description">Automatically skip tracks from blocked artists</div>
+        </div>
+        <div class="setting-control">
+          <div id="auto-skip-toggle" class="toggle active"></div>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Show Skip Notifications</div>
+          <div class="setting-description">Display notifications when tracks are skipped</div>
+        </div>
+        <div class="setting-control">
+          <div id="notifications-toggle" class="toggle active"></div>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Hide Blocked Content</div>
+          <div class="setting-description">Visually hide blocked artists in playlists and search</div>
+        </div>
+        <div class="setting-control">
+          <div id="hide-content-toggle" class="toggle active"></div>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Sync Interval</div>
+          <div class="setting-description">How often to sync with server (minutes)</div>
+        </div>
+        <div class="setting-control">
+          <input type="number" id="sync-interval" class="input" value="5" min="1" max="60" />
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Statistics</div>
+      
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div id="blocked-artists-count" class="stat-value">0</div>
+          <div class="stat-label">Blocked Artists</div>
+        </div>
+        <div class="stat-card">
+          <div id="tracks-skipped-count" class="stat-value">0</div>
+          <div class="stat-label">Tracks Skipped</div>
+        </div>
+        <div class="stat-card">
+          <div id="content-hidden-count" class="stat-value">0</div>
+          <div class="stat-label">Content Hidden</div>
+        </div>
+        <div class="stat-card">
+          <div id="last-sync-time" class="stat-value">Never</div>
+          <div class="stat-label">Last Sync</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Data Management</div>
+      
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Export Blocklist</div>
+          <div class="setting-description">Download your blocked artists list</div>
+        </div>
+        <div class="setting-control">
+          <button id="export-btn" class="button secondary">Export JSON</button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Import Blocklist</div>
+          <div class="setting-description">Upload a blocklist file</div>
+        </div>
+        <div class="setting-control">
+          <input type="file" id="import-file" accept=".json" style="display: none;" />
+          <button id="import-btn" class="button secondary">Import JSON</button>
+        </div>
+      </div>
+
+      <div class="setting-item">
+        <div class="setting-info">
+          <div class="setting-label">Clear All Data</div>
+          <div class="setting-description">Remove all blocked artists and settings</div>
+        </div>
+        <div class="setting-control">
+          <button id="clear-data-btn" class="button danger">Clear All</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>

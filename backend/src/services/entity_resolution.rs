@@ -72,6 +72,15 @@ impl EntityResolutionService {
         Ok(())
     }
 
+    /// Get an artist by ID from the cache
+    pub async fn get_artist_by_id(&self, artist_id: Uuid) -> Result<Option<Artist>> {
+        if let Some(artist) = self.artist_cache.get(&artist_id.to_string()) {
+            Ok(Some(artist.clone()))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Resolve multiple artists concurrently
     pub async fn resolve_concurrent(&self, queries: &[ArtistSearchQuery]) -> Result<Vec<Vec<ArtistResolutionResult>>> {
         let tasks: Vec<_> = queries

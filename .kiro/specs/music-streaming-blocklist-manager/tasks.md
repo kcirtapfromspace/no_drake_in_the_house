@@ -23,7 +23,7 @@
     - Write integration tests with mock external API responses using wiremock
     - _Requirements: 1.1, 1.5_
 
-- [-] 3. Build authentication and user management system
+- [x] 3. Build authentication and user management system
   - [x] 3.1 Implement user registration and authentication in Rust
     - Create user registration with email/password and OAuth (Google, Apple) using oauth2 crate
     - Implement JWT token generation and validation with refresh token rotation using jsonwebtoken
@@ -38,22 +38,22 @@
     - Add token health checking and automatic refresh capabilities
     - _Requirements: 2.2, 2.4, 7.1, 7.2_
 
-- [ ] 4. Develop Spotify integration adapter
-  - [ ] 4.1 Implement Spotify OAuth and connection management
+- [-] 4. Develop Spotify integration adapter
+  - [x] 4.1 Implement Spotify OAuth and connection management
     - Create Spotify OAuth 2.0 flow with PKCE for secure authorization
     - Implement connection storage with encrypted token management
     - Add connection health monitoring and automatic token refresh
     - Build Spotify API client with rate limiting and error handling
     - _Requirements: 2.1, 2.2, 2.4_
 
-  - [ ] 4.2 Build Spotify library analysis and planning service
+  - [x] 4.2 Build Spotify library analysis and planning service
     - Implement library scanning (liked songs, playlists, followed artists)
     - Create featured artist detection from track metadata
     - Build enforcement planning with dry-run impact calculation
     - Add collaboration and featuring detection logic
     - _Requirements: 3.1, 3.2, 5.2_
 
-  - [ ] 4.3 Create Spotify enforcement execution engine
+  - [-] 4.3 Create Spotify enforcement execution engine
     - Implement batch operations for library modifications (remove liked songs, unfollow artists)
     - Build playlist scrubbing with delta removal to minimize API calls
     - Add idempotent operation handling to prevent duplicate actions

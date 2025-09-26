@@ -76,3 +76,4 @@ Thumbs.db
 # Local data
 /data/*
 !/data/.gitkeep
+.DS_Store

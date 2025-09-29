@@ -1,5 +1,6 @@
 use crate::models::{User, Claims, TokenPair, CreateUserRequest, LoginRequest, OAuthLoginRequest, TotpSetupResponse, UserSession};
-use anyhow::{Result, anyhow};
+use crate::{AppError, Result};
+use anyhow::anyhow;
 use bcrypt::{hash, verify};
 use chrono::Utc;
 use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
@@ -35,12 +36,18 @@ impl AuthService {
     pub async fn register_user(&self, request: CreateUserRequest) -> Result<User> {
         // Validate email format (basic validation)
         if !request.email.contains('@') {
-            return Err(anyhow!("Invalid email format"));
+            return Err(AppError::InvalidFieldValue { 
+                field: "email".to_string(), 
+                message: "Invalid email format".to_string() 
+            });
         }
 
         // Validate password strength (basic validation)
         if request.password.len() < 8 {
-            return Err(anyhow!("Password must be at least 8 characters long"));
+            return Err(AppError::InvalidFieldValue { 
+                field: "password".to_string(), 
+                message: "Password must be at least 8 characters long".to_string() 
+            });
         }
 
         // Check if user already exists
@@ -52,7 +59,9 @@ impl AuthService {
         .await?;
 
         if existing_user.is_some() {
-            return Err(anyhow!("User with this email already exists"));
+            return Err(AppError::AlreadyExists { 
+                resource: "User with this email".to_string() 
+            });
         }
 
         // Hash password with bcrypt (12 rounds minimum as required)
@@ -92,30 +101,30 @@ impl AuthService {
         )
         .fetch_optional(&self.db_pool)
         .await?
-        .ok_or_else(|| anyhow!("Invalid credentials"))?;
+        .ok_or_else(|| AppError::InvalidCredentials)?;
 
         // Verify password
         let password_hash = user.password_hash
-            .ok_or_else(|| anyhow!("Password authentication not available for this user"))?;
+            .ok_or_else(|| AppError::InvalidCredentials)?;
         
-        if !verify(&request.password, &password_hash)? {
+        if !verify(&request.password, &password_hash).map_err(|_| AppError::Internal { message: Some("Password verification failed".to_string()) })? {
             // Log failed login attempt
             self.log_audit_event(user.id, "login_failed", "user", &user.id.to_string()).await?;
-            return Err(anyhow!("Invalid credentials"));
+            return Err(AppError::InvalidCredentials);
         }
 
         // Check 2FA if enabled
         if user.totp_enabled.unwrap_or(false) {
             let totp_code = request.totp_code
-                .ok_or_else(|| anyhow!("2FA code required. Please provide your authenticator code"))?;
+                .ok_or_else(|| AppError::TwoFactorRequired)?;
             
             let totp_secret = user.totp_secret
-                .ok_or_else(|| anyhow!("2FA configuration error. Please contact support"))?;
+                .ok_or_else(|| AppError::Internal { message: Some("2FA configuration error. Please contact support".to_string()) })?;
             
             if !self.verify_totp(&totp_secret, &totp_code)? {
                 // Log failed 2FA attempt
                 self.log_audit_event(user.id, "totp_failed", "user", &user.id.to_string()).await?;
-                return Err(anyhow!("Invalid 2FA code. Please check your authenticator app"));
+                return Err(AppError::TwoFactorInvalid);
             }
         }
 
@@ -136,7 +145,7 @@ impl AuthService {
 
     // OAuth login (simplified for demo)
     pub async fn oauth_login(&self, _request: OAuthLoginRequest) -> Result<TokenPair> {
-        Err(anyhow!("OAuth not implemented in this demo version"))
+        Err(AppError::ExternalServiceUnavailable { service: "OAuth".to_string() })
     }
 
     // Generate JWT token pair with database storage
@@ -198,7 +207,7 @@ impl AuthService {
             }
         }
 
-        let session = valid_session.ok_or_else(|| anyhow!("Invalid or expired refresh token"))?;
+        let session = valid_session.ok_or_else(|| AppError::TokenInvalid)?;
 
         // Revoke the old refresh token (token rotation)
         sqlx::query!(
@@ -218,12 +227,12 @@ impl AuthService {
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
             &Validation::new(Algorithm::HS256),
-        )?;
+        ).map_err(|_| AppError::TokenInvalid)?;
 
         let claims = token_data.claims;
         
         if claims.is_expired() {
-            return Err(anyhow!("Token expired"));
+            return Err(AppError::TokenExpired);
         }
 
         Ok(claims)
@@ -235,7 +244,7 @@ impl AuthService {
 
         // Check if 2FA is already enabled
         if user.totp_enabled {
-            return Err(anyhow!("2FA is already enabled for this user"));
+            return Err(AppError::Conflict { message: "2FA is already enabled for this user".to_string() });
         }
 
         // Generate TOTP secret (160-bit secret as recommended by RFC 6238)
@@ -351,10 +360,10 @@ impl AuthService {
         }
 
         let secret_bytes = base32::decode(base32::Alphabet::Rfc4648 { padding: true }, secret)
-            .ok_or_else(|| anyhow!("Invalid TOTP secret format"))?;
+            .ok_or_else(|| AppError::Internal { message: Some("Invalid TOTP secret format".to_string()) })?;
         
         if secret_bytes.len() < 10 {
-            return Err(anyhow!("TOTP secret too short"));
+            return Err(AppError::Internal { message: Some("TOTP secret too short".to_string()) });
         }
         
         let current_time = Utc::now().timestamp() as u64;
@@ -384,14 +393,14 @@ impl AuthService {
         
         type HmacSha1 = Hmac<Sha1>;
         let mut mac = HmacSha1::new_from_slice(secret)
-            .map_err(|_| anyhow!("Invalid TOTP secret length"))?;
+            .map_err(|_| AppError::Internal { message: Some("Invalid TOTP secret length".to_string()) })?;
         mac.update(&time_bytes);
         let result = mac.finalize().into_bytes();
         
         // Dynamic truncation as per RFC 4226
         let offset = (result[result.len() - 1] & 0xf) as usize;
         if offset + 4 > result.len() {
-            return Err(anyhow!("Invalid HMAC result for TOTP"));
+            return Err(AppError::Internal { message: Some("Invalid HMAC result for TOTP".to_string()) });
         }
         
         let code = ((result[offset] as u32 & 0x7f) << 24)

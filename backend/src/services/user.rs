@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 
 // Re-export the model UserProfile
 pub use crate::models::UserProfile;
@@ -69,7 +70,7 @@ impl UserService {
     }
 
     /// Get user profile by ID
-    pub async fn get_profile(&self, user_id: Uuid) -> Result<UserProfile, AppError> {
+    pub async fn get_profile(&self, user_id: Uuid) -> Result<UserProfile> {
         let user = sqlx::query!(
             r#"
             SELECT 
@@ -113,7 +114,7 @@ impl UserService {
         &self, 
         user_id: Uuid, 
         request: UpdateUserProfileRequest
-    ) -> Result<UserProfile, AppError> {
+    ) -> Result<UserProfile> {
         let mut tx = self.db_pool.begin().await.map_err(AppError::DatabaseQueryFailed)?;
 
         // Update email if provided
@@ -150,7 +151,7 @@ impl UserService {
     }
 
     /// Export all user data for GDPR compliance
-    pub async fn export_user_data(&self, user_id: Uuid) -> Result<UserDataExport, AppError> {
+    pub async fn export_user_data(&self, user_id: Uuid) -> Result<UserDataExport> {
         // Get user profile
         let profile = self.get_profile(user_id).await?;
 
@@ -177,7 +178,7 @@ impl UserService {
         &self, 
         user_id: Uuid, 
         request: AccountDeletionRequest
-    ) -> Result<AccountDeletionResult, AppError> {
+    ) -> Result<AccountDeletionResult> {
         // Verify the confirmation email matches the user's email
         let user = sqlx::query!(
             "SELECT email FROM users WHERE id = $1",
@@ -287,7 +288,7 @@ impl UserService {
     }
 
     /// Check if user has TOTP enabled (helper method)
-    async fn check_totp_enabled(&self, user_id: Uuid) -> Result<bool, AppError> {
+    async fn check_totp_enabled(&self, user_id: Uuid) -> Result<bool> {
         // This would typically check a separate auth table or call the auth service
         // For now, we'll check if there's any TOTP-related data in the user record
         let result = sqlx::query!(
@@ -308,7 +309,7 @@ impl UserService {
     }
 
     /// Export DNP list data for user
-    async fn export_dnp_data(&self, user_id: Uuid) -> Result<Vec<DnpListExport>, AppError> {
+    async fn export_dnp_data(&self, user_id: Uuid) -> Result<Vec<DnpListExport>> {
         let entries = sqlx::query!(
             r#"
             SELECT 
@@ -336,7 +337,7 @@ impl UserService {
     }
 
     /// Export community list subscriptions for user
-    async fn export_community_subscriptions(&self, user_id: Uuid) -> Result<Vec<CommunityListSubscriptionExport>, AppError> {
+    async fn export_community_subscriptions(&self, user_id: Uuid) -> Result<Vec<CommunityListSubscriptionExport>> {
         let subscriptions = sqlx::query!(
             r#"
             SELECT 
@@ -364,7 +365,7 @@ impl UserService {
     }
 
     /// Export audit log data for user (limited to their own actions)
-    async fn export_audit_data(&self, user_id: Uuid) -> Result<Vec<AuditLogExport>, AppError> {
+    async fn export_audit_data(&self, user_id: Uuid) -> Result<Vec<AuditLogExport>> {
         let audit_entries = sqlx::query!(
             r#"
             SELECT 

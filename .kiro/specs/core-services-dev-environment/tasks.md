@@ -205,7 +205,7 @@
   - Validate DNP list management functionality works end-to-end
   - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
 
-- [ ] 27. Verify and fix Docker containerized deployment
+- [x] 27. Verify and fix Docker containerized deployment
   - Test that backend and frontend containers build successfully with docker compose build
   - Start all services with docker compose up and verify they communicate properly
   - Test that database migrations run automatically when backend starts
@@ -221,7 +221,7 @@
   - Ensure only essential files remain for the core development environment
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 29. Validate Kubernetes development environment
+- [x] 29. Validate Kubernetes development environment
   - Test Skaffold configuration builds and deploys successfully to local cluster
   - Verify Tilt configuration works with optimized Docker builds and provides fast feedback
   - Test port forwarding and service discovery in Kubernetes environment

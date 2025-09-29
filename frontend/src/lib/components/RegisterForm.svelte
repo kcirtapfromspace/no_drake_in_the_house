@@ -141,41 +141,51 @@
             <p class="text-xs text-gray-600">Password must contain:</p>
             <div class="grid grid-cols-1 gap-1 text-xs">
               <div class="flex items-center">
-                <svg class="h-3 w-3 mr-1" class:text-green-500={passwordLength} class:text-gray-400={!passwordLength} fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+                <div class="w-3 h-3 mr-2 flex-shrink-0">
+                  <svg class="w-full h-full" class:text-green-500={passwordLength} class:text-gray-400={!passwordLength} fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
                 <span class:text-green-600={passwordLength} class:text-gray-500={!passwordLength}>
                   At least 8 characters
                 </span>
               </div>
               <div class="flex items-center">
-                <svg class="h-3 w-3 mr-1" class:text-green-500={passwordUppercase} class:text-gray-400={!passwordUppercase} fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+                <div class="w-3 h-3 mr-2 flex-shrink-0">
+                  <svg class="w-full h-full" class:text-green-500={passwordUppercase} class:text-gray-400={!passwordUppercase} fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
                 <span class:text-green-600={passwordUppercase} class:text-gray-500={!passwordUppercase}>
                   One uppercase letter
                 </span>
               </div>
               <div class="flex items-center">
-                <svg class="h-3 w-3 mr-1" class:text-green-500={passwordLowercase} class:text-gray-400={!passwordLowercase} fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+                <div class="w-3 h-3 mr-2 flex-shrink-0">
+                  <svg class="w-full h-full" class:text-green-500={passwordLowercase} class:text-gray-400={!passwordLowercase} fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
                 <span class:text-green-600={passwordLowercase} class:text-gray-500={!passwordLowercase}>
                   One lowercase letter
                 </span>
               </div>
               <div class="flex items-center">
-                <svg class="h-3 w-3 mr-1" class:text-green-500={passwordNumber} class:text-gray-400={!passwordNumber} fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+                <div class="w-3 h-3 mr-2 flex-shrink-0">
+                  <svg class="w-full h-full" class:text-green-500={passwordNumber} class:text-gray-400={!passwordNumber} fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
                 <span class:text-green-600={passwordNumber} class:text-gray-500={!passwordNumber}>
                   One number
                 </span>
               </div>
               <div class="flex items-center">
-                <svg class="h-3 w-3 mr-1" class:text-green-500={passwordSpecial} class:text-gray-400={!passwordSpecial} fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+                <div class="w-3 h-3 mr-2 flex-shrink-0">
+                  <svg class="w-full h-full" class:text-green-500={passwordSpecial} class:text-gray-400={!passwordSpecial} fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                  </svg>
+                </div>
                 <span class:text-green-600={passwordSpecial} class:text-gray-500={!passwordSpecial}>
                   One special character
                 </span>

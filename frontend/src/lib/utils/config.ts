@@ -2,7 +2,7 @@
 
 export const config = {
   // API Configuration
-  apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  apiUrl: import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'),
   apiVersion: import.meta.env.VITE_API_VERSION || 'v1',
   
   // App Configuration

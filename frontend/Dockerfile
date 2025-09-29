@@ -12,7 +12,7 @@ COPY package*.json ./
 
 # Install dependencies with cache mount
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
-    npm ci --only=production
+    npm ci
 
 # Copy source code
 COPY . .
@@ -27,7 +27,7 @@ FROM nginx:alpine
 RUN apk add --no-cache curl
 
 # Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY nginx-dev.conf /etc/nginx/conf.d/default.conf
 
 # Copy built application from builder stage
 COPY --from=builder /app/public /usr/share/nginx/html
@@ -42,11 +42,11 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
 USER nginx
 
 # Expose port
-EXPOSE 8080
+EXPOSE 5000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

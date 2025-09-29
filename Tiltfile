@@ -87,7 +87,8 @@ docker_build(
         './src',
         './Cargo.toml',
         './Cargo.lock',
-        './migrations'
+        './migrations',
+        './.sqlx'
     ],
     live_update=[
         sync('./backend/src', '/app/src'),
@@ -111,12 +112,14 @@ docker_build(
         './package.json',
         './package-lock.json',
         './rollup.config.js',
-        './tsconfig.json'
+        './tsconfig.json',
+        './nginx.conf',
+        './nginx-dev.conf'
     ],
     live_update=[
         sync('./frontend/src', '/app/src'),
         sync('./frontend/public', '/app/public'),
-        run('npm run build:dev', trigger=['./frontend/src'])
+        run('VITE_API_URL= VITE_ENVIRONMENT=development npm run build:dev', trigger=['./frontend/src'])
     ],
     build_args={
         'BUILDKIT_INLINE_CACHE': '1',

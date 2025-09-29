@@ -38,7 +38,7 @@ ENV SQLX_OFFLINE=true
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
-    cargo build --release && \
+    cargo build --release --bin music-streaming-blocklist-backend && \
     cp target/release/music-streaming-blocklist-backend /tmp/backend
 
 # Runtime stage

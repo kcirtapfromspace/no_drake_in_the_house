@@ -22,15 +22,21 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
 
 FROM dependencies as builder
 
+# Set build-time environment variables for Vite
+ENV NODE_ENV=development
+ENV VITE_API_URL=
+ENV VITE_ENVIRONMENT=development
+
 # Copy source code and configuration files
 COPY . .
 
 # Build for development (faster, includes source maps)
-ENV NODE_ENV=development
-RUN npm run build
+RUN VITE_API_URL= \
+    VITE_ENVIRONMENT=development \
+    npm run build
 
 # Create development build script for live updates
-RUN echo '#!/bin/bash\nnpm run build:dev 2>/dev/null || npm run build' > /app/build-dev.sh && \
+RUN echo '#!/bin/bash\nVITE_API_URL= VITE_ENVIRONMENT=development npm run build:dev 2>/dev/null || VITE_API_URL= VITE_ENVIRONMENT=development npm run build' > /app/build-dev.sh && \
     chmod +x /app/build-dev.sh
 
 # Development runtime with nginx
@@ -61,7 +67,8 @@ COPY nginx-dev.conf /etc/nginx/conf.d/default.conf
 
 # Set up permissions and directories
 RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run /app/public && \
-    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html /app
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html /app && \
+    chmod 755 /var/run
 
 # Ensure we have content to serve with better development info
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
@@ -78,12 +85,13 @@ NGINX_PID=$!\n\
 echo "✅ Nginx started (PID: $NGINX_PID)"\n\
 wait $NGINX_PID' > /start-dev.sh && chmod +x /start-dev.sh
 
-# Switch to nginx user for security
-USER nginx
+# Run as root for development (nginx needs to bind to ports and write pid files)
+# USER nginx
 
 # Development environment variables
 ENV NODE_ENV=development
-ENV VITE_API_URL=http://localhost:3000
+ENV VITE_API_URL=
+ENV VITE_ENVIRONMENT=development
 
 EXPOSE 5000
 
@@ -115,7 +123,8 @@ RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
     echo '<!DOCTYPE html><html><head><title>Kiro</title></head><body><h1>Kiro</h1><p>Production build</p></body></html>' > /usr/share/nginx/html/index.html; \
     fi
 
-USER nginx
+# Run as root for production (nginx needs to bind to ports and write pid files)
+# USER nginx
 
 # Production environment
 ENV NODE_ENV=production

@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { dnpActions, dnpStore, dnpTags } from '../stores/dnp';
   import ArtistSearch from './ArtistSearch.svelte';
   import DnpEntry from './DnpEntry.svelte';
@@ -48,8 +47,8 @@
     if (selectedEntries.size === 0) return;
     
     if (confirm(`Are you sure you want to remove ${selectedEntries.size} artist(s) from your DNP list?`)) {
-      const promises = Array.from(selectedEntries).map(artistId => 
-        dnpActions.removeArtist(artistId)
+      const promises = Array.from(selectedEntries).map((artistId: any) => 
+        dnpActions.removeArtist(artistId as string)
       );
       
       await Promise.all(promises);

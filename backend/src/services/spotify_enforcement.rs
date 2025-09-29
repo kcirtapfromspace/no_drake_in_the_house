@@ -281,6 +281,10 @@ impl SpotifyEnforcementService {
             // Wait for rate limit
             self.wait_for_rate_limit().await?;
             
+            let actions_count = playlist_actions.len();
+            let completed_start = completed_actions.len();
+            let failed_start = failed_actions.len();
+            
             // Create tracks array for removal
             let tracks_to_remove: Vec<Value> = playlist_actions
                 .iter()
@@ -321,10 +325,10 @@ impl SpotifyEnforcementService {
             }
             
             // Update actions in database
-            for action in &completed_actions[completed_actions.len() - playlist_actions.len()..] {
+            for action in &completed_actions[completed_start..] {
                 self.update_action_item(action).await?;
             }
-            for action in &failed_actions[failed_actions.len() - playlist_actions.len()..] {
+            for action in &failed_actions[failed_start..] {
                 self.update_action_item(action).await?;
             }
         }
@@ -455,6 +459,7 @@ impl SpotifyEnforcementService {
         }
 
         // Get actions to rollback
+        let is_partial_rollback = request.action_ids.is_some();
         let actions_to_rollback = if let Some(action_ids) = request.action_ids {
             self.get_batch_actions_by_ids(&action_ids).await?
         } else {
@@ -490,6 +495,7 @@ impl SpotifyEnforcementService {
             }
 
             let rollback_action = self.create_rollback_action(&rollback_batch.id, &original_action)?;
+            let rollback_action_clone = rollback_action.clone();
             
             match self.execute_rollback_action(connection, rollback_action).await {
                 Ok(mut completed_action) => {
@@ -498,7 +504,7 @@ impl SpotifyEnforcementService {
                     
                     // Mark original action as rolled back
                     let mut original = original_action;
-                    original.status = ActionItemStatus::Rolled_back;
+                    original.status = ActionItemStatus::RolledBack;
                     self.update_action_item(&original).await?;
                     
                     rollback_actions.push(completed_action);
@@ -506,9 +512,9 @@ impl SpotifyEnforcementService {
                 Err(e) => {
                     rollback_summary.failed_actions += 1;
                     rollback_summary.errors.push(BatchError {
-                        action_id: rollback_action.id,
-                        entity_type: rollback_action.entity_type.clone(),
-                        entity_id: rollback_action.entity_id.clone(),
+                        action_id: rollback_action_clone.id,
+                        entity_type: rollback_action_clone.entity_type.clone(),
+                        entity_id: rollback_action_clone.entity_id.clone(),
                         error_code: "ROLLBACK_FAILED".to_string(),
                         error_message: e.to_string(),
                         retry_count: 0,
@@ -521,12 +527,13 @@ impl SpotifyEnforcementService {
         rollback_batch.mark_completed(rollback_summary.clone());
         self.update_batch(&rollback_batch).await?;
 
+        let rollback_errors = rollback_summary.errors.clone();
         Ok(RollbackInfo {
             rollback_batch_id: rollback_batch.id,
             rollback_actions,
             rollback_summary,
-            partial_rollback: request.action_ids.is_some(),
-            rollback_errors: rollback_summary.errors.clone(),
+            partial_rollback: is_partial_rollback,
+            rollback_errors,
         })
     }
 
@@ -535,21 +542,21 @@ impl SpotifyEnforcementService {
         let batch = self.get_batch(batch_id).await?
             .ok_or_else(|| anyhow!("Batch not found"))?;
 
-        let completed_count = sqlx::query_scalar!(
+        let completed_count = sqlx::query_scalar(
             "SELECT COUNT(*) FROM action_items WHERE batch_id = $1 AND status = 'completed'",
             batch_id
         )
         .fetch_one(&self.db_pool)
         .await? as u32;
 
-        let failed_count = sqlx::query_scalar!(
+        let failed_count = sqlx::query_scalar(
             "SELECT COUNT(*) FROM action_items WHERE batch_id = $1 AND status = 'failed'",
             batch_id
         )
         .fetch_one(&self.db_pool)
         .await? as u32;
 
-        let total_count = sqlx::query_scalar!(
+        let total_count = sqlx::query_scalar(
             "SELECT COUNT(*) FROM action_items WHERE batch_id = $1",
             batch_id
         )
@@ -557,7 +564,7 @@ impl SpotifyEnforcementService {
         .await? as u32;
 
         // Get current action being processed
-        let current_action = sqlx::query_scalar!(
+        let current_action = sqlx::query_scalar(
             "SELECT entity_type || ':' || entity_id FROM action_items 
              WHERE batch_id = $1 AND status = 'in_progress' 
              ORDER BY created_at LIMIT 1",
@@ -656,13 +663,12 @@ impl SpotifyEnforcementService {
     // Database operations
 
     async fn create_batch(&self, batch: &ActionBatch) -> Result<ActionBatch> {
-        let row = sqlx::query_as!(
-            ActionBatch,
+        let row = sqlx::query_as::<_, ActionBatch>(
             r#"
             INSERT INTO action_batches (id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at, completed_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-            RETURNING id, user_id, provider, idempotency_key, dry_run, status as "status: ActionBatchStatus", options, summary, created_at, completed_at
-            "#,
+            RETURNING id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at, completed_at
+            "#
             batch.id,
             batch.user_id,
             batch.provider,
@@ -681,7 +687,7 @@ impl SpotifyEnforcementService {
     }
 
     async fn update_batch(&self, batch: &ActionBatch) -> Result<()> {
-        sqlx::query!(
+        sqlx::query(
             "UPDATE action_batches SET status = $1, summary = $2, completed_at = $3 WHERE id = $4",
             batch.status.to_string(),
             batch.summary,
@@ -695,7 +701,7 @@ impl SpotifyEnforcementService {
     }
 
     async fn get_batch(&self, batch_id: &Uuid) -> Result<Option<ActionBatch>> {
-        let row = sqlx::query_as!(
+        let row = sqlx::query_as(
             ActionBatch,
             r#"
             SELECT id, user_id, provider, idempotency_key, dry_run, status as "status: ActionBatchStatus", options, summary, created_at, completed_at
@@ -710,7 +716,7 @@ impl SpotifyEnforcementService {
     }
 
     async fn get_batch_by_idempotency_key(&self, key: &str) -> Result<Option<ActionBatch>> {
-        let row = sqlx::query_as!(
+        let row = sqlx::query_as(
             ActionBatch,
             r#"
             SELECT id, user_id, provider, idempotency_key, dry_run, status as "status: ActionBatchStatus", options, summary, created_at, completed_at
@@ -736,7 +742,7 @@ impl SpotifyEnforcementService {
                 Some(planned_action.metadata.clone()),
             );
 
-            let saved_item = sqlx::query_as!(
+            let saved_item = sqlx::query_as(
                 ActionItem,
                 r#"
                 INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, status, error_message, created_at)
@@ -765,7 +771,7 @@ impl SpotifyEnforcementService {
     }
 
     async fn update_action_item(&self, action: &ActionItem) -> Result<()> {
-        sqlx::query!(
+        sqlx::query(
             "UPDATE action_items SET status = $1, after_state = $2, error_message = $3 WHERE id = $4",
             action.status.to_string(),
             action.after_state,
@@ -780,7 +786,7 @@ impl SpotifyEnforcementService {
 
     async fn get_batch_actions(&self, batch_id: &Uuid, status_filter: Option<ActionItemStatus>) -> Result<Vec<ActionItem>> {
         let query = if let Some(status) = status_filter {
-            sqlx::query_as!(
+            sqlx::query_as(
                 ActionItem,
                 r#"
                 SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, status as "status: ActionItemStatus", error_message, created_at
@@ -791,7 +797,7 @@ impl SpotifyEnforcementService {
                 status.to_string()
             )
         } else {
-            sqlx::query_as!(
+            sqlx::query_as(
                 ActionItem,
                 r#"
                 SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, status as "status: ActionItemStatus", error_message, created_at
@@ -807,7 +813,7 @@ impl SpotifyEnforcementService {
     }
 
     async fn get_batch_actions_by_ids(&self, action_ids: &[Uuid]) -> Result<Vec<ActionItem>> {
-        let rows = sqlx::query_as!(
+        let rows = sqlx::query_as(
             ActionItem,
             r#"
             SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, status as "status: ActionItemStatus", error_message, created_at
@@ -921,151 +927,8 @@ impl SpotifyEnforcementService {
 
     // Queue and background processing
 
-    async fn queue_batch_for_execution(&self, batch: &ActionBatch) -> Result<()> {
-        // This would integrate with a job queue system like Redis/BullMQ
-        // For now, just log that it would be queued
-        tracing::info!("Queueing batch {} for background execution", batch.id);
-        
-        // In a real implementation, you would:
-        // 1. Serialize the batch to JSON
-        // 2. Add it to a Redis queue with appropriate priority
-        // 3. Set up retry logic and dead letter queues
-        // 4. Return a job ID for tracking
-        
-        Ok(())
-    }
 
-    // Rollback operations
 
-    fn create_rollback_action(&self, rollback_batch_id: &Uuid, original_action: &ActionItem) -> Result<ActionItem> {
-        let rollback_action_type = match original_action.action.as_str() {
-            "remove_liked_song" => "add_liked_song",
-            "remove_playlist_track" => "add_playlist_track",
-            "unfollow_artist" => "follow_artist",
-            "remove_saved_album" => "add_saved_album",
-            _ => return Err(anyhow!("Cannot rollback action type: {}", original_action.action)),
-        };
-
-        let mut rollback_action = ActionItem::new(
-            *rollback_batch_id,
-            original_action.entity_type.clone(),
-            original_action.entity_id.clone(),
-            rollback_action_type.to_string(),
-            original_action.after_state.clone(), // Use the after_state as the new before_state
-        );
-
-        // Copy relevant metadata from original action for rollback
-        rollback_action.before_state = original_action.after_state.clone();
-
-        Ok(rollback_action)
-    }
-
-    async fn execute_rollback_action(&self, connection: &Connection, mut action: ActionItem) -> Result<ActionItem> {
-        action.status = ActionItemStatus::InProgress;
-        self.update_action_item(&action).await?;
-
-        let result = match action.action.as_str() {
-            "add_liked_song" => {
-                self.add_liked_songs_batch(connection, &[action.entity_id.clone()]).await?;
-                json!({ "added_at": Utc::now() })
-            }
-            "add_playlist_track" => {
-                // Extract playlist_id from before_state
-                let playlist_id = action.before_state
-                    .as_ref()
-                    .and_then(|s| s.get("playlist_id"))
-                    .and_then(|p| p.as_str())
-                    .ok_or_else(|| anyhow!("Missing playlist_id for rollback"))?;
-                
-                let track_uri = format!("spotify:track:{}", action.entity_id);
-                let snapshot_id = self.add_playlist_tracks_batch(connection, playlist_id, &[track_uri]).await?;
-                json!({ 
-                    "added_at": Utc::now(),
-                    "playlist_id": playlist_id,
-                    "new_snapshot_id": snapshot_id
-                })
-            }
-            "follow_artist" => {
-                self.follow_artists_batch(connection, &[action.entity_id.clone()]).await?;
-                json!({ "followed_at": Utc::now() })
-            }
-            "add_saved_album" => {
-                self.add_saved_albums_batch(connection, &[action.entity_id.clone()]).await?;
-                json!({ "added_at": Utc::now() })
-            }
-            _ => return Err(anyhow!("Unknown rollback action type: {}", action.action)),
-        };
-
-        action.mark_completed(result);
-        self.update_action_item(&action).await?;
-        Ok(action)
-    }
-
-    // Database operations
-
-    async fn get_batch_actions(&self, batch_id: &Uuid, status_filter: Option<ActionItemStatus>) -> Result<Vec<ActionItem>> {
-        let query = if let Some(status) = status_filter {
-            sqlx::query_as!(
-                ActionItem,
-                r#"
-                SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
-                       status as "status: ActionItemStatus", error_message, created_at
-                FROM action_items 
-                WHERE batch_id = $1 AND status = $2
-                ORDER BY created_at
-                "#,
-                batch_id,
-                status.to_string()
-            )
-        } else {
-            sqlx::query_as!(
-                ActionItem,
-                r#"
-                SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
-                       status as "status: ActionItemStatus", error_message, created_at
-                FROM action_items 
-                WHERE batch_id = $1
-                ORDER BY created_at
-                "#,
-                batch_id
-            )
-        };
-
-        let rows = query.fetch_all(&self.db_pool).await?;
-        Ok(rows)
-    }
-
-    async fn get_batch_actions_by_ids(&self, action_ids: &[Uuid]) -> Result<Vec<ActionItem>> {
-        let rows = sqlx::query_as!(
-            ActionItem,
-            r#"
-            SELECT id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, after_state, 
-                   status as "status: ActionItemStatus", error_message, created_at
-            FROM action_items 
-            WHERE id = ANY($1)
-            ORDER BY created_at
-            "#,
-            action_ids
-        )
-        .fetch_all(&self.db_pool)
-        .await?;
-
-        Ok(rows)
-    }
-
-    async fn update_action_item(&self, action: &ActionItem) -> Result<()> {
-        sqlx::query!(
-            "UPDATE action_items SET status = $1, after_state = $2, error_message = $3 WHERE id = $4",
-            action.status.to_string(),
-            action.after_state,
-            action.error_message,
-            action.id
-        )
-        .execute(&self.db_pool)
-        .await?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]

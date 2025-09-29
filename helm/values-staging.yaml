@@ -1,0 +1,117 @@
+# Staging environment values
+global:
+  environment: staging
+  domain: staging.nodrakeinthe.house
+
+backend:
+  image:
+    repository: ghcr.io/your-org/kiro/backend
+    tag: develop-latest
+    pullPolicy: Always
+
+  replicas: 2
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  env:
+    RUST_LOG: "info"
+    ENVIRONMENT: "staging"
+
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  image:
+    repository: ghcr.io/your-org/kiro/frontend
+    tag: develop-latest
+    pullPolicy: Always
+
+  replicas: 2
+
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+
+  env:
+    VITE_API_URL: "https://api-staging.nodrakeinthe.house"
+    VITE_ENVIRONMENT: "staging"
+
+postgres:
+  enabled: true
+  auth:
+    username: kiro_staging
+    database: kiro_staging
+  primary:
+    persistence:
+      size: 20Gi
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "1Gi"
+        cpu: "500m"
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+  master:
+    persistence:
+      size: 5Gi
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "200m"
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: staging.nodrakeinthe.house
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+    - host: api-staging.nodrakeinthe.house
+      paths:
+        - path: /
+          pathType: Prefix
+          service: backend
+  tls:
+    - secretName: staging-tls
+      hosts:
+        - staging.nodrakeinthe.house
+        - api-staging.nodrakeinthe.house
+
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "7d"

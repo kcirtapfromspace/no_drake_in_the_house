@@ -42,6 +42,11 @@
         return 'text-gray-600 bg-gray-100';
     }
   }
+
+  function handleAutoUpdateChange(listId: string, versionPinned: number | undefined, event: Event) {
+    const target = event.target as HTMLInputElement;
+    updateSubscription(listId, versionPinned, target.checked);
+  }
 </script>
 
 <div class="space-y-6">
@@ -162,7 +167,7 @@
                           id="auto-update-{subscription.list_id}"
                           type="checkbox"
                           checked={subscription.auto_update}
-                          on:change={(e) => updateSubscription(subscription.list_id, subscription.version_pinned, e.target.checked)}
+                          on:change={(e) => handleAutoUpdateChange(subscription.list_id, subscription.version_pinned, e)}
                           class="focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300 rounded"
                         />
                       </div>

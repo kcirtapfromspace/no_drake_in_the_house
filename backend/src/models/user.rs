@@ -10,7 +10,7 @@ pub struct User {
     pub email_verified: bool,
     pub totp_secret: Option<String>,
     pub totp_enabled: bool,
-    pub oauth_providers: Vec<OAuthProvider>,
+    pub oauth_providers: Vec<OAuthProviderInfo>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_login: Option<DateTime<Utc>>,
@@ -24,9 +24,16 @@ pub struct UserSettings {
     pub privacy_mode: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OAuthProvider {
-    pub provider: String, // "google", "apple"
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum OAuthProvider {
+    Google,
+    Apple,
+    Spotify,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OAuthProviderInfo {
+    pub provider: OAuthProvider,
     pub provider_user_id: String,
     pub email: String,
     pub verified: bool,
@@ -48,9 +55,10 @@ pub struct LoginRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthLoginRequest {
-    pub provider: String,
+    pub provider: OAuthProvider,
     pub authorization_code: String,
     pub redirect_uri: String,
+    pub state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +86,58 @@ pub struct TotpSetupResponse {
     pub backup_codes: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotpEnableRequest {
+    pub totp_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotpDisableRequest {
+    pub totp_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegisterRequest {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthResponse {
+    pub user: UserProfile,
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserProfile {
+    pub id: Uuid,
+    pub email: String,
+    pub email_verified: bool,
+    pub totp_enabled: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_login: Option<DateTime<Utc>>,
+    pub settings: UserSettings,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotpVerifyRequest {
+    pub user_id: Uuid,
+    pub totp_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthenticatedUser {
+    pub id: Uuid,
+    pub email: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TotpStatusResponse {
+    pub enabled: bool,
+}
+
 impl User {
     pub fn new(email: String, password_hash: Option<String>) -> Self {
         let now = Utc::now();
@@ -96,7 +156,7 @@ impl User {
         }
     }
 
-    pub fn with_oauth_provider(email: String, provider: OAuthProvider) -> Self {
+    pub fn with_oauth_provider(email: String, provider: OAuthProviderInfo) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),
@@ -113,7 +173,7 @@ impl User {
         }
     }
 
-    pub fn add_oauth_provider(&mut self, provider: OAuthProvider) {
+    pub fn add_oauth_provider(&mut self, provider: OAuthProviderInfo) {
         // Remove existing provider of same type
         self.oauth_providers.retain(|p| p.provider != provider.provider);
         self.oauth_providers.push(provider);
@@ -152,7 +212,17 @@ impl Default for UserSettings {
 }
 
 impl OAuthProvider {
-    pub fn new(provider: String, provider_user_id: String, email: String, verified: bool) -> Self {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OAuthProvider::Google => "google",
+            OAuthProvider::Apple => "apple",
+            OAuthProvider::Spotify => "spotify",
+        }
+    }
+}
+
+impl OAuthProviderInfo {
+    pub fn new(provider: OAuthProvider, provider_user_id: String, email: String, verified: bool) -> Self {
         Self {
             provider,
             provider_user_id,

@@ -95,6 +95,21 @@ class BackgroundService {
           sendResponse({ success: true });
           break;
 
+        case 'EXPORT_YTMUSIC_DATA':
+          const exportData = await this.exportYouTubeMusicData(sender.tab);
+          sendResponse({ data: exportData });
+          break;
+
+        case 'IMPORT_YTMUSIC_DATA':
+          const importSuccess = await this.importYouTubeMusicData(message.data);
+          sendResponse({ success: importSuccess });
+          break;
+
+        case 'IMPORT_YTMUSIC_BLOCKLIST':
+          const blocklistImportSuccess = await this.importYouTubeMusicBlocklist(message.data);
+          sendResponse({ success: blocklistImportSuccess });
+          break;
+
         default:
           console.warn('Unknown message type:', message.type);
           sendResponse({ error: 'Unknown message type' });
@@ -185,6 +200,156 @@ class BackgroundService {
       });
     } catch (error) {
       console.error(`Failed to ${action} artist on server:`, error);
+    }
+  }
+
+  async exportYouTubeMusicData(tab) {
+    try {
+      // Get current DNP list
+      const dnpList = this.dnpFilterManager ? this.dnpFilterManager.fullDNPList : [];
+      
+      // Get YouTube Music specific data from storage
+      const result = await chrome.storage.local.get(['ytmusic_blocked_content', 'ytmusic_export_history']);
+      
+      const exportData = {
+        timestamp: new Date().toISOString(),
+        platform: 'youtube-music',
+        url: tab?.url,
+        version: '1.0',
+        capabilities: {
+          LIBRARY_PURGE: 'UNSUPPORTED',
+          PLAYLIST_SCRUB: 'UNSUPPORTED', 
+          ARTIST_BLOCK: 'UNSUPPORTED',
+          RECOMMENDATION_FILTER: 'LIMITED',
+          RADIO_SEED_FILTER: 'LIMITED',
+          AUTOPLAY_SKIP: 'SUPPORTED',
+          WEB_OVERLAY: 'SUPPORTED'
+        },
+        dnpList: dnpList.map(artist => ({
+          name: artist.name,
+          externalIds: artist.externalIds || {},
+          tags: artist.tags || [],
+          addedAt: artist.addedAt
+        })),
+        blockedContent: result.ytmusic_blocked_content || [],
+        exportHistory: result.ytmusic_export_history || [],
+        instructions: {
+          manual_sync_required: true,
+          steps: [
+            "1. Review the blocked content list below",
+            "2. Manually remove these items from your YouTube Music library",
+            "3. Use the import function to update your blocklist",
+            "4. Repeat periodically to keep your library clean"
+          ]
+        }
+      };
+      
+      // Update export history
+      const exportHistory = result.ytmusic_export_history || [];
+      exportHistory.push({
+        timestamp: exportData.timestamp,
+        itemCount: exportData.dnpList.length,
+        url: tab?.url
+      });
+      
+      // Keep only last 10 exports
+      if (exportHistory.length > 10) {
+        exportHistory.splice(0, exportHistory.length - 10);
+      }
+      
+      await chrome.storage.local.set({ ytmusic_export_history: exportHistory });
+      
+      return exportData;
+    } catch (error) {
+      console.error('Failed to export YouTube Music data:', error);
+      throw error;
+    }
+  }
+
+  async importYouTubeMusicData(data) {
+    try {
+      if (!data || data.platform !== 'youtube-music') {
+        throw new Error('Invalid YouTube Music export data');
+      }
+      
+      // Store imported data
+      await chrome.storage.local.set({
+        ytmusic_imported_data: {
+          ...data,
+          importedAt: new Date().toISOString()
+        }
+      });
+      
+      // If DNP list is included, merge with existing
+      if (data.dnpList && this.dnpFilterManager) {
+        for (const artist of data.dnpList) {
+          await this.dnpFilterManager.addArtist(artist);
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to import YouTube Music data:', error);
+      return false;
+    }
+  }
+
+  async importYouTubeMusicBlocklist(data) {
+    try {
+      if (!data || (!data.artists && !data.tracks)) {
+        throw new Error('Invalid blocklist data');
+      }
+      
+      let importCount = 0;
+      
+      // Import artists
+      if (data.artists && this.dnpFilterManager) {
+        for (const artist of data.artists) {
+          const artistInfo = {
+            name: artist.name,
+            youtubeMusicId: artist.youtubeMusicId,
+            source: 'import',
+            platform: 'youtube-music'
+          };
+          
+          const success = await this.dnpFilterManager.addArtist(artistInfo);
+          if (success) importCount++;
+        }
+      }
+      
+      // Import track artists (extract unique artists from tracks)
+      if (data.tracks && this.dnpFilterManager) {
+        const uniqueArtists = new Map();
+        
+        for (const track of data.tracks) {
+          if (track.artist && !uniqueArtists.has(track.artist)) {
+            uniqueArtists.set(track.artist, {
+              name: track.artist,
+              youtubeMusicId: track.youtubeMusicId,
+              source: 'track-import',
+              platform: 'youtube-music'
+            });
+          }
+        }
+        
+        for (const artistInfo of uniqueArtists.values()) {
+          const success = await this.dnpFilterManager.addArtist(artistInfo);
+          if (success) importCount++;
+        }
+      }
+      
+      // Log import activity
+      await this.logAction({
+        type: 'ytmusic_blocklist_import',
+        importCount,
+        artistCount: data.artists?.length || 0,
+        trackCount: data.tracks?.length || 0
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Failed to import YouTube Music blocklist:', error);
+      return false;
     }
   }
 

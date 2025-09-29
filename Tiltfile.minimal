@@ -1,0 +1,42 @@
+# Minimal Tiltfile for testing
+load('ext://helm_resource', 'helm_resource', 'helm_repo')
+
+# Configuration
+namespace = "kiro-dev"
+
+# Set namespace
+k8s_namespace(namespace)
+
+# Add Bitnami Helm repository
+helm_repo('bitnami', 'https://charts.bitnami.com/bitnami')
+
+# Simple Docker builds without live updates
+docker_build('kiro/backend', './backend', dockerfile='./backend/Dockerfile.dev')
+docker_build('kiro/frontend', './frontend', dockerfile='./frontend/Dockerfile.dev')
+
+# Deploy using Helm
+helm_resource(
+    'kiro',
+    chart='./helm',
+    flags=[
+        '--values=./helm/values-dev.yaml',
+        '--set=backend.image.repository=kiro/backend',
+        '--set=backend.image.tag=latest',
+        '--set=frontend.image.repository=kiro/frontend',
+        '--set=frontend.image.tag=latest',
+        '--create-namespace'
+    ],
+    deps=['./helm'],
+    namespace=namespace,
+    resource_deps=['bitnami']
+)
+
+# Port forwards
+k8s_resource('kiro-backend', port_forwards=['3000:3000'])
+k8s_resource('kiro-frontend', port_forwards=['5000:80'])
+k8s_resource('kiro-postgresql', port_forwards=['5432:5432'])
+k8s_resource('kiro-redis-master', port_forwards=['6379:6379'])
+
+print("🚀 Minimal Kiro Development Environment")
+print("Backend: http://localhost:3000")
+print("Frontend: http://localhost:5000")

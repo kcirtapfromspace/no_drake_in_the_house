@@ -1,0 +1,83 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                id,\n                event_type::text as event_type_str,\n                severity::text as severity_str,\n                user_id,\n                session_id,\n                ip_address,\n                user_agent,\n                action,\n                details,\n                timestamp,\n                correlation_id\n            FROM audit_log \n            WHERE event_type IS NOT NULL AND severity IS NOT NULL AND timestamp IS NOT NULL\n            ORDER BY timestamp DESC \n            LIMIT $1 OFFSET $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "event_type_str",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "severity_str",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 4,
+        "name": "session_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "ip_address",
+        "type_info": "Inet"
+      },
+      {
+        "ordinal": 6,
+        "name": "user_agent",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "action",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "details",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 9,
+        "name": "timestamp",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 10,
+        "name": "correlation_id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      null,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "effacb303962ab1468cb85aa59c446be1e31e9d7d2a6efc651dea83dbb009fce"
+}

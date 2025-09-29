@@ -1,0 +1,120 @@
+apiVersion: skaffold/v4beta6
+kind: Config
+metadata:
+  name: kiro-dev
+
+build:
+  artifacts:
+  - image: kiro/backend
+    context: backend
+    docker:
+      dockerfile: Dockerfile.dev
+      buildArgs:
+        BUILDKIT_INLINE_CACHE: "1"
+    sync:
+      manual:
+      - src: "src/**/*.rs"
+        dest: /app/src
+      - src: "Cargo.toml"
+        dest: /app/Cargo.toml
+      - src: "Cargo.lock"
+        dest: /app/Cargo.lock
+  - image: kiro/frontend
+    context: frontend
+    docker:
+      dockerfile: Dockerfile.dev
+      buildArgs:
+        BUILDKIT_INLINE_CACHE: "1"
+    sync:
+      manual:
+      - src: "src/**/*"
+        dest: /app/src
+      - src: "package.json"
+        dest: /app/package.json
+      - src: "package-lock.json"
+        dest: /app/package-lock.json
+  local:
+    push: false
+    useDockerCLI: true
+    useBuildkit: true
+
+deploy:
+  helm:
+    releases:
+    - name: kiro
+      chartPath: helm
+      valuesFiles:
+      - helm/values-dev.yaml
+      setValues:
+        backend.image.repository: kiro/backend
+        backend.image.tag: latest
+        frontend.image.repository: kiro/frontend
+        frontend.image.tag: latest
+      createNamespace: true
+      namespace: kiro-dev
+      wait: true
+      recreatePods: false
+      skipBuildDependencies: false
+      upgradeOnChange: true
+
+portForward:
+- resourceType: service
+  resourceName: kiro-backend
+  namespace: kiro-dev
+  port: 3000
+  localPort: 3000
+- resourceType: service
+  resourceName: kiro-frontend
+  namespace: kiro-dev
+  port: 80
+  localPort: 5000
+- resourceType: service
+  resourceName: kiro-postgresql
+  namespace: kiro-dev
+  port: 5432
+  localPort: 5432
+- resourceType: service
+  resourceName: kiro-redis-master
+  namespace: kiro-dev
+  port: 6379
+  localPort: 6379
+
+profiles:
+- name: debug
+  build:
+    artifacts:
+    - image: kiro/backend
+      docker:
+        buildArgs:
+          CARGO_BUILD_TYPE: debug
+  deploy:
+    helm:
+      releases:
+      - name: kiro
+        setValues:
+          backend.env.RUST_LOG: "debug"
+          backend.resources.requests.cpu: "50m"
+          backend.resources.limits.cpu: "200m"
+
+- name: production
+  build:
+    artifacts:
+    - image: kiro/backend
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          CARGO_BUILD_TYPE: release
+    - image: kiro/frontend
+      docker:
+        dockerfile: Dockerfile
+  deploy:
+    helm:
+      releases:
+      - name: kiro
+        valuesFiles:
+        - helm/values.yaml
+        setValues:
+          backend.image.pullPolicy: Always
+          frontend.image.pullPolicy: Always
+          postgresql.primary.persistence.enabled: true
+          redis.master.persistence.enabled: true

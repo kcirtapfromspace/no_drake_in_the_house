@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use crate::models::ProviderBadge;
 
 /// User's personal DNP (Do Not Play) list entry
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -36,7 +37,7 @@ pub struct BulkImportRequest {
     pub overwrite_existing: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ImportFormat {
     Csv,
@@ -62,14 +63,14 @@ pub struct CsvImportEntry {
 }
 
 /// DNP list export format
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DnpListExport {
     pub exported_at: DateTime<Utc>,
     pub total_entries: usize,
     pub entries: Vec<DnpExportEntry>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DnpExportEntry {
     pub artist_name: String,
     pub external_ids: serde_json::Value,
@@ -95,12 +96,7 @@ pub struct ArtistSearchResult {
     pub genres: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct ProviderBadge {
-    pub provider: String,
-    pub verified: bool,
-    pub follower_count: Option<u64>,
-}
+// ProviderBadge moved to models/mod.rs to avoid duplication
 
 /// DNP list with artist details
 #[derive(Debug, Serialize)]
@@ -135,4 +131,35 @@ pub struct BulkOperationError {
     pub entry_index: usize,
     pub artist_name: String,
     pub error: String,
+}
+
+/// Request to add artist to DNP list
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AddToDnpRequest {
+    pub artist_id: Uuid,
+    pub tags: Option<Vec<String>>,
+    pub note: Option<String>,
+}
+
+/// DNP entry with artist information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DnpEntryWithArtist {
+    pub user_id: Uuid,
+    pub artist_id: Uuid,
+    pub tags: Option<Vec<String>>,
+    pub note: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub canonical_name: String,
+    pub external_ids: serde_json::Value,
+    pub metadata: serde_json::Value,
+}
+
+/// Basic DNP entry
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DnpEntry {
+    pub user_id: Uuid,
+    pub artist_id: Uuid,
+    pub tags: Option<Vec<String>>,
+    pub note: Option<String>,
+    pub created_at: DateTime<Utc>,
 }

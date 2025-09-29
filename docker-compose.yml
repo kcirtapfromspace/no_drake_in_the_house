@@ -1,47 +1,87 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:15-alpine
-    container_name: music_blocklist_postgres
+    image: postgres:15
+    container_name: kiro-postgres
     environment:
-      POSTGRES_DB: music_blocklist
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: kiro_dev
+      POSTGRES_USER: kiro
+      POSTGRES_PASSWORD: kiro_dev_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U kiro -d kiro_dev"]
+      interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - kiro-network
 
   redis:
     image: redis:7-alpine
-    container_name: music_blocklist_redis
+    container_name: kiro-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      interval: 5s
+      timeout: 3s
       retries: 5
+    networks:
+      - kiro-network
 
-  # DuckDB runs embedded in the application, but we can use this for development tools
-  duckdb-cli:
-    image: duckdb/duckdb:latest
-    container_name: music_blocklist_duckdb
-    volumes:
-      - ./data:/data
-    command: ["tail", "-f", "/dev/null"]  # Keep container running
-    profiles:
-      - tools
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: kiro-backend
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://kiro:kiro_dev_password@postgres:5432/kiro_dev
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_production
+      RUST_LOG: debug
+      ENVIRONMENT: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kiro-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: kiro-frontend
+    ports:
+      - "5001:5000"
+    environment:
+      VITE_API_URL: http://kiro-backend:3000
+      NODE_ENV: development
+    networks:
+      - kiro-network
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+  cargo_cache:
+    driver: local
+  cargo_target:
+    driver: local
+  node_modules:
+    driver: local
+
+networks:
+  kiro-network:
+    driver: bridge

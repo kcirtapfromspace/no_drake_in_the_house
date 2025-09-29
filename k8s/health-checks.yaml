@@ -1,0 +1,336 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-check-scripts
+  namespace: kiro-production
+data:
+  api-health-check.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Comprehensive health check for API service
+    API_URL="http://localhost:3000"
+    
+    # Check basic health endpoint
+    if ! curl -f -s "$API_URL/health" > /dev/null; then
+        echo "Health endpoint failed"
+        exit 1
+    fi
+    
+    # Check database connectivity
+    if ! curl -f -s "$API_URL/health/db" > /dev/null; then
+        echo "Database health check failed"
+        exit 1
+    fi
+    
+    # Check Redis connectivity
+    if ! curl -f -s "$API_URL/health/redis" > /dev/null; then
+        echo "Redis health check failed"
+        exit 1
+    fi
+    
+    echo "All health checks passed"
+    exit 0
+
+  worker-health-check.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Health check for worker service
+    WORKER_URL="http://localhost:9090"
+    
+    # Check worker health endpoint
+    if ! curl -f -s "$WORKER_URL/health" > /dev/null; then
+        echo "Worker health endpoint failed"
+        exit 1
+    fi
+    
+    # Check job queue connectivity
+    if ! curl -f -s "$WORKER_URL/health/queue" > /dev/null; then
+        echo "Job queue health check failed"
+        exit 1
+    fi
+    
+    echo "Worker health checks passed"
+    exit 0
+
+  readiness-check.sh: |
+    #!/bin/bash
+    set -e
+    
+    # Readiness check - service is ready to accept traffic
+    SERVICE_URL="http://localhost:3000"
+    
+    # Check if service is responding
+    if ! curl -f -s "$SERVICE_URL/ready" > /dev/null; then
+        echo "Service not ready"
+        exit 1
+    fi
+    
+    # Check if all dependencies are available
+    RESPONSE=$(curl -s "$SERVICE_URL/ready/dependencies")
+    if [[ "$RESPONSE" != *"\"status\":\"ok\""* ]]; then
+        echo "Dependencies not ready: $RESPONSE"
+        exit 1
+    fi
+    
+    echo "Service is ready"
+    exit 0
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kiro-health-monitor
+  namespace: kiro-production
+  labels:
+    app: kiro-health-monitor
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 300
+      template:
+        metadata:
+          labels:
+            app: kiro-health-monitor
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            fsGroup: 2000
+          containers:
+          - name: health-monitor
+            image: curlimages/curl:8.1.2
+            command: ["/bin/sh"]
+            args:
+            - -c
+            - |
+              set -e
+              echo "Running comprehensive health checks..."
+              
+              # Check API service
+              API_SERVICE="kiro-api-service.kiro-production.svc.cluster.local"
+              if curl -f -s "http://$API_SERVICE/health" > /dev/null; then
+                echo "✅ API service healthy"
+              else
+                echo "❌ API service unhealthy"
+                exit 1
+              fi
+              
+              # Check worker service metrics
+              WORKER_SERVICE="kiro-worker-service.kiro-production.svc.cluster.local"
+              if curl -f -s "http://$WORKER_SERVICE:9090/health" > /dev/null; then
+                echo "✅ Worker service healthy"
+              else
+                echo "❌ Worker service unhealthy"
+                exit 1
+              fi
+              
+              # Check Prometheus
+              PROMETHEUS_SERVICE="prometheus.kiro-production.svc.cluster.local"
+              if curl -f -s "http://$PROMETHEUS_SERVICE:9090/-/healthy" > /dev/null; then
+                echo "✅ Prometheus healthy"
+              else
+                echo "⚠️  Prometheus unhealthy"
+              fi
+              
+              # Check Grafana
+              GRAFANA_SERVICE="grafana.kiro-production.svc.cluster.local"
+              if curl -f -s "http://$GRAFANA_SERVICE:3000/api/health" > /dev/null; then
+                echo "✅ Grafana healthy"
+              else
+                echo "⚠️  Grafana unhealthy"
+              fi
+              
+              echo "Health check completed"
+            resources:
+              requests:
+                memory: "32Mi"
+                cpu: "10m"
+              limits:
+                memory: "64Mi"
+                cpu: "50m"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiro-health-check
+  namespace: kiro-production
+  labels:
+    app: kiro-health-check
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: kiro-health-check
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiro-health-check
+  namespace: kiro-production
+  labels:
+    app: kiro-health-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kiro-health-check
+  template:
+    metadata:
+      labels:
+        app: kiro-health-check
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: health-check
+        image: nginx:1.25-alpine
+        ports:
+        - containerPort: 8080
+          name: http
+        resources:
+          requests:
+            memory: "32Mi"
+            cpu: "10m"
+          limits:
+            memory: "64Mi"
+            cpu: "50m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+        - name: health-content
+          mountPath: /usr/share/nginx/html
+        - name: tmp
+          mountPath: /tmp
+        - name: var-cache
+          mountPath: /var/cache/nginx
+        - name: var-run
+          mountPath: /var/run
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: health-check-nginx-config
+      - name: health-content
+        configMap:
+          name: health-check-content
+      - name: tmp
+        emptyDir: {}
+      - name: var-cache
+        emptyDir: {}
+      - name: var-run
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-check-nginx-config
+  namespace: kiro-production
+data:
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    http {
+        server {
+            listen 8080;
+            location / {
+                root /usr/share/nginx/html;
+                index index.html;
+            }
+            location /health {
+                return 200 'OK';
+                add_header Content-Type text/plain;
+            }
+        }
+    }
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: health-check-content
+  namespace: kiro-production
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Kiro Health Check</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .status { padding: 20px; margin: 10px 0; border-radius: 5px; }
+            .healthy { background-color: #d4edda; color: #155724; }
+            .unhealthy { background-color: #f8d7da; color: #721c24; }
+        </style>
+    </head>
+    <body>
+        <h1>Kiro Production Health Status</h1>
+        <div id="status">Loading...</div>
+        <script>
+            async function checkHealth() {
+                const services = [
+                    { name: 'API', url: '/api/health' },
+                    { name: 'Worker', url: '/worker/health' },
+                    { name: 'Database', url: '/api/health/db' },
+                    { name: 'Redis', url: '/api/health/redis' }
+                ];
+                
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = '';
+                
+                for (const service of services) {
+                    const div = document.createElement('div');
+                    div.className = 'status';
+                    
+                    try {
+                        const response = await fetch(service.url);
+                        if (response.ok) {
+                            div.className += ' healthy';
+                            div.textContent = `✅ ${service.name}: Healthy`;
+                        } else {
+                            div.className += ' unhealthy';
+                            div.textContent = `❌ ${service.name}: Unhealthy (${response.status})`;
+                        }
+                    } catch (error) {
+                        div.className += ' unhealthy';
+                        div.textContent = `❌ ${service.name}: Error (${error.message})`;
+                    }
+                    
+                    statusDiv.appendChild(div);
+                }
+            }
+            
+            checkHealth();
+            setInterval(checkHealth, 30000); // Refresh every 30 seconds
+        </script>
+    </body>
+    </html>

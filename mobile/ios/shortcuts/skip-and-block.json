@@ -1,0 +1,89 @@
+{
+  "shortcut": {
+    "name": "Skip and Block Artist",
+    "description": "Skip current track and optionally add artist to DNP list",
+    "icon": {
+      "glyph": "forward.fill",
+      "color": "orange"
+    },
+    "actions": [
+      {
+        "type": "get_current_song",
+        "parameters": {},
+        "variable": "current_song"
+      },
+      {
+        "type": "skip_forward",
+        "parameters": {}
+      },
+      {
+        "type": "ask_for_confirmation",
+        "parameters": {
+          "prompt": "Add {{current_song.artist}} to your DNP list?",
+          "ok_text": "Add to DNP",
+          "cancel_text": "Just Skip"
+        },
+        "variable": "should_block"
+      },
+      {
+        "type": "if",
+        "parameters": {
+          "condition": "{{should_block}}",
+          "if_true": [
+            {
+              "type": "get_contents_of_url",
+              "parameters": {
+                "url": "https://api.nodrakeinthe.house/v1/artists/search",
+                "method": "POST",
+                "headers": {
+                  "Authorization": "Bearer {{api_token}}",
+                  "Content-Type": "application/json"
+                },
+                "request_body": {
+                  "query": "{{current_song.artist}}",
+                  "limit": 1
+                }
+              },
+              "variable": "artist_search"
+            },
+            {
+              "type": "get_contents_of_url",
+              "parameters": {
+                "url": "https://api.nodrakeinthe.house/v1/dnp/artists",
+                "method": "POST",
+                "headers": {
+                  "Authorization": "Bearer {{api_token}}",
+                  "Content-Type": "application/json"
+                },
+                "request_body": {
+                  "artist_id": "{{artist_search.artists[0].id}}",
+                  "tags": ["skip-and-block"],
+                  "note": "Added via skip and block shortcut"
+                }
+              },
+              "variable": "block_result"
+            },
+            {
+              "type": "show_notification",
+              "parameters": {
+                "title": "Artist Blocked",
+                "body": "{{current_song.artist}} has been added to your DNP list and the track was skipped"
+              }
+            }
+          ],
+          "if_false": [
+            {
+              "type": "show_notification",
+              "parameters": {
+                "title": "Track Skipped",
+                "body": "{{current_song.title}} by {{current_song.artist}} was skipped"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "input_types": [],
+    "siri_phrase": "Skip and block this artist"
+  }
+}

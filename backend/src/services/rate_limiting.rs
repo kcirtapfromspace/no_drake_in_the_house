@@ -267,16 +267,18 @@ impl RateLimitingService {
                 }
                 Err(e) => {
                     // Record failure
-                    self.record_failure(provider, &e.to_string()).await?;
-                    results.push(Err(e));
+                    let error_msg = e.to_string();
+                    self.record_failure(provider, &error_msg).await?;
                     
                     tracing::warn!(
                         "Batch {} failed after {}ms for {}: {}",
                         i + 1,
                         start_time.elapsed().as_millis(),
                         provider,
-                        e
+                        error_msg
                     );
+                    
+                    results.push(Err(e));
                 }
             }
         }

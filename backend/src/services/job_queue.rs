@@ -232,10 +232,9 @@ impl JobQueueService {
                 tracing::error!("Worker {} failed: {}", worker_id, e);
                 
                 // Update worker status to error
-                if let Ok(mut workers) = service.workers.write().await.try_write() {
-                    if let Some(worker) = workers.get_mut(&worker_id) {
-                        worker.status = WorkerStatus::Error;
-                    }
+                let mut workers = service.workers.write().await;
+                if let Some(worker) = workers.get_mut(&worker_id) {
+                    worker.status = WorkerStatus::Error;
                 }
             }
         });

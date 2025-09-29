@@ -1,0 +1,129 @@
+# syntax=docker/dockerfile:1.4
+# Ultra-optimized development Dockerfile for Svelte frontend with live updates
+FROM node:18-alpine as base
+
+# Install system dependencies with cache
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache \
+    curl \
+    git \
+    bash
+
+WORKDIR /app
+
+FROM base as dependencies
+
+# Copy package files for optimal dependency caching
+COPY package*.json ./
+
+# Install all dependencies with aggressive caching
+RUN --mount=type=cache,target=/root/.npm,sharing=locked \
+    npm ci --include=dev
+
+FROM dependencies as builder
+
+# Copy source code and configuration files
+COPY . .
+
+# Build for development (faster, includes source maps)
+ENV NODE_ENV=development
+RUN npm run build
+
+# Create development build script for live updates
+RUN echo '#!/bin/bash\nnpm run build:dev 2>/dev/null || npm run build' > /app/build-dev.sh && \
+    chmod +x /app/build-dev.sh
+
+# Development runtime with nginx
+FROM nginx:alpine as development
+
+# Install development tools
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache \
+    curl \
+    bash \
+    nodejs \
+    npm
+
+WORKDIR /app
+
+# Copy built application and source for live updates
+COPY --from=builder /app/public /usr/share/nginx/html
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/build-dev.sh ./
+
+# Copy source code for live updates
+COPY src ./src
+COPY rollup.config.js tsconfig.json tailwind.config.js postcss.config.js ./
+
+# Copy optimized nginx config for development
+COPY nginx-dev.conf /etc/nginx/conf.d/default.conf
+
+# Set up permissions and directories
+RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run /app/public && \
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html /app
+
+# Ensure we have content to serve with better development info
+RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
+    echo '<!DOCTYPE html><html><head><title>Kiro Frontend</title></head><body><h1>🚀 Kiro Frontend</h1><p>⚡ Fast development build with live updates</p><p>🔧 Waiting for build completion...</p></body></html>' > /usr/share/nginx/html/index.html; \
+    fi
+
+# Create startup script for development
+RUN echo '#!/bin/bash\n\
+echo "🚀 Starting Kiro Frontend Development Server"\n\
+echo "⚡ Live updates enabled"\n\
+echo "🔧 Build system ready"\n\
+nginx -g "daemon off;" &\n\
+NGINX_PID=$!\n\
+echo "✅ Nginx started (PID: $NGINX_PID)"\n\
+wait $NGINX_PID' > /start-dev.sh && chmod +x /start-dev.sh
+
+# Switch to nginx user for security
+USER nginx
+
+# Development environment variables
+ENV NODE_ENV=development
+ENV VITE_API_URL=http://localhost:3000
+
+EXPOSE 5000
+
+# Fast health check optimized for development
+HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=2 \
+    CMD curl -f http://localhost:5000/ || exit 1
+
+CMD ["/start-dev.sh"]
+
+# Production-ready stage (for comparison and optional use)
+FROM nginx:alpine as production
+
+# Install minimal runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache curl
+
+# Copy only built application
+COPY --from=builder /app/public /usr/share/nginx/html
+
+# Copy production nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Set up permissions
+RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run && \
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /var/run /usr/share/nginx/html
+
+# Ensure we have content to serve
+RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
+    echo '<!DOCTYPE html><html><head><title>Kiro</title></head><body><h1>Kiro</h1><p>Production build</p></body></html>' > /usr/share/nginx/html/index.html; \
+    fi
+
+USER nginx
+
+# Production environment
+ENV NODE_ENV=production
+
+EXPOSE 5000
+
+# Production health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

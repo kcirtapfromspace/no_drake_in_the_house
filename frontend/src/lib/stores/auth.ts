@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store';
+import { api } from '../utils/api';
 
 export interface User {
   id: string;
@@ -43,15 +44,11 @@ export const authActions = {
     authStore.update(state => ({ ...state, isLoading: true }));
     
     try {
-      const response = await fetch('http://localhost:3000/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password, totp_code: totpCode }),
+      const result = await api.post('/auth/login', { 
+        email, 
+        password, 
+        totp_code: totpCode 
       });
-
-      const result = await response.json();
       
       if (result.success) {
         const { access_token, refresh_token } = result.data;
@@ -73,9 +70,9 @@ export const authActions = {
         authStore.update(state => ({ ...state, isLoading: false }));
         return { success: false, message: result.message };
       }
-    } catch (error) {
+    } catch (error: any) {
       authStore.update(state => ({ ...state, isLoading: false }));
-      return { success: false, message: 'Network error occurred' };
+      return { success: false, message: error.message || 'Network error occurred' };
     }
   },
 
@@ -83,21 +80,13 @@ export const authActions = {
     authStore.update(state => ({ ...state, isLoading: true }));
     
     try {
-      const response = await fetch('http://localhost:3000/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const result = await response.json();
+      const result = await api.post('/auth/register', { email, password });
       authStore.update(state => ({ ...state, isLoading: false }));
       
       return { success: result.success, message: result.message };
-    } catch (error) {
+    } catch (error: any) {
       authStore.update(state => ({ ...state, isLoading: false }));
-      return { success: false, message: 'Network error occurred' };
+      return { success: false, message: error.message || 'Network error occurred' };
     }
   },
 
@@ -106,13 +95,7 @@ export const authActions = {
     if (!token) return;
 
     try {
-      const response = await fetch('http://localhost:3000/auth/profile', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
+      const result = await api.get('/users/profile');
       
       if (result.success) {
         authStore.update(state => ({
@@ -131,12 +114,7 @@ export const authActions = {
     
     if (token) {
       try {
-        await fetch('http://localhost:3000/auth/logout', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+        await api.post('/auth/logout');
       } catch (error) {
         console.error('Logout request failed:', error);
       }
@@ -159,15 +137,7 @@ export const authActions = {
     if (!refreshToken) return false;
 
     try {
-      const response = await fetch('http://localhost:3000/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-
-      const result = await response.json();
+      const result = await api.post('/auth/refresh', { refresh_token: refreshToken });
       
       if (result.success) {
         const { access_token, refresh_token: newRefreshToken } = result.data;
@@ -188,6 +158,57 @@ export const authActions = {
     }
     
     return false;
+  },
+
+  // 2FA Management
+  setup2FA: async () => {
+    try {
+      const result = await api.post('/auth/2fa/setup');
+      
+      if (result.success) {
+        return { 
+          success: true, 
+          qrCodeUrl: result.data.qr_code_url,
+          secret: result.data.secret 
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Failed to setup 2FA' };
+    }
+  },
+
+  verify2FA: async (code: string) => {
+    try {
+      const result = await api.post('/auth/2fa/verify', { totp_code: code });
+      
+      if (result.success) {
+        // Update user profile to reflect 2FA is now enabled
+        await authActions.fetchProfile();
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Failed to verify 2FA code' };
+    }
+  },
+
+  disable2FA: async (code: string) => {
+    try {
+      const result = await api.post('/auth/2fa/disable', { totp_code: code });
+      
+      if (result.success) {
+        // Update user profile to reflect 2FA is now disabled
+        await authActions.fetchProfile();
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Failed to disable 2FA' };
+    }
   },
 };
 

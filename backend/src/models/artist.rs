@@ -96,6 +96,39 @@ impl ExternalIds {
         
         ids
     }
+
+    pub fn get_spotify_id(&self) -> Option<&str> {
+        self.spotify.as_deref()
+    }
+
+    pub fn get_apple_id(&self) -> Option<&str> {
+        self.apple.as_deref()
+    }
+
+    pub fn get_musicbrainz_id(&self) -> Option<&str> {
+        self.musicbrainz.as_deref()
+    }
+
+    pub fn get_isni_id(&self) -> Option<&str> {
+        self.isni.as_deref()
+    }
+
+    // Setter methods for tests
+    pub fn set_spotify_id(&mut self, id: String) {
+        self.spotify = Some(id);
+    }
+
+    pub fn set_apple_id(&mut self, id: String) {
+        self.apple = Some(id);
+    }
+
+    pub fn set_musicbrainz_id(&mut self, id: String) {
+        self.musicbrainz = Some(id);
+    }
+
+    pub fn set_isni_id(&mut self, id: String) {
+        self.isni = Some(id);
+    }
 }
 
 /// Artist alias with confidence scoring
@@ -104,6 +137,7 @@ pub struct ArtistAlias {
     pub name: String,
     pub source: String,
     pub confidence: f64, // 0.0 to 1.0
+    #[serde(default)]
     pub locale: Option<String>,
 }
 
@@ -268,16 +302,16 @@ impl Artist {
 /// Search query for artist resolution
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ArtistSearchQuery {
-    pub name: String,
+    pub query: String,
     pub provider: Option<String>,
     pub external_id: Option<String>,
     pub limit: Option<usize>,
 }
 
 impl ArtistSearchQuery {
-    pub fn new(name: String) -> Self {
+    pub fn new(query: String) -> Self {
         Self {
-            name,
+            query,
             provider: None,
             external_id: None,
             limit: Some(10),
@@ -401,7 +435,7 @@ mod tests {
             .with_provider("spotify".to_string())
             .with_limit(5);
         
-        assert_eq!(query.name, "Test Artist");
+        assert_eq!(query.query, "Test Artist");
         assert_eq!(query.provider, Some("spotify".to_string()));
         assert_eq!(query.limit, Some(5));
     }

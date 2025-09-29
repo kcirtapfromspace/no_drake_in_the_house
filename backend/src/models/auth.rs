@@ -13,7 +13,7 @@ pub struct Claims {
     pub scopes: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum TokenType {
     Access,
     Refresh,
@@ -105,6 +105,19 @@ impl RefreshToken {
     }
 }
 
+// User session for database storage
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserSession {
+    pub id: Option<Uuid>,
+    pub user_id: Option<Uuid>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub created_at: Option<DateTime<Utc>>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub user_agent: Option<String>,
+    pub ip_address: Option<String>,
+    pub revoked: Option<bool>,
+}
+
 impl Session {
     pub fn new(user_id: Uuid, refresh_token_family: Uuid, expires_in_seconds: i64) -> Self {
         let now = Utc::now();
@@ -131,5 +144,18 @@ impl Session {
 
     pub fn is_valid(&self) -> bool {
         !self.revoked && !self.is_expired()
+    }
+}
+
+impl UserSession {
+    pub fn is_expired(&self) -> bool {
+        match self.expires_at {
+            Some(expires_at) => Utc::now() > expires_at,
+            None => true,
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        !self.revoked.unwrap_or(true) && !self.is_expired()
     }
 }

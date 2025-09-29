@@ -56,7 +56,7 @@ pub enum ActionItemStatus {
     Completed,
     Failed,
     Skipped,
-    Rolled_back,
+    RolledBack,
 }
 
 /// Summary of batch execution results
@@ -276,7 +276,7 @@ impl std::fmt::Display for ActionItemStatus {
             ActionItemStatus::Completed => write!(f, "completed"),
             ActionItemStatus::Failed => write!(f, "failed"),
             ActionItemStatus::Skipped => write!(f, "skipped"),
-            ActionItemStatus::Rolled_back => write!(f, "rolled_back"),
+            ActionItemStatus::RolledBack => write!(f, "rolled_back"),
         }
     }
 }

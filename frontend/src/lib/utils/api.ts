@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3000';
+import { config } from './config';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -19,7 +19,7 @@ export async function apiCall<T = any>(
 ): Promise<ApiResponse<T>> {
   const token = localStorage.getItem('auth_token');
   
-  const config: RequestInit = {
+  const requestConfig: RequestInit = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -29,7 +29,8 @@ export async function apiCall<T = any>(
   };
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const url = config.getApiEndpoint(endpoint);
+    const response = await fetch(url, requestConfig);
     const result = await response.json();
 
     if (!response.ok) {
@@ -51,6 +52,9 @@ export const api = {
     apiCall<T>(endpoint, { method: 'POST', body: JSON.stringify(data) }),
   put: <T = any>(endpoint: string, data?: any) => 
     apiCall<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: <T = any>(endpoint: string) => 
-    apiCall<T>(endpoint, { method: 'DELETE' }),
+  delete: <T = any>(endpoint: string, data?: any) => 
+    apiCall<T>(endpoint, { 
+      method: 'DELETE', 
+      body: data ? JSON.stringify(data) : undefined 
+    }),
 };

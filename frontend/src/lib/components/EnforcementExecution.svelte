@@ -47,9 +47,7 @@
     }
   }
 
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleString();
-  }
+
 </script>
 
 <div class="space-y-6">

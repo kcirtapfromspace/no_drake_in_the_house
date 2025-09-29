@@ -35,7 +35,7 @@ impl CommunityListService {
         let visibility = request.visibility.unwrap_or_else(|| "public".to_string());
 
         // Insert community list
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO community_lists (
                 id, owner_user_id, name, description, criteria, 
@@ -67,7 +67,7 @@ impl CommunityListService {
         list_id: Uuid,
         requesting_user_id: Option<Uuid>,
     ) -> Result<CommunityListResponse> {
-        let row = sqlx::query!(
+        let row = sqlx::query(
             r#"
             SELECT 
                 cl.id, cl.owner_user_id, cl.name, cl.description, cl.criteria,
@@ -93,7 +93,7 @@ impl CommunityListService {
 
         // Check if user is subscribed
         let (is_subscribed, subscription_details) = if let Some(user_id) = requesting_user_id {
-            let subscription = sqlx::query!(
+            let subscription = sqlx::query(
                 "SELECT version_pinned, auto_update, created_at FROM user_list_subscriptions WHERE user_id = $1 AND list_id = $2",
                 user_id,
                 list_id
@@ -147,7 +147,7 @@ impl CommunityListService {
     ) -> Result<CommunityListWithArtists> {
         let list = self.get_community_list_by_id(list_id, requesting_user_id).await?;
 
-        let artists = sqlx::query!(
+        let artists = sqlx::query(
             r#"
             SELECT 
                 cli.artist_id,
@@ -243,7 +243,7 @@ impl CommunityListService {
 
         // For now, use a simplified query without dynamic parameters
         // In a production system, you'd want to use a query builder
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
                 cl.id, cl.name, cl.description, cl.criteria, cl.version,
@@ -284,7 +284,7 @@ impl CommunityListService {
             .collect();
 
         // Get total count for pagination
-        let total_count = sqlx::query_scalar!(
+        let total_count = sqlx::query_scalar(
             "SELECT COUNT(*) FROM community_lists WHERE visibility = 'public'"
         )
         .fetch_one(&self.db_pool)
@@ -310,7 +310,7 @@ impl CommunityListService {
         let list = self.get_community_list_by_id(list_id, Some(user_id)).await?;
 
         // Check if already subscribed
-        let existing = sqlx::query!(
+        let existing = sqlx::query(
             "SELECT 1 FROM user_list_subscriptions WHERE user_id = $1 AND list_id = $2",
             user_id,
             list_id
@@ -327,7 +327,7 @@ impl CommunityListService {
         let now = Utc::now();
 
         // Create subscription
-        sqlx::query!(
+        sqlx::query(
             "INSERT INTO user_list_subscriptions (user_id, list_id, version_pinned, auto_update, created_at) VALUES ($1, $2, $3, $4, $5)",
             user_id,
             list_id,
@@ -351,7 +351,7 @@ impl CommunityListService {
         user_id: Uuid,
         list_id: Uuid,
     ) -> Result<()> {
-        let result = sqlx::query!(
+        let result = sqlx::query(
             "DELETE FROM user_list_subscriptions WHERE user_id = $1 AND list_id = $2",
             user_id,
             list_id
@@ -374,7 +374,7 @@ impl CommunityListService {
         request: UpdateSubscriptionRequest,
     ) -> Result<SubscriptionDetails> {
         // Check if subscribed
-        let existing = sqlx::query!(
+        let existing = sqlx::query(
             "SELECT version_pinned, auto_update, created_at FROM user_list_subscriptions WHERE user_id = $1 AND list_id = $2",
             user_id,
             list_id
@@ -386,7 +386,7 @@ impl CommunityListService {
 
         // Update subscription
         if let Some(version_pinned) = request.version_pinned {
-            sqlx::query!(
+            sqlx::query(
                 "UPDATE user_list_subscriptions SET version_pinned = $3 WHERE user_id = $1 AND list_id = $2",
                 user_id,
                 list_id,
@@ -397,7 +397,7 @@ impl CommunityListService {
         }
 
         if let Some(auto_update) = request.auto_update {
-            sqlx::query!(
+            sqlx::query(
                 "UPDATE user_list_subscriptions SET auto_update = $3 WHERE user_id = $1 AND list_id = $2",
                 user_id,
                 list_id,
@@ -408,7 +408,7 @@ impl CommunityListService {
         }
 
         // Return updated subscription details
-        let updated = sqlx::query!(
+        let updated = sqlx::query(
             "SELECT version_pinned, auto_update, created_at FROM user_list_subscriptions WHERE user_id = $1 AND list_id = $2",
             user_id,
             list_id
@@ -432,7 +432,7 @@ impl CommunityListService {
         let list = self.get_community_list_by_id(list_id, Some(user_id)).await?;
 
         // Get all artists in the community list
-        let community_artists = sqlx::query!(
+        let community_artists = sqlx::query(
             r#"
             SELECT 
                 cli.artist_id,
@@ -451,7 +451,7 @@ impl CommunityListService {
         .await?;
 
         // Get user's current DNP list
-        let user_dnp_artists: Vec<Uuid> = sqlx::query_scalar!(
+        let user_dnp_artists: Vec<Uuid> = sqlx::query_scalar(
             "SELECT artist_id FROM user_artist_blocks WHERE user_id = $1",
             user_id
         )
@@ -515,7 +515,7 @@ impl CommunityListService {
 
     /// Get user's subscriptions
     pub async fn get_user_subscriptions(&self, user_id: Uuid) -> Result<Vec<CommunityListResponse>> {
-        let subscriptions = sqlx::query!(
+        let subscriptions = sqlx::query(
             r#"
             SELECT 
                 cl.id, cl.owner_user_id, cl.name, cl.description, cl.criteria,
@@ -578,7 +578,7 @@ impl CommunityListService {
         request: AddArtistToCommunityListRequest,
     ) -> Result<CommunityListArtistEntry> {
         // Verify ownership
-        let list = sqlx::query!(
+        let list = sqlx::query(
             "SELECT owner_user_id FROM community_lists WHERE id = $1",
             list_id
         )
@@ -594,7 +594,7 @@ impl CommunityListService {
         let artist = self.resolve_artist_from_query(&request.artist_query).await?;
 
         // Check if artist is already in the list
-        let existing = sqlx::query!(
+        let existing = sqlx::query(
             "SELECT 1 FROM community_list_items WHERE list_id = $1 AND artist_id = $2",
             list_id,
             artist.id
@@ -609,7 +609,7 @@ impl CommunityListService {
         let now = Utc::now();
 
         // Add artist to community list
-        sqlx::query!(
+        sqlx::query(
             "INSERT INTO community_list_items (list_id, artist_id, rationale_link, added_at) VALUES ($1, $2, $3, $4)",
             list_id,
             artist.id,
@@ -620,7 +620,7 @@ impl CommunityListService {
         .await?;
 
         // Update list version and timestamp
-        sqlx::query!(
+        sqlx::query(
             "UPDATE community_lists SET version = version + 1, updated_at = $2 WHERE id = $1",
             list_id,
             now
@@ -659,7 +659,7 @@ impl CommunityListService {
         artist_id: Uuid,
     ) -> Result<()> {
         // Verify ownership
-        let list = sqlx::query!(
+        let list = sqlx::query(
             "SELECT owner_user_id FROM community_lists WHERE id = $1",
             list_id
         )
@@ -672,7 +672,7 @@ impl CommunityListService {
         }
 
         // Remove artist from community list
-        let result = sqlx::query!(
+        let result = sqlx::query(
             "DELETE FROM community_list_items WHERE list_id = $1 AND artist_id = $2",
             list_id,
             artist_id
@@ -685,7 +685,7 @@ impl CommunityListService {
         }
 
         // Update list version and timestamp
-        sqlx::query!(
+        sqlx::query(
             "UPDATE community_lists SET version = version + 1, updated_at = $2 WHERE id = $1",
             list_id,
             Utc::now()

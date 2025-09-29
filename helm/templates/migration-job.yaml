@@ -1,0 +1,30 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "kiro.fullname" . }}-migration
+  labels:
+    {{- include "kiro.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "kiro.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: {{ .Values.migration.restartPolicy | default "Never" }}
+      containers:
+      - name: migration
+        image: "{{ .Values.migration.image.repository }}:{{ .Values.migration.image.tag }}"
+        imagePullPolicy: {{ .Values.migration.image.pullPolicy | default "IfNotPresent" }}
+        env:
+        - name: DATABASE_URL
+          value: {{ .Values.backend.env.DATABASE_URL | quote }}
+        resources:
+          {{- toYaml .Values.migration.resources | nindent 10 }}
+{{- end }}

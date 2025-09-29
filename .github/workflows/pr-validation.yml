@@ -1,0 +1,169 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-pr:
+    name: Validate Pull Request
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Validate PR title
+      uses: amannn/action-semantic-pull-request@v5
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        types: |
+          feat
+          fix
+          docs
+          style
+          refactor
+          perf
+          test
+          build
+          ci
+          chore
+          revert
+        requireScope: false
+        subjectPattern: ^(?![A-Z]).+$
+        subjectPatternError: |
+          The subject "{subject}" found in the pull request title "{title}"
+          didn't match the configured pattern. Please ensure that the subject
+          doesn't start with an uppercase character.
+
+    - name: Check for breaking changes
+      run: |
+        # Check if this PR contains breaking changes
+        if git log --oneline ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | grep -i "BREAKING CHANGE"; then
+          echo "⚠️ This PR contains breaking changes"
+          echo "breaking_changes=true" >> $GITHUB_ENV
+        else
+          echo "✅ No breaking changes detected"
+          echo "breaking_changes=false" >> $GITHUB_ENV
+        fi
+
+    - name: Check file changes
+      run: |
+        # Get list of changed files
+        git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > changed_files.txt
+        
+        # Check if migrations were added
+        if grep -q "backend/migrations/" changed_files.txt; then
+          echo "📊 Database migrations detected"
+          echo "has_migrations=true" >> $GITHUB_ENV
+        fi
+        
+        # Check if dependencies were changed
+        if grep -q -E "(Cargo\.toml|package\.json|package-lock\.json)" changed_files.txt; then
+          echo "📦 Dependency changes detected"
+          echo "deps_changed=true" >> $GITHUB_ENV
+        fi
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          // Check if we already commented
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && 
+            comment.body.includes('🤖 PR Validation Results')
+          );
+          
+          let body = '🤖 **PR Validation Results**\n\n';
+          
+          if (process.env.breaking_changes === 'true') {
+            body += '⚠️ **Breaking Changes Detected** - Please ensure proper versioning and migration strategy\n';
+          }
+          
+          if (process.env.has_migrations === 'true') {
+            body += '📊 **Database Migrations** - Please ensure migrations are backward compatible\n';
+          }
+          
+          if (process.env.deps_changed === 'true') {
+            body += '📦 **Dependencies Changed** - Please review security implications\n';
+          }
+          
+          body += '\n✅ All validation checks passed!';
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+          }
+
+  size-check:
+    name: Check PR Size
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check PR size
+      run: |
+        # Count lines changed
+        LINES_CHANGED=$(git diff --stat ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | tail -1 | grep -o '[0-9]\+ insertions\|[0-9]\+ deletions' | grep -o '[0-9]\+' | paste -sd+ | bc)
+        
+        echo "Lines changed: $LINES_CHANGED"
+        
+        if [ "$LINES_CHANGED" -gt 1000 ]; then
+          echo "⚠️ Large PR detected ($LINES_CHANGED lines changed)"
+          echo "Consider breaking this into smaller PRs for easier review"
+          echo "large_pr=true" >> $GITHUB_ENV
+        else
+          echo "✅ PR size is reasonable"
+          echo "large_pr=false" >> $GITHUB_ENV
+        fi
+
+    - name: Label large PRs
+      if: env.large_pr == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            labels: ['size/large']
+          });
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: moderate
+        allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC

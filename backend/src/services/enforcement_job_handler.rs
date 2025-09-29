@@ -140,14 +140,14 @@ impl EnforcementJobHandler {
 
             // Create batches for this action type
             let batches = self.rate_limiter.create_optimal_batches(
-                &connection.provider,
+                &connection.provider.to_string(),
                 &action_type,
                 actions,
             ).await?;
 
             // Execute batches with rate limiting
             let batch_results = self.rate_limiter.execute_batches(
-                &connection.provider,
+                &connection.provider.to_string(),
                 &action_type,
                 batches,
                 |batch| self.execute_action_batch(connection, batch),
@@ -271,7 +271,7 @@ impl EnforcementJobHandler {
         let mut groups: HashMap<String, Vec<crate::models::PlannedAction>> = HashMap::new();
         
         for action in actions {
-            groups.entry(action.action_type.clone())
+            groups.entry(action.action_type.as_str().to_string())
                 .or_default()
                 .push(action.clone());
         }
@@ -308,11 +308,18 @@ impl EnforcementJobHandler {
             id: *plan_id,
             user_id: Uuid::new_v4(),
             provider: "spotify".to_string(),
+            dnp_artists: vec![Uuid::new_v4()],
             actions: vec![
                 crate::models::PlannedAction {
+                    id: uuid::Uuid::new_v4(),
                     entity_type: crate::models::spotify::EntityType::Track,
                     entity_id: "track_123".to_string(),
+                    entity_name: "Test Track".to_string(),
                     action_type: crate::models::spotify::ActionType::RemoveLikedSong,
+                    reason: crate::models::spotify::BlockReason::DirectBlock,
+                    confidence: 1.0,
+                    estimated_duration_ms: 1000,
+                    dependencies: vec![],
                     metadata: serde_json::json!({
                         "track_name": "Test Track",
                         "artist_name": "Test Artist"
@@ -325,15 +332,42 @@ impl EnforcementJobHandler {
                 block_collaborations: true,
                 block_featuring: true,
                 block_songwriter_only: false,
+                preserve_user_playlists: true,
             },
-            impact_summary: crate::models::ImpactSummary {
-                total_tracks_affected: 1,
-                playlists_affected: 0,
-                artists_affected: 1,
-                estimated_duration_seconds: 30,
-                provider_capabilities: std::collections::HashMap::new(),
+            impact: crate::models::EnforcementImpact {
+                liked_songs: crate::models::LibraryImpact {
+                    total_tracks: 100,
+                    tracks_to_remove: 1,
+                    collaborations_found: 0,
+                    featuring_found: 0,
+                    exact_matches: 1,
+                },
+                playlists: crate::models::PlaylistImpact {
+                    total_playlists: 0,
+                    playlists_to_modify: 0,
+                    total_tracks: 0,
+                    tracks_to_remove: 0,
+                    user_playlists_affected: 0,
+                    collaborative_playlists_affected: 0,
+                    playlist_details: vec![],
+                },
+                followed_artists: crate::models::FollowingImpact {
+                    total_followed: 50,
+                    artists_to_unfollow: 1,
+                    exact_matches: 1,
+                },
+                saved_albums: crate::models::AlbumImpact {
+                    total_albums: 20,
+                    albums_to_remove: 0,
+                    exact_matches: 0,
+                    collaboration_albums: 0,
+                },
+                total_items_affected: 1,
+                estimated_time_saved_hours: 0.1,
             },
+            estimated_duration_seconds: 30,
             created_at: chrono::Utc::now(),
+            idempotency_key: "test_key".to_string(),
         })
     }
 }
@@ -430,13 +464,14 @@ impl TokenRefreshJobHandler {
 
         // Get user connection and refresh tokens
         if let Some(connection) = self.spotify_service.get_user_connection(user_id).await? {
-            match self.spotify_service.refresh_connection_tokens(&connection).await {
-                Ok(updated_connection) => {
+            let mut connection_mut = connection;
+            match self.spotify_service.refresh_token(&mut connection_mut).await {
+                Ok(()) => {
                     tracing::info!("Successfully refreshed tokens for user {}", user_id);
                     Ok(serde_json::json!({
                         "status": "success",
                         "user_id": user_id,
-                        "provider": updated_connection.provider,
+                        "provider": connection_mut.provider,
                         "refreshed_at": chrono::Utc::now()
                     }))
                 }

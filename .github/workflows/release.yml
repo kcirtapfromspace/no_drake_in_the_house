@@ -1,0 +1,196 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+
+    outputs:
+      release-tag: ${{ steps.get-tag.outputs.tag }}
+      release-version: ${{ steps.get-tag.outputs.version }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get tag information
+      id: get-tag
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG#v}
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Get the previous tag
+        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Generating changelog from $PREVIOUS_TAG to ${{ steps.get-tag.outputs.tag }}"
+          
+          # Generate changelog
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.get-tag.outputs.tag }} > CHANGELOG.md
+          
+          # Categorize commits
+          echo "## 🚀 Features" > RELEASE_NOTES.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.get-tag.outputs.tag }} | grep -E "^- feat" >> RELEASE_NOTES.md || echo "- No new features" >> RELEASE_NOTES.md
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "## 🐛 Bug Fixes" >> RELEASE_NOTES.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.get-tag.outputs.tag }} | grep -E "^- fix" >> RELEASE_NOTES.md || echo "- No bug fixes" >> RELEASE_NOTES.md
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "## 📚 Documentation" >> RELEASE_NOTES.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.get-tag.outputs.tag }} | grep -E "^- docs" >> RELEASE_NOTES.md || echo "- No documentation changes" >> RELEASE_NOTES.md
+          
+          echo "" >> RELEASE_NOTES.md
+          echo "## 🔧 Other Changes" >> RELEASE_NOTES.md
+          git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..${{ steps.get-tag.outputs.tag }} | grep -v -E "^- (feat|fix|docs)" >> RELEASE_NOTES.md || echo "- No other changes" >> RELEASE_NOTES.md
+        else
+          echo "## Initial Release" > RELEASE_NOTES.md
+          echo "This is the first release of No Drake in the House platform." >> RELEASE_NOTES.md
+        fi
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.get-tag.outputs.tag }}
+        name: Release ${{ steps.get-tag.outputs.tag }}
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: ${{ contains(steps.get-tag.outputs.tag, '-') }}
+        generate_release_notes: true
+
+  build-release-images:
+    name: Build Release Images
+    runs-on: ubuntu-latest
+    needs: [create-release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata for backend
+      id: meta-backend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push backend release image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./backend
+        file: ./backend/Dockerfile
+        push: true
+        tags: ${{ steps.meta-backend.outputs.tags }}
+        labels: ${{ steps.meta-backend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+    - name: Extract metadata for frontend
+      id: meta-frontend
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=latest
+
+    - name: Build and push frontend release image
+      uses: docker/build-push-action@v5
+      with:
+        context: ./frontend
+        file: ./frontend/Dockerfile
+        push: true
+        tags: ${{ steps.meta-frontend.outputs.tags }}
+        labels: ${{ steps.meta-frontend.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64,linux/arm64
+
+  update-helm-chart:
+    name: Update Helm Chart
+    runs-on: ubuntu-latest
+    needs: [create-release, build-release-images]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update Helm chart version
+      run: |
+        # Update Chart.yaml with new version
+        sed -i "s/^version:.*/version: ${{ needs.create-release.outputs.version }}/" helm/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: ${{ needs.create-release.outputs.version }}/" helm/Chart.yaml
+        
+        # Update default image tags in values.yaml
+        sed -i "s/tag: .*/tag: ${{ needs.create-release.outputs.version }}/" helm/values.yaml
+
+    - name: Package Helm chart
+      run: |
+        helm package helm/ --destination ./charts/
+        helm repo index ./charts/ --url https://github.com/${{ github.repository }}/releases/download/${{ needs.create-release.outputs.tag }}/
+
+    - name: Upload Helm chart to release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ needs.create-release.outputs.tag }}
+        files: |
+          charts/*.tgz
+          charts/index.yaml
+
+  notify-release:
+    name: Notify Release
+    runs-on: ubuntu-latest
+    needs: [create-release, build-release-images, update-helm-chart]
+    if: always()
+
+    steps:
+    - name: Notify success
+      if: ${{ needs.build-release-images.result == 'success' && needs.update-helm-chart.result == 'success' }}
+      run: |
+        echo "🎉 Release ${{ needs.create-release.outputs.tag }} completed successfully!"
+        echo "- Docker images built and pushed"
+        echo "- Helm chart updated and packaged"
+        echo "- GitHub release created"
+
+    - name: Notify failure
+      if: ${{ needs.build-release-images.result == 'failure' || needs.update-helm-chart.result == 'failure' }}
+      run: |
+        echo "❌ Release ${{ needs.create-release.outputs.tag }} failed!"
+        echo "Build images: ${{ needs.build-release-images.result }}"
+        echo "Update Helm: ${{ needs.update-helm-chart.result }}"
+        exit 1

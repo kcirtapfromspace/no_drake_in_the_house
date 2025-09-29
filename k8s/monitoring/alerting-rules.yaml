@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: kiro-production
+data:
+  kiro-alerts.yml: |
+    groups:
+    - name: kiro-api
+      rules:
+      - alert: KiroAPIDown
+        expr: up{job="kiro-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kiro API is down"
+          description: "Kiro API has been down for more than 1 minute"
+          
+      - alert: KiroAPIHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="kiro-api"}[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro API high latency"
+          description: "95th percentile latency is above 1 second for 5 minutes"
+          
+      - alert: KiroAPIHighErrorRate
+        expr: rate(http_requests_total{job="kiro-api",status=~"5.."}[5m]) / rate(http_requests_total{job="kiro-api"}[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kiro API high error rate"
+          description: "Error rate is above 5% for 2 minutes"
+          
+      - alert: KiroAPIMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"kiro-api-.*"} / container_spec_memory_limit_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro API high memory usage"
+          description: "Memory usage is above 90% for 5 minutes"
+          
+    - name: kiro-worker
+      rules:
+      - alert: KiroWorkerDown
+        expr: up{job="kiro-worker"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kiro Worker is down"
+          description: "Kiro Worker has been down for more than 2 minutes"
+          
+      - alert: KiroWorkerJobQueueBacklog
+        expr: kiro_job_queue_size > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro Worker job queue backlog"
+          description: "Job queue has more than 1000 pending jobs for 10 minutes"
+          
+      - alert: KiroWorkerJobFailureRate
+        expr: rate(kiro_job_failures_total[5m]) / rate(kiro_job_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro Worker high job failure rate"
+          description: "Job failure rate is above 10% for 5 minutes"
+          
+    - name: kiro-database
+      rules:
+      - alert: KiroDatabaseConnectionsHigh
+        expr: kiro_database_connections_active / kiro_database_connections_max > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro Database connections high"
+          description: "Database connection usage is above 80% for 5 minutes"
+          
+      - alert: KiroDatabaseSlowQueries
+        expr: rate(kiro_database_query_duration_seconds_sum[5m]) / rate(kiro_database_query_duration_seconds_count[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kiro Database slow queries"
+          description: "Average query duration is above 1 second for 5 minutes"
+          
+    - name: kiro-external-apis
+      rules:
+      - alert: SpotifyAPIRateLimit
+        expr: kiro_spotify_rate_limit_remaining < 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Spotify API rate limit low"
+          description: "Spotify API rate limit remaining is below 100"
+          
+      - alert: ExternalAPIFailureRate
+        expr: rate(kiro_external_api_errors_total[5m]) / rate(kiro_external_api_requests_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "External API high failure rate"
+          description: "External API failure rate is above 10% for 5 minutes"

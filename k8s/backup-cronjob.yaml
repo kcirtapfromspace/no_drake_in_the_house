@@ -1,0 +1,223 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kiro-database-backup-full
+  namespace: kiro-production
+  labels:
+    app: kiro-backup
+    backup-type: full
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400  # 24 hours
+      template:
+        metadata:
+          labels:
+            app: kiro-backup
+            backup-type: full
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            fsGroup: 999
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command: ["/bin/sh"]
+            args:
+            - -c
+            - |
+              set -e
+              echo "Starting full database backup..."
+              
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="kiro_production_full_${TIMESTAMP}.dump"
+              
+              # Create backup
+              pg_dump --verbose --format=custom --no-owner --no-privileges $DATABASE_URL > /backup/$BACKUP_FILE
+              
+              # Verify backup
+              pg_restore --list /backup/$BACKUP_FILE > /backup/${BACKUP_FILE}.list
+              echo "Backup verification completed"
+              
+              # Upload to S3 if available
+              if command -v aws &> /dev/null; then
+                echo "Uploading backup to S3..."
+                aws s3 cp /backup/$BACKUP_FILE s3://$S3_BUCKET/database/
+                aws s3 cp /backup/${BACKUP_FILE}.list s3://$S3_BUCKET/database/
+                echo "Backup uploaded successfully"
+              else
+                echo "AWS CLI not available, backup stored locally only"
+              fi
+              
+              # Clean up local files older than 3 days
+              find /backup -name "*.dump" -mtime +3 -delete
+              find /backup -name "*.list" -mtime +3 -delete
+              
+              echo "Full backup completed: $BACKUP_FILE"
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: DATABASE_URL
+            - name: S3_BUCKET
+              value: "kiro-backups-prod"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+            - name: AWS_DEFAULT_REGION
+              value: "us-west-2"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kiro-database-backup-incremental
+  namespace: kiro-production
+  labels:
+    app: kiro-backup
+    backup-type: incremental
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 21600  # 6 hours
+      template:
+        metadata:
+          labels:
+            app: kiro-backup
+            backup-type: incremental
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            fsGroup: 999
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            command: ["/bin/sh"]
+            args:
+            - -c
+            - |
+              set -e
+              echo "Starting incremental backup (WAL archive)..."
+              
+              TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+              BACKUP_FILE="kiro_production_incremental_${TIMESTAMP}.tar.gz"
+              
+              # Create incremental backup
+              pg_basebackup --verbose --format=tar --gzip --progress --wal-method=stream -D /backup/base_${TIMESTAMP}
+              
+              # Archive the backup
+              cd /backup
+              tar -czf $BACKUP_FILE base_${TIMESTAMP}/
+              rm -rf base_${TIMESTAMP}/
+              
+              # Upload to S3 if available
+              if command -v aws &> /dev/null; then
+                echo "Uploading incremental backup to S3..."
+                aws s3 cp /backup/$BACKUP_FILE s3://$S3_BUCKET/database/incremental/
+                echo "Incremental backup uploaded successfully"
+              fi
+              
+              # Clean up local incremental files older than 1 day
+              find /backup -name "*incremental*.tar.gz" -mtime +1 -delete
+              
+              echo "Incremental backup completed: $BACKUP_FILE"
+            env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: DATABASE_URL
+            - name: S3_BUCKET
+              value: "kiro-backups-prod"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: AWS_ACCESS_KEY_ID
+                  optional: true
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kiro-secrets
+                  key: AWS_SECRET_ACCESS_KEY
+                  optional: true
+            - name: AWS_DEFAULT_REGION
+              value: "us-west-2"
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backup
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "1Gi"
+                cpu: "500m"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage
+  namespace: kiro-production
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd

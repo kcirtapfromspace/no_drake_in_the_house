@@ -1,0 +1,136 @@
+# Pre-commit hooks for No Drake in the House
+# Install with: pip install pre-commit && pre-commit install
+
+repos:
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ['--unsafe']  # Allow custom YAML tags in Kubernetes manifests
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+
+  # Rust formatting and linting
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Cargo Format
+        entry: cargo fmt
+        language: system
+        files: '\.rs$'
+        pass_filenames: false
+        args: ['--all', '--', '--check']
+
+      - id: cargo-clippy
+        name: Cargo Clippy
+        entry: cargo clippy
+        language: system
+        files: '\.rs$'
+        pass_filenames: false
+        args: ['--all-targets', '--all-features', '--', '-D', 'warnings']
+
+      - id: cargo-check
+        name: Cargo Check
+        entry: cargo check
+        language: system
+        files: '\.rs$'
+        pass_filenames: false
+        args: ['--all-targets', '--all-features']
+
+  # Frontend formatting and linting
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        files: '\.(js|ts|svelte|json|css|md|yaml|yml)$'
+        exclude: '(package-lock\.json|\.lock|target/|node_modules/|\.git/)'
+        args: ['--write']
+
+  # TypeScript checking
+  - repo: local
+    hooks:
+      - id: typescript-check
+        name: TypeScript Check
+        entry: bash -c 'cd frontend && npm run check'
+        language: system
+        files: '\.(ts|svelte)$'
+        pass_filenames: false
+
+  # Security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: '(package-lock\.json|Cargo\.lock|\.env\.example)'
+
+  # Dockerfile linting
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: ['--ignore', 'DL3008', '--ignore', 'DL3009']
+
+  # Shell script linting
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.9.0.6
+    hooks:
+      - id: shellcheck
+        args: ['-e', 'SC1091']  # Ignore sourcing files that may not exist
+
+  # Kubernetes manifest validation
+  - repo: local
+    hooks:
+      - id: kubeval
+        name: Kubernetes Manifest Validation
+        entry: bash -c 'if command -v kubeval >/dev/null 2>&1; then find k8s helm/templates -name "*.yaml" -exec kubeval {} \; || true; fi'
+        language: system
+        files: '(k8s/.*\.yaml|helm/templates/.*\.yaml)$'
+        pass_filenames: false
+
+  # SQL formatting (if sqlfluff is available)
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 2.3.5
+    hooks:
+      - id: sqlfluff-lint
+        files: '\.sql$'
+        args: ['--dialect', 'postgres']
+      - id: sqlfluff-fix
+        files: '\.sql$'
+        args: ['--dialect', 'postgres']
+
+# Configuration for specific tools
+default_language_version:
+  python: python3.11
+  node: '18.19.0'
+
+# Global excludes
+exclude: |
+  (?x)^(
+    .*\.lock$|
+    .*\.log$|
+    target/.*|
+    node_modules/.*|
+    \.git/.*|
+    \.vscode/.*|
+    \.idea/.*|
+    backend/target/.*|
+    frontend/node_modules/.*|
+    frontend/build/.*|
+    frontend/public/build/.*
+  )$
+
+# Fail fast - stop on first failure
+fail_fast: false
+
+# Minimum pre-commit version
+minimum_pre_commit_version: '3.0.0'

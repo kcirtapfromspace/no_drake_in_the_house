@@ -160,10 +160,25 @@ pub struct EnforcementOptions {
     pub block_songwriter_only: bool,
     pub preserve_user_playlists: bool, // Don't modify user-created playlists
     pub dry_run: bool,
+    pub providers: Vec<String>, // List of providers to enforce on
+}
+
+impl Default for EnforcementOptions {
+    fn default() -> Self {
+        Self {
+            aggressiveness: AggressivenessLevel::Moderate,
+            block_collaborations: true,
+            block_featuring: true,
+            block_songwriter_only: false,
+            preserve_user_playlists: true,
+            dry_run: false,
+            providers: vec!["spotify".to_string()],
+        }
+    }
 }
 
 /// Aggressiveness level for enforcement
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AggressivenessLevel {
     Conservative, // Only exact matches
     Moderate,     // Include high-confidence featured/collab
@@ -261,6 +276,7 @@ pub struct AffectedTrack {
 /// Reason why a track is blocked
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BlockReason {
+    DirectBlock,     // Direct block from user's DNP list
     ExactMatch,      // Artist is directly in DNP list
     Collaboration,   // Artist collaborates with DNP artist
     Featuring,       // Artist features DNP artist
@@ -289,7 +305,21 @@ pub enum ActionType {
     RemovePlaylistTrack,
     UnfollowArtist,
     RemoveSavedAlbum,
+    RemoveFromLibrary, // Remove from user's library
     SkipTrack, // For browser extension
+}
+
+impl ActionType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ActionType::RemoveLikedSong => "remove_liked_song",
+            ActionType::RemovePlaylistTrack => "remove_playlist_track",
+            ActionType::UnfollowArtist => "unfollow_artist",
+            ActionType::RemoveSavedAlbum => "remove_saved_album",
+            ActionType::RemoveFromLibrary => "remove_from_library",
+            ActionType::SkipTrack => "skip_track",
+        }
+    }
 }
 
 /// Type of entity being acted upon
@@ -301,35 +331,52 @@ pub enum EntityType {
     Playlist,
 }
 
-impl Default for EnforcementOptions {
-    fn default() -> Self {
+impl PlannedAction {
+    pub fn new(
+        action_type: ActionType,
+        entity_type: EntityType,
+        entity_id: String,
+        entity_name: String,
+        reason: BlockReason,
+        confidence: f64,
+    ) -> Self {
         Self {
-            aggressiveness: AggressivenessLevel::Moderate,
-            block_collaborations: true,
-            block_featuring: true,
-            block_songwriter_only: false,
-            preserve_user_playlists: false,
-            dry_run: true,
+            id: Uuid::new_v4(),
+            action_type,
+            entity_type,
+            entity_id,
+            entity_name,
+            reason,
+            confidence,
+            estimated_duration_ms: 1000, // Default 1 second
+            dependencies: Vec::new(),
+            metadata: serde_json::Value::Null,
         }
     }
 }
 
+// Default implementation is already defined above
+
 impl EnforcementPlan {
     pub fn new(
+        id: Uuid,
         user_id: Uuid,
-        provider: String,
         options: EnforcementOptions,
-        dnp_artists: Vec<Uuid>,
+        actions: Vec<PlannedAction>,
     ) -> Self {
+        let estimated_duration_seconds = actions.iter()
+            .map(|a| a.estimated_duration_ms / 1000)
+            .sum();
+            
         Self {
-            id: Uuid::new_v4(),
+            id,
             user_id,
-            provider,
+            provider: "spotify".to_string(), // Default provider
             options,
-            dnp_artists,
+            dnp_artists: Vec::new(), // Will be populated separately
             impact: EnforcementImpact::default(),
-            actions: Vec::new(),
-            estimated_duration_seconds: 0,
+            actions,
+            estimated_duration_seconds,
             created_at: Utc::now(),
             idempotency_key: format!("{}_{}", user_id, Utc::now().timestamp_millis()),
         }
@@ -345,6 +392,22 @@ impl EnforcementPlan {
             .iter()
             .filter(|action| std::mem::discriminant(&action.action_type) == std::mem::discriminant(&action_type))
             .collect()
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.actions.is_empty() {
+            return Err("Enforcement plan must have at least one action".to_string());
+        }
+        
+        if self.dnp_artists.is_empty() {
+            return Err("Enforcement plan must have at least one DNP artist".to_string());
+        }
+        
+        Ok(())
+    }
+
+    pub fn calculate_impact_summary(&self) -> EnforcementImpact {
+        self.impact.clone()
     }
 }
 
@@ -417,6 +480,7 @@ impl std::fmt::Display for ActionType {
             ActionType::UnfollowArtist => write!(f, "unfollow_artist"),
             ActionType::RemoveSavedAlbum => write!(f, "remove_saved_album"),
             ActionType::SkipTrack => write!(f, "skip_track"),
+            ActionType::RemoveFromLibrary => write!(f, "remove_from_library"),
         }
     }
 }

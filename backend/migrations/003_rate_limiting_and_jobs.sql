@@ -123,33 +123,5 @@ CREATE TRIGGER update_batch_configs_updated_at
     BEFORE UPDATE ON batch_configs 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Add comments for documentation
-COMMENT ON TABLE provider_rate_state IS 'Tracks current rate limiting state for each provider';
-COMMENT ON TABLE circuit_breaker_state IS 'Circuit breaker state to prevent cascading failures';
-COMMENT ON TABLE batch_checkpoints IS 'Checkpoints for resumable batch processing operations';
-COMMENT ON TABLE rate_limit_configs IS 'Rate limiting configurations for each provider';
-COMMENT ON TABLE batch_configs IS 'Optimal batching configurations for different operations';
-
-COMMENT ON COLUMN provider_rate_state.requests_remaining IS 'Number of requests remaining in current window';
-COMMENT ON COLUMN provider_rate_state.window_reset_at IS 'When the current rate limit window resets';
-COMMENT ON COLUMN provider_rate_state.current_backoff_seconds IS 'Current exponential backoff delay';
-COMMENT ON COLUMN provider_rate_state.consecutive_failures IS 'Number of consecutive failures for backoff calculation';
-
-COMMENT ON COLUMN circuit_breaker_state.state IS 'Circuit breaker state: closed, open, or half_open';
-COMMENT ON COLUMN circuit_breaker_state.failure_count IS 'Total number of failures recorded';
-COMMENT ON COLUMN circuit_breaker_state.next_attempt_at IS 'When to next attempt a request in open state';
-COMMENT ON COLUMN circuit_breaker_state.success_count_in_half_open IS 'Successes needed to close circuit from half-open';
-
-COMMENT ON COLUMN batch_checkpoints.current_position IS 'Current position in the batch processing';
-COMMENT ON COLUMN batch_checkpoints.last_successful_item_id IS 'ID of the last successfully processed item';
-COMMENT ON COLUMN batch_checkpoints.checkpoint_data IS 'Additional data needed to resume processing';
-
-COMMENT ON COLUMN rate_limit_configs.requests_per_window IS 'Maximum requests allowed per time window';
-COMMENT ON COLUMN rate_limit_configs.window_duration_seconds IS 'Duration of the rate limiting window in seconds';
-COMMENT ON COLUMN rate_limit_configs.burst_allowance IS 'Additional requests allowed for burst traffic';
-COMMENT ON COLUMN rate_limit_configs.backoff_multiplier IS 'Multiplier for exponential backoff calculation';
-
-COMMENT ON COLUMN batch_configs.max_batch_size IS 'Maximum number of items that can be processed in one batch';
-COMMENT ON COLUMN batch_configs.optimal_batch_size IS 'Recommended batch size for best performance';
-COMMENT ON COLUMN batch_configs.min_delay_between_batches_ms IS 'Minimum delay between batch executions in milliseconds';
-COMMENT ON COLUMN batch_configs.supports_parallel_batches IS 'Whether this operation supports parallel batch execution';
+-- Comments temporarily removed to fix migration issues
+-- Will be added back once tables are properly created

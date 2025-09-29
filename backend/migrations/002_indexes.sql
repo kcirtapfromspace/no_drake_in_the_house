@@ -1,7 +1,10 @@
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 -- Indexes for fast lookups
-CREATE INDEX idx_artists_external_ids_spotify ON artists USING GIN ((external_ids->>'spotify'));
-CREATE INDEX idx_artists_external_ids_apple ON artists USING GIN ((external_ids->>'apple'));
-CREATE INDEX idx_artists_external_ids_musicbrainz ON artists USING GIN ((external_ids->>'musicbrainz'));
+CREATE INDEX idx_artists_external_ids_spotify ON artists ((external_ids->>'spotify'));
+CREATE INDEX idx_artists_external_ids_apple ON artists ((external_ids->>'apple'));
+CREATE INDEX idx_artists_external_ids_musicbrainz ON artists ((external_ids->>'musicbrainz'));
 CREATE INDEX idx_artists_canonical ON artists(canonical_artist_id) WHERE canonical_artist_id IS NOT NULL;
 CREATE INDEX idx_artists_name_search ON artists USING GIN (canonical_name gin_trgm_ops);
 

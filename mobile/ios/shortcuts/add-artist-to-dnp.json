@@ -1,0 +1,79 @@
+{
+  "shortcut": {
+    "name": "Add Artist to DNP List",
+    "description": "Quickly add an artist to your Do Not Play list",
+    "icon": {
+      "glyph": "minus.circle",
+      "color": "red"
+    },
+    "actions": [
+      {
+        "type": "ask_for_input",
+        "parameters": {
+          "prompt": "Enter artist name to add to DNP list:",
+          "input_type": "text",
+          "allow_multiple_lines": false
+        },
+        "variable": "artist_name"
+      },
+      {
+        "type": "get_text_from_input",
+        "parameters": {
+          "text": "{{artist_name}}"
+        },
+        "variable": "search_query"
+      },
+      {
+        "type": "get_contents_of_url",
+        "parameters": {
+          "url": "https://api.nodrakeinthe.house/v1/artists/search",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer {{api_token}}",
+            "Content-Type": "application/json"
+          },
+          "request_body": {
+            "query": "{{search_query}}",
+            "limit": 5
+          }
+        },
+        "variable": "search_results"
+      },
+      {
+        "type": "choose_from_list",
+        "parameters": {
+          "list": "{{search_results.artists}}",
+          "prompt": "Select the artist to add to your DNP list:",
+          "select_multiple": false
+        },
+        "variable": "selected_artist"
+      },
+      {
+        "type": "get_contents_of_url",
+        "parameters": {
+          "url": "https://api.nodrakeinthe.house/v1/dnp/artists",
+          "method": "POST",
+          "headers": {
+            "Authorization": "Bearer {{api_token}}",
+            "Content-Type": "application/json"
+          },
+          "request_body": {
+            "artist_id": "{{selected_artist.id}}",
+            "tags": ["mobile-added"],
+            "note": "Added via iOS Shortcut"
+          }
+        },
+        "variable": "add_result"
+      },
+      {
+        "type": "show_notification",
+        "parameters": {
+          "title": "Artist Added to DNP List",
+          "body": "{{selected_artist.name}} has been added to your Do Not Play list"
+        }
+      }
+    ],
+    "input_types": ["text"],
+    "siri_phrase": "Add artist to DNP list"
+  }
+}

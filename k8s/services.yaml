@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiro-api-service
+  namespace: kiro-production
+  labels:
+    app: kiro-api
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: kiro-api
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiro-worker-service
+  namespace: kiro-production
+  labels:
+    app: kiro-worker
+spec:
+  type: ClusterIP
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  selector:
+    app: kiro-worker
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiro-api-headless
+  namespace: kiro-production
+  labels:
+    app: kiro-api
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: kiro-api

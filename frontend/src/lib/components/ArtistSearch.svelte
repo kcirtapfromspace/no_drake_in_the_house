@@ -5,13 +5,13 @@
   const dispatch = createEventDispatcher();
   
   let searchQuery = '';
-  let selectedArtist = null;
+  let selectedArtist: any = null;
   let tags = '';
   let note = '';
   let isAdding = false;
   let error = '';
   
-  let searchTimeout;
+  let searchTimeout: any;
   
   $: {
     if (searchTimeout) clearTimeout(searchTimeout);
@@ -24,7 +24,7 @@
     }, 300);
   }
 
-  function selectArtist(artist) {
+  function selectArtist(artist: any) {
     selectedArtist = artist;
     searchQuery = artist.canonical_name;
     dnpActions.clearSearch();
@@ -67,7 +67,7 @@
     isAdding = false;
   }
 
-  function getProviderBadges(artist) {
+  function getProviderBadges(artist: any) {
     const badges = [];
     if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-100 text-green-800' });
     if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-gray-100 text-gray-800' });

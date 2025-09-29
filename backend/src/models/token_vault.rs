@@ -11,7 +11,7 @@ pub struct Connection {
     pub provider: StreamingProvider,
     pub provider_user_id: String,
     pub scopes: Vec<String>,
-    pub access_token_encrypted: String,
+    pub access_token_encrypted: Option<String>,
     pub refresh_token_encrypted: Option<String>,
     pub token_version: i32,
     pub expires_at: Option<DateTime<Utc>>,
@@ -25,9 +25,22 @@ pub struct Connection {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum StreamingProvider {
     Spotify,
+    Apple,
     AppleMusic,
     YouTubeMusic,
     Tidal,
+}
+
+impl std::fmt::Display for StreamingProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StreamingProvider::Spotify => write!(f, "spotify"),
+            StreamingProvider::Apple => write!(f, "apple"),
+            StreamingProvider::AppleMusic => write!(f, "apple_music"),
+            StreamingProvider::YouTubeMusic => write!(f, "youtube_music"),
+            StreamingProvider::Tidal => write!(f, "tidal"),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -107,9 +120,6 @@ impl Connection {
         provider: StreamingProvider,
         provider_user_id: String,
         scopes: Vec<String>,
-        access_token_encrypted: String,
-        refresh_token_encrypted: Option<String>,
-        expires_at: Option<DateTime<Utc>>,
     ) -> Self {
         let now = Utc::now();
         Self {
@@ -118,10 +128,10 @@ impl Connection {
             provider,
             provider_user_id,
             scopes,
-            access_token_encrypted,
-            refresh_token_encrypted,
+            access_token_encrypted: None,
+            refresh_token_encrypted: None,
             token_version: 1,
-            expires_at,
+            expires_at: None,
             status: ConnectionStatus::Active,
             last_health_check: None,
             error_code: None,
@@ -136,7 +146,7 @@ impl Connection {
         refresh_token_encrypted: Option<String>,
         expires_at: Option<DateTime<Utc>>,
     ) {
-        self.access_token_encrypted = access_token_encrypted;
+        self.access_token_encrypted = Some(access_token_encrypted);
         self.refresh_token_encrypted = refresh_token_encrypted;
         self.expires_at = expires_at;
         self.token_version += 1;
@@ -179,6 +189,7 @@ impl StreamingProvider {
     pub fn as_str(&self) -> &'static str {
         match self {
             StreamingProvider::Spotify => "spotify",
+            StreamingProvider::Apple => "apple",
             StreamingProvider::AppleMusic => "apple_music",
             StreamingProvider::YouTubeMusic => "youtube_music",
             StreamingProvider::Tidal => "tidal",
@@ -188,7 +199,8 @@ impl StreamingProvider {
     pub fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "spotify" => Some(StreamingProvider::Spotify),
-            "apple_music" | "apple" => Some(StreamingProvider::AppleMusic),
+            "apple" => Some(StreamingProvider::Apple),
+            "apple_music" => Some(StreamingProvider::AppleMusic),
             "youtube_music" | "youtube" => Some(StreamingProvider::YouTubeMusic),
             "tidal" => Some(StreamingProvider::Tidal),
             _ => None,

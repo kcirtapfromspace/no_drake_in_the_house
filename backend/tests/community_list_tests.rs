@@ -28,7 +28,7 @@ async fn test_create_community_list(pool: PgPool) {
         criteria: "Artists who have been involved in specific controversies".to_string(),
         governance_url: Some("https://example.com/governance".to_string()),
         update_cadence: "monthly".to_string(),
-        visibility: Some("public".to_string()),
+        visibility: CommunityListVisibility::Public,
     };
 
     let result = community_service.create_community_list(user_id, request).await;
@@ -67,7 +67,7 @@ async fn test_create_community_list_with_invalid_criteria(pool: PgPool) {
         criteria: "Artists who are accused of bad behavior".to_string(), // Contains prohibited language
         governance_url: None,
         update_cadence: "as-needed".to_string(),
-        visibility: None,
+        visibility: CommunityListVisibility::Private,
     };
 
     let result = community_service.create_community_list(user_id, request).await;

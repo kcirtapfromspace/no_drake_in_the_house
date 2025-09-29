@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Task Complete Auto-Commit",
+  "description": "Automatically commits code changes with a useful message when a task is marked as complete",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "backend/TASK_*_IMPLEMENTATION_SUMMARY.md",
+      "backend/TESTING_IMPLEMENTATION_SUMMARY.md",
+      "backend/INTEGRATION_TESTS_SUMMARY.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A task implementation summary file has been updated or created. Please review the changes and commit the code with a meaningful commit message that describes what task was completed and what was implemented. Include both the summary file and any related code changes in the commit."
+  }
+}

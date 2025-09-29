@@ -5,7 +5,7 @@
   $: isSubscribed = list ? $subscribedListIds.has(list.id) : false;
   
   let showSubscriptionOptions = false;
-  let versionPinned = null;
+  let versionPinned: number | null = null;
   let autoUpdate = true;
 
   function goBack() {

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE audit_log \n            SET user_id = NULL, \n                ip_address = NULL, \n                user_agent = 'ANONYMIZED'\n            WHERE user_id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "614f231a9f318e7b6eb3a0fccfaef95d9365cfd9ef3320004817f996795928d2"
+}

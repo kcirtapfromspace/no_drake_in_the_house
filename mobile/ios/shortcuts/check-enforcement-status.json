@@ -1,0 +1,44 @@
+{
+  "shortcut": {
+    "name": "Check Enforcement Status",
+    "description": "Get current enforcement status across connected services",
+    "icon": {
+      "glyph": "checkmark.shield",
+      "color": "blue"
+    },
+    "actions": [
+      {
+        "type": "get_contents_of_url",
+        "parameters": {
+          "url": "https://api.nodrakeinthe.house/v1/enforcement/status",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer {{api_token}}"
+          }
+        },
+        "variable": "status_result"
+      },
+      {
+        "type": "get_text_from_input",
+        "parameters": {
+          "text": "Enforcement Status:\n\nDNP List: {{status_result.dnp_count}} artists\nConnected Services: {{status_result.connected_services}}\nLast Enforcement: {{status_result.last_enforcement}}\n\nService Status:\n{{status_result.service_details}}"
+        },
+        "variable": "status_text"
+      },
+      {
+        "type": "show_result",
+        "parameters": {
+          "text": "{{status_text}}"
+        }
+      },
+      {
+        "type": "speak_text",
+        "parameters": {
+          "text": "You have {{status_result.dnp_count}} artists in your DNP list with {{status_result.connected_services}} connected services. Last enforcement was {{status_result.last_enforcement}}."
+        }
+      }
+    ],
+    "input_types": [],
+    "siri_phrase": "Check my enforcement status"
+  }
+}

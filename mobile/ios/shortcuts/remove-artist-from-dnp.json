@@ -1,0 +1,71 @@
+{
+  "shortcut": {
+    "name": "Remove Artist from DNP List",
+    "description": "Remove an artist from your Do Not Play list",
+    "icon": {
+      "glyph": "plus.circle",
+      "color": "green"
+    },
+    "actions": [
+      {
+        "type": "ask_for_input",
+        "parameters": {
+          "prompt": "Enter artist name to remove from DNP list:",
+          "input_type": "text",
+          "allow_multiple_lines": false
+        },
+        "variable": "artist_name"
+      },
+      {
+        "type": "get_contents_of_url",
+        "parameters": {
+          "url": "https://api.nodrakeinthe.house/v1/dnp/artists",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer {{api_token}}"
+          }
+        },
+        "variable": "dnp_list"
+      },
+      {
+        "type": "filter_list",
+        "parameters": {
+          "list": "{{dnp_list.artists}}",
+          "filter": "contains",
+          "value": "{{artist_name}}",
+          "property": "name"
+        },
+        "variable": "matching_artists"
+      },
+      {
+        "type": "choose_from_list",
+        "parameters": {
+          "list": "{{matching_artists}}",
+          "prompt": "Select the artist to remove from your DNP list:",
+          "select_multiple": false
+        },
+        "variable": "selected_artist"
+      },
+      {
+        "type": "get_contents_of_url",
+        "parameters": {
+          "url": "https://api.nodrakeinthe.house/v1/dnp/artists/{{selected_artist.id}}",
+          "method": "DELETE",
+          "headers": {
+            "Authorization": "Bearer {{api_token}}"
+          }
+        },
+        "variable": "remove_result"
+      },
+      {
+        "type": "show_notification",
+        "parameters": {
+          "title": "Artist Removed from DNP List",
+          "body": "{{selected_artist.name}} has been removed from your Do Not Play list"
+        }
+      }
+    ],
+    "input_types": ["text"],
+    "siri_phrase": "Remove artist from DNP list"
+  }
+}

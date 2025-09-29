@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use crate::models::ProviderBadge;
 
 /// Community list with governance information
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -158,13 +159,7 @@ pub struct CommunityListArtistEntry {
     pub added_at: DateTime<Utc>,
 }
 
-/// Provider badge for artist identification
-#[derive(Debug, Serialize)]
-pub struct ProviderBadge {
-    pub provider: String,
-    pub verified: bool,
-    pub follower_count: Option<u64>,
-}
+// ProviderBadge moved to models/mod.rs to avoid duplication
 
 /// Subscription impact preview
 #[derive(Debug, Serialize)]
@@ -234,6 +229,15 @@ pub struct CommunityListQuery {
     pub sort_order: Option<String>, // "asc", "desc"
     pub page: Option<usize>,
     pub per_page: Option<usize>,
+}
+
+/// Community list visibility
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CommunityListVisibility {
+    Public,
+    Private,
+    Unlisted,
 }
 
 /// Community list moderation status

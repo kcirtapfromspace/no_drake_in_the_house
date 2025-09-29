@@ -1,11 +1,14 @@
-const svelte = require('rollup-plugin-svelte');
-const commonjs = require('@rollup/plugin-commonjs');
-const resolve = require('@rollup/plugin-node-resolve');
-const livereload = require('rollup-plugin-livereload');
-const terser = require('@rollup/plugin-terser');
-const sveltePreprocess = require('svelte-preprocess');
-const typescript = require('@rollup/plugin-typescript');
-const css = require('rollup-plugin-css-only');
+import svelte from 'rollup-plugin-svelte';
+import commonjs from '@rollup/plugin-commonjs';
+import resolve from '@rollup/plugin-node-resolve';
+import livereload from 'rollup-plugin-livereload';
+import terser from '@rollup/plugin-terser';
+import sveltePreprocess from 'svelte-preprocess';
+import typescript from '@rollup/plugin-typescript';
+import css from 'rollup-plugin-css-only';
+import { spawn } from 'child_process';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
 
 const production = !process.env.ROLLUP_WATCH;
 
@@ -19,7 +22,7 @@ function serve() {
 	return {
 		writeBundle() {
 			if (server) return;
-			server = require('child_process').spawn('npm', ['run', 'start', '--', '--dev'], {
+			server = spawn('npm', ['run', 'start', '--', '--dev'], {
 				stdio: ['ignore', 'inherit', 'inherit'],
 				shell: true
 			});
@@ -30,7 +33,7 @@ function serve() {
 	};
 }
 
-module.exports = {
+export default {
 	input: 'src/main.ts',
 	output: {
 		sourcemap: true,
@@ -43,7 +46,7 @@ module.exports = {
 			preprocess: sveltePreprocess({
 				sourceMap: !production,
 				postcss: {
-					plugins: [require('tailwindcss'), require('autoprefixer')],
+					plugins: [tailwindcss, autoprefixer],
 				},
 			}),
 			compilerOptions: {

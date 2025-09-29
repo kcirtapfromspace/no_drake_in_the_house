@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { communityActions, subscribedListIds } from '../stores/community';
+  import { communityActions, subscribedListIds, type CommunityList } from '../stores/community';
   
-  export let list;
+  export let list: CommunityList;
   
   $: isSubscribed = $subscribedListIds.has(list.id);
 

@@ -1,40 +1,47 @@
 use crate::models::*;
-use crate::services::EntityResolutionService;
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use serde_json::json;
 use sqlx::PgPool;
-use std::collections::HashMap;
-use std::sync::Arc;
+
 use uuid::Uuid;
 
 pub struct DnpListService {
     db_pool: PgPool,
-    entity_service: Arc<EntityResolutionService>,
 }
 
 impl DnpListService {
-    pub fn new(db_pool: PgPool, entity_service: Arc<EntityResolutionService>) -> Self {
+    pub fn new(db_pool: PgPool) -> Self {
         Self {
             db_pool,
-            entity_service,
         }
     }
 
-    /// Add an artist to user's DNP list
+    /// Add an artist to user's DNP list by artist ID
     pub async fn add_artist_to_dnp_list(
         &self,
         user_id: Uuid,
-        request: AddArtistToDnpRequest,
+        artist_id: Uuid,
+        tags: Option<Vec<String>>,
+        note: Option<String>,
     ) -> Result<DnpListEntry> {
-        // First, resolve the artist
-        let artist = self.resolve_artist_from_query(&request.artist_query, request.provider.as_deref()).await?;
+        // Check if artist exists
+        let artist_exists = sqlx::query!(
+            "SELECT id FROM artists WHERE id = $1",
+            artist_id
+        )
+        .fetch_optional(&self.db_pool)
+        .await?;
+
+        if artist_exists.is_none() {
+            return Err(anyhow!("Artist not found"));
+        }
 
         // Check if artist is already in DNP list
         let existing = sqlx::query!(
-            "SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+            "SELECT user_id FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
             user_id,
-            artist.id
+            artist_id
         )
         .fetch_optional(&self.db_pool)
         .await?;
@@ -44,19 +51,19 @@ impl DnpListService {
         }
 
         // Add to DNP list
-        let tags = request.tags.unwrap_or_default();
+        let tags = tags.unwrap_or_default();
         sqlx::query!(
             "INSERT INTO user_artist_blocks (user_id, artist_id, tags, note) VALUES ($1, $2, $3, $4)",
             user_id,
-            artist.id,
+            artist_id,
             &tags,
-            request.note
+            note
         )
         .execute(&self.db_pool)
         .await?;
 
         // Return the created entry
-        self.get_dnp_entry(user_id, artist.id).await
+        self.get_dnp_entry(user_id, artist_id).await
     }
 
     /// Remove an artist from user's DNP list
@@ -85,7 +92,7 @@ impl DnpListService {
     ) -> Result<DnpListEntry> {
         // Check if entry exists
         let existing = sqlx::query!(
-            "SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+            "SELECT user_id FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
             user_id,
             artist_id
         )
@@ -156,7 +163,8 @@ impl DnpListService {
             let provider_badges = self.create_provider_badges(&external_ids, &metadata);
 
             // Collect tags
-            for tag in &row.tags {
+            let tags = row.tags.unwrap_or_default();
+            for tag in &tags {
                 all_tags.insert(tag.clone());
             }
 
@@ -165,9 +173,9 @@ impl DnpListService {
                 artist_name: row.canonical_name,
                 image_url,
                 provider_badges,
-                tags: row.tags,
+                tags,
                 note: row.note,
-                added_at: row.created_at,
+                added_at: row.created_at.unwrap_or_else(|| Utc::now()),
             });
         }
 
@@ -178,44 +186,64 @@ impl DnpListService {
         })
     }
 
-    /// Search for artists with provider badges
+    /// Search for artists with fuzzy matching
     pub async fn search_artists(&self, query: &str, limit: Option<usize>) -> Result<ArtistSearchResponse> {
-        let search_query = ArtistSearchQuery::new(query.to_string())
-            .with_limit(limit.unwrap_or(10));
-
-        let results = self.entity_service.resolve_artist(&search_query).await?;
+        let limit = limit.unwrap_or(10) as i64;
         
-        let mut artists = Vec::new();
-        for result in results {
-            let artist = result.artist;
-            let metadata_json = json!({
-                "image_url": artist.metadata.image_url,
-                "popularity": artist.metadata.popularity,
-                "follower_count": artist.metadata.follower_count,
-                "verified": artist.metadata.verified
-            });
-            let external_ids_json = json!({
-                "spotify": artist.external_ids.spotify,
-                "apple": artist.external_ids.apple,
-                "youtube": artist.external_ids.youtube,
-                "tidal": artist.external_ids.tidal,
-                "musicbrainz": artist.external_ids.musicbrainz,
-                "isni": artist.external_ids.isni
-            });
+        // Use fuzzy matching with ILIKE and similarity scoring
+        let artists = sqlx::query!(
+            r#"
+            SELECT 
+                id,
+                canonical_name,
+                external_ids,
+                metadata
+            FROM artists 
+            WHERE 
+                canonical_name ILIKE $1 
+                OR canonical_name ILIKE $2
+                OR aliases::text ILIKE $1
+            ORDER BY 
+                CASE 
+                    WHEN canonical_name ILIKE $2 THEN 1
+                    WHEN canonical_name ILIKE $1 THEN 2
+                    ELSE 3
+                END,
+                canonical_name
+            LIMIT $3
+            "#,
+            format!("%{}%", query),
+            format!("{}%", query),
+            limit
+        )
+        .fetch_all(&self.db_pool)
+        .await?;
 
-            artists.push(ArtistSearchResult {
-                id: artist.id,
-                canonical_name: artist.canonical_name,
-                image_url: artist.metadata.image_url,
-                provider_badges: self.create_provider_badges(&external_ids_json, &metadata_json),
-                popularity: artist.metadata.popularity,
-                genres: artist.metadata.genres,
+        let mut search_results = Vec::new();
+        for row in artists {
+            let metadata: serde_json::Value = row.metadata.unwrap_or_else(|| json!({}));
+            let external_ids: serde_json::Value = row.external_ids.unwrap_or_else(|| json!({}));
+
+            let image_url = metadata.get("image_url").and_then(|v| v.as_str()).map(String::from);
+            let popularity = metadata.get("popularity").and_then(|v| v.as_u64()).map(|v| v as u32);
+            let genres = metadata.get("genres")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .unwrap_or_default();
+
+            search_results.push(ArtistSearchResult {
+                id: row.id,
+                canonical_name: row.canonical_name,
+                image_url,
+                provider_badges: self.create_provider_badges(&external_ids, &metadata),
+                popularity,
+                genres,
             });
         }
 
         Ok(ArtistSearchResponse {
-            total: artists.len(),
-            artists,
+            total: search_results.len(),
+            artists: search_results,
         })
     }
 
@@ -283,9 +311,9 @@ impl DnpListService {
             DnpExportEntry {
                 artist_name: row.canonical_name,
                 external_ids,
-                tags: row.tags,
+                tags: row.tags.unwrap_or_default(),
                 note: row.note,
-                added_at: row.created_at,
+                added_at: row.created_at.unwrap_or_else(|| Utc::now()),
             }
         }).collect();
 
@@ -303,42 +331,39 @@ impl DnpListService {
 
     // Private helper methods
 
-    async fn resolve_artist_from_query(&self, query: &str, provider: Option<&str>) -> Result<Artist> {
-        // Check if query looks like a provider URL
-        if query.starts_with("http") {
-            return self.resolve_artist_from_url(query).await;
+    /// Create or find an artist by name
+    pub async fn create_or_find_artist(&self, name: &str, external_ids: Option<serde_json::Value>) -> Result<Uuid> {
+        // First try to find existing artist by name
+        if let Some(existing) = sqlx::query!(
+            "SELECT id FROM artists WHERE canonical_name ILIKE $1 LIMIT 1",
+            name
+        )
+        .fetch_optional(&self.db_pool)
+        .await? {
+            return Ok(existing.id);
         }
 
-        // Search by name
-        let search_query = ArtistSearchQuery::new(query.to_string())
-            .with_limit(1);
-        
-        let results = self.entity_service.resolve_artist(&search_query).await?;
-        
-        if results.is_empty() {
-            return Err(anyhow!("Artist not found: {}", query));
-        }
+        // Create new artist if not found
+        let artist_id = Uuid::new_v4();
+        let external_ids = external_ids.unwrap_or_else(|| json!({}));
+        let metadata = json!({});
+        let aliases = json!({});
 
-        Ok(results[0].artist.clone())
-    }
+        sqlx::query!(
+            r#"
+            INSERT INTO artists (id, canonical_name, external_ids, metadata, aliases)
+            VALUES ($1, $2, $3, $4, $5)
+            "#,
+            artist_id,
+            name,
+            external_ids,
+            metadata,
+            aliases
+        )
+        .execute(&self.db_pool)
+        .await?;
 
-    async fn resolve_artist_from_url(&self, url: &str) -> Result<Artist> {
-        // Extract provider and ID from URL
-        // This is a simplified implementation - in practice you'd have more robust URL parsing
-        if url.contains("spotify.com") {
-            if let Some(id) = url.split('/').last() {
-                let search_query = ArtistSearchQuery::new("".to_string())
-                    .with_provider("spotify".to_string())
-                    .with_external_id(id.to_string());
-                
-                let results = self.entity_service.resolve_artist(&search_query).await?;
-                if !results.is_empty() {
-                    return Ok(results[0].artist.clone());
-                }
-            }
-        }
-        
-        Err(anyhow!("Could not resolve artist from URL: {}", url))
+        Ok(artist_id)
     }
 
     async fn get_dnp_entry(&self, user_id: Uuid, artist_id: Uuid) -> Result<DnpListEntry> {
@@ -372,9 +397,9 @@ impl DnpListService {
             artist_name: row.canonical_name,
             image_url,
             provider_badges,
-            tags: row.tags,
+            tags: row.tags.unwrap_or_default(),
             note: row.note,
-            added_at: row.created_at,
+            added_at: row.created_at.unwrap_or_else(|| Utc::now()),
         })
     }
 
@@ -439,13 +464,14 @@ impl DnpListService {
     }
 
     async fn import_single_entry(&self, user_id: Uuid, entry: &ImportEntry, overwrite: bool) -> Result<()> {
-        let artist = self.resolve_artist_from_query(&entry.artist_name, None).await?;
+        // Create or find artist
+        let artist_id = self.create_or_find_artist(&entry.artist_name, None).await?;
 
         // Check if already exists
         let existing = sqlx::query!(
-            "SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+            "SELECT user_id FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
             user_id,
-            artist.id
+            artist_id
         )
         .fetch_optional(&self.db_pool)
         .await?;
@@ -459,7 +485,7 @@ impl DnpListService {
             sqlx::query!(
                 "UPDATE user_artist_blocks SET tags = $3, note = $4 WHERE user_id = $1 AND artist_id = $2",
                 user_id,
-                artist.id,
+                artist_id,
                 &entry.tags.clone().unwrap_or_default(),
                 entry.note
             )
@@ -470,7 +496,7 @@ impl DnpListService {
             sqlx::query!(
                 "INSERT INTO user_artist_blocks (user_id, artist_id, tags, note) VALUES ($1, $2, $3, $4)",
                 user_id,
-                artist.id,
+                artist_id,
                 &entry.tags.clone().unwrap_or_default(),
                 entry.note
             )
@@ -511,4 +537,111 @@ impl DnpListService {
         let data = writer.into_inner()?;
         Ok(String::from_utf8(data)?)
     }
+
+
+
+    pub async fn get_dnp_list(&self, user_id: Uuid) -> Result<Vec<crate::models::DnpEntryWithArtist>> {
+        use crate::models::DnpEntryWithArtist;
+        
+        let entries = sqlx::query!(
+            r#"
+            SELECT 
+                b.user_id,
+                b.artist_id,
+                b.tags,
+                b.note,
+                b.created_at,
+                a.canonical_name,
+                a.external_ids,
+                a.metadata
+            FROM user_artist_blocks b
+            JOIN artists a ON b.artist_id = a.id
+            WHERE b.user_id = $1
+            ORDER BY b.created_at DESC
+            "#,
+            user_id
+        )
+        .fetch_all(&self.db_pool)
+        .await?;
+
+        let mut result = Vec::new();
+        for row in entries {
+            result.push(DnpEntryWithArtist {
+                user_id: row.user_id,
+                artist_id: row.artist_id,
+                tags: row.tags,
+                note: row.note,
+                created_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                canonical_name: row.canonical_name,
+                external_ids: row.external_ids.unwrap_or_else(|| json!({})),
+                metadata: row.metadata.unwrap_or_else(|| json!({})),
+            });
+        }
+
+        Ok(result)
+    }
+
+    pub async fn add_to_dnp_list(
+        &self,
+        user_id: Uuid,
+        artist_id: Uuid,
+        tags: Option<Vec<String>>,
+        note: Option<String>,
+    ) -> Result<crate::models::DnpEntry> {
+        use crate::models::DnpEntry;
+        
+        // Check for duplicates
+        let existing = sqlx::query!(
+            "SELECT 1 as exists FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+            user_id,
+            artist_id
+        )
+        .fetch_optional(&self.db_pool)
+        .await?;
+
+        if existing.is_some() {
+            return Err(anyhow!("Artist already in DNP list"));
+        }
+
+        // Add to DNP list
+        let entry = sqlx::query!(
+            r#"
+            INSERT INTO user_artist_blocks (user_id, artist_id, tags, note)
+            VALUES ($1, $2, $3, $4)
+            RETURNING user_id, artist_id, tags, note, created_at
+            "#,
+            user_id,
+            artist_id,
+            tags.as_deref(),
+            note
+        )
+        .fetch_one(&self.db_pool)
+        .await?;
+
+        Ok(DnpEntry {
+            user_id: entry.user_id,
+            artist_id: entry.artist_id,
+            tags: entry.tags,
+            note: entry.note,
+            created_at: entry.created_at.unwrap_or_else(|| chrono::Utc::now()),
+        })
+    }
+
+    pub async fn remove_from_dnp_list(&self, user_id: Uuid, artist_id: Uuid) -> Result<()> {
+        let result = sqlx::query!(
+            "DELETE FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+            user_id,
+            artist_id
+        )
+        .execute(&self.db_pool)
+        .await?;
+
+        if result.rows_affected() == 0 {
+            return Err(anyhow!("Artist not found in DNP list"));
+        }
+
+        Ok(())
+    }
+
+
 }

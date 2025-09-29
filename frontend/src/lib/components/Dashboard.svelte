@@ -1,96 +1,31 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { authActions, currentUser } from '../stores/auth';
-  import { connectionActions, connectionsStore, connectedServices, hasActiveSpotifyConnection } from '../stores/connections';
-  import { dnpActions, dnpStore, dnpCount } from '../stores/dnp';
+  import { connectionActions, connectedServices, hasActiveSpotifyConnection } from '../stores/connections';
+  import { dnpActions, dnpCount } from '../stores/dnp';
+  import { router, currentRoute } from '../utils/router';
+  import Navigation from './Navigation.svelte';
   import ServiceConnections from './ServiceConnections.svelte';
   import DnpManager from './DnpManager.svelte';
   import EnforcementPlanning from './EnforcementPlanning.svelte';
   import CommunityLists from './CommunityLists.svelte';
-  
-  let activeTab = 'overview';
+  import UserProfile from './UserProfile.svelte';
   
   onMount(async () => {
     await connectionActions.fetchConnections();
     await dnpActions.fetchDnpList();
   });
 
-  function handleLogout() {
-    authActions.logout();
-  }
-
   function setActiveTab(tab: string) {
-    activeTab = tab;
+    router.navigate(tab);
   }
 </script>
 
 <div class="min-h-screen bg-gray-50">
-  <!-- Navigation -->
-  <nav class="bg-white shadow-sm border-b border-gray-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex justify-between h-16">
-        <div class="flex items-center">
-          <h1 class="text-xl font-semibold text-gray-900">
-            Music Streaming Blocklist Manager
-          </h1>
-        </div>
-        
-        <div class="flex items-center space-x-4">
-          <span class="text-sm text-gray-700">
-            {$currentUser?.email}
-          </span>
-          <button
-            on:click={handleLogout}
-            class="text-sm text-gray-500 hover:text-gray-700"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Tab Navigation -->
-  <div class="bg-white shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <nav class="flex space-x-8" aria-label="Tabs">
-        <button
-          on:click={() => setActiveTab('overview')}
-          class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'overview' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
-        >
-          Overview
-        </button>
-        <button
-          on:click={() => setActiveTab('connections')}
-          class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'connections' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
-        >
-          Connections
-        </button>
-        <button
-          on:click={() => setActiveTab('dnp')}
-          class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'dnp' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
-        >
-          DNP List ({$dnpCount})
-        </button>
-        <button
-          on:click={() => setActiveTab('enforcement')}
-          class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'enforcement' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
-        >
-          Enforcement
-        </button>
-        <button
-          on:click={() => setActiveTab('community')}
-          class="py-4 px-1 border-b-2 font-medium text-sm {activeTab === 'community' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}"
-        >
-          Community Lists
-        </button>
-      </nav>
-    </div>
-  </div>
+  <Navigation />
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-    {#if activeTab === 'overview'}
+    {#if $currentRoute === 'overview'}
       <!-- Overview Tab -->
       <div class="px-4 py-6 sm:px-0">
         <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -244,14 +179,16 @@
           </div>
         </div>
       </div>
-    {:else if activeTab === 'connections'}
+    {:else if $currentRoute === 'connections'}
       <ServiceConnections />
-    {:else if activeTab === 'dnp'}
+    {:else if $currentRoute === 'dnp'}
       <DnpManager />
-    {:else if activeTab === 'enforcement'}
+    {:else if $currentRoute === 'enforcement'}
       <EnforcementPlanning />
-    {:else if activeTab === 'community'}
+    {:else if $currentRoute === 'community'}
       <CommunityLists />
+    {:else if $currentRoute === 'profile'}
+      <UserProfile />
     {/if}
   </main>
 </div>

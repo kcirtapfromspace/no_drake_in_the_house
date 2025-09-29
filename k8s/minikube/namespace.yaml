@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: music-blocklist-dev
+  labels:
+    name: music-blocklist-dev
+    environment: development

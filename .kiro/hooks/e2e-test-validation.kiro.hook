@@ -1,0 +1,23 @@
+{
+  "enabled": true,
+  "name": "E2E Test & Validation Runner",
+  "description": "Automatically runs end-to-end tests and validations when test files or core application code changes, then analyzes failures and suggests fixes",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "backend/tests/end_to_end_workflow_tests.rs",
+      "backend/tests/integration_tests.rs",
+      "backend/tests/browser_extension_integration_tests.rs",
+      "backend/tests/spotify_integration_tests.rs",
+      "backend/src/**/*.rs",
+      "frontend/src/**/*.svelte",
+      "frontend/src/**/*.ts",
+      "extension/**/*.js"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run the end-to-end tests and integration tests for the application. If any tests fail, analyze the failures and provide specific fixes for the issues. Focus on:\n\n1. Running `cargo test end_to_end_workflow_tests` and `cargo test integration_tests` in the backend\n2. Checking browser extension integration tests\n3. Validating Spotify integration flows\n4. If tests fail, examine the error messages and suggest code fixes\n5. Check for common issues like:\n   - Database connection problems\n   - OAuth flow issues\n   - API endpoint failures\n   - Frontend-backend integration problems\n   - Extension content script issues\n\nProvide actionable solutions for any failing tests, including code changes, configuration updates, or environment setup fixes."
+  }
+}

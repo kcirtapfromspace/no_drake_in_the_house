@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { connectionActions, connectionsStore, spotifyConnection } from '../stores/connections';
+  import { connectionActions, spotifyConnection } from '../stores/connections';
   
   let isConnecting = false;
   let error = '';

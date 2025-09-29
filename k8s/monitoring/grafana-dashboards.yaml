@@ -1,0 +1,357 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: kiro-production
+data:
+  kiro-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kiro Production Overview",
+        "tags": ["kiro", "production"],
+        "timezone": "UTC",
+        "panels": [
+          {
+            "id": 1,
+            "title": "API Request Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{job=\"kiro-api\"}[5m]))",
+                "legendFormat": "Requests/sec"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "reqps"
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "API Error Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{job=\"kiro-api\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"kiro-api\"}[5m])) * 100",
+                "legendFormat": "Error %"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 1},
+                    {"color": "red", "value": 5}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Response Time (95th percentile)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"kiro-api\"}[5m])) by (le))",
+                "legendFormat": "95th percentile"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "s",
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 0.5},
+                    {"color": "red", "value": 1}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Active Connections",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(kiro_database_connections_active)",
+                "legendFormat": "DB Connections"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "short"
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0}
+          },
+          {
+            "id": 5,
+            "title": "Request Rate by Endpoint",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{job=\"kiro-api\"}[5m])) by (handler)",
+                "legendFormat": "{{handler}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Requests/sec", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 6,
+            "title": "Job Queue Size",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "kiro_job_queue_size",
+                "legendFormat": "Pending Jobs"
+              }
+            ],
+            "yAxes": [
+              {"label": "Jobs", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          },
+          {
+            "id": 7,
+            "title": "Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(container_memory_usage_bytes{pod=~\"kiro-.*\"}) by (pod)",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Bytes", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+          },
+          {
+            "id": 8,
+            "title": "CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "legendFormat": "{{pod}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "CPU cores", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  kiro-enforcement.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kiro Enforcement Metrics",
+        "tags": ["kiro", "enforcement"],
+        "timezone": "UTC",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Enforcement Jobs Success Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(kiro_enforcement_jobs_completed_total[5m])) / sum(rate(kiro_enforcement_jobs_total[5m])) * 100",
+                "legendFormat": "Success Rate %"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "unit": "percent",
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": null},
+                    {"color": "yellow", "value": 90},
+                    {"color": "green", "value": 95}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Spotify API Rate Limit",
+            "type": "gauge",
+            "targets": [
+              {
+                "expr": "kiro_spotify_rate_limit_remaining",
+                "legendFormat": "Remaining"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "min": 0,
+                "max": 1000,
+                "thresholds": {
+                  "steps": [
+                    {"color": "red", "value": 0},
+                    {"color": "yellow", "value": 100},
+                    {"color": "green", "value": 500}
+                  ]
+                }
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "External API Response Times",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(kiro_external_api_duration_seconds_bucket[5m])) by (provider, le))",
+                "legendFormat": "{{provider}} 95th"
+              }
+            ],
+            "yAxes": [
+              {"label": "Seconds", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 4,
+            "title": "Enforcement Actions by Type",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(kiro_enforcement_actions_total[5m])) by (action_type)",
+                "legendFormat": "{{action_type}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Actions/sec", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 5,
+            "title": "Token Vault Operations",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(kiro_token_vault_operations_total[5m])) by (operation)",
+                "legendFormat": "{{operation}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Operations/sec", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }
+
+  kiro-infrastructure.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Kiro Infrastructure",
+        "tags": ["kiro", "infrastructure"],
+        "timezone": "UTC",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Pod Status",
+            "type": "table",
+            "targets": [
+              {
+                "expr": "kube_pod_info{namespace=\"kiro-production\"}",
+                "format": "table"
+              }
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Node Resource Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "100 - (avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+                "legendFormat": "CPU % {{instance}}"
+              },
+              {
+                "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+                "legendFormat": "Memory % {{instance}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Percent", "min": 0, "max": 100}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Persistent Volume Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "100 - ((kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) * 100)",
+                "legendFormat": "{{persistentvolumeclaim}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Percent", "min": 0, "max": 100}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+          },
+          {
+            "id": 4,
+            "title": "Network I/O",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(container_network_receive_bytes_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "legendFormat": "RX {{pod}}"
+              },
+              {
+                "expr": "sum(rate(container_network_transmit_bytes_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "legendFormat": "TX {{pod}}"
+              }
+            ],
+            "yAxes": [
+              {"label": "Bytes/sec", "min": 0}
+            ],
+            "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+          }
+        ],
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "refresh": "30s"
+      }
+    }

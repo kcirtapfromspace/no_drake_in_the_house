@@ -475,8 +475,9 @@ impl SpotifyService {
             tracing::info!("Successfully removed {} liked songs", track_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to remove liked songs: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to remove liked songs: {} - {}", status, error_text))
         }
     }
 
@@ -512,8 +513,9 @@ impl SpotifyService {
             tracing::info!("Successfully removed {} tracks from playlist {}", tracks.len(), playlist_id);
             Ok(snapshot_id)
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to remove playlist tracks: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to remove playlist tracks: {} - {}", status, error_text))
         }
     }
 
@@ -539,8 +541,9 @@ impl SpotifyService {
             tracing::info!("Successfully unfollowed {} artists", artist_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to unfollow artists: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to unfollow artists: {} - {}", status, error_text))
         }
     }
 
@@ -564,8 +567,9 @@ impl SpotifyService {
             tracing::info!("Successfully removed {} saved albums", album_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to remove saved albums: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to remove saved albums: {} - {}", status, error_text))
         }
     }
 
@@ -588,8 +592,9 @@ impl SpotifyService {
             tracing::info!("Successfully added {} liked songs", track_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to add liked songs: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to add liked songs: {} - {}", status, error_text))
         }
     }
 
@@ -614,8 +619,9 @@ impl SpotifyService {
             tracing::info!("Successfully followed {} artists", artist_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to follow artists: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to follow artists: {} - {}", status, error_text))
         }
     }
 
@@ -638,8 +644,9 @@ impl SpotifyService {
             tracing::info!("Successfully added {} saved albums", album_ids.len());
             Ok(())
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to add saved albums: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to add saved albums: {} - {}", status, error_text))
         }
     }
 
@@ -679,8 +686,9 @@ impl SpotifyService {
             tracing::info!("Successfully added {} tracks to playlist {}", track_uris.len(), playlist_id);
             Ok(snapshot_id)
         } else {
+            let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            Err(anyhow!("Failed to add playlist tracks: {} - {}", response.status(), error_text))
+            Err(anyhow!("Failed to add playlist tracks: {} - {}", status, error_text))
         }
     }
 }

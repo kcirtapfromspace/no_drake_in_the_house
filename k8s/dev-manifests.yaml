@@ -270,6 +270,10 @@ spec:
           value: "true"
         - name: ENVIRONMENT
           value: development
+        - name: CORS_ALLOWED_ORIGINS
+          value: http://localhost:5000,http://localhost:5173,http://localhost:3000
+        - name: AUTO_LOGIN_ENABLED
+          value: "true"
         ports:
         - containerPort: 3000
           name: http
@@ -355,7 +359,11 @@ spec:
         - name: NODE_ENV
           value: development
         - name: VITE_API_URL
-          value: http://backend:3000
+          value: http://localhost:3000
+        - name: VITE_API_VERSION
+          value: v1
+        - name: VITE_ENVIRONMENT
+          value: development
         ports:
         - containerPort: 5000
           name: http

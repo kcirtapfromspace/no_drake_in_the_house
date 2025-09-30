@@ -4,6 +4,7 @@ use axum::{
     http::StatusCode,
 };
 use std::sync::Arc;
+use serde_json;
 use crate::{
     AppState, AuthService, Result, AppError,
     models::{RegisterRequest, LoginRequest, AuthResponse, RefreshTokenRequest, TotpSetupRequest, TotpVerifyRequest},
@@ -13,7 +14,7 @@ use crate::{
 pub async fn register_handler(
     State(state): State<AppState>,
     Json(request): Json<RegisterRequest>,
-) -> Result<(StatusCode, Json<AuthResponse>)> {
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
     tracing::info!(
         email = %request.email, 
         terms_accepted = %request.terms_accepted,
@@ -73,14 +74,18 @@ pub async fn register_handler(
         );
     }
     
-    Ok((StatusCode::CREATED, Json(response)))
+    Ok((StatusCode::CREATED, Json(serde_json::json!({
+        "success": true,
+        "data": response,
+        "message": "Registration successful"
+    }))))
 }
 
 /// Login user
 pub async fn login_handler(
     State(state): State<AppState>,
     Json(request): Json<LoginRequest>,
-) -> Result<Json<AuthResponse>> {
+) -> Result<Json<serde_json::Value>> {
     tracing::info!(email = %request.email, "User login attempt");
     
     let response = state.auth_service.login(request).await
@@ -91,14 +96,18 @@ pub async fn login_handler(
     
     tracing::info!(user_id = %response.user.id, "User logged in successfully");
     
-    Ok(Json(response))
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": response,
+        "message": "Login successful"
+    })))
 }
 
 /// Refresh access token
 pub async fn refresh_token_handler(
     State(state): State<AppState>,
     Json(request): Json<RefreshTokenRequest>,
-) -> Result<Json<AuthResponse>> {
+) -> Result<Json<serde_json::Value>> {
     tracing::info!("Token refresh attempt");
     
     // Get token pair from service
@@ -144,7 +153,11 @@ pub async fn refresh_token_handler(
     
     tracing::info!(user_id = %user_id, "Token refreshed successfully");
     
-    Ok(Json(response))
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": response,
+        "message": "Token refreshed successfully"
+    })))
 }
 
 /// Setup 2FA for user

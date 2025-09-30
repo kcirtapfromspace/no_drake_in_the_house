@@ -4,72 +4,163 @@ use axum::{
     http::StatusCode,
 };
 use std::sync::Arc;
+use std::time::Instant;
 use serde_json;
 use crate::{
     AppState, AuthService, Result, AppError,
     models::{RegisterRequest, LoginRequest, AuthResponse, RefreshTokenRequest, TotpSetupRequest, TotpVerifyRequest},
+    services::registration_monitoring::RegistrationMonitoringService,
 };
 
-/// Register a new user
+/// Register a new user with monitoring
 pub async fn register_handler(
     State(state): State<AppState>,
     Json(request): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = Instant::now();
+    
+    // Create monitoring service for this request
+    let monitoring_service = RegistrationMonitoringService::new()
+        .map_err(|e| AppError::Internal { 
+            message: Some(format!("Failed to create monitoring service: {}", e)) 
+        })?;
+    
+    // Record registration attempt
+    monitoring_service.record_registration_attempt();
+    
+    // Log structured registration event
+    monitoring_service.log_registration_event(
+        "registration_attempt",
+        None,
+        &request.email,
+        None,
+        None,
+        Some(serde_json::json!({
+            "terms_accepted": request.terms_accepted,
+            "user_agent": "unknown", // Would extract from headers in real implementation
+        })),
+    );
+    
     tracing::info!(
         email = %request.email, 
         terms_accepted = %request.terms_accepted,
         "User registration attempt"
     );
     
-    let response = state.auth_service.register(request).await
+    let response = state.auth_service.register(request.clone()).await
         .map_err(|e| {
+            let duration = start_time.elapsed();
+            
+            // Record failure in monitoring
+            let error_type = match &e {
+                AppError::RegistrationValidationError { .. } => "validation_error",
+                AppError::EmailAlreadyRegistered => "email_duplicate",
+                AppError::PasswordMismatch => "password_mismatch",
+                AppError::TermsNotAccepted => "terms_not_accepted",
+                AppError::WeakPassword { .. } => "weak_password",
+                AppError::RateLimitExceeded { .. } => "rate_limit_exceeded",
+                _ => "unknown_error",
+            };
+            
+            monitoring_service.record_registration_failure(error_type);
+            
+            // Log structured failure event
+            monitoring_service.log_registration_event(
+                "registration_failure",
+                None,
+                &request.email,
+                Some(duration.as_millis() as f64),
+                Some(&e.to_string()),
+                Some(serde_json::json!({
+                    "error_type": error_type,
+                })),
+            );
+            
             // Enhanced error logging with structured information
             match &e {
                 AppError::RegistrationValidationError { errors } => {
+                    monitoring_service.record_validation_failure(duration);
                     tracing::warn!(
                         validation_errors = ?errors,
+                        duration_ms = duration.as_millis(),
                         "Registration failed due to validation errors"
                     );
                 }
                 AppError::EmailAlreadyRegistered => {
-                    tracing::warn!("Registration failed: email already registered");
+                    monitoring_service.record_email_duplicate();
+                    tracing::warn!(
+                        duration_ms = duration.as_millis(),
+                        "Registration failed: email already registered"
+                    );
                 }
                 AppError::PasswordMismatch => {
-                    tracing::warn!("Registration failed: password confirmation mismatch");
+                    tracing::warn!(
+                        duration_ms = duration.as_millis(),
+                        "Registration failed: password confirmation mismatch"
+                    );
                 }
                 AppError::TermsNotAccepted => {
-                    tracing::warn!("Registration failed: terms not accepted");
+                    tracing::warn!(
+                        duration_ms = duration.as_millis(),
+                        "Registration failed: terms not accepted"
+                    );
                 }
                 AppError::WeakPassword { requirements } => {
                     tracing::warn!(
                         password_requirements = ?requirements,
+                        duration_ms = duration.as_millis(),
                         "Registration failed: weak password"
                     );
                 }
                 AppError::RateLimitExceeded { retry_after } => {
                     tracing::warn!(
                         retry_after = ?retry_after,
+                        duration_ms = duration.as_millis(),
                         "Registration failed: rate limit exceeded"
                     );
                 }
                 _ => {
-                    tracing::error!(error = %e, "Registration failed with unexpected error");
+                    tracing::error!(
+                        error = %e,
+                        duration_ms = duration.as_millis(),
+                        "Registration failed with unexpected error"
+                    );
                 }
             }
             e
         })?;
+    
+    let duration = start_time.elapsed();
+    
+    // Record successful registration
+    monitoring_service.record_registration_success(duration);
+    
+    // Log structured success event
+    monitoring_service.log_registration_event(
+        "registration_success",
+        Some(response.user.id),
+        &response.user.email,
+        Some(duration.as_millis() as f64),
+        None,
+        Some(serde_json::json!({
+            "auto_login": !response.access_token.is_empty(),
+            "email_verified": response.user.email_verified,
+        })),
+    );
     
     // Check if auto-login was successful (tokens are not empty)
     if response.access_token.is_empty() || response.refresh_token.is_empty() {
         tracing::info!(
             user_id = %response.user.id, 
             email = %response.user.email,
+            duration_ms = duration.as_millis(),
             "User registered successfully, auto-login disabled"
         );
     } else {
         tracing::info!(
             user_id = %response.user.id, 
             email = %response.user.email,
+            duration_ms = duration.as_millis(),
             "User registered successfully with auto-login"
         );
     }
@@ -266,4 +357,26 @@ pub async fn disable_2fa_handler(
             message: "Invalid TOTP code".to_string() 
         })
     }
+}
+
+/// Logout user
+pub async fn logout_handler(
+    State(state): State<AppState>,
+    user: crate::models::AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(user_id = %user.id, "User logout attempt");
+    
+    // For now, we'll just log the logout since we don't have refresh token in the request
+    // In a full implementation, we would:
+    // 1. Get the refresh token from the request
+    // 2. Invalidate the refresh token in the database
+    // 3. Optionally revoke all sessions for the user
+    
+    // Log the logout event
+    tracing::info!(user_id = %user.id, "User logged out successfully");
+    
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Logged out successfully"
+    })))
 }

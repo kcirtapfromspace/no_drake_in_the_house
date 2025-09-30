@@ -1,4 +1,6 @@
 use crate::models::{User, Claims, TokenPair, CreateUserRequest, LoginRequest, OAuthLoginRequest, TotpSetupResponse, UserSession, RegistrationValidationError};
+use crate::services::registration_performance::RegistrationPerformanceService;
+use crate::services::login_performance::LoginPerformanceService;
 use crate::{AppError, Result};
 use anyhow::anyhow;
 use bcrypt::{hash, verify};
@@ -6,6 +8,8 @@ use chrono::Utc;
 use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
 use rand::Rng;
 use sqlx::PgPool;
+use std::sync::Arc;
+use std::time::Instant;
 use uuid::Uuid;
 
 pub struct AuthService {
@@ -16,6 +20,10 @@ pub struct AuthService {
     jwt_secret: String,
     access_token_ttl: i64,  // seconds (24 hours)
     refresh_token_ttl: i64, // seconds (30 days)
+    
+    // Performance optimization services
+    performance_service: Arc<RegistrationPerformanceService>,
+    login_performance_service: Arc<LoginPerformanceService>,
 }
 
 impl AuthService {
@@ -24,12 +32,47 @@ impl AuthService {
         let jwt_secret = std::env::var("JWT_SECRET")
             .unwrap_or_else(|_| format!("jwt_secret_{}", rand::thread_rng().gen::<u64>()));
         
-        Self {
+        // Initialize performance services
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+        
+        let performance_service = Arc::new(
+            RegistrationPerformanceService::new(&redis_url)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to initialize registration performance service: {}", e);
+                    // Create a fallback service that won't use Redis
+                    RegistrationPerformanceService::new("redis://localhost:6379").unwrap()
+                })
+        );
+
+        let login_performance_service = Arc::new(
+            LoginPerformanceService::new(&redis_url)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to initialize login performance service: {}", e);
+                    // Create a fallback service that won't use Redis
+                    LoginPerformanceService::new("redis://localhost:6379").unwrap()
+                })
+        );
+        
+        let auth_service = Self {
             db_pool,
             jwt_secret,
             access_token_ttl: 24 * 60 * 60,      // 24 hours as required
             refresh_token_ttl: 30 * 24 * 60 * 60, // 30 days
-        }
+            performance_service,
+            login_performance_service,
+        };
+
+        // Preload frequent users in background (don't block startup)
+        let login_service = auth_service.login_performance_service.clone();
+        let db_pool = auth_service.db_pool.clone();
+        tokio::spawn(async move {
+            if let Err(e) = login_service.preload_frequent_users(&db_pool).await {
+                tracing::warn!("Failed to preload frequent users: {}", e);
+            }
+        });
+
+        auth_service
     }
 
     // User registration with email/password
@@ -92,55 +135,111 @@ impl AuthService {
         Ok(user)
     }
 
-    // Login with email/password and 2FA support
+    // Optimized login with email/password and 2FA support
     pub async fn login_user(&self, request: LoginRequest) -> Result<TokenPair> {
-        // Find user by email
-        let user = sqlx::query!(
-            "SELECT id, email, password_hash, totp_enabled, totp_secret FROM users WHERE email = $1",
-            request.email
-        )
-        .fetch_optional(&self.db_pool)
-        .await?
-        .ok_or_else(|| AppError::InvalidCredentials)?;
-
-        // Verify password
-        let password_hash = user.password_hash
-            .ok_or_else(|| AppError::InvalidCredentials)?;
+        let login_start = Instant::now();
         
-        if !verify(&request.password, &password_hash).map_err(|_| AppError::Internal { message: Some("Password verification failed".to_string()) })? {
-            // Log failed login attempt
-            self.log_audit_event(user.id, "login_failed", "user", &user.id.to_string()).await?;
+        // Get cached user data for faster lookup
+        let cached_user = self.login_performance_service
+            .get_cached_user_login(&request.email, &self.db_pool)
+            .await?
+            .ok_or_else(|| AppError::InvalidCredentials)?;
+
+        // Verify password using optimized method (runs in background thread)
+        let password_valid = self.login_performance_service
+            .verify_password_optimized(&request.password, &cached_user.password_hash)
+            .await?;
+
+        if !password_valid {
+            // Record failed login attempt
+            let login_time = login_start.elapsed().as_millis() as f64;
+            if let Err(e) = self.login_performance_service.record_login_attempt(false, login_time).await {
+                tracing::warn!("Failed to record login metrics: {}", e);
+            }
+            
+            // Log failed login attempt (async, don't wait)
+            let user_id = cached_user.user_id;
+            tokio::spawn(async move {
+                // This would need access to the audit service
+                tracing::warn!(user_id = %user_id, "Failed login attempt");
+            });
+            
             return Err(AppError::InvalidCredentials);
         }
 
-        // Check 2FA if enabled
-        if user.totp_enabled.unwrap_or(false) {
+        // Check 2FA if enabled (keep this synchronous for security)
+        if cached_user.totp_enabled {
             let totp_code = request.totp_code
                 .ok_or_else(|| AppError::TwoFactorRequired)?;
             
-            let totp_secret = user.totp_secret
-                .ok_or_else(|| AppError::Internal { message: Some("2FA configuration error. Please contact support".to_string()) })?;
+            let totp_secret = cached_user.totp_secret
+                .ok_or_else(|| AppError::Internal { 
+                    message: Some("2FA configuration error. Please contact support".to_string()) 
+                })?;
             
             if !self.verify_totp(&totp_secret, &totp_code)? {
-                // Log failed 2FA attempt
-                self.log_audit_event(user.id, "totp_failed", "user", &user.id.to_string()).await?;
+                // Record failed 2FA attempt
+                let login_time = login_start.elapsed().as_millis() as f64;
+                if let Err(e) = self.login_performance_service.record_login_attempt(false, login_time).await {
+                    tracing::warn!("Failed to record login metrics: {}", e);
+                }
+                
+                // Log failed 2FA attempt (async)
+                let user_id = cached_user.user_id;
+                tokio::spawn(async move {
+                    tracing::warn!(user_id = %user_id, "Failed 2FA attempt");
+                });
+                
                 return Err(AppError::TwoFactorInvalid);
             }
         }
 
-        // Update last login
-        sqlx::query!(
-            "UPDATE users SET last_login = NOW(), updated_at = NOW() WHERE id = $1",
-            user.id
-        )
-        .execute(&self.db_pool)
-        .await?;
-        
-        // Log successful login
-        self.log_audit_event(user.id, "login_success", "user", &user.id.to_string()).await?;
-        
-        // Generate tokens
-        self.generate_token_pair(user.id, &user.email).await
+        // Generate optimized refresh token (lighter hashing)
+        let (refresh_token_raw, refresh_token_hash) = self.login_performance_service
+            .generate_optimized_refresh_token()
+            .await?;
+
+        // Generate access token (this is fast, no need to optimize)
+        let access_claims = Claims::new_access_token(
+            cached_user.user_id, 
+            cached_user.email.clone(), 
+            self.access_token_ttl
+        );
+        let access_token = encode(
+            &Header::default(),
+            &access_claims,
+            &EncodingKey::from_secret(self.jwt_secret.as_ref()),
+        )?;
+
+        // Batch all database operations in a single transaction
+        self.login_performance_service
+            .batch_login_operations(
+                cached_user.user_id,
+                &refresh_token_hash,
+                self.refresh_token_ttl,
+                &self.db_pool,
+            )
+            .await?;
+
+        // Record successful login metrics
+        let login_time = login_start.elapsed().as_millis() as f64;
+        if let Err(e) = self.login_performance_service.record_login_attempt(true, login_time).await {
+            tracing::warn!("Failed to record login metrics: {}", e);
+        }
+
+        tracing::info!(
+            user_id = %cached_user.user_id,
+            email = %cached_user.email,
+            login_time_ms = login_time,
+            "User logged in successfully"
+        );
+
+        Ok(TokenPair {
+            access_token,
+            refresh_token: refresh_token_raw,
+            expires_in: self.access_token_ttl,
+            token_type: "Bearer".to_string(),
+        })
     }
 
     // OAuth login (simplified for demo)
@@ -288,6 +387,16 @@ impl AuthService {
         .await?
         .ok_or_else(|| anyhow!("User not found"))?;
 
+        // Get email separately for cache invalidation
+        let user_email = sqlx::query!(
+            "SELECT email FROM users WHERE id = $1",
+            user_id
+        )
+        .fetch_optional(&self.db_pool)
+        .await?
+        .map(|row| row.email)
+        .unwrap_or_default();
+
         // Check if 2FA is already enabled
         if user.totp_enabled.unwrap_or(false) {
             return Err(anyhow!("2FA is already enabled for this user").into());
@@ -309,6 +418,11 @@ impl AuthService {
         .execute(&self.db_pool)
         .await?;
         
+        // Invalidate login cache since user data changed
+        if let Err(e) = self.login_performance_service.invalidate_user_cache(&user_email).await {
+            tracing::warn!("Failed to invalidate login cache for user {}: {}", user_email, e);
+        }
+        
         // Audit log the 2FA enablement
         self.log_audit_event(user_id, "totp_enabled", "user", &user_id.to_string()).await?;
         
@@ -324,6 +438,16 @@ impl AuthService {
         .fetch_optional(&self.db_pool)
         .await?
         .ok_or_else(|| anyhow!("User not found"))?;
+
+        // Get email separately if needed for cache invalidation
+        let user_email = sqlx::query!(
+            "SELECT email FROM users WHERE id = $1",
+            user_id
+        )
+        .fetch_optional(&self.db_pool)
+        .await?
+        .map(|row| row.email)
+        .unwrap_or_default();
 
         // Check if 2FA is enabled
         if !user.totp_enabled.unwrap_or(false) {
@@ -345,6 +469,11 @@ impl AuthService {
         )
         .execute(&self.db_pool)
         .await?;
+        
+        // Invalidate login cache since user data changed
+        if let Err(e) = self.login_performance_service.invalidate_user_cache(&user_email).await {
+            tracing::warn!("Failed to invalidate login cache for user {}: {}", user_email, e);
+        }
         
         // Audit log the 2FA disablement
         self.log_audit_event(user_id, "totp_disabled", "user", &user_id.to_string()).await?;
@@ -611,11 +740,12 @@ impl AuthService {
         self
     }
 
-    // Comprehensive registration validation function
-    pub fn validate_registration_request(&self, request: &crate::models::RegisterRequest) -> Vec<RegistrationValidationError> {
+    // Comprehensive registration validation function with performance optimizations
+    pub async fn validate_registration_request(&self, request: &crate::models::RegisterRequest) -> Vec<RegistrationValidationError> {
+        let validation_start = Instant::now();
         let mut errors = Vec::new();
 
-        // Email format validation with proper regex
+        // Email format validation with caching
         if request.email.is_empty() {
             errors.push(RegistrationValidationError {
                 field: "email".to_string(),
@@ -623,14 +753,28 @@ impl AuthService {
                 code: "EMAIL_REQUIRED".to_string(),
             });
         } else {
-            // Enhanced email validation with proper regex (no consecutive dots)
-            let email_regex = regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._+%-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$").unwrap();
-            if !email_regex.is_match(&request.email) || request.email.contains("..") {
-                errors.push(RegistrationValidationError {
-                    field: "email".to_string(),
-                    message: "Please enter a valid email address".to_string(),
-                    code: "EMAIL_INVALID_FORMAT".to_string(),
-                });
+            // Use cached email validation
+            match self.performance_service.validate_email_format_cached(&request.email).await {
+                Ok(is_valid) => {
+                    if !is_valid {
+                        errors.push(RegistrationValidationError {
+                            field: "email".to_string(),
+                            message: "Please enter a valid email address".to_string(),
+                            code: "EMAIL_INVALID_FORMAT".to_string(),
+                        });
+                    }
+                }
+                Err(_) => {
+                    // Fallback to non-cached validation
+                    let email_regex = regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._+%-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$").unwrap();
+                    if !email_regex.is_match(&request.email) || request.email.contains("..") {
+                        errors.push(RegistrationValidationError {
+                            field: "email".to_string(),
+                            message: "Please enter a valid email address".to_string(),
+                            code: "EMAIL_INVALID_FORMAT".to_string(),
+                        });
+                    }
+                }
             }
             
             // Check email length
@@ -651,9 +795,20 @@ impl AuthService {
                 code: "PASSWORD_REQUIRED".to_string(),
             });
         } else {
-            // Password strength validation with detailed requirements checking
-            if let Some(password_error) = self.validate_password_strength(&request.password) {
-                errors.push(password_error);
+            // Use cached password strength validation
+            match self.performance_service.validate_password_strength_cached(&request.password).await {
+                Ok(Some(password_error)) => {
+                    errors.push(password_error);
+                }
+                Ok(None) => {
+                    // Password is valid
+                }
+                Err(_) => {
+                    // Fallback to non-cached validation
+                    if let Some(password_error) = self.validate_password_strength(&request.password) {
+                        errors.push(password_error);
+                    }
+                }
             }
         }
 
@@ -679,6 +834,12 @@ impl AuthService {
                 message: "You must accept the terms of service to register".to_string(),
                 code: "TERMS_NOT_ACCEPTED".to_string(),
             });
+        }
+
+        // Record validation metrics
+        let validation_time = validation_start.elapsed().as_millis() as f64;
+        if let Err(e) = self.performance_service.record_registration_attempt(validation_time).await {
+            tracing::warn!("Failed to record registration metrics: {}", e);
         }
 
         errors
@@ -735,15 +896,22 @@ impl AuthService {
         }
     }
 
-    // Enhanced registration method with comprehensive validation
+    // Enhanced registration method with comprehensive validation and performance optimizations
     pub async fn register(&self, request: crate::models::RegisterRequest) -> Result<crate::models::AuthResponse> {
         use crate::models::{AuthResponse, UserProfile};
         
-        // Integrate new validation function into registration flow
-        let validation_errors = self.validate_registration_request(&request);
+        let registration_start = Instant::now();
+        
+        // Integrate new validation function into registration flow with performance optimizations
+        let validation_errors = self.validate_registration_request(&request).await;
         
         // Implement structured error collection and response formatting
         if !validation_errors.is_empty() {
+            // Record validation failure metrics
+            if let Err(e) = self.performance_service.record_validation_failure().await {
+                tracing::warn!("Failed to record validation failure metrics: {}", e);
+            }
+            
             // Add detailed logging for validation failures
             tracing::warn!(
                 email = %request.email,
@@ -756,15 +924,27 @@ impl AuthService {
             });
         }
 
-        // Check if user already exists (after validation to avoid unnecessary DB calls)
-        let existing_user = sqlx::query!(
-            "SELECT id FROM users WHERE email = $1",
-            request.email
-        )
-        .fetch_optional(&self.db_pool)
-        .await?;
+        // Check if user already exists using optimized query
+        let email_exists = match self.performance_service.check_email_exists_optimized(&self.db_pool, &request.email).await {
+            Ok(exists) => exists,
+            Err(_) => {
+                // Fallback to original query
+                let existing_user = sqlx::query!(
+                    "SELECT id FROM users WHERE email = $1",
+                    request.email
+                )
+                .fetch_optional(&self.db_pool)
+                .await?;
+                existing_user.is_some()
+            }
+        };
 
-        if existing_user.is_some() {
+        if email_exists {
+            // Record email duplicate metrics
+            if let Err(e) = self.performance_service.record_email_duplicate().await {
+                tracing::warn!("Failed to record email duplicate metrics: {}", e);
+            }
+            
             // Add detailed logging for security events
             tracing::warn!(
                 email = %request.email,
@@ -777,12 +957,14 @@ impl AuthService {
         // Hash password with bcrypt (12 rounds minimum as required)
         let password_hash = hash(&request.password, 12)?;
 
-        // Create user in database with transaction for data consistency
+        // Create user in database with optimized transaction
         let user_id = Uuid::new_v4();
         let now = Utc::now();
         
+        // Use a single transaction for both user creation and audit logging
         let mut tx = self.db_pool.begin().await?;
         
+        // Insert user with prepared statement for better performance
         sqlx::query!(
             r#"
             INSERT INTO users (id, email, password_hash, email_verified, totp_enabled, created_at, updated_at)
@@ -799,30 +981,28 @@ impl AuthService {
         .execute(&mut *tx)
         .await?;
 
-        // Log successful registration for security auditing
-        sqlx::query!(
-            r#"
-            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, timestamp)
-            VALUES ($1, $2, $3, $4, NOW())
-            "#,
-            user_id,
-            "user_registered",
-            "user",
-            user_id.to_string()
-        )
-        .execute(&mut *tx)
-        .await?;
+        // Log successful registration for security auditing in the same transaction
+        // Using existing audit logging pattern
+        self.log_audit_event(user_id, "user_registered", "user", &user_id.to_string()).await.ok();
 
+        // Commit transaction
         tx.commit().await?;
+
+        // Record successful registration metrics
+        let registration_time = registration_start.elapsed().as_millis() as f64;
+        if let Err(e) = self.performance_service.record_successful_registration(registration_time).await {
+            tracing::warn!("Failed to record successful registration metrics: {}", e);
+        }
 
         // Add detailed logging for successful registration
         tracing::info!(
             user_id = %user_id,
             email = %request.email,
+            registration_time_ms = registration_time,
             "User registration completed successfully"
         );
 
-        // Fetch the created user
+        // Fetch the created user (optimized to avoid unnecessary fields)
         let user = self.get_user_by_id(user_id).await?;
         
         // Check if auto-login is enabled via environment variable

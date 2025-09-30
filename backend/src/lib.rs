@@ -91,7 +91,11 @@ pub fn create_router(state: AppState) -> Router {
     
     // Create public auth routes (no authentication required)
     let auth_routes = Router::new()
-        .route("/register", post(handlers::auth::register_handler))
+        .route("/register", post(handlers::auth::register_handler)
+            .layer(axum::middleware::from_fn_with_state(
+                state.rate_limiter.clone(),
+                crate::services::registration_rate_limit_middleware,
+            )))
         .route("/login", post(handlers::auth::login_handler))
         .route("/refresh", post(handlers::auth::refresh_token_handler));
 

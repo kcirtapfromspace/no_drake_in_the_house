@@ -1,4 +1,4 @@
-use crate::models::{User, Claims, TokenPair, CreateUserRequest, LoginRequest, OAuthLoginRequest, TotpSetupResponse, UserSession};
+use crate::models::{User, Claims, TokenPair, CreateUserRequest, LoginRequest, OAuthLoginRequest, TotpSetupResponse, UserSession, RegistrationValidationError};
 use crate::{AppError, Result};
 use anyhow::anyhow;
 use bcrypt::{hash, verify};
@@ -290,7 +290,7 @@ impl AuthService {
 
         // Check if 2FA is already enabled
         if user.totp_enabled.unwrap_or(false) {
-            return Err(anyhow!("2FA is already enabled for this user"));
+            return Err(anyhow!("2FA is already enabled for this user").into());
         }
 
         let totp_secret = user.totp_secret
@@ -298,7 +298,7 @@ impl AuthService {
 
         // Verify the TOTP code
         if !self.verify_totp(&totp_secret, totp_code)? {
-            return Err(anyhow!("Invalid TOTP code. Please check your authenticator app"));
+            return Err(anyhow!("Invalid TOTP code. Please check your authenticator app").into());
         }
 
         // Enable 2FA
@@ -327,7 +327,7 @@ impl AuthService {
 
         // Check if 2FA is enabled
         if !user.totp_enabled.unwrap_or(false) {
-            return Err(anyhow!("2FA is not enabled for this user"));
+            return Err(anyhow!("2FA is not enabled for this user").into());
         }
 
         let totp_secret = user.totp_secret
@@ -335,7 +335,7 @@ impl AuthService {
 
         // Verify the TOTP code before disabling
         if !self.verify_totp(&totp_secret, totp_code)? {
-            return Err(anyhow!("Invalid TOTP code. Cannot disable 2FA without verification"));
+            return Err(anyhow!("Invalid TOTP code. Cannot disable 2FA without verification").into());
         }
 
         // Disable 2FA and remove secret
@@ -481,7 +481,7 @@ impl AuthService {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(anyhow!("Session not found or access denied"));
+            return Err(anyhow!("Session not found or access denied").into());
         }
 
         Ok(())
@@ -510,7 +510,7 @@ impl AuthService {
     pub async fn reset_password(&self, _reset_token: String, new_password: String) -> Result<()> {
         // Validate password strength
         if new_password.len() < 8 {
-            return Err(anyhow!("Password must be at least 8 characters long"));
+            return Err(anyhow!("Password must be at least 8 characters long").into());
         }
         
         // In a real implementation, validate the reset token and update password
@@ -611,33 +611,289 @@ impl AuthService {
         self
     }
 
-    // Methods expected by handlers
+    // Comprehensive registration validation function
+    pub fn validate_registration_request(&self, request: &crate::models::RegisterRequest) -> Vec<RegistrationValidationError> {
+        let mut errors = Vec::new();
+
+        // Email format validation with proper regex
+        if request.email.is_empty() {
+            errors.push(RegistrationValidationError {
+                field: "email".to_string(),
+                message: "Email is required".to_string(),
+                code: "EMAIL_REQUIRED".to_string(),
+            });
+        } else {
+            // Enhanced email validation with proper regex (no consecutive dots)
+            let email_regex = regex::Regex::new(r"^[a-zA-Z0-9]([a-zA-Z0-9._+%-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$").unwrap();
+            if !email_regex.is_match(&request.email) || request.email.contains("..") {
+                errors.push(RegistrationValidationError {
+                    field: "email".to_string(),
+                    message: "Please enter a valid email address".to_string(),
+                    code: "EMAIL_INVALID_FORMAT".to_string(),
+                });
+            }
+            
+            // Check email length
+            if request.email.len() > 255 {
+                errors.push(RegistrationValidationError {
+                    field: "email".to_string(),
+                    message: "Email address is too long (maximum 255 characters)".to_string(),
+                    code: "EMAIL_TOO_LONG".to_string(),
+                });
+            }
+        }
+
+        // Password validation
+        if request.password.is_empty() {
+            errors.push(RegistrationValidationError {
+                field: "password".to_string(),
+                message: "Password is required".to_string(),
+                code: "PASSWORD_REQUIRED".to_string(),
+            });
+        } else {
+            // Password strength validation with detailed requirements checking
+            if let Some(password_error) = self.validate_password_strength(&request.password) {
+                errors.push(password_error);
+            }
+        }
+
+        // Password confirmation matching validation
+        if request.confirm_password.is_empty() {
+            errors.push(RegistrationValidationError {
+                field: "confirm_password".to_string(),
+                message: "Password confirmation is required".to_string(),
+                code: "CONFIRM_PASSWORD_REQUIRED".to_string(),
+            });
+        } else if request.password != request.confirm_password {
+            errors.push(RegistrationValidationError {
+                field: "confirm_password".to_string(),
+                message: "Password confirmation does not match".to_string(),
+                code: "PASSWORD_MISMATCH".to_string(),
+            });
+        }
+
+        // Terms acceptance validation logic
+        if !request.terms_accepted {
+            errors.push(RegistrationValidationError {
+                field: "terms_accepted".to_string(),
+                message: "You must accept the terms of service to register".to_string(),
+                code: "TERMS_NOT_ACCEPTED".to_string(),
+            });
+        }
+
+        errors
+    }
+
+    // Password strength validation with detailed requirements checking
+    fn validate_password_strength(&self, password: &str) -> Option<RegistrationValidationError> {
+        let mut requirements = Vec::new();
+
+        // Minimum length requirement
+        if password.len() < 8 {
+            requirements.push("at least 8 characters");
+        }
+
+        // Uppercase letter requirement
+        if !password.chars().any(|c| c.is_uppercase()) {
+            requirements.push("at least one uppercase letter");
+        }
+
+        // Lowercase letter requirement
+        if !password.chars().any(|c| c.is_lowercase()) {
+            requirements.push("at least one lowercase letter");
+        }
+
+        // Number requirement
+        if !password.chars().any(|c| c.is_numeric()) {
+            requirements.push("at least one number");
+        }
+
+        // Special character requirement
+        if !password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)) {
+            requirements.push("at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)");
+        }
+
+        // Check against common passwords (basic implementation)
+        let common_passwords = [
+            "password", "123456", "password123", "admin", "qwerty", "letmein",
+            "welcome", "monkey", "1234567890", "password1", "123456789"
+        ];
+        
+        if common_passwords.iter().any(|&common| password.to_lowercase() == common.to_lowercase()) {
+            requirements.push("not be a common password");
+        }
+
+        if !requirements.is_empty() {
+            let message = format!("Password must contain {}", requirements.join(", "));
+            Some(RegistrationValidationError {
+                field: "password".to_string(),
+                message,
+                code: "PASSWORD_WEAK".to_string(),
+            })
+        } else {
+            None
+        }
+    }
+
+    // Enhanced registration method with comprehensive validation
     pub async fn register(&self, request: crate::models::RegisterRequest) -> Result<crate::models::AuthResponse> {
         use crate::models::{AuthResponse, UserProfile};
         
-        // Register user
-        let user = self.register_user(CreateUserRequest {
-            email: request.email.clone(),
-            password: request.password,
-        }).await?;
+        // Integrate new validation function into registration flow
+        let validation_errors = self.validate_registration_request(&request);
         
-        // Generate tokens
-        let token_pair = self.generate_token_pair(user.id, &user.email).await?;
+        // Implement structured error collection and response formatting
+        if !validation_errors.is_empty() {
+            // Add detailed logging for validation failures
+            tracing::warn!(
+                email = %request.email,
+                validation_errors = ?validation_errors,
+                "Registration validation failed"
+            );
+            
+            return Err(crate::AppError::RegistrationValidationError { 
+                errors: validation_errors 
+            });
+        }
+
+        // Check if user already exists (after validation to avoid unnecessary DB calls)
+        let existing_user = sqlx::query!(
+            "SELECT id FROM users WHERE email = $1",
+            request.email
+        )
+        .fetch_optional(&self.db_pool)
+        .await?;
+
+        if existing_user.is_some() {
+            // Add detailed logging for security events
+            tracing::warn!(
+                email = %request.email,
+                "Registration attempt with existing email"
+            );
+            
+            return Err(crate::AppError::EmailAlreadyRegistered);
+        }
+
+        // Hash password with bcrypt (12 rounds minimum as required)
+        let password_hash = hash(&request.password, 12)?;
+
+        // Create user in database with transaction for data consistency
+        let user_id = Uuid::new_v4();
+        let now = Utc::now();
         
-        Ok(AuthResponse {
-            user: UserProfile {
-                id: user.id,
-                email: user.email,
-                email_verified: user.email_verified,
-                totp_enabled: user.totp_enabled,
-                created_at: user.created_at,
-                updated_at: user.updated_at,
-                last_login: user.last_login,
-                settings: user.settings,
-            },
-            access_token: token_pair.access_token,
-            refresh_token: token_pair.refresh_token,
-        })
+        let mut tx = self.db_pool.begin().await?;
+        
+        sqlx::query!(
+            r#"
+            INSERT INTO users (id, email, password_hash, email_verified, totp_enabled, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            "#,
+            user_id,
+            request.email,
+            password_hash,
+            false,
+            false,
+            now,
+            now
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        // Log successful registration for security auditing
+        sqlx::query!(
+            r#"
+            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, timestamp)
+            VALUES ($1, $2, $3, $4, NOW())
+            "#,
+            user_id,
+            "user_registered",
+            "user",
+            user_id.to_string()
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
+
+        // Add detailed logging for successful registration
+        tracing::info!(
+            user_id = %user_id,
+            email = %request.email,
+            "User registration completed successfully"
+        );
+
+        // Fetch the created user
+        let user = self.get_user_by_id(user_id).await?;
+        
+        // Check if auto-login is enabled via environment variable
+        let auto_login_enabled = std::env::var("AUTO_LOGIN_ENABLED")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+
+        if auto_login_enabled {
+            // Generate tokens for auto-login with proper error handling
+            match self.generate_token_pair(user.id, &user.email).await {
+                Ok(token_pair) => {
+                    // Add logging for auto-login success
+                    tracing::info!(
+                        user_id = %user.id,
+                        email = %user.email,
+                        "Auto-login successful after registration"
+                    );
+                    
+                    Ok(AuthResponse {
+                        user: UserProfile {
+                            id: user.id,
+                            email: user.email,
+                            email_verified: user.email_verified,
+                            totp_enabled: user.totp_enabled,
+                            created_at: user.created_at,
+                            updated_at: user.updated_at,
+                            last_login: user.last_login,
+                            settings: user.settings,
+                        },
+                        access_token: token_pair.access_token,
+                        refresh_token: token_pair.refresh_token,
+                    })
+                }
+                Err(token_error) => {
+                    // Add logging for auto-login failure cases
+                    tracing::warn!(
+                        user_id = %user.id,
+                        email = %user.email,
+                        error = %token_error,
+                        "Auto-login failed after registration, user created successfully"
+                    );
+                    
+                    // Return the error to indicate token generation failure
+                    Err(token_error)
+                }
+            }
+        } else {
+            // Auto-login is disabled, generate empty tokens or handle differently
+            tracing::info!(
+                user_id = %user.id,
+                email = %user.email,
+                "Registration successful, auto-login disabled"
+            );
+            
+            // Return response with empty tokens to indicate auto-login is disabled
+            Ok(AuthResponse {
+                user: UserProfile {
+                    id: user.id,
+                    email: user.email,
+                    email_verified: user.email_verified,
+                    totp_enabled: user.totp_enabled,
+                    created_at: user.created_at,
+                    updated_at: user.updated_at,
+                    last_login: user.last_login,
+                    settings: user.settings,
+                },
+                access_token: String::new(), // Empty token indicates auto-login disabled
+                refresh_token: String::new(), // Empty token indicates auto-login disabled
+            })
+        }
     }
 
     pub async fn login(&self, request: LoginRequest) -> Result<crate::models::AuthResponse> {

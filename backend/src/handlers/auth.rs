@@ -14,15 +14,64 @@ pub async fn register_handler(
     State(state): State<AppState>,
     Json(request): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<AuthResponse>)> {
-    tracing::info!(email = %request.email, "User registration attempt");
+    tracing::info!(
+        email = %request.email, 
+        terms_accepted = %request.terms_accepted,
+        "User registration attempt"
+    );
     
     let response = state.auth_service.register(request).await
         .map_err(|e| {
-            tracing::warn!(error = %e, "Registration failed");
+            // Enhanced error logging with structured information
+            match &e {
+                AppError::RegistrationValidationError { errors } => {
+                    tracing::warn!(
+                        validation_errors = ?errors,
+                        "Registration failed due to validation errors"
+                    );
+                }
+                AppError::EmailAlreadyRegistered => {
+                    tracing::warn!("Registration failed: email already registered");
+                }
+                AppError::PasswordMismatch => {
+                    tracing::warn!("Registration failed: password confirmation mismatch");
+                }
+                AppError::TermsNotAccepted => {
+                    tracing::warn!("Registration failed: terms not accepted");
+                }
+                AppError::WeakPassword { requirements } => {
+                    tracing::warn!(
+                        password_requirements = ?requirements,
+                        "Registration failed: weak password"
+                    );
+                }
+                AppError::RateLimitExceeded { retry_after } => {
+                    tracing::warn!(
+                        retry_after = ?retry_after,
+                        "Registration failed: rate limit exceeded"
+                    );
+                }
+                _ => {
+                    tracing::error!(error = %e, "Registration failed with unexpected error");
+                }
+            }
             e
         })?;
     
-    tracing::info!(user_id = %response.user.id, "User registered successfully");
+    // Check if auto-login was successful (tokens are not empty)
+    if response.access_token.is_empty() || response.refresh_token.is_empty() {
+        tracing::info!(
+            user_id = %response.user.id, 
+            email = %response.user.email,
+            "User registered successfully, auto-login disabled"
+        );
+    } else {
+        tracing::info!(
+            user_id = %response.user.id, 
+            email = %response.user.email,
+            "User registered successfully with auto-login"
+        );
+    }
     
     Ok((StatusCode::CREATED, Json(response)))
 }

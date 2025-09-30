@@ -16,6 +16,7 @@ export interface AuthState {
   refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  justRegistered: boolean; // Track if user just completed registration
 }
 
 const initialState: AuthState = {
@@ -24,6 +25,7 @@ const initialState: AuthState = {
   refreshToken: localStorage.getItem('refresh_token'),
   isAuthenticated: false,
   isLoading: false,
+  justRegistered: false,
 };
 
 export const authStore = writable<AuthState>(initialState);
@@ -36,6 +38,11 @@ export const isAuthenticated = derived(
 export const currentUser = derived(
   authStore,
   ($auth) => $auth.user
+);
+
+export const justRegistered = derived(
+  authStore,
+  ($auth) => $auth.justRegistered
 );
 
 // Auth actions
@@ -61,6 +68,7 @@ export const authActions = {
           refreshToken: refresh_token,
           isAuthenticated: true,
           isLoading: false,
+          justRegistered: false, // Reset on login
         }));
         
         // Fetch user profile
@@ -76,16 +84,67 @@ export const authActions = {
     }
   },
 
-  register: async (email: string, password: string) => {
+  register: async (email: string, password: string, confirmPassword: string, termsAccepted: boolean) => {
     authStore.update(state => ({ ...state, isLoading: true }));
     
     try {
-      const result = await api.post('/auth/register', { email, password });
-      authStore.update(state => ({ ...state, isLoading: false }));
+      const result = await api.post('/auth/register', { 
+        email, 
+        password, 
+        confirm_password: confirmPassword,
+        terms_accepted: termsAccepted
+      });
       
-      return { success: result.success, message: result.message };
+      if (result.success) {
+        // Check if auto-login was successful (tokens returned)
+        if (result.data?.access_token && result.data?.refresh_token) {
+          const { access_token, refresh_token } = result.data;
+          localStorage.setItem('auth_token', access_token);
+          localStorage.setItem('refresh_token', refresh_token);
+          
+          authStore.update(state => ({
+            ...state,
+            token: access_token,
+            refreshToken: refresh_token,
+            isAuthenticated: true,
+            isLoading: false,
+            justRegistered: true, // Mark as just registered for better UX
+          }));
+          
+          // Fetch user profile
+          await authActions.fetchProfile();
+          return { success: true, autoLogin: true };
+        } else {
+          authStore.update(state => ({ ...state, isLoading: false }));
+          return { success: true, autoLogin: false, message: result.message };
+        }
+      } else {
+        authStore.update(state => ({ ...state, isLoading: false }));
+        return { 
+          success: false, 
+          message: result.message,
+          errors: result.data?.errors || null
+        };
+      }
     } catch (error: any) {
       authStore.update(state => ({ ...state, isLoading: false }));
+      
+      // Handle structured error responses
+      if (error.status === 400 && error.message) {
+        try {
+          const errorData = JSON.parse(error.message);
+          if (errorData.errors) {
+            return { 
+              success: false, 
+              message: errorData.message || 'Registration validation failed',
+              errors: errorData.errors
+            };
+          }
+        } catch (parseError) {
+          // Fall through to generic error handling
+        }
+      }
+      
       return { success: false, message: error.message || 'Network error occurred' };
     }
   },
@@ -129,6 +188,7 @@ export const authActions = {
       refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
+      justRegistered: false,
     });
   },
 
@@ -210,6 +270,14 @@ export const authActions = {
       return { success: false, message: error.message || 'Failed to disable 2FA' };
     }
   },
+
+  // Clear the just registered flag (useful for onboarding flows)
+  clearJustRegistered: () => {
+    authStore.update(state => ({
+      ...state,
+      justRegistered: false,
+    }));
+  },
 };
 
 // Initialize auth state on app load
@@ -220,6 +288,7 @@ if (typeof window !== 'undefined') {
       ...state,
       token,
       isAuthenticated: true,
+      justRegistered: false, // Reset on app load
     }));
     authActions.fetchProfile();
   }

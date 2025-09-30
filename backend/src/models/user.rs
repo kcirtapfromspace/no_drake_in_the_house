@@ -100,6 +100,8 @@ pub struct TotpDisableRequest {
 pub struct RegisterRequest {
     pub email: String,
     pub password: String,
+    pub confirm_password: String,
+    pub terms_accepted: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,6 +138,19 @@ pub struct AuthenticatedUser {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TotpStatusResponse {
     pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrationValidationError {
+    pub field: String,
+    pub message: String,
+    pub code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegistrationErrorResponse {
+    pub errors: Vec<RegistrationValidationError>,
+    pub message: String,
 }
 
 impl User {

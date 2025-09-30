@@ -31,7 +31,7 @@ pub mod stubs;
 pub use auth_simple::AuthService as SimpleAuthService;
 pub use auth::AuthService;
 pub use monitoring::*;
-pub use rate_limiting_middleware::*;
+pub use rate_limiting_middleware::{RateLimitService, registration_rate_limit_middleware};
 pub use audit_logging::*;
 pub use dnp_list::DnpListService;
 pub use user::UserService;

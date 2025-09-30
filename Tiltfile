@@ -93,10 +93,11 @@ docker_build(
     live_update=[
         sync('./backend/src', '/app/src'),
         sync('./backend/migrations', '/app/migrations'),
-        run('cargo build --bin music-streaming-blocklist-backend', trigger=['./backend/src'])
+        run('SQLX_OFFLINE=true cargo build --bin music-streaming-blocklist-backend', trigger=['./backend/src'])
     ],
     build_args={
-        'BUILDKIT_INLINE_CACHE': '1'
+        'BUILDKIT_INLINE_CACHE': '1',
+        'SQLX_OFFLINE': 'true'
     }
 )
 
@@ -119,11 +120,12 @@ docker_build(
     live_update=[
         sync('./frontend/src', '/app/src'),
         sync('./frontend/public', '/app/public'),
-        run('VITE_API_URL= VITE_ENVIRONMENT=development npm run build:dev', trigger=['./frontend/src'])
+        run('VITE_API_URL=http://localhost:3000 VITE_ENVIRONMENT=development npm run build:dev', trigger=['./frontend/src'])
     ],
     build_args={
         'BUILDKIT_INLINE_CACHE': '1',
-        'NODE_ENV': 'development'
+        'NODE_ENV': 'development',
+        'VITE_API_URL': 'http://localhost:3000'
     }
 )
 
@@ -155,7 +157,7 @@ k8s_resource('redis',
     pod_readiness='wait'
 )
 
-# Backend service (depends on databases)
+# Backend service (runs migrations automatically on startup)
 k8s_resource('backend',
     port_forwards=['3000:3000'] if not k8s_config['load_balancer'] else [],
     labels=['api', 'core'],
@@ -163,6 +165,8 @@ k8s_resource('backend',
     auto_init=True,
     pod_readiness='wait'
 )
+
+
 
 # Frontend service (depends on backend)
 k8s_resource('frontend',
@@ -177,41 +181,37 @@ k8s_resource('frontend',
 # MANUAL TRIGGER COMMANDS FOR DEVELOPMENT WORKFLOW
 # =============================================================================
 
-# Database management triggers
+# Simple database migration trigger - restarts backend which runs migrations automatically
 local_resource(
     'db-migrate',
-    cmd='kubectl exec -n ' + namespace + ' deployment/backend -- sh -c "cd /app && export SQLX_OFFLINE=true && ./backend migrate"',
-    resource_deps=['backend', 'postgres'],
+    cmd='kubectl rollout restart deployment/backend -n ' + namespace + ' && kubectl rollout status deployment/backend -n ' + namespace,
+    resource_deps=['backend'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['database', 'setup']
+    labels=['database']
 )
 
+# Simple database reset
 local_resource(
     'db-reset',
-    cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- sh -c "psql -U kiro -d postgres -c \'DROP DATABASE IF EXISTS kiro;\' && psql -U kiro -d postgres -c \'CREATE DATABASE kiro;\'"',
+    cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- psql -U kiro -d postgres -c "DROP DATABASE IF EXISTS kiro; CREATE DATABASE kiro;"',
     resource_deps=['postgres'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['database', 'reset']
+    labels=['database']
 )
 
-local_resource(
-    'db-status',
-    cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- psql -U kiro -d kiro -c "\\l"',
-    resource_deps=['postgres'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['database', 'monitoring']
-)
 
-# Testing triggers
+
+
+
+# Simple test triggers
 local_resource(
     'backend-tests',
-    cmd='cd backend && export DATABASE_URL=postgres://kiro:password@localhost:5432/kiro && export REDIS_URL=redis://localhost:6379 && cargo test --release -- --nocapture',
+    cmd='cd backend && SQLX_OFFLINE=true cargo test',
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['tests', 'backend']
+    labels=['tests']
 )
 
 local_resource(
@@ -219,63 +219,7 @@ local_resource(
     cmd='cd frontend && npm test -- --run',
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['tests', 'frontend']
-)
-
-local_resource(
-    'all-tests',
-    cmd='cd backend && export DATABASE_URL=postgres://kiro:password@localhost:5432/kiro && export REDIS_URL=redis://localhost:6379 && cargo test --release -- --nocapture && cd ../frontend && npm test -- --run',
-    resource_deps=['backend', 'postgres', 'redis'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['tests', 'all']
-)
-
-# Health check and monitoring triggers
-local_resource(
-    'health-check',
-    cmd='curl -f http://localhost:3000/health && curl -f http://localhost:5000/health && kubectl exec -n ' + namespace + ' deployment/postgres -- pg_isready -U kiro -d kiro && kubectl exec -n ' + namespace + ' deployment/redis -- redis-cli ping',
-    resource_deps=['backend', 'frontend', 'postgres', 'redis'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['monitoring', 'health']
-)
-
-local_resource(
-    'service-status',
-    cmd='kubectl get pods -n ' + namespace + ' -o wide && kubectl get services -n ' + namespace,
-    resource_deps=['backend', 'frontend', 'postgres', 'redis'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['monitoring', 'status']
-)
-
-# Performance and build optimization triggers
-local_resource(
-    'warm-cache',
-    cmd='docker build --target chef -t kiro/backend:chef ./backend/ || true && docker build --target builder -t kiro/frontend:builder ./frontend/ || true',
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['performance', 'cache']
-)
-
-# Development workflow automation
-local_resource(
-    'dev-setup',
-    cmd='kubectl wait --for=condition=ready pod -l app=postgres -n ' + namespace + ' --timeout=60s && kubectl wait --for=condition=ready pod -l app=redis -n ' + namespace + ' --timeout=60s && kubectl wait --for=condition=ready pod -l app=backend -n ' + namespace + ' --timeout=120s && kubectl exec -n ' + namespace + ' deployment/backend -- sh -c "cd /app && export SQLX_OFFLINE=true && ./backend migrate"',
-    resource_deps=['backend', 'postgres', 'redis'],
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['setup', 'workflow']
-)
-
-# Cleanup and maintenance triggers
-local_resource(
-    'cleanup-resources',
-    cmd='docker image prune -f && kubectl delete pods --field-selector=status.phase=Succeeded -n ' + namespace + ' 2>/dev/null || true && kubectl delete pods --field-selector=status.phase=Failed -n ' + namespace + ' 2>/dev/null || true',
-    trigger_mode=TRIGGER_MODE_MANUAL,
-    auto_init=False,
-    labels=['maintenance', 'cleanup']
+    labels=['tests']
 )
 
 # =============================================================================
@@ -294,34 +238,15 @@ print("  🔗 Backend API:    http://localhost:3000")
 print("  🔗 Frontend Web:   http://localhost:5000")
 print("  🔗 PostgreSQL:     localhost:5432 (user: kiro, pass: password, db: kiro)")
 print("  🔗 Redis:          localhost:6379")
+print("💡 Quick Start:")
+print("  1. Wait for services to show 'Ready' in Tilt UI")
+print("  2. Backend runs migrations automatically on startup")
+print("  3. Start coding - changes auto-reload!")
 print("")
-print("🎮 Manual Triggers Available:")
-print("  📊 Monitoring:")
-print("    • health-check      - Check all service health")
-print("    • service-status    - Detailed status report")
-print("")
-print("  🗄️  Database:")
-print("    • db-migrate        - Run database migrations")
-print("    • db-reset          - Reset database (destroys data)")
-print("    • db-status         - Database status")
-print("")
-print("  🧪 Testing:")
-print("    • backend-tests     - Run all backend tests")
-print("    • frontend-tests    - Run frontend tests")
-print("    • all-tests         - Run complete test suite")
-print("")
-print("  ⚡ Performance:")
-print("    • warm-cache        - Pre-build Docker layers")
-print("")
-print("  🛠️  Workflow:")
-print("    • dev-setup         - Complete environment setup")
-print("    • cleanup-resources - Clean up old resources")
-print("")
-print("💡 Quick Start Workflow:")
-print("  1. Wait for all services to show 'Ready' in Tilt UI")
-print("  2. Run 'dev-setup' trigger for complete initialization")
-print("  3. Start coding - changes auto-reload within 10 seconds!")
-print("  4. Use 'health-check' to verify everything is working")
-print("  5. Run 'all-tests' before committing changes")
+print("🔧 Manual Triggers:")
+print("  • db-migrate: Restart backend (runs migrations)")
+print("  • db-reset: Reset database")
+print("  • health-check: Check all services")
+print("  • backend-tests / frontend-tests: Run tests")
 print("")
 print("=" * 60)

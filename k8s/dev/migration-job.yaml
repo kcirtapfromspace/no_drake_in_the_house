@@ -1,0 +1,45 @@
+# Simple migration job - just runs the backend with migrate command
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: database-migration
+  namespace: kiro-dev
+  labels:
+    app: database-migration
+    component: migration
+    environment: development
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: database-migration
+        component: migration
+        environment: development
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+      - name: wait-for-postgres
+        image: postgres:15-alpine
+        command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U kiro; do sleep 2; done"]
+        env:
+        - name: PGPASSWORD
+          value: password
+      containers:
+      - name: migrate
+        image: kiro/backend
+        imagePullPolicy: Never
+        command: ["./backend", "migrate"]
+        env:
+        - name: DATABASE_URL
+          value: postgres://kiro:password@postgres:5432/kiro
+        - name: RUST_LOG
+          value: info
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"

@@ -1,13 +1,18 @@
 use music_streaming_blocklist_backend::{
     AppState, create_router, AuthService, RateLimitService, AuditLoggingService, DnpListService, UserService,
     DatabaseConfig, create_pool, validate_cors_config, RedisConfiguration, create_redis_pool,
-    MonitoringSystem, MonitoringConfig, MetricsCollector
+    MonitoringSystem, MonitoringConfig, run_migrations
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use std::sync::Arc;
+use std::{sync::Arc, env};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check for migration command
+    let args: Vec<String> = env::args().collect();
+    if args.len() > 1 && args[1] == "migrate" {
+        return run_migration_command().await;
+    }
     // Initialize structured logging with JSON output
     init_tracing();
 
@@ -23,6 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     let db_pool = create_pool(db_config).await
         .map_err(|e| format!("Failed to create database pool: {}", e))?;
+    
+    // Run migrations automatically on startup
+    run_migrations(&db_pool).await
+        .map_err(|e| format!("Database migration failed: {}", e))?;
     tracing::info!("Database initialization completed");
 
     // Initialize Redis connection pool
@@ -83,6 +92,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     axum::serve(listener, app).await?;
 
+    Ok(())
+}
+
+/// Run database migrations only
+async fn run_migration_command() -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize basic logging for migration
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "info".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    tracing::info!("🔄 Running database migrations...");
+
+    // Initialize database connection pool
+    let db_config = DatabaseConfig::default();
+    tracing::info!("Database URL: {}", db_config.url);
+    
+    let db_pool = create_pool(db_config).await
+        .map_err(|e| format!("Failed to create database pool: {}", e))?;
+    
+    // Run migrations
+    run_migrations(&db_pool).await
+        .map_err(|e| format!("Migration failed: {}", e))?;
+    
+    tracing::info!("✅ Database migrations completed successfully!");
+    
     Ok(())
 }
 

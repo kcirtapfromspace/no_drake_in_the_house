@@ -29,7 +29,7 @@ pub use user::{
     LoginRequest, OAuthLoginRequest, TokenPair, RefreshTokenRequest, 
     TotpSetupRequest, TotpSetupResponse, TotpEnableRequest, TotpDisableRequest,
     RegisterRequest, AuthResponse, TotpVerifyRequest, AuthenticatedUser,
-    TotpStatusResponse
+    TotpStatusResponse, RegistrationValidationError, RegistrationErrorResponse
 };
 // Use qualified name for UserProfile to avoid conflict with audit::UserProfile
 pub use user::UserProfile as UserUserProfile;

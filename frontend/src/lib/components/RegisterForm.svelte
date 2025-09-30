@@ -6,10 +6,12 @@
   export let isLoading = false;
   export let error = '';
   export let success = '';
+  export let fieldErrors: Record<string, string> = {};
   
   let email = '';
   let password = '';
   let confirmPassword = '';
+  let termsAccepted = false;
   
   // Password strength requirements
   $: passwordLength = password.length >= 8;
@@ -40,15 +42,17 @@
   $: emailValid = email.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   $: passwordValid = password.length === 0 || (passwordLength && passwordStrength >= 3);
   $: passwordsMatch = confirmPassword.length === 0 || password === confirmPassword;
-  $: formValid = emailValid && passwordValid && passwordsMatch && 
+  $: formValid = emailValid && passwordValid && passwordsMatch && termsAccepted &&
                  email.length > 0 && password.length > 0 && confirmPassword.length > 0;
   
   function handleSubmit() {
-    if (!formValid) return;
+    if (!formValid || isLoading) return;
     
     dispatch('register', {
       email: email.trim(),
-      password
+      password,
+      confirm_password: confirmPassword,
+      terms_accepted: termsAccepted
     });
   }
 </script>
@@ -83,7 +87,9 @@
           class:focus:border-red-500={!emailValid}
           placeholder="Enter your email"
         />
-        {#if !emailValid}
+        {#if fieldErrors.email}
+          <p class="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+        {:else if !emailValid}
           <p class="mt-1 text-sm text-red-600">Please enter a valid email address</p>
         {/if}
       </div>
@@ -103,9 +109,9 @@
           required
           bind:value={password}
           class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-          class:border-red-300={!passwordValid && password.length > 0}
-          class:focus:ring-red-500={!passwordValid && password.length > 0}
-          class:focus:border-red-500={!passwordValid && password.length > 0}
+          class:border-red-300={fieldErrors.password || (!passwordValid && password.length > 0)}
+          class:focus:ring-red-500={fieldErrors.password || (!passwordValid && password.length > 0)}
+          class:focus:border-red-500={fieldErrors.password || (!passwordValid && password.length > 0)}
           placeholder="Create a strong password"
         />
         
@@ -193,6 +199,10 @@
             </div>
           </div>
         {/if}
+        
+        {#if fieldErrors.password}
+          <p class="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+        {/if}
       </div>
     </div>
 
@@ -215,8 +225,41 @@
           class:focus:border-red-500={!passwordsMatch && confirmPassword.length > 0}
           placeholder="Confirm your password"
         />
-        {#if !passwordsMatch && confirmPassword.length > 0}
+        {#if fieldErrors.confirm_password}
+          <p class="mt-1 text-sm text-red-600">{fieldErrors.confirm_password}</p>
+        {:else if !passwordsMatch && confirmPassword.length > 0}
           <p class="mt-1 text-sm text-red-600">Passwords do not match</p>
+        {/if}
+      </div>
+    </div>
+
+    <!-- Terms Acceptance -->
+    <div class="flex items-start">
+      <div class="flex items-center h-5">
+        <input
+          id="terms-accepted"
+          name="termsAccepted"
+          type="checkbox"
+          required
+          bind:checked={termsAccepted}
+          class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+        />
+      </div>
+      <div class="ml-3 text-sm">
+        <label for="terms-accepted" class="text-gray-700">
+          I agree to the 
+          <a href="/terms" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline">
+            Terms of Service
+          </a>
+          and 
+          <a href="/privacy" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline">
+            Privacy Policy
+          </a>
+        </label>
+        {#if fieldErrors.terms_accepted}
+          <p class="mt-1 text-sm text-red-600">{fieldErrors.terms_accepted}</p>
+        {:else if !termsAccepted && formValid === false}
+          <p class="mt-1 text-sm text-red-600">You must accept the terms to continue</p>
         {/if}
       </div>
     </div>

@@ -16,6 +16,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, warn, error};
+use uuid;
 
 /// Rate limiting configuration for different endpoints
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +55,12 @@ impl RateLimitService {
             requests_per_window: 10,
             window_seconds: 300, // 5 minutes
             burst_allowance: 3,
+        });
+        
+        configs.insert("registration".to_string(), RateLimitConfig {
+            requests_per_window: 3,
+            window_seconds: 60, // 1 minute
+            burst_allowance: 1,
         });
         
         configs.insert("api".to_string(), RateLimitConfig {
@@ -260,6 +267,67 @@ pub async fn auth_rate_limit_middleware(
         }
         Err(e) => {
             error!("Rate limiting error: {}", e);
+            // Allow request to proceed if rate limiting fails
+            Ok(next.run(request).await)
+        }
+    }
+}
+
+/// Rate limiting middleware specifically for registration endpoints
+pub async fn registration_rate_limit_middleware(
+    State(rate_limiter): State<Arc<RateLimitService>>,
+    connect_info: Option<ConnectInfo<SocketAddr>>,
+    request: Request,
+    next: Next,
+) -> Result<Response, impl IntoResponse> {
+    let client_ip = extract_client_ip(request.headers(), connect_info.as_ref());
+    
+    debug!("Rate limiting check for registration endpoint from IP: {}", client_ip);
+
+    match rate_limiter.check_rate_limit(&client_ip, "registration").await {
+        Ok(result) => {
+            if !result.allowed {
+                warn!(
+                    "Rate limit exceeded for registration endpoint from IP: {} ({}/{})",
+                    client_ip, result.current_count, result.limit
+                );
+
+                // Return structured error response matching AppError format
+                let error_response = crate::error::ErrorResponse {
+                    error: "Rate limit exceeded".to_string(),
+                    error_code: "RATE_LIMIT_EXCEEDED".to_string(),
+                    message: "Too many registration attempts. Please try again later.".to_string(),
+                    details: Some(json!({
+                        "retry_after_seconds": result.retry_after,
+                        "limit": result.limit,
+                        "reset_time": result.reset_time,
+                        "current_count": result.current_count
+                    })),
+                    correlation_id: uuid::Uuid::new_v4().to_string(),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                };
+
+                return Err((StatusCode::TOO_MANY_REQUESTS, Json(error_response)));
+            }
+
+            debug!(
+                "Rate limit check passed for registration IP: {} ({}/{})",
+                client_ip, result.current_count, result.limit
+            );
+
+            // Add rate limit headers to response
+            let mut response = next.run(request).await;
+            let headers = response.headers_mut();
+            
+            headers.insert("X-RateLimit-Limit", result.limit.to_string().parse().unwrap());
+            headers.insert("X-RateLimit-Remaining", 
+                (result.limit.saturating_sub(result.current_count)).to_string().parse().unwrap());
+            headers.insert("X-RateLimit-Reset", result.reset_time.to_string().parse().unwrap());
+
+            Ok(response)
+        }
+        Err(e) => {
+            error!("Registration rate limiting error: {}", e);
             // Allow request to proceed if rate limiting fails
             Ok(next.run(request).await)
         }

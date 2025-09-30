@@ -3,6 +3,7 @@
   import { connectionActions, connectedServices, hasActiveSpotifyConnection } from '../stores/connections';
   import { dnpActions, dnpCount } from '../stores/dnp';
   import { router, currentRoute } from '../utils/router';
+  import { justRegistered, authActions } from '../stores/auth';
   import Navigation from './Navigation.svelte';
   import ServiceConnections from './ServiceConnections.svelte';
   import DnpManager from './DnpManager.svelte';
@@ -10,18 +11,90 @@
   import CommunityLists from './CommunityLists.svelte';
   import UserProfile from './UserProfile.svelte';
   
+  let showWelcomeMessage = false;
+  
   onMount(async () => {
     await connectionActions.fetchConnections();
     await dnpActions.fetchDnpList();
+    
+    // Show welcome message for newly registered users
+    if ($justRegistered) {
+      showWelcomeMessage = true;
+      // Auto-hide welcome message after 5 seconds
+      setTimeout(() => {
+        showWelcomeMessage = false;
+        authActions.clearJustRegistered();
+      }, 5000);
+    }
   });
 
   function setActiveTab(tab: string) {
     router.navigate(tab);
   }
+  
+  function dismissWelcome() {
+    showWelcomeMessage = false;
+    authActions.clearJustRegistered();
+  }
 </script>
 
 <div class="min-h-screen bg-gray-50">
   <Navigation />
+
+  <!-- Welcome Message for New Users -->
+  {#if showWelcomeMessage}
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      <div class="rounded-md bg-green-50 p-4 border border-green-200">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3 flex-1">
+            <h3 class="text-sm font-medium text-green-800">
+              Welcome to No Drake in the House! 🎵
+            </h3>
+            <div class="mt-2 text-sm text-green-700">
+              <p>Your account has been created successfully. Get started by connecting your music streaming services and building your first DNP list.</p>
+            </div>
+            <div class="mt-4">
+              <div class="-mx-2 -my-1.5 flex">
+                <button
+                  type="button"
+                  on:click={() => setActiveTab('connections')}
+                  class="bg-green-50 px-2 py-1.5 rounded-md text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
+                >
+                  Connect Services
+                </button>
+                <button
+                  type="button"
+                  on:click={dismissWelcome}
+                  class="ml-3 bg-green-50 px-2 py-1.5 rounded-md text-sm font-medium text-green-800 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="ml-auto pl-3">
+            <div class="-mx-1.5 -my-1.5">
+              <button
+                type="button"
+                on:click={dismissWelcome}
+                class="inline-flex bg-green-50 rounded-md p-1.5 text-green-500 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
+              >
+                <span class="sr-only">Dismiss</span>
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   <!-- Main Content -->
   <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">

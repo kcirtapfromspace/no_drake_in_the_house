@@ -8,7 +8,7 @@ The authentication system supports multiple methods including OAuth 2.0 with ext
 
 ### POST /v1/auth/register
 
-Register a new user account.
+Register a new user account with enhanced validation and automatic login.
 
 **Request Body:**
 ```json
@@ -20,23 +20,43 @@ Register a new user account.
 }
 ```
 
+**Field Requirements:**
+- `email`: Valid email address format, maximum 255 characters
+- `password`: Minimum 8 characters, must include uppercase, lowercase, number, and special character
+- `confirm_password`: Must exactly match the password field
+- `terms_accepted`: Must be `true` to proceed with registration
+
 **Response (201 Created):**
 ```json
 {
   "user": {
-    "id": "user_123456",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
+    "email_verified": false,
+    "totp_enabled": false,
     "created_at": "2024-01-15T10:30:00Z",
-    "email_verified": false
+    "updated_at": "2024-01-15T10:30:00Z",
+    "last_login": null,
+    "settings": {
+      "two_factor_enabled": false,
+      "email_notifications": true,
+      "privacy_mode": false
+    }
   },
-  "tokens": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "expires_in": 3600,
-    "token_type": "Bearer"
-  }
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
+
+**Note:** The registration endpoint automatically logs in the user upon successful registration, returning access and refresh tokens. This eliminates the need for a separate login step after registration.
+
+**Validation Error Codes:**
+- `PASSWORD_MISMATCH`: Password confirmation does not match
+- `TERMS_NOT_ACCEPTED`: Terms of service must be accepted
+- `EMAIL_ALREADY_REGISTERED`: Email address is already in use
+- `WEAK_PASSWORD`: Password does not meet security requirements
+- `INVALID_EMAIL_FORMAT`: Email format is invalid
+- `PASSWORD_TOO_SHORT`: Password must be at least 8 characters
 
 ### POST /v1/auth/login
 
@@ -55,71 +75,29 @@ Authenticate with email and password.
 ```json
 {
   "user": {
-    "id": "user_123456",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
-    "two_factor_enabled": true
+    "email_verified": true,
+    "totp_enabled": true,
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z",
+    "last_login": "2024-01-15T11:30:00Z",
+    "settings": {
+      "two_factor_enabled": true,
+      "email_notifications": true,
+      "privacy_mode": false
+    }
   },
-  "tokens": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "expires_in": 3600,
-    "token_type": "Bearer"
-  }
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
-### POST /v1/auth/oauth/initiate
+### OAuth Authentication (Future Implementation)
 
-Start OAuth flow with external provider.
+OAuth authentication with external providers (Google, Apple) is planned for future implementation. Currently, only email/password authentication is supported.
 
-**Request Body:**
-```json
-{
-  "provider": "google",  // "google", "apple"
-  "redirect_uri": "https://app.nodrakeinthe.house/auth/callback"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "authorization_url": "https://accounts.google.com/oauth/authorize?client_id=...",
-  "state": "random_state_string",
-  "code_verifier": "code_challenge_verifier"  // For PKCE
-}
-```
-
-### POST /v1/auth/oauth/callback
-
-Complete OAuth flow with authorization code.
-
-**Request Body:**
-```json
-{
-  "provider": "google",
-  "code": "authorization_code_from_provider",
-  "state": "random_state_string",
-  "code_verifier": "code_challenge_verifier"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "user": {
-    "id": "user_123456",
-    "email": "user@gmail.com",
-    "provider": "google",
-    "provider_id": "google_user_id"
-  },
-  "tokens": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "expires_in": 3600,
-    "token_type": "Bearer"
-  }
-}
-```
+For Spotify integration, OAuth is handled through the service connection endpoints rather than general authentication. See the service connections documentation for details on connecting Spotify accounts.
 
 ### POST /v1/auth/refresh
 
@@ -135,12 +113,22 @@ Refresh access token using refresh token.
 **Response (200 OK):**
 ```json
 {
-  "tokens": {
-    "access_token": "eyJhbGciOiJIUzI1NiIs...",
-    "refresh_token": "eyJhbGciOiJIUzI1NiIs...",
-    "expires_in": 3600,
-    "token_type": "Bearer"
-  }
+  "user": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "email_verified": true,
+    "totp_enabled": false,
+    "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z",
+    "last_login": "2024-01-15T11:30:00Z",
+    "settings": {
+      "two_factor_enabled": false,
+      "email_notifications": true,
+      "privacy_mode": false
+    }
+  },
+  "access_token": "eyJhbGciOiJIUzI1NiIs...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIs..."
 }
 ```
 
@@ -168,18 +156,17 @@ Authorization: Bearer <access_token>
 ```json
 {
   "user": {
-    "id": "user_123456",
+    "id": "550e8400-e29b-41d4-a716-446655440000",
     "email": "user@example.com",
-    "two_factor_enabled": true,
     "email_verified": true,
+    "totp_enabled": true,
     "created_at": "2024-01-15T10:30:00Z",
+    "updated_at": "2024-01-15T10:30:00Z",
+    "last_login": "2024-01-15T11:30:00Z",
     "settings": {
-      "enforcement_aggressiveness": "moderate",
-      "auto_enforcement": false,
-      "notification_preferences": {
-        "email": true,
-        "push": false
-      }
+      "two_factor_enabled": true,
+      "email_notifications": true,
+      "privacy_mode": false
     }
   }
 }
@@ -199,13 +186,16 @@ Authorization: Bearer <access_token>
 **Response (200 OK):**
 ```json
 {
-  "secret": "JBSWY3DPEHPK3PXP",
-  "qr_code": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
-  "backup_codes": [
-    "12345678",
-    "87654321",
-    "11223344"
-  ]
+  "success": true,
+  "data": {
+    "secret": "JBSWY3DPEHPK3PXP",
+    "qr_code_url": "otpauth://totp/NodrakeInTheHouse:user@example.com?secret=JBSWY3DPEHPK3PXP&issuer=NodrakeInTheHouse",
+    "backup_codes": [
+      "12345678",
+      "87654321",
+      "11223344"
+    ]
+  }
 }
 ```
 
@@ -221,6 +211,7 @@ Authorization: Bearer <access_token>
 **Request Body:**
 ```json
 {
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "totp_code": "123456"
 }
 ```
@@ -229,11 +220,7 @@ Authorization: Bearer <access_token>
 ```json
 {
   "success": true,
-  "backup_codes": [
-    "12345678",
-    "87654321",
-    "11223344"
-  ]
+  "message": "2FA enabled successfully"
 }
 ```
 
@@ -249,7 +236,7 @@ Authorization: Bearer <access_token>
 **Request Body:**
 ```json
 {
-  "password": "current_password",
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "totp_code": "123456"
 }
 ```
@@ -257,74 +244,21 @@ Authorization: Bearer <access_token>
 **Response (200 OK):**
 ```json
 {
-  "success": true
+  "success": true,
+  "message": "2FA disabled successfully"
 }
 ```
 
-## Password Management
+## Password Management (Future Implementation)
 
-### POST /v1/auth/password/forgot
+Password reset and change functionality is planned for future implementation. The backend service layer includes password reset logic, but the API endpoints are not yet exposed.
 
-Request password reset email.
+**Planned Features:**
+- Password reset via email
+- Password change for authenticated users
+- Secure token-based password reset flow
 
-**Request Body:**
-```json
-{
-  "email": "user@example.com"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "If an account with this email exists, a reset link has been sent."
-}
-```
-
-### POST /v1/auth/password/reset
-
-Reset password with token from email.
-
-**Request Body:**
-```json
-{
-  "token": "password_reset_token",
-  "password": "new_secure_password",
-  "confirm_password": "new_secure_password"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "Password has been reset successfully."
-}
-```
-
-### POST /v1/auth/password/change
-
-Change password for authenticated user.
-
-**Headers:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Request Body:**
-```json
-{
-  "current_password": "old_password",
-  "new_password": "new_secure_password",
-  "confirm_password": "new_secure_password"
-}
-```
-
-**Response (200 OK):**
-```json
-{
-  "message": "Password changed successfully."
-}
-```
+For now, users who forget their passwords will need to contact support or create a new account.
 
 ## Security Considerations
 
@@ -333,28 +267,57 @@ Authorization: Bearer <access_token>
 Access tokens contain the following claims:
 ```json
 {
-  "sub": "user_123456",
+  "sub": "550e8400-e29b-41d4-a716-446655440000",
   "email": "user@example.com",
-  "iat": 1640995200,
   "exp": 1640998800,
-  "scope": "read:profile write:dnp_lists"
+  "iat": 1640995200,
+  "jti": "550e8400-e29b-41d4-a716-446655440001",
+  "token_type": "Access",
+  "scopes": ["read", "write"]
 }
 ```
 
-### Token Rotation
+Refresh tokens have a similar structure but with different token_type and scopes:
+```json
+{
+  "sub": "550e8400-e29b-41d4-a716-446655440000",
+  "email": "user@example.com",
+  "exp": 1643587200,
+  "iat": 1640995200,
+  "jti": "550e8400-e29b-41d4-a716-446655440002",
+  "token_type": "Refresh",
+  "scopes": ["refresh"]
+}
+```
 
-- Access tokens expire after 1 hour
-- Refresh tokens expire after 30 days
-- Refresh tokens are rotated on each use
-- Old refresh tokens are invalidated immediately
+### Token Management
+
+- Access tokens expire after 24 hours (configurable)
+- Refresh tokens expire after 30 days (configurable)
+- Each token has a unique JWT ID (jti) for tracking and revocation
+- Token families are used for refresh token rotation
+- Revoked tokens are tracked in the database for security
 
 ### Rate Limiting
 
-Authentication endpoints have strict rate limits:
-- Login attempts: 5 per minute per IP
-- Registration: 3 per minute per IP
-- Password reset: 1 per minute per email
-- 2FA verification: 3 per minute per user
+Authentication endpoints have strict rate limits to prevent abuse:
+
+**Registration Endpoint:**
+- 3 attempts per minute per IP address
+- Failed registration attempts: 5 per 15 minutes per IP address
+- Rate limiting is enforced using Redis-based storage
+
+**Login Endpoint:**
+- 5 attempts per minute per IP address
+- Additional rate limiting may apply for repeated failed attempts
+
+**Password Reset:**
+- 1 request per minute per email address
+
+**2FA Verification:**
+- 3 attempts per minute per user
+
+When rate limits are exceeded, the API returns a 429 status code with retry timing information in the response details.
 
 ### Security Headers
 
@@ -368,37 +331,111 @@ X-XSS-Protection: 1; mode=block
 
 ## Error Responses
 
-### 400 Bad Request
+All error responses follow a consistent structure with detailed error information and correlation IDs for debugging.
+
+### Registration Validation Errors (400 Bad Request)
+
+**Password Confirmation Mismatch:**
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Password must be at least 8 characters",
-    "details": {
-      "field": "password",
-      "constraint": "min_length"
-    }
-  }
+  "error": "Password confirmation does not match",
+  "error_code": "PASSWORD_MISMATCH",
+  "message": "Password confirmation does not match",
+  "details": null,
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
-### 401 Unauthorized
+**Terms Not Accepted:**
 ```json
 {
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Email or password is incorrect"
-  }
+  "error": "Terms of service must be accepted",
+  "error_code": "TERMS_NOT_ACCEPTED",
+  "message": "You must accept the terms of service to register",
+  "details": null,
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```
 
-### 429 Too Many Requests
+**Multiple Validation Errors:**
 ```json
 {
-  "error": {
-    "code": "RATE_LIMIT_EXCEEDED",
-    "message": "Too many login attempts. Try again in 60 seconds.",
-    "retry_after": 60
-  }
+  "error": "Registration validation failed",
+  "error_code": "REGISTRATION_VALIDATION_ERROR",
+  "message": "Registration validation failed. Please check your input and try again.",
+  "details": {
+    "validation_errors": [
+      {
+        "field": "password",
+        "message": "Password must be at least 8 characters long",
+        "code": "PASSWORD_TOO_SHORT"
+      },
+      {
+        "field": "email",
+        "message": "Invalid email format",
+        "code": "INVALID_EMAIL_FORMAT"
+      }
+    ]
+  },
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+**Weak Password:**
+```json
+{
+  "error": "Password does not meet security requirements",
+  "error_code": "WEAK_PASSWORD",
+  "message": "Password does not meet security requirements",
+  "details": {
+    "password_requirements": [
+      "Must contain at least one uppercase letter",
+      "Must contain at least one number",
+      "Must contain at least one special character"
+    ]
+  },
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Authentication Errors (401 Unauthorized)
+```json
+{
+  "error": "Invalid credentials",
+  "error_code": "AUTH_INVALID_CREDENTIALS",
+  "message": "Invalid email or password",
+  "details": null,
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Conflict Errors (409 Conflict)
+```json
+{
+  "error": "Email already registered",
+  "error_code": "EMAIL_ALREADY_REGISTERED",
+  "message": "An account with this email address already exists",
+  "details": null,
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+### Rate Limiting (429 Too Many Requests)
+```json
+{
+  "error": "Rate limit exceeded",
+  "error_code": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests, please try again later",
+  "details": {
+    "retry_after_seconds": 60
+  },
+  "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": "2024-01-15T10:30:00Z"
 }
 ```

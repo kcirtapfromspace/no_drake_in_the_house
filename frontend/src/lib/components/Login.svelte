@@ -9,6 +9,7 @@
   let isLoading = false;
   let error = '';
   let success = '';
+  let fieldErrors: Record<string, string> = {};
   
   // 2FA setup data
   let qrCodeUrl = '';
@@ -43,19 +44,44 @@
   }
 
   async function handleRegister(event: CustomEvent) {
-    const { email, password } = event.detail;
+    const { email, password, confirm_password, terms_accepted } = event.detail;
     isLoading = true;
     error = '';
     success = '';
+    fieldErrors = {};
     
     try {
-      const result = await authActions.register(email, password);
+      const result = await authActions.register(email, password, confirm_password, terms_accepted);
       
       if (result.success) {
-        success = 'Account created successfully! You can now sign in.';
-        mode = 'login';
+        if (result.autoLogin) {
+          // Auto-login successful, user will be redirected by the auth state change
+          success = 'Account created successfully! Welcome to No Drake in the House.';
+          // Small delay to show success message before redirect
+          setTimeout(() => {
+            // The redirect will happen automatically via the auth store
+            // We could also manually navigate to a specific onboarding route here
+            // router.navigate('overview'); // This is handled automatically by App.svelte
+          }, 1500);
+        } else {
+          // Auto-login failed, fallback to manual login
+          success = 'Account created successfully! You can now sign in.';
+          mode = 'login';
+          // Clear any previous errors
+          error = '';
+          fieldErrors = {};
+        }
       } else {
-        error = result.message || 'Registration failed';
+        if (result.errors) {
+          // Handle field-specific errors
+          fieldErrors = {};
+          result.errors.forEach((err: any) => {
+            fieldErrors[err.field] = err.message;
+          });
+          error = result.message || 'Please fix the errors below';
+        } else {
+          error = result.message || 'Registration failed';
+        }
       }
     } catch (err) {
       error = 'An unexpected error occurred';
@@ -131,12 +157,14 @@
     mode = 'login';
     error = '';
     success = '';
+    fieldErrors = {};
   }
 
   function switchToRegister() {
     mode = 'register';
     error = '';
     success = '';
+    fieldErrors = {};
   }
 
   function backToLogin() {
@@ -186,6 +214,7 @@
         {isLoading} 
         {error}
         {success}
+        {fieldErrors}
         on:register={handleRegister}
         on:switchMode={switchToLogin}
       />

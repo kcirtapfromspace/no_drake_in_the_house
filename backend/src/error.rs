@@ -62,6 +62,22 @@ pub enum AppError {
     #[error("Invalid field value: {field}")]
     InvalidFieldValue { field: String, message: String },
     
+    // Registration-specific validation errors
+    #[error("Registration validation failed")]
+    RegistrationValidationError { errors: Vec<crate::models::RegistrationValidationError> },
+    
+    #[error("Password confirmation does not match")]
+    PasswordMismatch,
+    
+    #[error("Terms of service must be accepted")]
+    TermsNotAccepted,
+    
+    #[error("Email already registered")]
+    EmailAlreadyRegistered,
+    
+    #[error("Password does not meet security requirements")]
+    WeakPassword { requirements: Vec<String> },
+    
     // Resource errors
     #[error("Resource not found: {resource}")]
     NotFound { resource: String },
@@ -134,7 +150,11 @@ impl AppError {
             AppError::InvalidRequestFormat(_) |
             AppError::MissingField { .. } |
             AppError::InvalidFieldValue { .. } |
-            AppError::JsonParsingError(_) => StatusCode::BAD_REQUEST,
+            AppError::JsonParsingError(_) |
+            AppError::RegistrationValidationError { .. } |
+            AppError::PasswordMismatch |
+            AppError::TermsNotAccepted |
+            AppError::WeakPassword { .. } => StatusCode::BAD_REQUEST,
             
             // 401 Unauthorized
             AppError::InvalidCredentials |
@@ -153,7 +173,8 @@ impl AppError {
             // 409 Conflict
             AppError::AlreadyExists { .. } |
             AppError::Conflict { .. } |
-            AppError::DatabaseConstraintViolation(_) => StatusCode::CONFLICT,
+            AppError::DatabaseConstraintViolation(_) |
+            AppError::EmailAlreadyRegistered => StatusCode::CONFLICT,
             
             // 422 Unprocessable Entity
             AppError::BusinessRuleViolation { .. } |
@@ -190,6 +211,11 @@ impl AppError {
             AppError::InvalidRequestFormat(_) => "INVALID_REQUEST_FORMAT",
             AppError::MissingField { .. } => "MISSING_FIELD",
             AppError::InvalidFieldValue { .. } => "INVALID_FIELD_VALUE",
+            AppError::RegistrationValidationError { .. } => "REGISTRATION_VALIDATION_ERROR",
+            AppError::PasswordMismatch => "PASSWORD_MISMATCH",
+            AppError::TermsNotAccepted => "TERMS_NOT_ACCEPTED",
+            AppError::EmailAlreadyRegistered => "EMAIL_ALREADY_REGISTERED",
+            AppError::WeakPassword { .. } => "WEAK_PASSWORD",
             AppError::NotFound { .. } => "RESOURCE_NOT_FOUND",
             AppError::AlreadyExists { .. } => "RESOURCE_ALREADY_EXISTS",
             AppError::Conflict { .. } => "RESOURCE_CONFLICT",
@@ -225,6 +251,11 @@ impl AppError {
             AppError::InvalidRequestFormat(msg) => format!("Invalid request format: {}", msg),
             AppError::MissingField { field } => format!("Missing required field: {}", field),
             AppError::InvalidFieldValue { field, message } => format!("Invalid value for {}: {}", field, message),
+            AppError::RegistrationValidationError { .. } => "Registration validation failed. Please check your input and try again.".to_string(),
+            AppError::PasswordMismatch => "Password confirmation does not match".to_string(),
+            AppError::TermsNotAccepted => "You must accept the terms of service to register".to_string(),
+            AppError::EmailAlreadyRegistered => "An account with this email address already exists".to_string(),
+            AppError::WeakPassword { .. } => "Password does not meet security requirements".to_string(),
             AppError::NotFound { resource } => format!("{} not found", resource),
             AppError::AlreadyExists { resource } => format!("{} already exists", resource),
             AppError::Conflict { message } => message.clone(),
@@ -250,6 +281,16 @@ impl AppError {
                     details.insert(field.to_string(), messages);
                 }
                 Some(json!(details))
+            }
+            AppError::RegistrationValidationError { errors } => {
+                Some(json!({
+                    "validation_errors": errors
+                }))
+            }
+            AppError::WeakPassword { requirements } => {
+                Some(json!({
+                    "password_requirements": requirements
+                }))
             }
             AppError::RateLimitExceeded { retry_after } => {
                 Some(json!({
@@ -394,6 +435,34 @@ impl From<axum::http::StatusCode> for AppError {
 impl From<serde_json::Error> for AppError {
     fn from(err: serde_json::Error) -> Self {
         AppError::InvalidRequestFormat(format!("JSON error: {}", err))
+    }
+}
+
+impl From<bcrypt::BcryptError> for AppError {
+    fn from(err: bcrypt::BcryptError) -> Self {
+        AppError::Internal {
+            message: Some(format!("Password hashing error: {}", err)),
+        }
+    }
+}
+
+impl From<jsonwebtoken::errors::Error> for AppError {
+    fn from(err: jsonwebtoken::errors::Error) -> Self {
+        match err.kind() {
+            jsonwebtoken::errors::ErrorKind::ExpiredSignature => AppError::TokenExpired,
+            jsonwebtoken::errors::ErrorKind::InvalidToken => AppError::TokenInvalid,
+            _ => AppError::Internal {
+                message: Some(format!("JWT error: {}", err)),
+            },
+        }
+    }
+}
+
+impl From<uuid::Error> for AppError {
+    fn from(err: uuid::Error) -> Self {
+        AppError::Internal {
+            message: Some(format!("UUID parsing error: {}", err)),
+        }
     }
 }
 

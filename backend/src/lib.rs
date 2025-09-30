@@ -107,6 +107,9 @@ pub fn create_router(state: AppState) -> Router {
         .route("/users/export", get(handlers::user::export_data_handler))
         .route("/users/account", delete(handlers::user::delete_account_handler))
         
+        // Auth routes (protected)
+        .route("/auth/logout", post(handlers::auth::logout_handler))
+        
         // 2FA routes
         .route("/auth/2fa/setup", post(handlers::auth::setup_2fa_handler))
         .route("/auth/2fa/verify", post(handlers::auth::verify_2fa_handler))

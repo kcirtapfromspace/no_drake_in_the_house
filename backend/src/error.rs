@@ -402,6 +402,17 @@ impl From<redis::RedisError> for AppError {
     }
 }
 
+impl From<deadpool::managed::PoolError<redis::RedisError>> for AppError {
+    fn from(err: deadpool::managed::PoolError<redis::RedisError>) -> Self {
+        match err {
+            deadpool::managed::PoolError::Backend(redis_err) => AppError::from(redis_err),
+            deadpool::managed::PoolError::Timeout(_) => AppError::RedisConnectionFailed,
+            deadpool::managed::PoolError::Closed => AppError::RedisConnectionFailed,
+            _ => AppError::RedisConnectionFailed,
+        }
+    }
+}
+
 impl From<ValidationErrors> for AppError {
     fn from(err: ValidationErrors) -> Self {
         AppError::ValidationFailed(err)

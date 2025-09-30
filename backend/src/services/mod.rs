@@ -5,6 +5,9 @@ pub mod monitoring;
 pub mod rate_limiting_middleware;
 pub mod audit_logging;
 pub mod dnp_list;
+pub mod registration_performance;
+pub mod registration_monitoring;
+pub mod login_performance;
 pub mod user;
 
 pub mod stubs;

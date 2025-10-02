@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM oauth_accounts \n            WHERE token_expires_at IS NOT NULL \n            AND token_expires_at < NOW() - INTERVAL '30 days'\n            AND refresh_token_encrypted IS NULL\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "0866da4c22203096c1621b53315b59c0784e9fe0cde8081e7790b4446be29c89"
+}

@@ -1,6 +1,7 @@
 pub mod artist;
 pub mod user;
 pub mod auth;
+pub mod oauth;
 pub mod token_vault;
 pub mod spotify;
 pub mod apple_music;
@@ -25,11 +26,13 @@ pub struct ProviderBadge {
 // Explicit imports to avoid ambiguity
 pub use artist::{Artist, ArtistMetadata, ExternalIds};
 pub use user::{
-    User, UserSettings, OAuthProvider, OAuthProviderInfo, CreateUserRequest, 
+    User, UserSettings, CreateUserRequest, 
     LoginRequest, OAuthLoginRequest, TokenPair, RefreshTokenRequest, 
     TotpSetupRequest, TotpSetupResponse, TotpEnableRequest, TotpDisableRequest,
     RegisterRequest, AuthResponse, TotpVerifyRequest, AuthenticatedUser,
-    TotpStatusResponse, RegistrationValidationError, RegistrationErrorResponse
+    TotpStatusResponse, RegistrationValidationError, RegistrationErrorResponse,
+    OAuthAccountInfo, LinkOAuthAccountRequest, UnlinkOAuthAccountRequest,
+    MergeAccountsRequest, MergeAccountsResponse
 };
 // Use qualified name for UserProfile to avoid conflict with audit::UserProfile
 pub use user::UserProfile as UserUserProfile;
@@ -43,6 +46,7 @@ pub use action::*;
 pub use dnp_list::*;
 pub use community_list::*;
 pub use rate_limit::*;
+pub use oauth::*;
 pub use audit::{
     AuditLogEntry, CreateAuditLogRequest, AuditLogQuery, AuditLogResponse,
     SecurityEventType, SecurityEvent, SecuritySeverity, AccessReviewEntry,

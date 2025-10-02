@@ -90,11 +90,8 @@ docker_build(
         './migrations',
         './.sqlx'
     ],
-    live_update=[
-        sync('./backend/src', '/app/src'),
-        sync('./backend/migrations', '/app/migrations'),
-        run('SQLX_OFFLINE=true cargo build --bin music-streaming-blocklist-backend', trigger=['./backend/src'])
-    ],
+    # For Rust, we need to rebuild the entire image when source changes
+    # since the runtime container doesn't have Rust toolchain
     build_args={
         'BUILDKIT_INLINE_CACHE': '1',
         'SQLX_OFFLINE': 'true'

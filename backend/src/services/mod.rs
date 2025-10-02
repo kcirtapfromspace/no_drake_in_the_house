@@ -1,6 +1,16 @@
 // Services module - include working services only
 pub mod auth_simple;
 pub mod auth;
+pub mod oauth;
+pub mod oauth_encryption;
+pub mod oauth_google;
+pub mod oauth_apple;
+pub mod oauth_github;
+pub mod oauth_token_manager;
+pub mod oauth_config_validator;
+pub mod oauth_health_monitor;
+pub mod oauth_error_recovery;
+pub mod oauth_security_logger;
 pub mod monitoring;
 pub mod rate_limiting_middleware;
 pub mod audit_logging;
@@ -33,6 +43,13 @@ pub mod stubs;
 
 pub use auth_simple::AuthService as SimpleAuthService;
 pub use auth::AuthService;
+pub use oauth::{OAuthProvider, BaseOAuthProvider, OAuthStateManager};
+pub use oauth_encryption::OAuthTokenEncryption;
+pub use oauth_google::{GoogleOAuthProvider, GoogleOAuthService};
+pub use oauth_apple::{AppleOAuthProvider, AppleOAuthService, AppleOAuthConfig};
+pub use oauth_github::{GitHubOAuthProvider, GitHubOAuthService, GitHubEmail};
+pub use oauth_config_validator::{OAuthConfigValidator, OAuthProviderValidation};
+pub use oauth_health_monitor::{OAuthHealthMonitor, OAuthProviderHealth, OAuthProviderHealthStatus, OAuthHealthConfig, RateLimitInfo};
 pub use monitoring::*;
 pub use rate_limiting_middleware::{RateLimitService, registration_rate_limit_middleware};
 pub use audit_logging::*;

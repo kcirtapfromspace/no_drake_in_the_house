@@ -74,6 +74,10 @@ impl Claims {
     pub fn is_expired(&self) -> bool {
         Utc::now().timestamp() > self.exp
     }
+
+    pub fn user_id(&self) -> Result<Uuid, uuid::Error> {
+        Uuid::parse_str(&self.sub)
+    }
 }
 
 impl RefreshToken {

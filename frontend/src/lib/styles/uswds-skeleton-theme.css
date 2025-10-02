@@ -1,0 +1,435 @@
+/**
+ * USWDS + Skeleton UI Design System
+ * 
+ * This file combines the U.S. Web Design System standards with Skeleton UI
+ * components to create a comprehensive, accessible, and government-compliant
+ * design system.
+ */
+
+/* Import Skeleton UI base styles */
+@import '@skeletonlabs/skeleton/styles/skeleton.css';
+
+/* Import USWDS design tokens */
+@import '@uswds/uswds/dist/css/uswds.min.css';
+
+/* ===== USWDS + SKELETON INTEGRATION ===== */
+
+:root {
+  /* USWDS Color Tokens */
+  --uswds-primary: #005ea2;
+  --uswds-primary-dark: #0050d8;
+  --uswds-primary-darker: #1a4480;
+  --uswds-primary-darkest: #162e51;
+  
+  --uswds-secondary: #e31c3d;
+  --uswds-secondary-dark: #d72d0d;
+  --uswds-secondary-darker: #b50909;
+  --uswds-secondary-darkest: #8b0a03;
+  
+  --uswds-success: #00a91c;
+  --uswds-success-dark: #008817;
+  --uswds-success-darker: #216e1f;
+  --uswds-success-darkest: #0e4b99;
+  
+  --uswds-warning: #ffbe2e;
+  --uswds-warning-dark: #e5a000;
+  --uswds-warning-darker: #c05600;
+  --uswds-warning-darkest: #775540;
+  
+  --uswds-error: #d63384;
+  --uswds-error-dark: #b02a5b;
+  --uswds-error-darker: #8b2635;
+  --uswds-error-darkest: #5c1a1b;
+  
+  /* USWDS Neutral Colors */
+  --uswds-base-lightest: #f9f9f9;
+  --uswds-base-lighter: #f1f1f1;
+  --uswds-base-light: #e6e6e6;
+  --uswds-base: #a9aeb1;
+  --uswds-base-dark: #71767a;
+  --uswds-base-darker: #565c65;
+  --uswds-base-darkest: #1b1b1b;
+  
+  /* USWDS Typography Scale */
+  --uswds-font-size-3xs: 0.625rem;   /* 10px */
+  --uswds-font-size-2xs: 0.6875rem;  /* 11px */
+  --uswds-font-size-xs: 0.75rem;     /* 12px */
+  --uswds-font-size-sm: 0.875rem;    /* 14px */
+  --uswds-font-size-md: 1rem;        /* 16px */
+  --uswds-font-size-lg: 1.125rem;    /* 18px */
+  --uswds-font-size-xl: 1.25rem;     /* 20px */
+  --uswds-font-size-2xl: 1.5rem;     /* 24px */
+  --uswds-font-size-3xl: 1.875rem;   /* 30px */
+  
+  /* USWDS Spacing Scale (8px base unit) */
+  --uswds-spacing-05: 0.125rem;  /* 2px */
+  --uswds-spacing-1: 0.25rem;    /* 4px */
+  --uswds-spacing-105: 0.375rem; /* 6px */
+  --uswds-spacing-2: 0.5rem;     /* 8px */
+  --uswds-spacing-205: 0.625rem; /* 10px */
+  --uswds-spacing-3: 0.75rem;    /* 12px */
+  --uswds-spacing-4: 1rem;       /* 16px */
+  --uswds-spacing-5: 1.25rem;    /* 20px */
+  --uswds-spacing-6: 1.5rem;     /* 24px */
+  --uswds-spacing-7: 1.75rem;    /* 28px */
+  --uswds-spacing-8: 2rem;       /* 32px */
+  --uswds-spacing-9: 2.25rem;    /* 36px */
+  --uswds-spacing-10: 2.5rem;    /* 40px */
+  --uswds-spacing-15: 3.75rem;   /* 60px */
+  
+  /* Icon Sizing (Government Standard) */
+  --icon-size-xs: 0.75rem;   /* 12px */
+  --icon-size-sm: 1rem;      /* 16px */
+  --icon-size-md: 1.25rem;   /* 20px */
+  --icon-size-lg: 1.5rem;    /* 24px */
+  --icon-size-xl: 2rem;      /* 32px - Maximum */
+  
+  /* USWDS Border Radius */
+  --uswds-border-radius-sm: 0.125rem; /* 2px */
+  --uswds-border-radius-md: 0.25rem;  /* 4px */
+  --uswds-border-radius-lg: 0.5rem;   /* 8px */
+  
+  /* USWDS Shadows */
+  --uswds-shadow-1: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+  --uswds-shadow-2: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --uswds-shadow-3: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --uswds-shadow-4: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  
+  /* USWDS Focus Ring */
+  --uswds-focus-color: #005ea2;
+  --uswds-focus-width: 0.25rem;
+  --uswds-focus-offset: 0.125rem;
+}
+
+/* ===== SKELETON UI CUSTOMIZATIONS FOR USWDS ===== */
+
+/* Override Skeleton UI colors with USWDS palette */
+:root {
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: var(--uswds-primary);
+  --color-primary-600: var(--uswds-primary-dark);
+  --color-primary-700: var(--uswds-primary-darker);
+  --color-primary-800: var(--uswds-primary-darkest);
+  --color-primary-900: #1e3a8a;
+  
+  --color-secondary-50: #fef2f2;
+  --color-secondary-100: #fee2e2;
+  --color-secondary-200: #fecaca;
+  --color-secondary-300: #fca5a5;
+  --color-secondary-400: #f87171;
+  --color-secondary-500: var(--uswds-secondary);
+  --color-secondary-600: var(--uswds-secondary-dark);
+  --color-secondary-700: var(--uswds-secondary-darker);
+  --color-secondary-800: var(--uswds-secondary-darkest);
+  --color-secondary-900: #7f1d1d;
+  
+  --color-tertiary-50: #f0fdf4;
+  --color-tertiary-100: #dcfce7;
+  --color-tertiary-200: #bbf7d0;
+  --color-tertiary-300: #86efac;
+  --color-tertiary-400: #4ade80;
+  --color-tertiary-500: var(--uswds-success);
+  --color-tertiary-600: var(--uswds-success-dark);
+  --color-tertiary-700: var(--uswds-success-darker);
+  --color-tertiary-800: #166534;
+  --color-tertiary-900: #14532d;
+  
+  --color-success-50: #f0fdf4;
+  --color-success-500: var(--uswds-success);
+  --color-success-600: var(--uswds-success-dark);
+  
+  --color-warning-50: #fffbeb;
+  --color-warning-500: var(--uswds-warning);
+  --color-warning-600: var(--uswds-warning-dark);
+  
+  --color-error-50: #fef2f2;
+  --color-error-500: var(--uswds-error);
+  --color-error-600: var(--uswds-error-dark);
+  
+  --color-surface-50: var(--uswds-base-lightest);
+  --color-surface-100: var(--uswds-base-lighter);
+  --color-surface-200: var(--uswds-base-light);
+  --color-surface-300: #d1d5db;
+  --color-surface-400: #9ca3af;
+  --color-surface-500: var(--uswds-base);
+  --color-surface-600: var(--uswds-base-dark);
+  --color-surface-700: var(--uswds-base-darker);
+  --color-surface-800: #1f2937;
+  --color-surface-900: var(--uswds-base-darkest);
+}
+
+/* ===== USWDS COMPONENT STYLES ===== */
+
+/* USWDS Button Styles */
+.btn-uswds {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--uswds-spacing-205) var(--uswds-spacing-4);
+  border: 1px solid transparent;
+  border-radius: var(--uswds-border-radius-md);
+  font-size: var(--uswds-font-size-md);
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 150ms ease-in-out;
+  box-shadow: var(--uswds-shadow-1);
+  min-height: 2.75rem; /* 44px - USWDS touch target */
+}
+
+.btn-uswds:focus {
+  outline: var(--uswds-focus-width) solid var(--uswds-focus-color);
+  outline-offset: var(--uswds-focus-offset);
+}
+
+.btn-uswds-primary {
+  background-color: var(--uswds-primary);
+  color: white;
+}
+
+.btn-uswds-primary:hover:not(:disabled) {
+  background-color: var(--uswds-primary-dark);
+  box-shadow: var(--uswds-shadow-2);
+}
+
+.btn-uswds-secondary {
+  background-color: transparent;
+  color: var(--uswds-primary);
+  border-color: var(--uswds-primary);
+}
+
+.btn-uswds-secondary:hover:not(:disabled) {
+  background-color: var(--uswds-primary);
+  color: white;
+}
+
+/* USWDS Form Styles */
+.form-field-uswds {
+  margin-bottom: var(--uswds-spacing-4);
+}
+
+.form-label-uswds {
+  display: block;
+  font-size: var(--uswds-font-size-md);
+  font-weight: 600;
+  color: var(--uswds-base-darkest);
+  margin-bottom: var(--uswds-spacing-2);
+}
+
+.form-input-uswds {
+  width: 100%;
+  padding: var(--uswds-spacing-205) var(--uswds-spacing-3);
+  border: 1px solid var(--uswds-base);
+  border-radius: var(--uswds-border-radius-md);
+  font-size: var(--uswds-font-size-md);
+  line-height: 1.5;
+  background-color: white;
+  transition: border-color 150ms ease-in-out, box-shadow 150ms ease-in-out;
+  min-height: 2.75rem; /* 44px - USWDS touch target */
+}
+
+.form-input-uswds:focus {
+  outline: var(--uswds-focus-width) solid var(--uswds-focus-color);
+  outline-offset: var(--uswds-focus-offset);
+  border-color: var(--uswds-primary);
+}
+
+.form-input-uswds--error {
+  border-color: var(--uswds-error);
+}
+
+.form-input-uswds--error:focus {
+  outline-color: var(--uswds-error);
+}
+
+/* USWDS Alert Styles */
+.alert-uswds {
+  padding: var(--uswds-spacing-4);
+  border-radius: var(--uswds-border-radius-lg);
+  border-left: 0.25rem solid;
+  display: flex;
+  gap: var(--uswds-spacing-3);
+  margin-bottom: var(--uswds-spacing-4);
+}
+
+.alert-uswds-success {
+  background-color: #ecf3ec;
+  border-left-color: var(--uswds-success);
+  color: #1e4620;
+}
+
+.alert-uswds-warning {
+  background-color: #faf3d1;
+  border-left-color: var(--uswds-warning);
+  color: #6f5f00;
+}
+
+.alert-uswds-error {
+  background-color: #f4e3db;
+  border-left-color: var(--uswds-error);
+  color: #6f3331;
+}
+
+.alert-uswds-info {
+  background-color: #e7f6f8;
+  border-left-color: var(--uswds-primary);
+  color: #2e6276;
+}
+
+/* USWDS Card Styles */
+.card-uswds {
+  background-color: white;
+  border-radius: var(--uswds-border-radius-lg);
+  box-shadow: var(--uswds-shadow-2);
+  overflow: hidden;
+}
+
+.card-uswds-header {
+  padding: var(--uswds-spacing-4);
+  border-bottom: 1px solid var(--uswds-base-light);
+}
+
+.card-uswds-body {
+  padding: var(--uswds-spacing-4);
+}
+
+.card-uswds-footer {
+  padding: var(--uswds-spacing-4);
+  background-color: var(--uswds-base-lightest);
+  border-top: 1px solid var(--uswds-base-light);
+}
+
+/* ===== ICON SYSTEM WITH USWDS COMPLIANCE ===== */
+
+.icon-uswds {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  max-width: var(--icon-size-xl);
+  max-height: var(--icon-size-xl);
+}
+
+.icon-uswds--xs { 
+  width: var(--icon-size-xs); 
+  height: var(--icon-size-xs); 
+}
+.icon-uswds--sm { 
+  width: var(--icon-size-sm); 
+  height: var(--icon-size-sm); 
+}
+.icon-uswds--md { 
+  width: var(--icon-size-md); 
+  height: var(--icon-size-md); 
+}
+.icon-uswds--lg { 
+  width: var(--icon-size-lg); 
+  height: var(--icon-size-lg); 
+}
+.icon-uswds--xl { 
+  width: var(--icon-size-xl); 
+  height: var(--icon-size-xl); 
+}
+
+/* Semantic icon colors */
+.icon-uswds--primary { color: var(--uswds-primary); }
+.icon-uswds--success { color: var(--uswds-success); }
+.icon-uswds--warning { color: var(--uswds-warning); }
+.icon-uswds--error { color: var(--uswds-error); }
+.icon-uswds--neutral { color: var(--uswds-base-dark); }
+
+/* ===== ACCESSIBILITY ENHANCEMENTS ===== */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .btn-uswds {
+    border-width: 2px;
+  }
+  
+  .form-input-uswds {
+    border-width: 2px;
+  }
+  
+  .alert-uswds {
+    border-left-width: 0.5rem;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+.btn-uswds:focus-visible,
+.form-input-uswds:focus-visible {
+  outline: var(--uswds-focus-width) solid var(--uswds-focus-color);
+  outline-offset: var(--uswds-focus-offset);
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+
+/* Mobile-first responsive utilities */
+@media (max-width: 640px) {
+  .btn-uswds {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .card-uswds {
+    margin: 0 var(--uswds-spacing-2);
+  }
+  
+  /* Slightly smaller icons on mobile */
+  .icon-uswds--lg {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+  }
+  
+  .icon-uswds--xl {
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
+  }
+}
+
+/* ===== ULTRA-AGGRESSIVE ICON CONSTRAINTS ===== */
+
+/* Nuclear option: Prevent ANY SVG from becoming oversized */
+:global(svg:not(.icon-uswds):not([class*="avatar"])) {
+  max-width: var(--icon-size-xl) !important;
+  max-height: var(--icon-size-xl) !important;
+  width: var(--icon-size-md) !important;
+  height: var(--icon-size-md) !important;
+  flex-shrink: 0 !important;
+}
+
+/* Design system icons get proper sizing */
+:global(svg.icon-uswds--xs) { width: var(--icon-size-xs) !important; height: var(--icon-size-xs) !important; }
+:global(svg.icon-uswds--sm) { width: var(--icon-size-sm) !important; height: var(--icon-size-sm) !important; }
+:global(svg.icon-uswds--md) { width: var(--icon-size-md) !important; height: var(--icon-size-md) !important; }
+:global(svg.icon-uswds--lg) { width: var(--icon-size-lg) !important; height: var(--icon-size-lg) !important; }
+:global(svg.icon-uswds--xl) { width: var(--icon-size-xl) !important; height: var(--icon-size-xl) !important; }
+
+/* Override any Tailwind sizing classes */
+:global(.h-4), :global(svg.h-4) { width: var(--icon-size-sm) !important; height: var(--icon-size-sm) !important; }
+:global(.h-5), :global(svg.h-5) { width: var(--icon-size-md) !important; height: var(--icon-size-md) !important; }
+:global(.h-6), :global(svg.h-6) { width: var(--icon-size-lg) !important; height: var(--icon-size-lg) !important; }
+:global(.h-8), :global(svg.h-8) { width: var(--icon-size-xl) !important; height: var(--icon-size-xl) !important; }
+
+/* Prevent oversized combinations */
+:global(.h-10), :global(.h-12), :global(.h-16), :global(.h-20), :global(.h-24),
+:global(svg.h-10), :global(svg.h-12), :global(svg.h-16), :global(svg.h-20), :global(svg.h-24) { 
+  width: var(--icon-size-xl) !important; 
+  height: var(--icon-size-xl) !important; 
+  max-width: var(--icon-size-xl) !important;
+  max-height: var(--icon-size-xl) !important;
+}

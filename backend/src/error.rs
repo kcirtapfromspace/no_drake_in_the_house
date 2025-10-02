@@ -1,5 +1,7 @@
 //! Comprehensive error handling for the application
 
+pub mod oauth;
+
 use axum::{
     extract::rejection::JsonRejection,
     http::StatusCode,
@@ -12,6 +14,8 @@ use std::collections::HashMap;
 use thiserror::Error;
 use uuid::Uuid;
 use validator::ValidationErrors;
+
+pub use oauth::{OAuthError, TokenType, EncryptionOperation, AccountConflictType, RateLimitType, SecurityViolationType, ClientInfo};
 
 /// Error response structure for consistent API responses
 #[derive(Debug, Serialize, Deserialize)]
@@ -48,6 +52,27 @@ pub enum AppError {
     
     #[error("Insufficient permissions")]
     InsufficientPermissions,
+    
+    // OAuth errors - comprehensive OAuth error handling
+    #[error("OAuth error: {0}")]
+    OAuth(#[from] OAuthError),
+    
+    // Legacy OAuth errors (deprecated - use OAuth(OAuthError) instead)
+    #[error("OAuth provider error: {provider} - {message}")]
+    OAuthProviderError { provider: String, message: String },
+    
+    #[error("OAuth state validation failed")]
+    OAuthStateValidationFailed,
+    
+    #[error("OAuth account linking failed: {reason}")]
+    OAuthAccountLinkingFailed { reason: String },
+    
+    #[error("OAuth account merge conflict: {reason}")]
+    OAuthAccountMergeConflict { reason: String },
+    
+    // Encryption errors
+    #[error("Token encryption error: {0}")]
+    EncryptionError(String),
     
     // Validation errors
     #[error("Request validation failed")]
@@ -96,8 +121,8 @@ pub enum AppError {
     #[error("External service unavailable: {service}")]
     ExternalServiceUnavailable { service: String },
     
-    #[error("External service error: {service}")]
-    ExternalServiceError { service: String, message: String },
+    #[error("External service error: {0}")]
+    ExternalServiceError(String),
     
     // Database errors
     #[error("Database connection failed")]
@@ -162,7 +187,41 @@ impl AppError {
             AppError::TokenExpired |
             AppError::TokenInvalid |
             AppError::TwoFactorRequired |
-            AppError::TwoFactorInvalid => StatusCode::UNAUTHORIZED,
+            AppError::TwoFactorInvalid |
+            AppError::OAuthStateValidationFailed => StatusCode::UNAUTHORIZED,
+            
+            // OAuth-specific status codes
+            AppError::OAuth(oauth_error) => {
+                match oauth_error {
+                    OAuthError::StateValidationFailed { .. } |
+                    OAuthError::InvalidToken { .. } |
+                    OAuthError::SecurityViolation { .. } |
+                    OAuthError::CsrfAttackDetected { .. } => StatusCode::UNAUTHORIZED,
+                    
+                    OAuthError::InvalidConfiguration { .. } |
+                    OAuthError::ProviderNotConfigured { .. } |
+                    OAuthError::InvalidAuthorizationCode { .. } |
+                    OAuthError::RedirectUriMismatch { .. } |
+                    OAuthError::InsufficientScopes { .. } => StatusCode::BAD_REQUEST,
+                    
+                    OAuthError::AccountLinkingFailed { .. } |
+                    OAuthError::AccountUnlinkingFailed { .. } |
+                    OAuthError::AccountMergeConflict { .. } => StatusCode::CONFLICT,
+                    
+                    OAuthError::RateLimitExceeded { .. } => StatusCode::TOO_MANY_REQUESTS,
+                    
+                    OAuthError::ProviderUnavailable { .. } |
+                    OAuthError::NetworkError { .. } |
+                    OAuthError::ApiTimeout { .. } => StatusCode::SERVICE_UNAVAILABLE,
+                    
+                    OAuthError::ProviderError { .. } |
+                    OAuthError::TokenExchangeFailed { .. } |
+                    OAuthError::TokenRefreshFailed { .. } |
+                    OAuthError::UserInfoRetrievalFailed { .. } => StatusCode::BAD_GATEWAY,
+                    
+                    OAuthError::TokenEncryptionFailed { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+                }
+            },
             
             // 403 Forbidden
             AppError::InsufficientPermissions => StatusCode::FORBIDDEN,
@@ -178,14 +237,17 @@ impl AppError {
             
             // 422 Unprocessable Entity
             AppError::BusinessRuleViolation { .. } |
-            AppError::OperationNotAllowed { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+            AppError::OperationNotAllowed { .. } |
+            AppError::OAuthAccountLinkingFailed { .. } |
+            AppError::OAuthAccountMergeConflict { .. } => StatusCode::UNPROCESSABLE_ENTITY,
             
             // 429 Too Many Requests
             AppError::RateLimitExceeded { .. } => StatusCode::TOO_MANY_REQUESTS,
             
             // 502 Bad Gateway
             AppError::ExternalServiceUnavailable { .. } |
-            AppError::ExternalServiceError { .. } => StatusCode::BAD_GATEWAY,
+            AppError::ExternalServiceError(_) |
+            AppError::OAuthProviderError { .. } => StatusCode::BAD_GATEWAY,
             
             // 503 Service Unavailable
             AppError::ServiceUnavailable |
@@ -207,6 +269,37 @@ impl AppError {
             AppError::TwoFactorRequired => "AUTH_2FA_REQUIRED",
             AppError::TwoFactorInvalid => "AUTH_2FA_INVALID",
             AppError::InsufficientPermissions => "AUTH_INSUFFICIENT_PERMISSIONS",
+            AppError::OAuth(oauth_error) => {
+                match oauth_error.error_type().as_str() {
+                    "provider_error" => "OAUTH_PROVIDER_ERROR",
+                    "provider_not_configured" => "OAUTH_PROVIDER_NOT_CONFIGURED",
+                    "invalid_configuration" => "OAUTH_INVALID_CONFIGURATION",
+                    "state_validation_failed" => "OAUTH_STATE_VALIDATION_FAILED",
+                    "invalid_authorization_code" => "OAUTH_INVALID_AUTHORIZATION_CODE",
+                    "redirect_uri_mismatch" => "OAUTH_REDIRECT_URI_MISMATCH",
+                    "token_exchange_failed" => "OAUTH_TOKEN_EXCHANGE_FAILED",
+                    "token_refresh_failed" => "OAUTH_TOKEN_REFRESH_FAILED",
+                    "invalid_token" => "OAUTH_INVALID_TOKEN",
+                    "token_encryption_failed" => "OAUTH_TOKEN_ENCRYPTION_FAILED",
+                    "account_linking_failed" => "OAUTH_ACCOUNT_LINKING_FAILED",
+                    "account_unlinking_failed" => "OAUTH_ACCOUNT_UNLINKING_FAILED",
+                    "account_merge_conflict" => "OAUTH_ACCOUNT_MERGE_CONFLICT",
+                    "provider_unavailable" => "OAUTH_PROVIDER_UNAVAILABLE",
+                    "rate_limit_exceeded" => "OAUTH_RATE_LIMIT_EXCEEDED",
+                    "user_info_retrieval_failed" => "OAUTH_USER_INFO_RETRIEVAL_FAILED",
+                    "insufficient_scopes" => "OAUTH_INSUFFICIENT_SCOPES",
+                    "security_violation" => "OAUTH_SECURITY_VIOLATION",
+                    "csrf_attack_detected" => "OAUTH_CSRF_ATTACK_DETECTED",
+                    "network_error" => "OAUTH_NETWORK_ERROR",
+                    "api_timeout" => "OAUTH_API_TIMEOUT",
+                    _ => "OAUTH_UNKNOWN_ERROR",
+                }
+            },
+            AppError::OAuthProviderError { .. } => "OAUTH_PROVIDER_ERROR",
+            AppError::OAuthStateValidationFailed => "OAUTH_STATE_VALIDATION_FAILED",
+            AppError::OAuthAccountLinkingFailed { .. } => "OAUTH_ACCOUNT_LINKING_FAILED",
+            AppError::OAuthAccountMergeConflict { .. } => "OAUTH_ACCOUNT_MERGE_CONFLICT",
+            AppError::EncryptionError(_) => "ENCRYPTION_ERROR",
             AppError::ValidationFailed(_) => "VALIDATION_FAILED",
             AppError::InvalidRequestFormat(_) => "INVALID_REQUEST_FORMAT",
             AppError::MissingField { .. } => "MISSING_FIELD",
@@ -261,7 +354,13 @@ impl AppError {
             AppError::Conflict { message } => message.clone(),
             AppError::RateLimitExceeded { .. } => "Too many requests, please try again later".to_string(),
             AppError::ExternalServiceUnavailable { service } => format!("{} is currently unavailable", service),
-            AppError::ExternalServiceError { service, .. } => format!("Error communicating with {}", service),
+            AppError::ExternalServiceError(msg) => format!("External service error: {}", msg),
+            AppError::OAuth(oauth_error) => oauth_error.user_message(),
+            AppError::OAuthProviderError { provider, .. } => format!("Authentication with {} failed", provider),
+            AppError::OAuthStateValidationFailed => "OAuth authentication failed due to invalid state".to_string(),
+            AppError::OAuthAccountLinkingFailed { reason } => format!("Account linking failed: {}", reason),
+            AppError::OAuthAccountMergeConflict { reason } => format!("Account merge conflict: {}", reason),
+            AppError::EncryptionError(_) => "Token encryption/decryption failed".to_string(),
             AppError::BusinessRuleViolation { rule } => format!("Business rule violation: {}", rule),
             AppError::OperationNotAllowed { reason } => format!("Operation not allowed: {}", reason),
             _ => "An unexpected error occurred".to_string(),
@@ -302,9 +401,38 @@ impl AppError {
                     "database_error": e.to_string()
                 }))
             }
-            AppError::ExternalServiceError { message, .. } => {
+            AppError::ExternalServiceError(message) => {
                 Some(json!({
                     "service_message": message
+                }))
+            }
+            AppError::OAuth(oauth_error) => {
+                let details = oauth_error.error_details();
+                if details.is_empty() {
+                    None
+                } else {
+                    Some(serde_json::to_value(details).unwrap_or_default())
+                }
+            }
+            AppError::OAuthProviderError { provider, message } => {
+                Some(json!({
+                    "provider": provider,
+                    "provider_message": message
+                }))
+            }
+            AppError::OAuthAccountLinkingFailed { reason } => {
+                Some(json!({
+                    "linking_failure_reason": reason
+                }))
+            }
+            AppError::OAuthAccountMergeConflict { reason } => {
+                Some(json!({
+                    "merge_conflict_reason": reason
+                }))
+            }
+            AppError::EncryptionError(message) => {
+                Some(json!({
+                    "encryption_error": message
                 }))
             }
             _ => None,
@@ -337,15 +465,70 @@ impl IntoResponse for AppError {
                     "Server error occurred"
                 );
             }
-            AppError::ExternalServiceError { service, .. } |
-            AppError::ExternalServiceUnavailable { service } => {
+            AppError::ExternalServiceError(_) |
+            AppError::ExternalServiceUnavailable { .. } |
+            AppError::OAuthProviderError { .. } => {
                 tracing::warn!(
                     correlation_id = %correlation_id,
                     error_code = %error_code,
-                    service = %service,
                     error = %self,
                     "External service error"
                 );
+            }
+            AppError::OAuth(oauth_error) => {
+                match oauth_error {
+                    // Security-related OAuth errors should be logged as warnings with details
+                    OAuthError::SecurityViolation { .. } |
+                    OAuthError::CsrfAttackDetected { .. } => {
+                        tracing::warn!(
+                            correlation_id = %correlation_id,
+                            error_code = %error_code,
+                            error = %self,
+                            oauth_details = ?oauth_error.error_details(),
+                            "OAuth security violation detected"
+                        );
+                    }
+                    // Configuration and provider errors
+                    OAuthError::ProviderNotConfigured { .. } |
+                    OAuthError::InvalidConfiguration { .. } => {
+                        tracing::error!(
+                            correlation_id = %correlation_id,
+                            error_code = %error_code,
+                            error = %self,
+                            "OAuth configuration error"
+                        );
+                    }
+                    // Network and availability errors
+                    OAuthError::ProviderUnavailable { .. } |
+                    OAuthError::NetworkError { .. } |
+                    OAuthError::ApiTimeout { .. } => {
+                        tracing::warn!(
+                            correlation_id = %correlation_id,
+                            error_code = %error_code,
+                            error = %self,
+                            "OAuth provider availability issue"
+                        );
+                    }
+                    // Token encryption errors are internal server errors
+                    OAuthError::TokenEncryptionFailed { .. } => {
+                        tracing::error!(
+                            correlation_id = %correlation_id,
+                            error_code = %error_code,
+                            error = %self,
+                            "OAuth token encryption error"
+                        );
+                    }
+                    // Other OAuth errors are client-related
+                    _ => {
+                        tracing::info!(
+                            correlation_id = %correlation_id,
+                            error_code = %error_code,
+                            error = %self,
+                            oauth_provider = ?oauth_error.get_provider(),
+                            "OAuth client error"
+                        );
+                    }
+                }
             }
             _ => {
                 tracing::info!(

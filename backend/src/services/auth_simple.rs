@@ -90,7 +90,7 @@ impl AuthService {
             email_verified: false, // Default value since not in DB yet
             totp_secret: None,     // Default value since not in DB yet
             totp_enabled: false,   // Default value since not in DB yet
-            oauth_providers: Vec::new(), // Default value since not in DB yet
+            oauth_accounts: Vec::new(), // Default value since not in DB yet
             created_at: now,
             updated_at: now,
             last_login: None,      // Default value since not in DB yet
@@ -182,7 +182,7 @@ impl AuthService {
             email_verified: false, // Default value since not in DB yet
             totp_secret: None,     // Default value since not in DB yet
             totp_enabled: false,   // Default value since not in DB yet
-            oauth_providers: Vec::new(), // Default value since not in DB yet
+            oauth_accounts: Vec::new(), // Default value since not in DB yet
             created_at: user.created_at.unwrap_or_else(Utc::now),
             updated_at: user.updated_at.unwrap_or_else(Utc::now),
             last_login: None,      // Default value since not in DB yet

@@ -51,8 +51,8 @@
 
 <div class="space-y-6">
   <div>
-    <h3 class="text-lg font-medium text-gray-900">My Subscriptions</h3>
-    <p class="text-sm text-gray-500">
+    <h3 class="text-uswds-lg font-medium text-uswds-base-darker">My Subscriptions</h3>
+    <p class="text-uswds-sm text-uswds-base-darker">
       Manage your community list subscriptions and update preferences.
     </p>
   </div>
@@ -60,40 +60,40 @@
   {#if subscriptions.length === 0}
     <!-- Empty State -->
     <div class="text-center py-12">
-      <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
       </svg>
-      <h3 class="mt-2 text-sm font-medium text-gray-900">No subscriptions yet</h3>
-      <p class="mt-1 text-sm text-gray-500">
+      <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No subscriptions yet</h3>
+      <p class="mt-1 text-uswds-sm text-uswds-base-darker">
         Browse community lists to find ones that match your preferences.
       </p>
     </div>
   {:else}
     <!-- Subscriptions List -->
-    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+    <div class="bg-white shadow overflow-hidden sm:rounded-uswds-md">
       <ul class="divide-y divide-gray-200">
         {#each subscriptions as subscription}
           <li>
             <div class="px-4 py-4 sm:px-6">
               <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                  <div class="flex-shrink-0">
-                    <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                      <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div class="">
+                    <div class="avatar avatar--lg bg-indigo-100">
+                      <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
                     </div>
                   </div>
                   <div class="ml-4">
                     <div class="flex items-center">
-                      <p class="text-sm font-medium text-gray-900">
+                      <p class="text-uswds-sm font-medium text-uswds-base-darker">
                         {subscription.list.name}
                       </p>
-                      <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {getUpdateCadenceColor(subscription.list.update_cadence)}">
+                      <span class="ml-2 flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium {getUpdateCadenceColor(subscription.list.update_cadence)}">
                         {subscription.list.update_cadence}
                       </span>
                     </div>
-                    <div class="mt-1 flex items-center text-sm text-gray-500">
+                    <div class="mt-1 flex items-center text-uswds-sm text-uswds-base-darker">
                       <p>
                         Subscribed {formatDate(subscription.created_at)}
                         • v{subscription.list.version}
@@ -102,7 +102,7 @@
                         {/if}
                       </p>
                     </div>
-                    <p class="mt-1 text-sm text-gray-600 line-clamp-1">
+                    <p class="mt-1 text-uswds-sm text-uswds-base-darker line-clamp-uswds-1">
                       {subscription.list.description}
                     </p>
                   </div>
@@ -111,13 +111,13 @@
                 <div class="flex items-center space-x-2">
                   <button
                     on:click={() => viewListDetails(subscription.list_id)}
-                    class="text-indigo-600 hover:text-indigo-900 text-sm font-medium"
+                    class="text-indigo-600 hover:text-indigo-900 text-uswds-sm font-medium"
                   >
                     View Details
                   </button>
                   <button
                     on:click={() => unsubscribe(subscription.list_id, subscription.list.name)}
-                    class="text-red-600 hover:text-red-900 text-sm font-medium"
+                    class="text-uswds-red-50 hover:text-red-900 text-uswds-sm font-medium"
                   >
                     Unsubscribe
                   </button>
@@ -126,10 +126,10 @@
               
               <!-- Subscription Settings -->
               <div class="mt-4 pt-4 border-t border-gray-200">
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-2">
                   <!-- Version Pinning -->
                   <div>
-                    <h5 class="block text-xs font-medium text-gray-700 mb-2">Version Preference</h5>
+                    <h5 class="block text-uswds-xs font-medium text-uswds-base-darker mb-2">Version Preference</h5>
                     <div class="space-y-2">
                       <div class="flex items-center">
                         <input
@@ -139,7 +139,7 @@
                           on:change={() => updateSubscription(subscription.list_id, undefined, subscription.auto_update)}
                           class="focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300"
                         />
-                        <label for="auto-{subscription.list_id}" class="ml-2 block text-xs text-gray-700">
+                        <label for="auto-{subscription.list_id}" class="ml-2 block text-uswds-xs text-uswds-base-darker">
                           Auto-update to latest
                         </label>
                       </div>
@@ -151,7 +151,7 @@
                           on:change={() => updateSubscription(subscription.list_id, subscription.list.version, subscription.auto_update)}
                           class="focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300"
                         />
-                        <label for="pin-{subscription.list_id}" class="ml-2 block text-xs text-gray-700">
+                        <label for="pin-{subscription.list_id}" class="ml-2 block text-uswds-xs text-uswds-base-darker">
                           Pin to v{subscription.list.version}
                         </label>
                       </div>
@@ -160,9 +160,9 @@
                   
                   <!-- Auto Update -->
                   <div>
-                    <h5 class="block text-xs font-medium text-gray-700 mb-2">Update Notifications</h5>
+                    <h5 class="block text-uswds-xs font-medium text-uswds-base-darker mb-2">Update Notifications</h5>
                     <div class="flex items-start">
-                      <div class="flex items-center h-4">
+                      <div class="flex items-center icon icon-sm">
                         <input
                           id="auto-update-{subscription.list_id}"
                           type="checkbox"
@@ -171,11 +171,11 @@
                           class="focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300 rounded"
                         />
                       </div>
-                      <div class="ml-2 text-xs">
-                        <label for="auto-update-{subscription.list_id}" class="font-medium text-gray-700">
+                      <div class="ml-2 text-uswds-xs">
+                        <label for="auto-update-{subscription.list_id}" class="font-medium text-uswds-base-darker">
                           Enable automatic updates
                         </label>
-                        <p class="text-gray-500">
+                        <p class="text-uswds-base-darker">
                           Apply changes when the list is updated
                         </p>
                       </div>
@@ -191,18 +191,18 @@
   {/if}
 
   <!-- Subscription Management Info -->
-  <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+  <div class="bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4">
     <div class="flex">
       <div class="flex-shrink-0">
-        <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+        <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
         </svg>
       </div>
       <div class="ml-3">
-        <h3 class="text-sm font-medium text-blue-800">
+        <h3 class="text-uswds-sm font-medium text-uswds-blue-50">
           Managing Your Subscriptions
         </h3>
-        <div class="mt-2 text-sm text-blue-700">
+        <div class="mt-2 text-uswds-sm text-uswds-blue-50">
           <ul class="list-disc list-inside space-y-1">
             <li><strong>Auto-update:</strong> Automatically apply changes when lists are updated</li>
             <li><strong>Version pinning:</strong> Stay on a specific version to avoid unexpected changes</li>

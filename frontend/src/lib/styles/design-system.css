@@ -1,0 +1,791 @@
+/* Design System - Following Apple, Airbnb, and Amazon Best Practices */
+
+/* ===== DESIGN TOKENS ===== */
+:root {
+  /* Spacing Scale (8px base unit - Apple's approach) */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  
+  /* Icon Sizes (Consistent with Apple's HIG) */
+  --icon-xs: 0.75rem;   /* 12px - Inline text icons */
+  --icon-sm: 1rem;      /* 16px - Standard UI icons */
+  --icon-md: 1.25rem;   /* 20px - Emphasized icons */
+  --icon-lg: 1.5rem;    /* 24px - Section headers */
+  --icon-xl: 2rem;      /* 32px - Hero/feature icons (maximum) */
+  
+  /* Icon Context Sizes */
+  --icon-button: 0.875rem;  /* 14px - Icons in buttons */
+  --icon-input: 1rem;       /* 16px - Icons in form inputs */
+  --icon-nav: 1.25rem;      /* 20px - Navigation icons */
+  --icon-status: 1rem;      /* 16px - Status indicators */
+  --icon-loading: 1.5rem;   /* 24px - Loading spinners */
+  
+  /* Avatar Sizes (separate from icons) */
+  --avatar-xs: 1.5rem;   /* 24px */
+  --avatar-sm: 2rem;     /* 32px */
+  --avatar-md: 2.5rem;   /* 40px */
+  --avatar-lg: 3rem;     /* 48px */
+  --avatar-xl: 4rem;     /* 64px */
+  
+  /* Typography Scale */
+  --text-xs: 0.75rem;   /* 12px */
+  --text-sm: 0.875rem;  /* 14px */
+  --text-base: 1rem;    /* 16px */
+  --text-lg: 1.125rem;  /* 18px */
+  --text-xl: 1.25rem;   /* 20px */
+  --text-2xl: 1.5rem;   /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  
+  /* Border Radius (Airbnb's approach) */
+  --radius-sm: 0.25rem;  /* 4px */
+  --radius-md: 0.375rem; /* 6px */
+  --radius-lg: 0.5rem;   /* 8px */
+  --radius-xl: 0.75rem;  /* 12px */
+  
+  /* Colors (Semantic naming) */
+  --color-primary-50: #eff6ff;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  
+  --color-success-50: #f0fdf4;
+  --color-success-500: #22c55e;
+  --color-success-600: #16a34a;
+  
+  --color-error-50: #fef2f2;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  
+  --color-warning-50: #fffbeb;
+  --color-warning-500: #f59e0b;
+  --color-warning-600: #d97706;
+  
+  --color-gray-50: #f9fafb;
+  --color-gray-100: #f3f4f6;
+  --color-gray-200: #e5e7eb;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-600: #4b5563;
+  --color-gray-700: #374151;
+  --color-gray-800: #1f2937;
+  --color-gray-900: #111827;
+  
+  /* Shadows (Amazon's subtle approach) */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  /* Transitions */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 200ms ease-in-out;
+  --transition-slow: 300ms ease-in-out;
+}
+
+/* ===== COMPONENT CLASSES ===== */
+
+/* ===== ICON SYSTEM ===== */
+
+/* Base Icon Classes */
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  /* Ensure icons never exceed their container */
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* Icon Size Classes */
+.icon--xs { 
+  width: var(--icon-xs); 
+  height: var(--icon-xs); 
+  min-width: var(--icon-xs);
+  min-height: var(--icon-xs);
+}
+.icon--sm { 
+  width: var(--icon-sm); 
+  height: var(--icon-sm); 
+  min-width: var(--icon-sm);
+  min-height: var(--icon-sm);
+}
+.icon--md { 
+  width: var(--icon-md); 
+  height: var(--icon-md); 
+  min-width: var(--icon-md);
+  min-height: var(--icon-md);
+}
+.icon--lg { 
+  width: var(--icon-lg); 
+  height: var(--icon-lg); 
+  min-width: var(--icon-lg);
+  min-height: var(--icon-lg);
+}
+.icon--xl { 
+  width: var(--icon-xl); 
+  height: var(--icon-xl); 
+  min-width: var(--icon-xl);
+  min-height: var(--icon-xl);
+}
+
+/* Semantic Icon Variants */
+.icon--success { color: var(--color-success-500); }
+.icon--error { color: var(--color-error-500); }
+.icon--warning { color: var(--color-warning-500); }
+.icon--neutral { color: var(--color-gray-400); }
+.icon--primary { color: var(--color-primary-500); }
+
+/* Icon Context Classes */
+.icon--button {
+  /* Icons in buttons should be slightly smaller for better proportion */
+  width: calc(var(--icon-sm) * 0.875);
+  height: calc(var(--icon-sm) * 0.875);
+}
+
+.icon--input {
+  /* Icons in form inputs */
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: var(--color-gray-400);
+}
+
+.icon--loading {
+  /* Loading spinners */
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== ULTRA-AGGRESSIVE GLOBAL SVG CONSTRAINTS ===== */
+
+/* 
+ * CRITICAL: These constraints prevent ANY SVG from becoming oversized
+ * This is the nuclear option to fix the icon scaling issues
+ */
+
+/* Default constraint for ALL SVGs - no SVG should exceed 2rem (32px) */
+:global(svg) {
+  max-width: 2rem !important;
+  max-height: 2rem !important;
+  /* Fallback sizing for unconstrained SVGs */
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+  flex-shrink: 0 !important;
+}
+
+/* Design system icons get proper sizing (override the global constraint) */
+:global(svg.icon) {
+  max-width: unset !important;
+  max-height: unset !important;
+  width: unset !important;
+  height: unset !important;
+}
+
+/* Specific overrides for SVGs with design system size classes */
+:global(svg.icon--xs) {
+  width: var(--icon-xs) !important;
+  height: var(--icon-xs) !important;
+}
+
+:global(svg.icon--sm) {
+  width: var(--icon-sm) !important;
+  height: var(--icon-sm) !important;
+}
+
+:global(svg.icon--md) {
+  width: var(--icon-md) !important;
+  height: var(--icon-md) !important;
+}
+
+:global(svg.icon--lg) {
+  width: var(--icon-lg) !important;
+  height: var(--icon-lg) !important;
+}
+
+:global(svg.icon--xl) {
+  width: var(--icon-xl) !important;
+  height: var(--icon-xl) !important;
+}
+
+/* ===== TAILWIND CLASS OVERRIDE SYSTEM ===== */
+
+/* 
+ * Override common Tailwind sizing patterns that cause oversized icons
+ * These target the most problematic classes found in the codebase
+ */
+
+/* Small icons (16px) */
+:global(.h-4), :global(svg.h-4) { 
+  width: 1rem !important; 
+  height: 1rem !important; 
+  max-width: 1rem !important;
+  max-height: 1rem !important;
+}
+
+:global(.w-4), :global(svg.w-4) { 
+  width: 1rem !important; 
+  max-width: 1rem !important;
+}
+
+/* Medium icons (20px) */
+:global(.h-5), :global(svg.h-5) { 
+  width: 1.25rem !important; 
+  height: 1.25rem !important; 
+  max-width: 1.25rem !important;
+  max-height: 1.25rem !important;
+}
+
+:global(.w-5), :global(svg.w-5) { 
+  width: 1.25rem !important; 
+  max-width: 1.25rem !important;
+}
+
+/* Large icons (24px) */
+:global(.h-6), :global(svg.h-6) { 
+  width: 1.5rem !important; 
+  height: 1.5rem !important; 
+  max-width: 1.5rem !important;
+  max-height: 1.5rem !important;
+}
+
+:global(.w-6), :global(svg.w-6) { 
+  width: 1.5rem !important; 
+  max-width: 1.5rem !important;
+}
+
+/* Extra large icons (32px) - maximum allowed */
+:global(.h-8), :global(svg.h-8) { 
+  width: 2rem !important; 
+  height: 2rem !important; 
+  max-width: 2rem !important;
+  max-height: 2rem !important;
+}
+
+:global(.w-8), :global(svg.w-8) { 
+  width: 2rem !important; 
+  max-width: 2rem !important;
+}
+
+/* Prevent oversized icons - these should be converted to design system classes */
+:global(.h-10), :global(svg.h-10),
+:global(.h-12), :global(svg.h-12),
+:global(.h-16), :global(svg.h-16),
+:global(.h-20), :global(svg.h-20),
+:global(.h-24), :global(svg.h-24) { 
+  width: 2rem !important; 
+  height: 2rem !important; 
+  max-width: 2rem !important;
+  max-height: 2rem !important;
+}
+
+:global(.w-10), :global(svg.w-10),
+:global(.w-12), :global(svg.w-12),
+:global(.w-16), :global(svg.w-16),
+:global(.w-20), :global(svg.w-20),
+:global(.w-24), :global(svg.w-24) { 
+  width: 2rem !important; 
+  max-width: 2rem !important;
+}
+
+/* Special case: Loading spinners and containers */
+:global(.animate-spin) {
+  /* Loading spinners should be constrained but can be slightly larger */
+  max-width: 2rem !important;
+  max-height: 2rem !important;
+}
+
+/* Avatar and image containers - these are NOT icons and should be allowed larger sizes */
+:global(img:not(.icon)) {
+  /* Remove constraints from actual images */
+  width: unset !important;
+  height: unset !important;
+  max-width: unset !important;
+  max-height: unset !important;
+}
+
+/* Container divs for avatars should also be unconstrained */
+:global(div.rounded-full:not(.icon)) {
+  width: unset !important;
+  height: unset !important;
+  max-width: unset !important;
+  max-height: unset !important;
+}
+
+/* ===== AVATAR SYSTEM ===== */
+
+/* Avatar classes for user profile images and artist images */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: var(--color-gray-200);
+}
+
+.avatar--xs { 
+  width: var(--avatar-xs); 
+  height: var(--avatar-xs); 
+}
+.avatar--sm { 
+  width: var(--avatar-sm); 
+  height: var(--avatar-sm); 
+}
+.avatar--md { 
+  width: var(--avatar-md); 
+  height: var(--avatar-md); 
+}
+.avatar--lg { 
+  width: var(--avatar-lg); 
+  height: var(--avatar-lg); 
+}
+.avatar--xl { 
+  width: var(--avatar-xl); 
+  height: var(--avatar-xl); 
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Avatar placeholder for missing images */
+.avatar__placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-gray-300);
+  color: var(--color-gray-600);
+}
+
+/* ===== ICON VALIDATION UTILITIES ===== */
+
+/* Development mode: Add visual indicators for improperly sized icons */
+@media (prefers-color-scheme: dark) {
+  /* In dark mode, add a subtle border to help identify icon boundaries during development */
+  .icon {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ===== COMPONENT-SPECIFIC ICON CLASSES ===== */
+
+/* Navigation icons */
+.nav-icon {
+  width: var(--icon-nav);
+  height: var(--icon-nav);
+  color: var(--color-gray-600);
+  transition: color var(--transition-fast);
+}
+
+.nav-icon:hover {
+  color: var(--color-primary-600);
+}
+
+/* Status indicator icons */
+.status-icon {
+  width: var(--icon-status);
+  height: var(--icon-status);
+  flex-shrink: 0;
+}
+
+/* Form field icons */
+.field-icon {
+  width: var(--icon-input);
+  height: var(--icon-input);
+  color: var(--color-gray-400);
+}
+
+/* Loading spinner icons */
+.loading-icon {
+  width: var(--icon-loading);
+  height: var(--icon-loading);
+  animation: spin 1s linear infinite;
+}
+
+/* Button icons */
+.btn-icon {
+  width: var(--icon-button);
+  height: var(--icon-button);
+  flex-shrink: 0;
+}
+
+/* ===== RESPONSIVE ICON ADJUSTMENTS ===== */
+
+@media (max-width: 640px) {
+  /* Slightly smaller icons on mobile for better touch targets */
+  .icon--lg {
+    width: var(--icon-md);
+    height: var(--icon-md);
+  }
+  
+  .icon--xl {
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+  }
+  
+  /* Ensure avatars remain appropriately sized on mobile */
+  .avatar--lg {
+    width: var(--avatar-md);
+    height: var(--avatar-md);
+  }
+  
+  .avatar--xl {
+    width: var(--avatar-lg);
+    height: var(--avatar-lg);
+  }
+}
+
+/* ===== LAYOUT UTILITIES ===== */
+
+/* Container system for responsive layouts */
+.container {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .container { 
+    max-width: 640px; 
+    padding: 0 var(--space-6);
+  }
+}
+
+@media (min-width: 768px) {
+  .container { 
+    max-width: 768px; 
+    padding: 0 var(--space-8);
+  }
+}
+
+@media (min-width: 1024px) {
+  .container { 
+    max-width: 1024px; 
+  }
+}
+
+@media (min-width: 1280px) {
+  .container { 
+    max-width: 1280px; 
+  }
+}
+
+/* Spacing utilities */
+.space-y-1 > * + * { margin-top: var(--space-1); }
+.space-y-2 > * + * { margin-top: var(--space-2); }
+.space-y-3 > * + * { margin-top: var(--space-3); }
+.space-y-4 > * + * { margin-top: var(--space-4); }
+.space-y-6 > * + * { margin-top: var(--space-6); }
+.space-y-8 > * + * { margin-top: var(--space-8); }
+
+.space-x-1 > * + * { margin-left: var(--space-1); }
+.space-x-2 > * + * { margin-left: var(--space-2); }
+.space-x-3 > * + * { margin-left: var(--space-3); }
+.space-x-4 > * + * { margin-left: var(--space-4); }
+
+/* ===== DEVELOPMENT HELPERS ===== */
+
+/* Visual debugging for icon boundaries in development */
+@media (prefers-color-scheme: light) {
+  .debug-icons .icon {
+    outline: 1px dashed rgba(59, 130, 246, 0.3);
+    outline-offset: 1px;
+  }
+  
+  .debug-icons .icon::after {
+    content: attr(class);
+    position: absolute;
+    bottom: -1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.625rem;
+    color: var(--color-primary-600);
+    background: white;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.125rem;
+    white-space: nowrap;
+    z-index: 1000;
+  }
+}
+
+/* ===== PRINT STYLES ===== */
+
+@media print {
+  /* Ensure icons are appropriately sized for print */
+  .icon {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
+  }
+  
+  /* Hide decorative icons in print */
+  .icon[aria-hidden="true"] {
+    display: none;
+  }
+}
+
+/* Form Elements */
+.form-field {
+  margin-bottom: var(--space-4);
+}
+
+.form-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-gray-700);
+  margin-bottom: var(--space-2);
+}
+
+.form-input {
+  width: 100%;
+  padding: var(--space-3) var(--space-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  background-color: white;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--color-primary-500);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+}
+
+.form-input--error {
+  border-color: var(--color-error-500);
+}
+
+.form-input--error:focus {
+  border-color: var(--color-error-500);
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.1);
+}
+
+/* Validation Messages */
+.validation-message {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.validation-message--error {
+  color: var(--color-error-600);
+}
+
+.validation-message--success {
+  color: var(--color-success-600);
+}
+
+/* Password Requirements */
+.password-requirements {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.password-strength__label {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--color-gray-600);
+}
+
+.password-strength__value {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.password-strength__value--weak { color: var(--color-error-600); }
+.password-strength__value--fair { color: var(--color-warning-600); }
+.password-strength__value--good { color: var(--color-primary-600); }
+.password-strength__value--strong { color: var(--color-success-600); }
+
+.password-strength-bars {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.password-strength-bar {
+  flex: 1;
+  height: 0.25rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-gray-200);
+  transition: background-color var(--transition-slow);
+}
+
+.password-strength-bar--active-weak { background-color: var(--color-error-500); }
+.password-strength-bar--active-fair { background-color: var(--color-warning-500); }
+.password-strength-bar--active-good { background-color: var(--color-primary-500); }
+.password-strength-bar--active-strong { background-color: var(--color-success-500); }
+
+.requirements-grid {
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .requirements-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.requirement-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 1.25rem;
+}
+
+.requirement-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.requirement-text {
+  font-size: var(--text-xs);
+  line-height: 1.25;
+  color: var(--color-gray-500);
+}
+
+.requirement-text--satisfied {
+  color: var(--color-success-600);
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+}
+
+.btn--primary {
+  background-color: var(--color-primary-600);
+  color: white;
+}
+
+.btn--primary:hover:not(:disabled) {
+  background-color: var(--color-primary-700);
+  box-shadow: var(--shadow-md);
+}
+
+.btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn--full {
+  width: 100%;
+}
+
+/* Alert Messages */
+.alert {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.alert--success {
+  background-color: var(--color-success-50);
+  border: 1px solid var(--color-success-200);
+}
+
+.alert--error {
+  background-color: var(--color-error-50);
+  border: 1px solid var(--color-error-200);
+}
+
+.alert__icon {
+  flex-shrink: 0;
+}
+
+.alert__content {
+  flex: 1;
+}
+
+.alert__text {
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
+.alert--success .alert__text {
+  color: var(--color-success-800);
+}
+
+.alert--error .alert__text {
+  color: var(--color-error-800);
+}
+
+/* Responsive Design */
+@media (min-width: 640px) {
+  .form-input {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+  }
+  
+  .btn {
+    padding: var(--space-2) var(--space-4);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus visible for keyboard navigation */
+.form-input:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}

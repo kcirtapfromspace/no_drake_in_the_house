@@ -61,7 +61,7 @@
           setTimeout(() => {
             // The redirect will happen automatically via the auth store
             // We could also manually navigate to a specific onboarding route here
-            // router.navigate('overview'); // This is handled automatically by App.svelte
+            // navigateTo('overview'); // This is handled automatically by App.svelte
           }, 1500);
         } else {
           // Auto-login failed, fallback to manual login
@@ -188,7 +188,7 @@
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+<div class="min-h-screen flex items-center justify-center bg-uswds-base-lightest py-12 px-4 sm:px-6 lg:px-8">
   <div class="max-w-md w-full">
     {#if mode === 'login'}
       <LoginForm 
@@ -203,7 +203,7 @@
         <button
           type="button"
           on:click={handle2FASetup}
-          class="text-sm text-gray-500 hover:text-gray-700"
+          class="text-uswds-sm text-uswds-base-darker hover:text-gray-700"
         >
           Set up Two-Factor Authentication
         </button>

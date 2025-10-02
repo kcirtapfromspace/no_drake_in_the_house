@@ -102,6 +102,7 @@ impl UserService {
             email: user.email,
             email_verified: false, // Would need to add this field to users table
             totp_enabled,
+            oauth_accounts: Vec::new(), // TODO: Load OAuth accounts from database
             created_at: user.created_at.unwrap_or_else(|| Utc::now()),
             updated_at: user.updated_at.unwrap_or_else(|| Utc::now()),
             last_login: None, // Would need to add this field to users table
@@ -402,6 +403,7 @@ mod tests {
             email: "test@example.com".to_string(),
             email_verified: false,
             totp_enabled: false,
+            oauth_accounts: Vec::new(),
             created_at: Utc::now(),
             updated_at: Utc::now(),
             last_login: None,

@@ -97,7 +97,11 @@ pub fn create_router(state: AppState) -> Router {
                 crate::services::registration_rate_limit_middleware,
             )))
         .route("/login", post(handlers::auth::login_handler))
-        .route("/refresh", post(handlers::auth::refresh_token_handler));
+        .route("/refresh", post(handlers::auth::refresh_token_handler))
+        // OAuth routes
+        .route("/oauth/:provider/initiate", post(handlers::oauth::initiate_oauth_handler))
+        .route("/oauth/:provider/callback", post(handlers::oauth::oauth_callback_handler))
+        ;
 
     // Create protected routes that require authentication
     let protected_routes = Router::new()
@@ -114,6 +118,13 @@ pub fn create_router(state: AppState) -> Router {
         .route("/auth/2fa/setup", post(handlers::auth::setup_2fa_handler))
         .route("/auth/2fa/verify", post(handlers::auth::verify_2fa_handler))
         .route("/auth/2fa/disable", post(handlers::auth::disable_2fa_handler))
+        
+        // OAuth account management (protected)
+        .route("/auth/oauth/:provider/link", post(handlers::oauth::link_oauth_account_handler))
+        .route("/auth/oauth/:provider/link-callback", post(handlers::oauth::oauth_link_callback_handler))
+        .route("/auth/oauth/:provider/unlink", delete(handlers::oauth::unlink_oauth_account_handler))
+        .route("/auth/oauth/accounts", get(handlers::oauth::get_linked_accounts_handler))
+        
         
         // DNP routes
         .route("/dnp/search", get(handlers::dnp::search_artists_handler))
@@ -132,6 +143,13 @@ pub fn create_router(state: AppState) -> Router {
         .route("/health", get(health_check))
         .route("/health/ready", get(readiness_check_endpoint))
         .route("/health/live", get(liveness_check_endpoint))
+        
+        // OAuth health and configuration endpoints
+        .route("/oauth/health", get(handlers::oauth::oauth_health_handler))
+        .route("/oauth/health/:provider", get(handlers::oauth::oauth_provider_health_handler))
+        .route("/oauth/health/check", post(handlers::oauth::force_oauth_health_check_handler))
+        .route("/oauth/config", get(handlers::oauth::oauth_config_status_handler))
+        .route("/oauth/config/:provider/guidance", get(handlers::oauth::oauth_config_guidance_handler))
         
         // Monitoring endpoints
         .route("/metrics", get(metrics_endpoint))

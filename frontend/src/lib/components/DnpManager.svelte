@@ -65,16 +65,16 @@
   <div class="mb-6">
     <div class="flex justify-between items-center">
       <div>
-        <h2 class="text-2xl font-bold text-gray-900">Do-Not-Play List</h2>
-        <p class="mt-1 text-sm text-gray-600">
+        <h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Do-Not-Play List</h2>
+        <p class="mt-1 text-uswds-sm text-uswds-base-darker">
           Manage artists you want to avoid across your streaming services.
         </p>
       </div>
       <button
         on:click={() => showAddForm = !showAddForm}
-        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
-        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
         </svg>
         Add Artist
@@ -84,20 +84,20 @@
 
   <!-- Add Artist Form -->
   {#if showAddForm}
-    <div class="mb-6 bg-white shadow rounded-lg p-6">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Add Artist to DNP List</h3>
+    <div class="mb-6 bg-white shadow rounded-uswds-lg p-uswds-6">
+      <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">Add Artist to DNP List</h3>
       <ArtistSearch on:artistAdded={handleArtistAdded} />
     </div>
   {/if}
 
   <!-- Filters and Search -->
-  <div class="mb-6 bg-white shadow rounded-lg p-4">
-    <div class="flex flex-col sm:flex-row gap-4">
+  <div class="mb-6 bg-white shadow rounded-uswds-lg p-uswds-4">
+    <div class="flex flex-col sm:flex-row gap-uswds-4">
       <div class="flex-1">
         <label for="search" class="sr-only">Search artists</label>
         <div class="relative">
           <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -106,7 +106,7 @@
             bind:value={searchQuery}
             type="text"
             placeholder="Search artists, tags, or notes..."
-            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-uswds-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
           />
         </div>
       </div>
@@ -116,7 +116,7 @@
         <select
           id="tag-filter"
           bind:value={selectedTag}
-          class="block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+          class="block w-full pl-3 pr-10 py-2 text-uswds-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm rounded-uswds-md"
         >
           <option value="">All tags</option>
           {#each $dnpTags as tag}
@@ -139,57 +139,57 @@
   {/if}
 
   <!-- DNP List -->
-  <div class="bg-white shadow overflow-hidden sm:rounded-md">
+  <div class="bg-white shadow overflow-hidden sm:rounded-uswds-md">
     {#if $dnpStore.isLoading}
-      <div class="p-6 text-center">
-        <svg class="animate-spin mx-auto h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24">
+      <div class="p-uswds-6 text-center">
+        <svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p class="mt-2 text-sm text-gray-500">Loading DNP list...</p>
+        <p class="mt-2 text-uswds-sm text-uswds-base-darker">Loading DNP list...</p>
       </div>
     {:else if $dnpStore.error}
-      <div class="p-6 text-center">
-        <svg class="mx-auto h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div class="p-uswds-6 text-center">
+        <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--lg text-uswds-red-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <p class="mt-2 text-sm text-red-600">{$dnpStore.error}</p>
+        <p class="mt-2 text-uswds-sm text-uswds-red-50">{$dnpStore.error}</p>
         <button
           on:click={() => dnpActions.fetchDnpList()}
-          class="mt-2 text-sm text-indigo-600 hover:text-indigo-500"
+          class="mt-2 text-uswds-sm text-primary hover:text-indigo-500"
         >
           Try again
         </button>
       </div>
     {:else if filteredEntries.length === 0}
-      <div class="p-6 text-center">
+      <div class="p-uswds-6 text-center">
         {#if $dnpStore.entries.length === 0}
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">No artists in your DNP list</h3>
-          <p class="mt-1 text-sm text-gray-500">Get started by adding artists you want to avoid.</p>
+          <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No artists in your DNP list</h3>
+          <p class="mt-1 text-uswds-sm text-uswds-base-darker">Get started by adding artists you want to avoid.</p>
           <div class="mt-6">
             <button
               on:click={() => showAddForm = true}
-              class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-uswds-sm font-medium rounded-uswds-md text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
-              <svg class="-ml-1 mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               Add your first artist
             </button>
           </div>
         {:else}
-          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <h3 class="mt-2 text-sm font-medium text-gray-900">No artists match your search</h3>
-          <p class="mt-1 text-sm text-gray-500">Try adjusting your search terms or filters.</p>
+          <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No artists match your search</h3>
+          <p class="mt-1 text-uswds-sm text-uswds-base-darker">Try adjusting your search terms or filters.</p>
         {/if}
       </div>
     {:else}
-      <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 sm:px-6">
+      <div class="px-4 py-3 bg-uswds-base-lightest border-b border-gray-200 sm:px-6">
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             <input
@@ -197,9 +197,9 @@
               type="checkbox"
               checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0}
               on:change={toggleSelectAll}
-              class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              class="icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
-            <label for="select-all" class="ml-3 text-sm text-gray-900">
+            <label for="select-all" class="ml-3 text-uswds-sm text-uswds-base-darker">
               {filteredEntries.length} artist{filteredEntries.length !== 1 ? 's' : ''}
               {#if selectedEntries.size > 0}
                 ({selectedEntries.size} selected)
@@ -210,7 +210,7 @@
           {#if searchQuery || selectedTag}
             <button
               on:click={() => { searchQuery = ''; selectedTag = ''; }}
-              class="text-sm text-indigo-600 hover:text-indigo-500"
+              class="text-uswds-sm text-indigo-600 hover:text-indigo-500"
             >
               Clear filters
             </button>
@@ -232,21 +232,21 @@
 
   <!-- Stats -->
   {#if $dnpStore.entries.length > 0}
-    <div class="mt-6 bg-gray-50 rounded-lg p-4">
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="mt-6 bg-uswds-base-lightest rounded-uswds-lg p-uswds-4">
+      <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-3">
         <div class="text-center">
-          <div class="text-2xl font-bold text-gray-900">{$dnpStore.entries.length}</div>
-          <div class="text-sm text-gray-500">Total Artists</div>
+          <div class="text-uswds-2xl font-bold text-uswds-base-darker">{$dnpStore.entries.length}</div>
+          <div class="text-uswds-sm text-uswds-base-darker">Total Artists</div>
         </div>
         <div class="text-center">
-          <div class="text-2xl font-bold text-gray-900">{$dnpTags.length}</div>
-          <div class="text-sm text-gray-500">Unique Tags</div>
+          <div class="text-uswds-2xl font-bold text-uswds-base-darker">{$dnpTags.length}</div>
+          <div class="text-uswds-sm text-uswds-base-darker">Unique Tags</div>
         </div>
         <div class="text-center">
-          <div class="text-2xl font-bold text-gray-900">
+          <div class="text-uswds-2xl font-bold text-uswds-base-darker">
             {$dnpStore.entries.filter(e => e.note).length}
           </div>
-          <div class="text-sm text-gray-500">With Notes</div>
+          <div class="text-uswds-sm text-uswds-base-darker">With Notes</div>
         </div>
       </div>
     </div>

@@ -98,6 +98,7 @@ ENV DATABASE_URL=postgres://kiro:password@postgres:5432/kiro
 ENV REDIS_URL=redis://redis:6379
 ENV SQLX_OFFLINE=true
 ENV CARGO_INCREMENTAL=1
+ENV OAUTH_DEV_MODE=true
 
 EXPOSE 3000
 

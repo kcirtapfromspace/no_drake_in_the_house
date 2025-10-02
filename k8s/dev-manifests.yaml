@@ -280,6 +280,8 @@ spec:
           value: http://localhost:5000,http://localhost:5173,http://localhost:3000
         - name: AUTO_LOGIN_ENABLED
           value: "true"
+        - name: OAUTH_DEV_MODE
+          value: "true"
         ports:
         - containerPort: 3000
           name: http

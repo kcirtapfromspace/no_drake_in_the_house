@@ -1,6 +1,15 @@
 import { writable, derived } from 'svelte/store';
 import { api } from '../utils/api';
 
+export interface LinkedAccount {
+  provider: string;
+  provider_user_id: string;
+  email?: string;
+  display_name?: string;
+  avatar_url?: string;
+  linked_at: string;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -8,6 +17,7 @@ export interface User {
   totp_enabled: boolean;
   created_at: string;
   last_login?: string;
+  oauth_accounts?: LinkedAccount[];
 }
 
 export interface AuthState {
@@ -17,6 +27,11 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   justRegistered: boolean; // Track if user just completed registration
+  oauthFlow: {
+    provider: string | null;
+    state: string | null;
+    isInProgress: boolean;
+  };
 }
 
 const initialState: AuthState = {
@@ -26,6 +41,11 @@ const initialState: AuthState = {
   isAuthenticated: false,
   isLoading: false,
   justRegistered: false,
+  oauthFlow: {
+    provider: null,
+    state: null,
+    isInProgress: false,
+  },
 };
 
 export const authStore = writable<AuthState>(initialState);
@@ -277,6 +297,176 @@ export const authActions = {
       ...state,
       justRegistered: false,
     }));
+  },
+
+  // OAuth-specific actions
+  initiateOAuthFlow: async (provider: string) => {
+    authStore.update(state => ({
+      ...state,
+      oauthFlow: {
+        provider,
+        state: null,
+        isInProgress: true,
+      },
+    }));
+
+    try {
+      const result = await api.post(`/auth/oauth/${provider}/initiate`);
+      
+      if (result.success) {
+        const { authorization_url, state } = result.data;
+        
+        // Store state for validation
+        sessionStorage.setItem(`oauth_state_${provider}`, state);
+        
+        authStore.update(authState => ({
+          ...authState,
+          oauthFlow: {
+            ...authState.oauthFlow,
+            state,
+          },
+        }));
+        
+        // Redirect to OAuth provider
+        window.location.href = authorization_url;
+        
+        return { success: true };
+      } else {
+        authStore.update(state => ({
+          ...state,
+          oauthFlow: {
+            provider: null,
+            state: null,
+            isInProgress: false,
+          },
+        }));
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      authStore.update(state => ({
+        ...state,
+        oauthFlow: {
+          provider: null,
+          state: null,
+          isInProgress: false,
+        },
+      }));
+      return { success: false, message: error.message || 'Network error occurred' };
+    }
+  },
+
+  completeOAuthFlow: async (provider: string, code: string, state: string) => {
+    try {
+      // Validate state parameter
+      const storedState = sessionStorage.getItem(`oauth_state_${provider}`);
+      if (!storedState || storedState !== state) {
+        throw new Error('Invalid state parameter - possible CSRF attack');
+      }
+
+      const result = await api.post(`/auth/oauth/${provider}/callback`, {
+        code,
+        state,
+        redirect_uri: window.location.origin + window.location.pathname,
+      });
+
+      if (result.success) {
+        const { access_token, refresh_token } = result.data;
+        
+        // Store tokens
+        localStorage.setItem('auth_token', access_token);
+        localStorage.setItem('refresh_token', refresh_token);
+        
+        // Update auth store
+        authStore.update(authState => ({
+          ...authState,
+          token: access_token,
+          refreshToken: refresh_token,
+          isAuthenticated: true,
+          oauthFlow: {
+            provider: null,
+            state: null,
+            isInProgress: false,
+          },
+        }));
+        
+        // Clean up stored state
+        sessionStorage.removeItem(`oauth_state_${provider}`);
+        
+        // Fetch user profile
+        await authActions.fetchProfile();
+        
+        return { success: true };
+      } else {
+        throw new Error(result.message || 'OAuth authentication failed');
+      }
+    } catch (error: any) {
+      // Clean up on error
+      sessionStorage.removeItem(`oauth_state_${provider}`);
+      
+      authStore.update(state => ({
+        ...state,
+        oauthFlow: {
+          provider: null,
+          state: null,
+          isInProgress: false,
+        },
+      }));
+      
+      return { success: false, message: error.message || 'Authentication failed' };
+    }
+  },
+
+  linkOAuthAccount: async (provider: string) => {
+    try {
+      const result = await api.post(`/auth/oauth/${provider}/link`);
+      
+      if (result.success) {
+        const { authorization_url, state } = result.data;
+        
+        // Store state for validation
+        sessionStorage.setItem(`oauth_link_state_${provider}`, state);
+        
+        return { 
+          success: true, 
+          authorization_url,
+          state 
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Network error occurred' };
+    }
+  },
+
+  unlinkOAuthAccount: async (provider: string) => {
+    try {
+      const result = await api.delete(`/auth/oauth/${provider}/unlink`);
+      
+      if (result.success) {
+        // Refresh user profile to update linked accounts
+        await authActions.fetchProfile();
+        return { success: true };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Network error occurred' };
+    }
+  },
+
+  getLinkedAccounts: async () => {
+    try {
+      const result = await api.get('/auth/oauth/accounts');
+      
+      if (result.success) {
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message || 'Network error occurred' };
+    }
   },
 };
 

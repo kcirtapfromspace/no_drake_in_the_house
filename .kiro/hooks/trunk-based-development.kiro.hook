@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "name": "Trunk-Based Development",
+  "description": "Monitors code changes across the project and automatically compartmentalizes changes into logical commits, following trunk-based development principles by creating feature branches, committing related changes together, and merging when appropriate",
+  "version": "1",
+  "when": {
+    "type": "fileEdited",
+    "patterns": [
+      "backend/src/**/*.rs",
+      "frontend/src/**/*.svelte",
+      "frontend/src/**/*.ts",
+      "backend/Cargo.toml",
+      "frontend/package.json",
+      "backend/migrations/*.sql",
+      "*.md"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Analyze the recent code changes and apply trunk-based development principles:\n\n1. **Compartmentalize Changes**: Group related file changes into logical units (feature, bugfix, refactor, etc.)\n\n2. **Create Feature Branches**: If changes represent a cohesive feature or fix, create an appropriately named feature branch\n\n3. **Commit Strategy**: \n   - Make atomic commits with clear, descriptive messages\n   - Follow conventional commit format: type(scope): description\n   - Include relevant context and reasoning in commit messages\n\n4. **Merge Decision**: Evaluate if the changes are ready to merge back to main:\n   - Code compiles and tests pass\n   - Changes are complete and functional\n   - No breaking changes or proper migration path exists\n   - Code follows project standards (formatting, linting, etc.)\n\n5. **Actions to Take**:\n   - Stage related files together\n   - Create commits with proper messages\n   - Push to feature branch if needed\n   - Create merge/pull request if ready\n   - Clean up any temporary or incomplete changes\n\nFocus on maintaining a clean, linear history while ensuring code quality and completeness before merging to main branch."
+  }
+}

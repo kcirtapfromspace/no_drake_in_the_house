@@ -228,16 +228,7 @@ pub async fn refresh_token_handler(
         })?;
     
     let response = AuthResponse {
-        user: crate::models::UserProfile {
-            id: user.id,
-            email: user.email,
-            email_verified: user.email_verified,
-            totp_enabled: user.totp_enabled,
-            created_at: user.created_at,
-            updated_at: user.updated_at,
-            last_login: user.last_login,
-            settings: user.settings,
-        },
+        user: user.to_profile(),
         access_token: token_pair.access_token,
         refresh_token: token_pair.refresh_token,
     };

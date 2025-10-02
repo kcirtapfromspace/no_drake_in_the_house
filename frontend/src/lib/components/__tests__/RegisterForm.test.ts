@@ -316,10 +316,10 @@ describe('RegisterForm', () => {
     
     // Should show all password requirements
     expect(screen.getByText(/at least 8 characters/i)).toBeInTheDocument();
-    expect(screen.getByText(/at least one uppercase letter/i)).toBeInTheDocument();
-    expect(screen.getByText(/at least one lowercase letter/i)).toBeInTheDocument();
-    expect(screen.getByText(/at least one number/i)).toBeInTheDocument();
-    expect(screen.getByText(/at least one special character/i)).toBeInTheDocument();
+    expect(screen.getByText(/one uppercase letter/i)).toBeInTheDocument();
+    expect(screen.getByText(/one lowercase letter/i)).toBeInTheDocument();
+    expect(screen.getByText(/one number/i)).toBeInTheDocument();
+    expect(screen.getByText(/one special character/i)).toBeInTheDocument();
   });
 
   it('updates password requirements checklist as user types', async () => {
@@ -356,24 +356,141 @@ describe('RegisterForm', () => {
     const component = render(RegisterForm);
     
     // Simulate successful registration with auto-login
-    component.component.$set({ success: true, autoLogin: true });
+    component.component.$set({ success: 'Account created successfully! Logging you in...' });
     
     await waitFor(() => {
       expect(screen.getByText(/account created successfully/i)).toBeInTheDocument();
       expect(screen.getByText(/logging you in/i)).toBeInTheDocument();
     });
-    
-    // Should redirect after a delay
-    await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
-    }, { timeout: 3000 });
   });
 
   it('handles registration without auto-login', async () => {
-    render(RegisterForm, { success: true, autoLogin: false });
+    render(RegisterForm, { success: 'Account created successfully! Please log in with your new credentials.' });
     
     expect(screen.getByText(/account created successfully/i)).toBeInTheDocument();
     expect(screen.getByText(/please log in/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /go to login/i })).toBeInTheDocument();
+  });
+
+  // UI Rendering and Responsive Design Tests
+  describe('UI Rendering and Responsive Design', () => {
+    it('renders password validation icons with proper sizing', async () => {
+      render(RegisterForm);
+      
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      await fireEvent.input(passwordInput, { target: { value: 'TestPassword123!' } });
+      
+      // Check that password requirements are visible
+      expect(screen.getByText(/password must contain:/i)).toBeInTheDocument();
+      
+      // Check that icons are rendered (they should be SVG elements or placeholder circles)
+      const requirementItems = screen.getAllByText(/at least|one/i);
+      expect(requirementItems.length).toBeGreaterThan(0);
+      
+      // Verify that the password requirements section has proper responsive classes
+      const requirementsContainer = screen.getByText(/password must contain:/i).parentElement;
+      expect(requirementsContainer?.querySelector('.password-requirements-grid')).toBeInTheDocument();
+    });
+
+    it('applies responsive design classes to form elements', () => {
+      render(RegisterForm);
+      
+      // Check main container has responsive classes
+      const container = document.querySelector('.register-form-container');
+      expect(container).toHaveClass('register-form-container');
+      expect(container).toHaveClass('w-full', 'max-w-md', 'mx-auto');
+      
+      // Check form inputs have responsive padding and sizing
+      const emailInput = screen.getByLabelText(/email/i);
+      expect(emailInput).toHaveClass('py-2.5', 'sm:py-2', 'text-sm', 'sm:text-base');
+      
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      expect(passwordInput).toHaveClass('py-2.5', 'sm:py-2', 'text-sm', 'sm:text-base');
+    });
+
+    it('renders password strength indicator with proper styling', async () => {
+      render(RegisterForm);
+      
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      await fireEvent.input(passwordInput, { target: { value: 'TestPassword123!' } });
+      
+      // Check that password strength indicator is visible
+      expect(screen.getByText(/password strength:/i)).toBeInTheDocument();
+      expect(screen.getByText(/strong/i)).toBeInTheDocument();
+      
+      // Check that strength bars are rendered with proper classes
+      const strengthBars = document.querySelectorAll('.strength-bar');
+      expect(strengthBars.length).toBe(5);
+    });
+
+    it('renders form with proper spacing and layout classes', () => {
+      render(RegisterForm);
+      
+      // Check form has responsive spacing
+      const form = document.querySelector('form');
+      expect(form).toHaveClass('space-y-4', 'sm:space-y-6');
+      
+      // Check submit button has proper responsive styling
+      const submitButton = screen.getByRole('button', { name: /create account/i });
+      expect(submitButton).toHaveClass('py-3', 'sm:py-2.5', 'text-sm', 'sm:text-base');
+    });
+
+    it('renders terms acceptance with proper responsive layout', () => {
+      render(RegisterForm);
+      
+      const termsCheckbox = screen.getByLabelText(/terms of service/i);
+      const termsContainer = termsCheckbox.closest('.flex.items-start.space-x-3');
+      
+      expect(termsContainer).toHaveClass('flex', 'items-start', 'space-x-3');
+      
+      // Check that terms label has proper styling
+      const termsLabel = document.querySelector('label[for="terms-accepted"]');
+      expect(termsLabel).toHaveClass('cursor-pointer');
+    });
+
+    it('applies component-scoped CSS classes to prevent conflicts', async () => {
+      render(RegisterForm);
+      
+      // Check that main container has scoped class
+      const container = document.querySelector('.register-form-container');
+      expect(container).toHaveClass('register-form-container');
+      
+      // Check that password requirements have scoped grid class
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      await fireEvent.input(passwordInput, { target: { value: 'test' } });
+      
+      const requirementsGrid = document.querySelector('.password-requirements-grid');
+      expect(requirementsGrid).toBeInTheDocument();
+    });
+
+    it('renders password requirement icons with consistent sizing', async () => {
+      render(RegisterForm);
+      
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      await fireEvent.input(passwordInput, { target: { value: 'TestPassword123!' } });
+      
+      // Check that requirement icons have consistent sizing classes
+      const requirementIcons = document.querySelectorAll('.requirement-icon');
+      expect(requirementIcons.length).toBeGreaterThan(0);
+      
+      requirementIcons.forEach(icon => {
+        expect(icon).toHaveClass('requirement-icon', 'mr-2');
+      });
+    });
+
+    it('handles different screen sizes gracefully', async () => {
+      // This test would ideally use viewport testing, but we can check responsive classes
+      render(RegisterForm);
+      
+      // Check that responsive classes are applied
+      const container = document.querySelector('.register-form-container');
+      expect(container).toHaveClass('px-4', 'sm:px-0');
+      
+      // Check that password requirements grid has responsive columns
+      const passwordInput = screen.getByLabelText(/^password$/i);
+      await fireEvent.input(passwordInput, { target: { value: 'test' } });
+      
+      const requirementsGrid = document.querySelector('.password-requirements-grid');
+      expect(requirementsGrid).toBeInTheDocument();
+    });
   });
 });

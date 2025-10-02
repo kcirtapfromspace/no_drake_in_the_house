@@ -47,13 +47,16 @@ export const dnpArtists = derived(
 
 export const dnpCount = derived(
   dnpStore,
-  ($dnp) => $dnp.entries.length
+  ($dnp) => ($dnp.entries && Array.isArray($dnp.entries)) ? $dnp.entries.length : 0
 );
 
 export const dnpTags = derived(
   dnpStore,
   ($dnp) => {
-    const allTags = $dnp.entries.flatMap(entry => entry.tags);
+    if (!$dnp.entries || !Array.isArray($dnp.entries)) {
+      return [];
+    }
+    const allTags = $dnp.entries.flatMap(entry => entry.tags || []);
     return [...new Set(allTags)].sort();
   }
 );

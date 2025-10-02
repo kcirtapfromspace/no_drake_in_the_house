@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT id, refresh_token_encrypted, token_expires_at\n            FROM oauth_accounts\n            WHERE user_id = $1 AND provider = $2\n            ",
+  "query": "\n            SELECT id, refresh_token_encrypted, token_expires_at, updated_at\n            FROM oauth_accounts\n            WHERE user_id = $1 AND provider = $2\n            ",
   "describe": {
     "columns": [
       {
@@ -17,6 +17,11 @@
         "ordinal": 2,
         "name": "token_expires_at",
         "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -28,8 +33,9 @@
     "nullable": [
       false,
       true,
+      true,
       true
     ]
   },
-  "hash": "8fab26685a445815de4e18aa1d75a69f3456389140746a7765d243b2e15f72c8"
+  "hash": "94f2230a4686898524543e6a98f7871a6acd9e0de1f05136ef87e48032dfb1f3"
 }

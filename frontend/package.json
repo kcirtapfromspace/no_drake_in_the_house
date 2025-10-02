@@ -14,7 +14,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "icons:validate": "node scripts/validate-icons.js",
+    "icons:validate:strict": "node scripts/validate-icons.js --strict",
+    "icons:migrate": "node scripts/migrate-icons.js",
+    "icons:migrate:dry-run": "node scripts/migrate-icons.js --dry-run",
+    "icons:report": "node scripts/validate-icons.js --report",
+    "uswds:migrate": "node scripts/migrate-to-uswds.js",
+    "uswds:migrate:dry-run": "node scripts/migrate-to-uswds.js --dry-run",
+    "design-system:showcase": "echo 'Visit /showcase to see the USWDS + Skeleton UI design system'"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.0",
@@ -23,6 +31,8 @@
     "@rollup/plugin-terser": "^0.4.0",
     "@rollup/plugin-typescript": "^11.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@tailwindcss/postcss": "^4.1.13",
+    "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/svelte": "^4.0.0",
     "@testing-library/user-event": "^14.0.0",
@@ -40,13 +50,16 @@
     "svelte": "^4.0.0",
     "svelte-check": "^3.0.0",
     "svelte-preprocess": "^5.0.0",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^4.0.0",
     "tslib": "^2.6.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
     "vitest": "^1.0.0"
   },
   "dependencies": {
+    "@skeletonlabs/skeleton": "^3.2.2",
+    "@skeletonlabs/tw-plugin": "^0.4.1",
+    "@uswds/uswds": "^3.13.0",
     "sirv-cli": "^2.0.0"
   }
 }

@@ -72,7 +72,9 @@ describe('OAuth Integration Tests', () => {
     });
   });
 
-  describe('OAuth Flow Initiation', () => {
+  // Note: Social login buttons were removed from Login page
+  // OAuth is now only available in Settings for account linking
+  describe.skip('OAuth Flow Initiation (Legacy - Social Login Removed)', () => {
     it('initiates Google OAuth flow from login page', async () => {
       const mockResponse = {
         success: true,

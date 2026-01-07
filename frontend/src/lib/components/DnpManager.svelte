@@ -9,16 +9,18 @@
   let showAddForm = false;
   let selectedEntries = new Set();
 
-  $: filteredEntries = $dnpStore.entries.filter(entry => {
-    const matchesSearch = !searchQuery || 
-      entry.artist.canonical_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (entry.note && entry.note.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesTag = !selectedTag || entry.tags.includes(selectedTag);
-    
-    return matchesSearch && matchesTag;
-  });
+  $: filteredEntries = ($dnpStore.entries && Array.isArray($dnpStore.entries)) 
+    ? $dnpStore.entries.filter(entry => {
+        const matchesSearch = !searchQuery || 
+          entry.artist.canonical_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (entry.note && entry.note.toLowerCase().includes(searchQuery.toLowerCase()));
+        
+        const matchesTag = !selectedTag || entry.tags.includes(selectedTag);
+        
+        return matchesSearch && matchesTag;
+      })
+    : [];
 
   function toggleSelectAll() {
     if (selectedEntries.size === filteredEntries.length) {

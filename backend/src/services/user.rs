@@ -1,4 +1,4 @@
-use crate::models::{UserSettings, UserProfile as ModelUserProfile};
+use crate::models::UserSettings;
 use crate::error::{AppError, Result};
 use sqlx::PgPool;
 use uuid::Uuid;

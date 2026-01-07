@@ -1,6 +1,6 @@
 //! Comprehensive health check system with error recovery
 
-use crate::error::{AppError, Result};
+use crate::error::Result;
 use crate::recovery::{database_health_check_with_recovery, redis_health_check_with_recovery};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

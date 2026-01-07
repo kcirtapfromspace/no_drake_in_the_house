@@ -3,7 +3,7 @@ use axum::http::{
     HeaderValue, Method,
 };
 use std::env;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tracing::{debug, warn};
 
 /// Create CORS layer with environment-specific configuration
@@ -30,9 +30,11 @@ fn create_development_cors() -> CorsLayer {
             "http://localhost:3000".to_string(),
             "http://localhost:5000".to_string(),
             "http://localhost:8080".to_string(),
+            "http://localhost:53136".to_string(),
             "http://127.0.0.1:3000".to_string(),
             "http://127.0.0.1:5000".to_string(),
             "http://127.0.0.1:8080".to_string(),
+            "http://127.0.0.1:53136".to_string(),
         ]);
 
     debug!("Development CORS allowed origins: {:?}", allowed_origins);

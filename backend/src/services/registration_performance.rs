@@ -5,9 +5,7 @@ use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
-use uuid::Uuid;
 
 use crate::models::RegistrationValidationError;
 
@@ -450,7 +448,7 @@ mod tests {
     #[test]
     fn test_email_format_validation() {
         let service = RegistrationPerformanceService {
-            redis_pool: Pool::new(deadpool_redis::Config::from_url("redis://localhost"), Some(Runtime::Tokio1)).unwrap(),
+            redis_pool: deadpool_redis::Config::from_url("redis://localhost").create_pool(Some(Runtime::Tokio1)).unwrap(),
             validation_rules_cache: Arc::new(RwLock::new(None)),
             email_validation_cache: Arc::new(RwLock::new(HashMap::new())),
             metrics: Arc::new(RwLock::new(RegistrationMetrics::default())),

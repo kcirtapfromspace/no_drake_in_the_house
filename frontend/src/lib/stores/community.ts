@@ -207,16 +207,49 @@ export const communityActions = {
         },
       });
 
+      // Check if response is ok and has content
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Endpoint doesn't exist yet, set empty subscriptions
+          communityStore.update(state => ({
+            ...state,
+            subscriptions: [],
+          }));
+          return;
+        }
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // Not JSON response, set empty subscriptions
+        communityStore.update(state => ({
+          ...state,
+          subscriptions: [],
+        }));
+        return;
+      }
+
       const result = await response.json();
       
       if (result.success) {
         communityStore.update(state => ({
           ...state,
-          subscriptions: result.data,
+          subscriptions: result.data || [],
+        }));
+      } else {
+        communityStore.update(state => ({
+          ...state,
+          subscriptions: [],
         }));
       }
     } catch (error) {
       console.error('Failed to fetch subscriptions:', error);
+      // Set empty subscriptions on error
+      communityStore.update(state => ({
+        ...state,
+        subscriptions: [],
+      }));
     }
   },
 

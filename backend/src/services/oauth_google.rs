@@ -647,7 +647,7 @@ mod tests {
             additional_params: HashMap::new(),
         };
 
-        let provider = GoogleOAuthProvider::new(config).unwrap();
+        let provider = GoogleOAuthProvider::from_config(config).unwrap();
         let result = provider.validate_config();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("client_id is required"));
@@ -663,7 +663,7 @@ mod tests {
             additional_params: HashMap::new(),
         };
 
-        let provider = GoogleOAuthProvider::new(config).unwrap();
+        let provider = GoogleOAuthProvider::from_config(config).unwrap();
         let result = provider.validate_config();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("requires 'openid' scope"));

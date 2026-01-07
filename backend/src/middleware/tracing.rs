@@ -1,12 +1,11 @@
 use std::time::Instant;
 use axum::{
     extract::{Request, State},
-    http::{HeaderMap, HeaderName, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderName, HeaderValue},
     middleware::Next,
     response::Response,
 };
 use std::sync::Arc;
-use tracing::{info, warn, error, Span};
 use uuid::Uuid;
 
 use crate::services::monitoring::{CorrelationId, MonitoringService, StructuredLogEntry};

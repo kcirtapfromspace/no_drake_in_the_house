@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use uuid::Uuid;
 use axum::{
     extract::State,
     response::Json,
@@ -14,12 +13,10 @@ use axum::{
     Router,
 };
 use tower::ServiceBuilder;
-use tower_http::{
-    cors::{Any, CorsLayer},
-    trace::TraceLayer,
-};
+use tower_http::trace::TraceLayer;
 use sqlx::PgPool;
 
+pub mod config;
 pub mod error;
 pub mod validation;
 pub mod recovery;
@@ -28,11 +25,15 @@ pub mod metrics;
 pub mod monitoring;
 pub mod models;
 pub mod services;
+
+#[cfg(test)]
+pub mod test_database;
 pub mod middleware;
 pub mod database;
 pub mod handlers;
 
 // Re-export commonly used types
+pub use config::{AppConfig, Environment, ConfigError, ServerConfig, DatabaseSettings, RedisSettings, AuthConfig, OAuthSettings};
 pub use error::{AppError, Result, ErrorResponse};
 pub use validation::{ValidatedJson, validate_email, validate_password, validate_totp_code};
 pub use recovery::{RetryConfig, CircuitBreaker, retry_database_operation, retry_redis_operation};
@@ -132,32 +133,60 @@ pub fn create_router(state: AppState) -> Router {
         .route("/dnp/list", post(handlers::dnp::add_to_dnp_handler))
         .route("/dnp/list/:artist_id", delete(handlers::dnp::remove_from_dnp_handler))
         .route("/dnp/list/:artist_id", put(handlers::dnp::update_dnp_entry_handler))
-        
+
+
+        // Library routes
+        .route("/library/import", post(handlers::offense::import_library))
+        .route("/library/scan", get(handlers::offense::scan_library))
+        .route("/library/tracks", get(handlers::offense::get_library))
+
+        // Offense submission routes (protected)
+        .route("/offenses/submit", post(handlers::offense::create_offense))
+        .route("/offenses/:offense_id/evidence", post(handlers::offense::add_evidence))
+        .route("/offenses/:offense_id/verify", post(handlers::offense::verify_offense))
+
+        // Category subscription routes
+        .route("/categories", get(handlers::category::get_categories))
+        .route("/categories/:category_id/subscribe", post(handlers::category::subscribe_category))
+        .route("/categories/:category_id/subscribe", delete(handlers::category::unsubscribe_category))
+        .route("/categories/blocked-artists", get(handlers::category::get_blocked_artists))
+
+        // Artist search route (alias for /dnp/search)
+        .route("/artists/search", get(handlers::dnp::search_artists_handler))
+
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
             crate::middleware::auth::auth_middleware,
         ));
+
+    // Public offense database routes (no auth required to browse)
+    let offense_public_routes = Router::new()
+        .route("/", get(handlers::offense::get_flagged_artists))
+        .route("/:offense_id", get(handlers::offense::get_offense));
+
 
     Router::new()
         // Health check endpoints
         .route("/health", get(health_check))
         .route("/health/ready", get(readiness_check_endpoint))
         .route("/health/live", get(liveness_check_endpoint))
-        
+
         // OAuth health and configuration endpoints
         .route("/oauth/health", get(handlers::oauth::oauth_health_handler))
         .route("/oauth/health/:provider", get(handlers::oauth::oauth_provider_health_handler))
         .route("/oauth/health/check", post(handlers::oauth::force_oauth_health_check_handler))
         .route("/oauth/config", get(handlers::oauth::oauth_config_status_handler))
         .route("/oauth/config/:provider/guidance", get(handlers::oauth::oauth_config_guidance_handler))
-        
+
         // Monitoring endpoints
         .route("/metrics", get(metrics_endpoint))
         .route("/monitoring", get(comprehensive_monitoring_endpoint))
-        
+
         // Public API routes
         .nest("/api/v1/auth", auth_routes)
-        
+        // Public offense browsing routes
+        .nest("/api/v1/offenses", offense_public_routes)
+
         // Protected API routes
         .nest("/api/v1", protected_routes)
         

@@ -6,7 +6,7 @@ use tokio::sync::RwLock;
 use tracing::{warn, error, info};
 use uuid::Uuid;
 
-use crate::error::oauth::{OAuthError, SecurityViolationType, ClientInfo};
+use crate::error::oauth::{OAuthError, ClientInfo};
 use crate::models::oauth::OAuthProviderType;
 
 /// OAuth security event
@@ -24,7 +24,7 @@ pub struct OAuthSecurityEvent {
 }
 
 /// Types of OAuth security events
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SecurityEventType {
     StateValidationFailure,
     CsrfAttackDetected,
@@ -131,11 +131,23 @@ impl OAuthSecurityLogger {
 
         // Store event in memory
         let mut events = self.events.write().await;
-        events.push(event);
+        let event_clone = OAuthSecurityEvent {
+            event_id: event.event_id,
+            event_type: event.event_type,
+            provider: event.provider,
+            severity: event.severity,
+            description: event.description,
+            user_id: event.user_id,
+            client_info: event.client_info,
+            timestamp: event.timestamp,
+            session_id: event.session_id,
+        };
+        events.push(event_clone);
 
         // Trim events if we exceed max capacity
         if events.len() > self.max_events {
-            events.drain(0..events.len() - self.max_events);
+            let excess = events.len() - self.max_events;
+            events.drain(0..excess);
         }
 
         // Check for alert thresholds
@@ -183,7 +195,7 @@ impl OAuthSecurityLogger {
             _ => return, // Don't log other types of errors as security events
         };
 
-        let provider = oauth_error.get_provider().copied().unwrap_or(OAuthProviderType::Google);
+        let provider = oauth_error.get_provider().cloned().unwrap_or(OAuthProviderType::Google);
 
         let event = OAuthSecurityEvent {
             event_id: Uuid::new_v4(),

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use prometheus::{
-    Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramVec, IntCounter, IntCounterVec,
+    Gauge, GaugeVec, HistogramVec, IntCounterVec,
     IntGauge, IntGaugeVec, Registry, TextEncoder, Encoder,
 };
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, Cpu, Disk, Networks};
+use sysinfo::System;
 use tokio::sync::RwLock;
 use tracing::{info, warn, error, debug};
 use uuid::Uuid;

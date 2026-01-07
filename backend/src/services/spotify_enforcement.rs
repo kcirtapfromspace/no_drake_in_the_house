@@ -668,7 +668,7 @@ impl SpotifyEnforcementService {
             INSERT INTO action_batches (id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at, completed_at)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at, completed_at
-            "#
+            "#,
             batch.id,
             batch.user_id,
             batch.provider,

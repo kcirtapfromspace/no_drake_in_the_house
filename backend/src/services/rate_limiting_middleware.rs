@@ -6,7 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use deadpool_redis::{Config, Pool, Runtime};
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};

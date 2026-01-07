@@ -595,7 +595,7 @@ mod tests {
             additional_params: HashMap::new(),
         };
 
-        let provider = GitHubOAuthProvider::new(config).unwrap();
+        let provider = GitHubOAuthProvider::new_with_config(config).unwrap();
         let result = provider.validate_config();
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("client_id is required"));

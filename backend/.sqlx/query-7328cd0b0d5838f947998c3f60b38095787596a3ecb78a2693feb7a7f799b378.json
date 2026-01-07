@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT category::text as \"category!\", COUNT(DISTINCT artist_id) as \"count!\"\n        FROM artist_offenses\n        WHERE status IN ('pending', 'verified')\n        GROUP BY category\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "category!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 1,
+        "name": "count!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "7328cd0b0d5838f947998c3f60b38095787596a3ecb78a2693feb7a7f799b378"
+}

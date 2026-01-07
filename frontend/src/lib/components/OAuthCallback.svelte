@@ -1,163 +1,127 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { authActions } from '../stores/auth';
-  import { api } from '../utils/api';
-  
-  export let provider: string = '';
-  
-  let isProcessing = true;
-  let error = '';
-  let success = false;
+  import { apiClient } from '../utils/api-client';
+  import { navigateTo } from '../utils/simple-router';
 
-  interface OAuthCallbackResponse {
-    access_token: string;
-    refresh_token: string;
-    user: any;
-  }
+  let status: 'loading' | 'success' | 'error' = 'loading';
+  let errorMessage = '';
+  let provider = '';
 
   onMount(async () => {
-    await handleOAuthCallback();
-  });
+    // Parse URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
 
-  async function handleOAuthCallback() {
+    // Extract provider from path (e.g., /auth/callback/spotify)
+    const pathParts = window.location.pathname.split('/');
+    provider = pathParts[pathParts.length - 1] || 'unknown';
+
+    // Handle OAuth errors
+    if (error) {
+      status = 'error';
+      errorMessage = errorDescription || error || 'Authentication was cancelled or denied';
+      return;
+    }
+
+    if (!code || !state) {
+      status = 'error';
+      errorMessage = 'Missing authentication parameters';
+      return;
+    }
+
     try {
-      // Get URL parameters
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      const state = urlParams.get('state');
-      const errorParam = urlParams.get('error');
-      const errorDescription = urlParams.get('error_description');
-
-      // Handle OAuth errors from provider
-      if (errorParam) {
-        const errorMsg = errorDescription || `OAuth error: ${errorParam}`;
-        throw new Error(errorMsg);
-      }
-
-      if (!code || !state) {
-        throw new Error('Missing authorization code or state parameter');
-      }
-
-      // Validate state parameter
-      const storedState = sessionStorage.getItem(`oauth_state_${provider}`);
-      if (!storedState || storedState !== state) {
-        throw new Error('Invalid state parameter - possible CSRF attack');
-      }
-
-      // Exchange code for tokens
-      const result = await api.post<OAuthCallbackResponse>(`/auth/oauth/${provider}/callback`, {
+      // Complete the OAuth link flow
+      const result = await apiClient.post(`/api/v1/auth/oauth/${provider}/link-callback`, {
         code,
-        state,
-        redirect_uri: window.location.origin + window.location.pathname
+        state
       });
 
       if (result.success) {
-        const { access_token, refresh_token } = result.data;
-        
-        // Store tokens
-        localStorage.setItem('auth_token', access_token);
-        localStorage.setItem('refresh_token', refresh_token);
-        
-        // Update auth store
-        authActions.fetchProfile();
-        
-        success = true;
-        
-        // Clean up stored state
-        sessionStorage.removeItem(`oauth_state_${provider}`);
-        
-        // Redirect to dashboard after a brief success message
+        status = 'success';
+        // Redirect to settings after a brief moment
         setTimeout(() => {
-          window.location.href = '/';
-        }, 2000);
-        
+          navigateTo('settings');
+        }, 1500);
       } else {
-        throw new Error(result.message || 'OAuth authentication failed');
+        status = 'error';
+        errorMessage = result.error || 'Failed to link account';
       }
-      
-    } catch (err: any) {
-      console.error('OAuth callback error:', err);
-      error = err.message || 'Authentication failed';
-      
-      // Clean up stored state on error
-      sessionStorage.removeItem(`oauth_state_${provider}`);
-      
-    } finally {
-      isProcessing = false;
+    } catch (e) {
+      status = 'error';
+      errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred';
     }
+  });
+
+  function goToSettings() {
+    navigateTo('settings');
   }
 
-  function getProviderName(provider: string): string {
-    switch (provider) {
-      case 'google':
-        return 'Google';
-      case 'apple':
-        return 'Apple';
-      case 'github':
-        return 'GitHub';
-      default:
-        return provider;
-    }
+  function goHome() {
+    navigateTo('home');
   }
 
-  function retryLogin() {
-    window.location.href = '/';
+  function getProviderName(p: string): string {
+    switch (p) {
+      case 'spotify': return 'Spotify';
+      case 'apple': return 'Apple Music';
+      case 'google': return 'Google';
+      case 'github': return 'GitHub';
+      default: return p;
+    }
   }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-  <div class="max-w-md w-full space-y-8">
-    <div class="text-center">
-      {#if isProcessing}
-        <div class="mx-auto h-12 w-12 text-blue-600">
-          <svg class="animate-spin h-12 w-12" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+<div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
+  <div class="bg-gray-800 rounded-xl border border-gray-600 p-8 max-w-md w-full text-center">
+    {#if status === 'loading'}
+      <div class="mb-6">
+        <div class="w-16 h-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      </div>
+      <h1 class="text-xl font-bold mb-2">Connecting {getProviderName(provider)}</h1>
+      <p class="text-gray-400">Please wait while we complete the connection...</p>
+    {:else if status === 'success'}
+      <div class="mb-6">
+        <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
-          Completing {getProviderName(provider)} Sign In
-        </h2>
-        <p class="mt-2 text-sm text-gray-600">
-          Please wait while we complete your authentication...
-        </p>
-        
-      {:else if success}
-        <div class="mx-auto h-12 w-12 text-green-600">
-          <svg class="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </div>
+      <h1 class="text-xl font-bold mb-2 text-green-400">Connected!</h1>
+      <p class="text-gray-400 mb-6">Your {getProviderName(provider)} account has been linked successfully.</p>
+      <button
+        on:click={goToSettings}
+        class="px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors"
+      >
+        Go to Settings
+      </button>
+    {:else}
+      <div class="mb-6">
+        <div class="w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </div>
-        <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
-          Welcome!
-        </h2>
-        <p class="mt-2 text-sm text-gray-600">
-          Successfully signed in with {getProviderName(provider)}. Redirecting to your dashboard...
-        </p>
-        
-      {:else if error}
-        <div class="mx-auto h-12 w-12 text-red-600">
-          <svg class="h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z"></path>
-          </svg>
-        </div>
-        <h2 class="mt-6 text-3xl font-extrabold text-gray-900">
-          Authentication Failed
-        </h2>
-        <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-          <p class="text-sm text-red-800">{error}</p>
-        </div>
-        
-        <div class="mt-6">
-          <button
-            type="button"
-            on:click={retryLogin}
-            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Try Again
-          </button>
-        </div>
-      {/if}
-    </div>
+      </div>
+      <h1 class="text-xl font-bold mb-2 text-red-400">Connection Failed</h1>
+      <p class="text-gray-400 mb-6">{errorMessage}</p>
+      <div class="flex gap-3 justify-center">
+        <button
+          on:click={goToSettings}
+          class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+        >
+          Try Again
+        </button>
+        <button
+          on:click={goHome}
+          class="px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors"
+        >
+          Go Home
+        </button>
+      </div>
+    {/if}
   </div>
 </div>

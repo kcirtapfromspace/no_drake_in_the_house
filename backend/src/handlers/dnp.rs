@@ -3,12 +3,11 @@ use axum::{
     response::Json,
     http::StatusCode,
 };
-use std::sync::Arc;
 use uuid::Uuid;
 use serde::Deserialize;
 use crate::{
     AppState, Result, AppError,
-    models::{AddToDnpRequest, DnpEntryWithArtist, Artist, AuthenticatedUser, UpdateDnpEntryRequest},
+    models::{AddToDnpRequest, AuthenticatedUser, UpdateDnpEntryRequest},
 };
 
 #[derive(Deserialize)]

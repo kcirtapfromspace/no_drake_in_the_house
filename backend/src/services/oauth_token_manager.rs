@@ -1,6 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::time::{interval, sleep};
+use tokio::time::interval;
 use tracing::{info, warn, error};
 
 use crate::services::auth::AuthService;
@@ -54,13 +54,23 @@ impl OAuthTokenManager {
             Self::run_cleanup_task(cleanup_service, cleanup_interval).await;
         });
 
-        // Wait for both tasks (they run indefinitely)
+        // Start monitoring task for proactive token refresh
+        let monitoring_service = self.auth_service.clone();
+        let monitoring_interval = Duration::from_secs(1800); // 30 minutes
+        let monitoring_task = tokio::spawn(async move {
+            Self::run_monitoring_task(monitoring_service, monitoring_interval).await;
+        });
+
+        // Wait for all tasks (they run indefinitely)
         tokio::select! {
             result = refresh_task => {
                 error!("OAuth token refresh task ended unexpectedly: {:?}", result);
             }
             result = cleanup_task => {
                 error!("OAuth token cleanup task ended unexpectedly: {:?}", result);
+            }
+            result = monitoring_task => {
+                error!("OAuth token monitoring task ended unexpectedly: {:?}", result);
             }
         }
 
@@ -113,6 +123,43 @@ impl OAuthTokenManager {
                     error!(
                         error = %e,
                         "OAuth token cleanup cycle failed"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Run the token monitoring and proactive refresh task
+    async fn run_monitoring_task(auth_service: Arc<AuthService>, monitoring_interval: Duration) {
+        let mut interval = interval(monitoring_interval);
+        
+        loop {
+            interval.tick().await;
+            
+            // Execute proactive token refresh for high-priority tokens
+            match auth_service.execute_proactive_token_refresh().await {
+                Ok(summary) => {
+                    if summary.total_attempted > 0 {
+                        info!(
+                            total_attempted = summary.total_attempted,
+                            successful = summary.successful_refreshes,
+                            failed = summary.failed_refreshes,
+                            "OAuth token monitoring cycle completed"
+                        );
+                        
+                        // Log any errors for debugging
+                        if !summary.errors.is_empty() {
+                            warn!(
+                                errors = ?summary.errors,
+                                "Some token refreshes failed during monitoring cycle"
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!(
+                        error = %e,
+                        "OAuth token monitoring cycle failed"
                     );
                 }
             }

@@ -2,6 +2,22 @@
 pub mod auth_simple;
 pub mod auth;
 pub mod oauth;
+
+// Analytics databases (DuckDB, Kùzu, LanceDB)
+pub mod databases;
+
+// Catalog sync (multi-platform artist synchronization)
+pub mod catalog_sync;
+
+// News pipeline (live news tracking and offense detection)
+pub mod news_pipeline;
+
+// Graph service (artist collaboration networks and analysis)
+pub mod graph_service;
+
+// Analytics service (dashboard metrics, trend analysis, reporting)
+pub mod analytics_service;
+
 pub mod oauth_encryption;
 pub mod oauth_google;
 pub mod oauth_apple;
@@ -65,3 +81,53 @@ pub use offense::OffenseService;
 
 // Export stub services for tests
 pub use stubs::*;
+
+// Export database clients
+pub use databases::{DatabaseClients, DatabasesConfig, DuckDbClient, KuzuClient, LanceDbClient};
+
+// Export catalog sync components
+pub use catalog_sync::{
+    Platform, SyncType, SyncStatus, PlatformArtist, PlatformTrack, PlatformAlbum,
+    PlatformCatalogWorker, RateLimitConfig, SyncProgress, SyncResult, SyncCheckpoint,
+    CatalogSyncOrchestrator, OrchestratorBuilder, OverallSyncStatus, SyncTriggerRequest,
+    CrossPlatformIdentityResolver, CanonicalArtist, IdentityMatch, MatchMethod,
+    SpotifySyncWorker, AppleMusicSyncWorker, TidalSyncWorker, YouTubeMusicSyncWorker, DeezerSyncWorker,
+};
+
+// Export news pipeline components
+pub use news_pipeline::{
+    // Ingestion
+    RssFetcher, RssFetcherConfig, FetchedArticle,
+    NewsApiClient, NewsApiConfig,
+    TwitterMonitor, TwitterConfig,
+    RedditMonitor, RedditConfig,
+    WebScraper, WebScraperConfig,
+    // Processing
+    EntityExtractor, ExtractedEntity, EntityType,
+    OffenseClassifier, OffenseClassification,
+    EmbeddingGenerator, ArticleEmbedding,
+    // Orchestration
+    NewsPipelineOrchestrator, NewsPipelineConfig,
+    ProcessedArticle, PipelineStats,
+    ScheduledPipelineRunner, ScheduledPipelineHandle,
+};
+
+// Export graph service components
+pub use graph_service::{
+    // Sync
+    GraphSyncService, SyncStats, SyncJob,
+    // Network analysis
+    NetworkAnalysisService, ArtistNetworkResponse, PathResponse, NetworkStatsResponse,
+    // Collaboration
+    CollaborationService, CollaborationBuilder, TrackCollaboration,
+};
+
+// Export analytics service components
+pub use analytics_service::{
+    // Dashboard
+    DashboardService, DashboardMetrics, TimeRange,
+    // Trends
+    TrendAnalysisService, TrendData, TrendDirection,
+    // Reporting
+    ReportingService, Report, ReportType,
+};

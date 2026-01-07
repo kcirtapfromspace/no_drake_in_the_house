@@ -67,6 +67,33 @@ async-trait = "0.1"
 # CSV processing
 csv = "1.3"
 
+# Analytics databases
+duckdb = { version = "1.4", features = ["bundled"] }
+
+# Graph database (Kùzu)
+kuzu = "0.11"
+
+# Vector database (LanceDB)
+lancedb = "0.23"
+arrow = { version = "56", default-features = false, features = ["ipc", "json"] }
+
+# RSS/News ingestion
+feed-rs = "2.0"
+rss = "2.0"
+
+# Web scraping
+spider = "2.0"
+scraper = "0.20"
+
+# Embeddings
+fastembed = "4"
+
+# In-memory caching with TTL
+moka = { version = "0.12", features = ["future"] }
+
+# Temp files
+tempfile = "3.8"
+
 # Monitoring and observability dependencies
 prometheus = "0.13"
 metrics = "0.23"

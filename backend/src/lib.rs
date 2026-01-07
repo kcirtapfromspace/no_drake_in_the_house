@@ -154,6 +154,48 @@ pub fn create_router(state: AppState) -> Router {
         // Artist search route (alias for /dnp/search)
         .route("/artists/search", get(handlers::dnp::search_artists_handler))
 
+        // Catalog sync routes
+        .route("/sync/status", get(handlers::sync::get_sync_status_handler))
+        .route("/sync/trigger", post(handlers::sync::trigger_sync_handler))
+        .route("/sync/runs", get(handlers::sync::get_sync_runs_handler))
+        .route("/sync/runs/:run_id", get(handlers::sync::get_sync_run_handler))
+        .route("/sync/runs/:run_id/cancel", post(handlers::sync::cancel_sync_run_handler))
+        .route("/sync/resolve-identity", post(handlers::sync::resolve_identity_handler))
+        .route("/sync/merge-artists", post(handlers::sync::merge_artists_handler))
+        .route("/sync/search", get(handlers::sync::cross_platform_search_handler))
+        .route("/sync/artists", get(handlers::sync::get_canonical_artists_handler))
+        .route("/sync/artists/:artist_id", get(handlers::sync::get_canonical_artist_handler))
+        .route("/sync/health", get(handlers::sync::platform_health_handler))
+
+        // Graph routes (artist networks)
+        .route("/graph/artists/:artist_id/network", get(handlers::graph::get_artist_network_handler))
+        .route("/graph/artists/:artist_id/collaborators", get(handlers::graph::get_collaborators_handler))
+        .route("/graph/artists/:from_id/path-to/:to_id", get(handlers::graph::find_path_handler))
+        .route("/graph/artists/:artist_id/stats", get(handlers::graph::get_network_stats_handler))
+        .route("/graph/artists/:artist_id/collab-stats", get(handlers::graph::get_collaboration_stats_handler))
+        .route("/graph/artists/:artist_id/proximity", get(handlers::graph::search_by_proximity_handler))
+        .route("/graph/blocked-network", get(handlers::graph::analyze_blocked_network_handler))
+        .route("/graph/blocked-network/artists", get(handlers::graph::get_blocked_artists_network_handler))
+        .route("/graph/blocked-network/at-risk", get(handlers::graph::get_at_risk_artists_handler))
+        .route("/graph/sync/status", get(handlers::graph::get_sync_status_handler))
+        .route("/graph/sync/trigger", post(handlers::graph::trigger_sync_handler))
+        .route("/graph/health", get(handlers::graph::get_graph_health_handler))
+
+        // Analytics routes (dashboard, trends, reports)
+        .route("/analytics/dashboard", get(handlers::analytics_v2::get_dashboard_handler))
+        .route("/analytics/dashboard/user-stats", get(handlers::analytics_v2::get_user_quick_stats_handler))
+        .route("/analytics/health", get(handlers::analytics_v2::get_system_health_handler))
+        .route("/analytics/trends", get(handlers::analytics_v2::get_trend_summary_handler))
+        .route("/analytics/trends/artists/:artist_id", get(handlers::analytics_v2::get_artist_trend_handler))
+        .route("/analytics/trends/platforms", get(handlers::analytics_v2::get_platform_trends_handler))
+        .route("/analytics/trends/rising", get(handlers::analytics_v2::get_rising_artists_handler))
+        .route("/analytics/trends/falling", get(handlers::analytics_v2::get_falling_artists_handler))
+        .route("/analytics/reports/types", get(handlers::analytics_v2::get_report_types_handler))
+        .route("/analytics/reports", post(handlers::analytics_v2::generate_report_handler))
+        .route("/analytics/reports/:report_id", get(handlers::analytics_v2::get_report_status_handler))
+        .route("/analytics/reports/:report_id/download", get(handlers::analytics_v2::download_report_handler))
+        .route("/analytics/export/parquet", post(handlers::analytics_v2::export_to_parquet_handler))
+
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
             crate::middleware::auth::auth_middleware,
@@ -162,6 +204,7 @@ pub fn create_router(state: AppState) -> Router {
     // Public offense database routes (no auth required to browse)
     let offense_public_routes = Router::new()
         .route("/", get(handlers::offense::get_flagged_artists))
+        .route("/query", get(handlers::offense::get_category_artists))
         .route("/:offense_id", get(handlers::offense::get_offense));
 
 
@@ -180,6 +223,7 @@ pub fn create_router(state: AppState) -> Router {
 
         // Monitoring endpoints
         .route("/metrics", get(metrics_endpoint))
+        .route("/metrics/prometheus", get(handlers::analytics_v2::get_metrics_handler))
         .route("/monitoring", get(comprehensive_monitoring_endpoint))
 
         // Public API routes

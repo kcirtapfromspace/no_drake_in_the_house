@@ -1,5 +1,5 @@
 import sveltePreprocess from 'svelte-preprocess';
-import tailwindcss from 'tailwindcss';
+import tailwindcss from '@tailwindcss/postcss';
 import autoprefixer from 'autoprefixer';
 
 const config = {

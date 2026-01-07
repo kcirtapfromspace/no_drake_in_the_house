@@ -4,7 +4,7 @@ use serde_json::Value;
 use jsonwebtoken::{encode, Header, Algorithm, EncodingKey};
 use serde::{Deserialize, Serialize};
 use chrono::{Utc, Duration};
-use base64::{Engine as _, engine::general_purpose};
+use base64::Engine as _;
 
 use crate::models::oauth::{
     OAuthProviderType, OAuthTokens, OAuthUserInfo, OAuthFlowResponse, OAuthConfig

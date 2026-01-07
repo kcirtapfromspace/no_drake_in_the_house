@@ -1,2 +1,7011 @@
-var app=function(){"use strict";function e(){}function t(e){return e()}function s(){return Object.create(null)}function n(e){e.forEach(t)}function r(e){return"function"==typeof e}function o(e,t){return e!=e?t==t:e!==t||e&&"object"==typeof e||"function"==typeof e}let i,a;function d(e,t){return e===t||(i||(i=document.createElement("a")),i.href=t,e===i.href)}function l(t,...s){if(null==t){for(const e of s)e(void 0);return e}const n=t.subscribe(...s);return n.unsubscribe?()=>n.unsubscribe():n}function c(e,t,s){e.$$.on_destroy.push(l(t,s))}function u(e,t){e.appendChild(t)}function m(e,t,s){e.insertBefore(t,s||null)}function p(e){e.parentNode&&e.parentNode.removeChild(e)}function f(e,t){for(let s=0;s<e.length;s+=1)e[s]&&e[s].d(t)}function g(e){return document.createElement(e)}function w(e){return document.createElementNS("http://www.w3.org/2000/svg",e)}function x(e){return document.createTextNode(e)}function h(){return x(" ")}function b(){return x("")}function v(e,t,s,n){return e.addEventListener(t,s,n),()=>e.removeEventListener(t,s,n)}function y(e){return function(t){return t.preventDefault(),e.call(this,t)}}function k(e,t,s){null==s?e.removeAttribute(t):e.getAttribute(t)!==s&&e.setAttribute(t,s)}function C(e){let t;return{p(...s){t=s,t.forEach(t=>e.push(t))},r(){t.forEach(t=>e.splice(e.indexOf(t),1))}}}function $(e,t){t=""+t,e.data!==t&&(e.data=t)}function _(e,t){e.value=null==t?"":t}function M(e,t,s,n){null==s?e.style.removeProperty(t):e.style.setProperty(t,s,"")}function L(e,t,s){for(let s=0;s<e.options.length;s+=1){const n=e.options[s];if(n.__value===t)return void(n.selected=!0)}s&&void 0===t||(e.selectedIndex=-1)}function S(e){const t=e.querySelector(":checked");return t&&t.__value}function z(e,t,s){e.classList.toggle(t,!!s)}function A(e){a=e}function T(){if(!a)throw new Error("Function called outside component initialization");return a}function B(e){T().$$.on_mount.push(e)}function j(){const e=T();return(t,s,{cancelable:n=!1}={})=>{const r=e.$$.callbacks[t];if(r){const o=function(e,t,{bubbles:s=!1,cancelable:n=!1}={}){return new CustomEvent(e,{detail:t,bubbles:s,cancelable:n})}(t,s,{cancelable:n});return r.slice().forEach(t=>{t.call(e,o)}),!o.defaultPrevented}return!0}}const H=[],P=[];let E=[];const F=[],I=Promise.resolve();let D=!1;function N(e){E.push(e)}const R=new Set;let O=0;function V(){if(0!==O)return;const e=a;do{try{for(;O<H.length;){const e=H[O];O++,A(e),q(e.$$)}}catch(e){throw H.length=0,O=0,e}for(A(null),H.length=0,O=0;P.length;)P.pop()();for(let e=0;e<E.length;e+=1){const t=E[e];R.has(t)||(R.add(t),t())}E.length=0}while(H.length);for(;F.length;)F.pop()();D=!1,R.clear(),A(e)}function q(e){if(null!==e.fragment){e.update(),n(e.before_update);const t=e.dirty;e.dirty=[-1],e.fragment&&e.fragment.p(e.ctx,t),e.after_update.forEach(N)}}const U=new Set;let J;function Y(){J={r:0,c:[],p:J}}function G(){J.r||n(J.c),J=J.p}function Q(e,t){e&&e.i&&(U.delete(e),e.i(t))}function W(e,t,s,n){if(e&&e.o){if(U.has(e))return;U.add(e),J.c.push(()=>{U.delete(e),n&&(s&&e.d(1),n())}),e.o(t)}else n&&n()}function Z(e){return void 0!==e?.length?e:Array.from(e)}function K(e,t){W(e,1,1,()=>{t.delete(e.key)})}function X(e,t,s,r,o,i,a,d,l,c,u,m){let p=e.length,f=i.length,g=p;const w={};for(;g--;)w[e[g].key]=g;const x=[],h=new Map,b=new Map,v=[];for(g=f;g--;){const e=m(o,i,g),n=s(e);let r=a.get(n);r?v.push(()=>r.p(e,t)):(r=c(n,e),r.c()),h.set(n,x[g]=r),n in w&&b.set(n,Math.abs(g-w[n]))}const y=new Set,k=new Set;function C(e){Q(e,1),e.m(d,u),a.set(e.key,e),u=e.first,f--}for(;p&&f;){const t=x[f-1],s=e[p-1],n=t.key,r=s.key;t===s?(u=t.first,p--,f--):h.has(r)?!a.has(n)||y.has(n)?C(t):k.has(r)?p--:b.get(n)>b.get(r)?(k.add(n),C(t)):(y.add(r),p--):(l(s,a),p--)}for(;p--;){const t=e[p];h.has(t.key)||l(t,a)}for(;f;)C(x[f-1]);return n(v),x}function ee(e){e&&e.c()}function te(e,s,o){const{fragment:i,after_update:a}=e.$$;i&&i.m(s,o),N(()=>{const s=e.$$.on_mount.map(t).filter(r);e.$$.on_destroy?e.$$.on_destroy.push(...s):n(s),e.$$.on_mount=[]}),a.forEach(N)}function se(e,t){const s=e.$$;null!==s.fragment&&(!function(e){const t=[],s=[];E.forEach(n=>-1===e.indexOf(n)?t.push(n):s.push(n)),s.forEach(e=>e()),E=t}(s.after_update),n(s.on_destroy),s.fragment&&s.fragment.d(t),s.on_destroy=s.fragment=null,s.ctx=[])}function ne(e,t){-1===e.$$.dirty[0]&&(H.push(e),D||(D=!0,I.then(V)),e.$$.dirty.fill(0)),e.$$.dirty[t/31|0]|=1<<t%31}function re(t,r,o,i,d,l,c=null,u=[-1]){const m=a;A(t);const f=t.$$={fragment:null,ctx:[],props:l,update:e,not_equal:d,bound:s(),on_mount:[],on_destroy:[],on_disconnect:[],before_update:[],after_update:[],context:new Map(r.context||(m?m.$$.context:[])),callbacks:s(),dirty:u,skip_bound:!1,root:r.target||m.$$.root};c&&c(f.root);let g=!1;if(f.ctx=o?o(t,r.props||{},(e,s,...n)=>{const r=n.length?n[0]:s;return f.ctx&&d(f.ctx[e],f.ctx[e]=r)&&(!f.skip_bound&&f.bound[e]&&f.bound[e](r),g&&ne(t,e)),s}):[],f.update(),g=!0,n(f.before_update),f.fragment=!!i&&i(f.ctx),r.target){if(r.hydrate){const e=function(e){return Array.from(e.childNodes)}(r.target);f.fragment&&f.fragment.l(e),e.forEach(p)}else f.fragment&&f.fragment.c();r.intro&&Q(t.$$.fragment),te(t,r.target,r.anchor),V()}A(m)}class oe{$$=void 0;$$set=void 0;$destroy(){se(this,1),this.$destroy=e}$on(t,s){if(!r(s))return e;const n=this.$$.callbacks[t]||(this.$$.callbacks[t]=[]);return n.push(s),()=>{const e=n.indexOf(s);-1!==e&&n.splice(e,1)}}$set(e){var t;this.$$set&&(t=e,0!==Object.keys(t).length)&&(this.$$.skip_bound=!0,this.$$set(e),this.$$.skip_bound=!1)}}"undefined"!=typeof window&&(window.__svelte||(window.__svelte={v:new Set})).v.add("4");const ie=[];function ae(t,s=e){let n;const r=new Set;function i(e){if(o(t,e)&&(t=e,n)){const e=!ie.length;for(const e of r)e[1](),ie.push(e,t);if(e){for(let e=0;e<ie.length;e+=2)ie[e][0](ie[e+1]);ie.length=0}}}function a(e){i(e(t))}return{set:i,update:a,subscribe:function(o,d=e){const l=[o,d];return r.add(l),1===r.size&&(n=s(i,a)||e),o(t),()=>{r.delete(l),0===r.size&&n&&(n(),n=null)}}}}function de(t,s,o){const i=!Array.isArray(t),a=i?[t]:t;if(!a.every(Boolean))throw new Error("derived() expects stores as input, got a falsy value");const d=s.length<2;return c=(t,o)=>{let c=!1;const u=[];let m=0,p=e;const f=()=>{if(m)return;p();const n=s(i?u[0]:u,t,o);d?t(n):p=r(n)?n:e},g=a.map((e,t)=>l(e,e=>{u[t]=e,m&=~(1<<t),c&&f()},()=>{m|=1<<t}));return c=!0,f(),function(){n(g),p(),c=!1}},{subscribe:ae(o,c).subscribe};var c}const le={apiUrl:"http://localhost:3000",apiVersion:"v1",appName:'"No Drake in the House"',environment:"development",features:{twoFactorAuth:!0,communityLists:!0,analytics:!1},development:{hotReload:!0,debugMode:!0},external:{spotifyClientId:"your_spotify_client_id_here",appleMusicToken:"your_apple_music_token_here"},ui:{defaultTheme:"light"},performance:{enableServiceWorker:!1,cacheDuration:parseInt("300000")},isDevelopment:()=>"development"===le.environment,isProduction:()=>"production"===le.environment,getApiEndpoint:e=>{const t=e.startsWith("/")?e:`/${e}`,s=t.startsWith("/api/")?t:`/api/${le.apiVersion}${t}`;return`${le.apiUrl}${s}`}};class ce extends Error{constructor(e,t){super(t),Object.defineProperty(this,"status",{enumerable:!0,configurable:!0,writable:!0,value:e}),this.name="ApiError"}}async function ue(e,t={}){const s=localStorage.getItem("auth_token"),n={...t,headers:{"Content-Type":"application/json",...s&&{Authorization:`Bearer ${s}`},...t.headers}};try{const t=le.getApiEndpoint(e),s=await fetch(t,n),r=await s.json();if(!s.ok)throw new ce(s.status,r.message||"Request failed");return r}catch(e){if(e instanceof ce)throw e;throw new ce(0,"Network error occurred")}}const me=e=>ue(e),pe=(e,t)=>ue(e,{method:"POST",body:JSON.stringify(t)}),fe=(e,t)=>ue(e,{method:"PUT",body:JSON.stringify(t)}),ge=(e,t)=>ue(e,{method:"DELETE",body:t?JSON.stringify(t):void 0}),we=ae({user:null,token:localStorage.getItem("auth_token"),refreshToken:localStorage.getItem("refresh_token"),isAuthenticated:!1,isLoading:!1,justRegistered:!1}),xe=de(we,e=>e.isAuthenticated&&null!==e.token),he=de(we,e=>e.user),be=de(we,e=>e.justRegistered),ve={login:async(e,t,s)=>{we.update(e=>({...e,isLoading:!0}));try{const n=await pe("/auth/login",{email:e,password:t,totp_code:s});if(n.success){const{access_token:e,refresh_token:t}=n.data;return localStorage.setItem("auth_token",e),localStorage.setItem("refresh_token",t),we.update(s=>({...s,token:e,refreshToken:t,isAuthenticated:!0,isLoading:!1,justRegistered:!1})),await ve.fetchProfile(),{success:!0}}return we.update(e=>({...e,isLoading:!1})),{success:!1,message:n.message}}catch(e){return we.update(e=>({...e,isLoading:!1})),{success:!1,message:e.message||"Network error occurred"}}},register:async(e,t,s,n)=>{we.update(e=>({...e,isLoading:!0}));try{const r=await pe("/auth/register",{email:e,password:t,confirm_password:s,terms_accepted:n});if(r.success){if(r.data?.access_token&&r.data?.refresh_token){const{access_token:e,refresh_token:t}=r.data;return localStorage.setItem("auth_token",e),localStorage.setItem("refresh_token",t),we.update(s=>({...s,token:e,refreshToken:t,isAuthenticated:!0,isLoading:!1,justRegistered:!0})),await ve.fetchProfile(),{success:!0,autoLogin:!0}}return we.update(e=>({...e,isLoading:!1})),{success:!0,autoLogin:!1,message:r.message}}return we.update(e=>({...e,isLoading:!1})),{success:!1,message:r.message,errors:r.data?.errors||null}}catch(e){if(we.update(e=>({...e,isLoading:!1})),400===e.status&&e.message)try{const t=JSON.parse(e.message);if(t.errors)return{success:!1,message:t.message||"Registration validation failed",errors:t.errors}}catch(e){}return{success:!1,message:e.message||"Network error occurred"}}},fetchProfile:async()=>{if(localStorage.getItem("auth_token"))try{const e=await me("/users/profile");e.success&&we.update(t=>({...t,user:e.data,isAuthenticated:!0}))}catch(e){console.error("Failed to fetch profile:",e)}},logout:async()=>{if(localStorage.getItem("auth_token"))try{await pe("/auth/logout")}catch(e){console.error("Logout request failed:",e)}localStorage.removeItem("auth_token"),localStorage.removeItem("refresh_token"),we.set({user:null,token:null,refreshToken:null,isAuthenticated:!1,isLoading:!1,justRegistered:!1})},refreshToken:async()=>{const e=localStorage.getItem("refresh_token");if(!e)return!1;try{const t=await pe("/auth/refresh",{refresh_token:e});if(t.success){const{access_token:e,refresh_token:s}=t.data;return localStorage.setItem("auth_token",e),localStorage.setItem("refresh_token",s),we.update(t=>({...t,token:e,refreshToken:s,isAuthenticated:!0})),!0}}catch(e){console.error("Token refresh failed:",e)}return!1},setup2FA:async()=>{try{const e=await pe("/auth/2fa/setup");return e.success?{success:!0,qrCodeUrl:e.data.qr_code_url,secret:e.data.secret}:{success:!1,message:e.message}}catch(e){return{success:!1,message:e.message||"Failed to setup 2FA"}}},verify2FA:async e=>{try{const t=await pe("/auth/2fa/verify",{totp_code:e});return t.success?(await ve.fetchProfile(),{success:!0}):{success:!1,message:t.message}}catch(e){return{success:!1,message:e.message||"Failed to verify 2FA code"}}},disable2FA:async e=>{try{const t=await pe("/auth/2fa/disable",{totp_code:e});return t.success?(await ve.fetchProfile(),{success:!0}):{success:!1,message:t.message}}catch(e){return{success:!1,message:e.message||"Failed to disable 2FA"}}},clearJustRegistered:()=>{we.update(e=>({...e,justRegistered:!1}))}};if("undefined"!=typeof window){const e=localStorage.getItem("auth_token");e&&(we.update(t=>({...t,token:e,isAuthenticated:!0,justRegistered:!1})),ve.fetchProfile())}const ye=ae("overview");function ke(e){if(console.log("Simple router: Navigating to:",e),ye.set(e),"undefined"!=typeof window){const t={overview:"/",connections:"/connections",dnp:"/dnp",enforcement:"/enforcement",community:"/community",profile:"/profile"}[e]||"/";window.history.pushState({route:e},e,t),document.title=`${e} - No Drake in the House`}}function Ce(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>\n          Please enter a valid email address',k(t,"class","validation-message validation-message--error")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function $e(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>\n          Password must be at least 8 characters',k(t,"class","validation-message validation-message--error")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function _e(e){let t,s,n,r,o,i,a,d;return{c(){t=g("div"),s=g("label"),s.textContent="2FA Authentication Code",n=h(),r=g("input"),o=h(),i=g("div"),i.innerHTML='<svg class="icon-uswds icon-uswds--sm icon-uswds--neutral" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>\n          Enter the 6-digit code from your authenticator app',k(s,"for","login-totp"),k(s,"class","form-label-uswds"),k(r,"id","login-totp"),k(r,"name","totp"),k(r,"type","text"),k(r,"autocomplete","one-time-code"),k(r,"maxlength","6"),k(r,"pattern","[0-9]6"),k(r,"class","form-input-uswds"),k(r,"placeholder","Enter 6-digit code"),k(i,"class","validation-message"),k(t,"class","form-field-uswds")},m(l,c){m(l,t,c),u(t,s),u(t,n),u(t,r),_(r,e[6]),u(t,o),u(t,i),a||(d=v(r,"input",e[13]),a=!0)},p(e,t){64&t&&r.value!==e[6]&&_(r,e[6])},d(e){e&&p(t),a=!1,d()}}}function Me(e){let t,s,n,r,o,i;return{c(){t=g("div"),s=g("div"),s.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',n=h(),r=g("div"),o=g("p"),i=x(e[1]),k(s,"class","alert__icon"),k(o,"class","alert__text"),k(r,"class","alert__content"),k(t,"class","alert-uswds alert-uswds-error")},m(e,a){m(e,t,a),u(t,s),u(t,n),u(t,r),u(r,o),u(o,i)},p(e,t){2&t&&$(i,e[1])},d(e){e&&p(t)}}}function Le(e){let t;return{c(){t=x("Sign in")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Se(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n          Signing in..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"class","icon-uswds icon-uswds--sm animate-spin"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"aria-hidden","true"),M(t,"margin-right","var(--space-2)")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function ze(t){let s,r,o,i,a,d,l,c,f,w,x,b,C,$,L,S,A,T,B,j,H,P,E,F,I,D,N=!t[5]&&Ce(),R=!t[4]&&$e(),O=t[7]&&_e(t),V=t[1]&&Me(t);function q(e,t){return e[0]?Se:Le}let U=q(t),J=U(t);return{c(){s=g("div"),r=g("div"),r.innerHTML='<h2 class="text-center text-uswds-2xl sm:text-uswds-3xl font-extrabold text-uswds-base-darker">Sign in to your account</h2> <p class="mt-2 text-center text-uswds-sm text-uswds-base-darker">Access your music blocklist manager</p>',o=h(),i=g("form"),a=g("div"),d=g("label"),d.textContent="Email address",l=h(),c=g("input"),f=h(),N&&N.c(),w=h(),x=g("div"),b=g("label"),b.textContent="Password",C=h(),$=g("input"),L=h(),R&&R.c(),S=h(),O&&O.c(),A=h(),V&&V.c(),T=h(),B=g("div"),j=g("button"),J.c(),P=h(),E=g("div"),F=g("button"),F.textContent="Don't have an account? Create one",k(d,"for","login-email"),k(d,"class","form-label-uswds"),k(c,"id","login-email"),k(c,"name","email"),k(c,"type","email"),k(c,"autocomplete","email"),c.required=!0,k(c,"class","form-input-uswds"),k(c,"placeholder","Enter your email"),z(c,"form-input--error",!t[5]),k(a,"class","form-field-uswds"),k(b,"for","login-password"),k(b,"class","form-label-uswds"),k($,"id","login-password"),k($,"name","password"),k($,"type","password"),k($,"autocomplete","current-password"),$.required=!0,k($,"class","form-input-uswds"),k($,"placeholder","Enter your password"),z($,"form-input--error",!t[4]),k(x,"class","form-field-uswds"),k(j,"type","submit"),j.disabled=H=!t[8]||t[0],k(j,"class","btn-uswds btn-uswds-primary btn--full"),M(B,"margin-top","var(--space-6)"),k(F,"type","button"),k(F,"class","text-primary hover:text-indigo-500 text-uswds-sm font-medium"),k(E,"class","text-center"),k(i,"class","space-y-4 sm:space-y-6"),k(s,"class","login-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0 svelte-14r3q7m")},m(e,n){m(e,s,n),u(s,r),u(s,o),u(s,i),u(i,a),u(a,d),u(a,l),u(a,c),_(c,t[2]),u(a,f),N&&N.m(a,null),u(i,w),u(i,x),u(x,b),u(x,C),u(x,$),_($,t[3]),u(x,L),R&&R.m(x,null),u(i,S),O&&O.m(i,null),u(i,A),V&&V.m(i,null),u(i,T),u(i,B),u(B,j),J.m(j,null),u(i,P),u(i,E),u(E,F),I||(D=[v(c,"input",t[11]),v($,"input",t[12]),v(F,"click",t[14]),v(i,"submit",y(t[10]))],I=!0)},p(e,[t]){4&t&&c.value!==e[2]&&_(c,e[2]),32&t&&z(c,"form-input--error",!e[5]),e[5]?N&&(N.d(1),N=null):N||(N=Ce(),N.c(),N.m(a,null)),8&t&&$.value!==e[3]&&_($,e[3]),16&t&&z($,"form-input--error",!e[4]),e[4]?R&&(R.d(1),R=null):R||(R=$e(),R.c(),R.m(x,null)),e[7]?O?O.p(e,t):(O=_e(e),O.c(),O.m(i,A)):O&&(O.d(1),O=null),e[1]?V?V.p(e,t):(V=Me(e),V.c(),V.m(i,T)):V&&(V.d(1),V=null),U!==(U=q(e))&&(J.d(1),J=U(e),J&&(J.c(),J.m(j,null))),257&t&&H!==(H=!e[8]||e[0])&&(j.disabled=H)},i:e,o:e,d(e){e&&p(s),N&&N.d(),R&&R.d(),O&&O.d(),V&&V.d(),J.d(),I=!1,n(D)}}}function Ae(e,t,s){let n,r,o;const i=j();let{isLoading:a=!1}=t,{error:d=""}=t,l="",c="",u="",m=!1;return e.$$set=e=>{"isLoading"in e&&s(0,a=e.isLoading),"error"in e&&s(1,d=e.error)},e.$$.update=()=>{4&e.$$.dirty&&s(5,n=0===l.length||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(l)),8&e.$$.dirty&&s(4,r=0===c.length||c.length>=8),60&e.$$.dirty&&s(8,o=n&&r&&l.length>0&&c.length>0),2&e.$$.dirty&&(!d||d.toLowerCase().includes("2fa")||d.toLowerCase().includes("totp")||(s(7,m=!1),s(6,u=""))),2&e.$$.dirty&&d&&(d.toLowerCase().includes("2fa")||d.toLowerCase().includes("totp"))&&s(7,m=!0)},[a,d,l,c,r,n,u,m,o,i,function(){o&&i("login",{email:l.trim(),password:c,totpCode:u||void 0})},function(){l=this.value,s(2,l)},function(){c=this.value,s(3,c)},function(){u=this.value,s(6,u),s(1,d)},()=>i("switchMode")]}class Te extends oe{constructor(e){super(),re(this,e,Ae,ze,o,{isLoading:0,error:1})}}function Be(e,t,s){const n=e.slice();return n[27]=t[s],n[29]=s,n}function je(t){let s;return{c(){s=g("div"),s.innerHTML='<svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>\n          Please enter a valid email address',k(s,"class","validation-message validation-message--error")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function He(e){let t,s,n,r,o,i=e[3].email+"";return{c(){t=g("div"),s=w("svg"),n=w("path"),r=h(),o=x(i),k(n,"fill-rule","evenodd"),k(n,"d","M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"),k(n,"clip-rule","evenodd"),k(s,"class","icon-uswds icon-uswds--sm icon-uswds--error"),k(s,"fill","currentColor"),k(s,"viewBox","0 0 20 20"),k(s,"aria-hidden","true"),k(t,"class","validation-message validation-message--error")},m(e,i){m(e,t,i),u(t,s),u(s,n),u(t,r),u(t,o)},p(e,t){8&t&&i!==(i=e[3].email+"")&&$(o,i)},d(e){e&&p(t)}}}function Pe(e){let t,s,n,r,o,i,a,d,l,c,w,b,v,y,C,_,M,L,S,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J=Z(Array(5)),Y=[];for(let t=0;t<J.length;t+=1)Y[t]=Ee(Be(e,J,t));function G(e,t){return e[12]?Ie:Fe}let Q=G(e),W=Q(e);function K(e,t){return e[16]?Ne:De}let X=K(e),ee=X(e);function te(e,t){return e[15]?Oe:Re}let se=te(e),ne=se(e);function re(e,t){return e[14]?qe:Ve}let oe=re(e),ie=oe(e);function ae(e,t){return e[13]?Je:Ue}let de=ae(e),le=de(e);return{c(){t=g("div"),s=g("div"),n=g("span"),n.textContent="Password strength:",r=h(),o=g("span"),i=x(e[18]),d=h(),l=g("div");for(let e=0;e<Y.length;e+=1)Y[e].c();c=h(),w=g("div"),b=g("div"),v=g("div"),W.c(),y=h(),C=g("span"),C.textContent="At least 8 characters",_=h(),M=g("div"),L=g("div"),ee.c(),S=h(),A=g("span"),A.textContent="One uppercase letter",T=h(),B=g("div"),j=g("div"),ne.c(),H=h(),P=g("span"),P.textContent="One lowercase letter",E=h(),F=g("div"),I=g("div"),ie.c(),D=h(),N=g("span"),N.textContent="One number",R=h(),O=g("div"),V=g("div"),le.c(),q=h(),U=g("span"),U.textContent="One special character (!@#$%^&*)",k(n,"class","password-strength__label"),k(o,"class",a="password-strength__value password-strength__value--"+e[18].toLowerCase()+" svelte-s72hdw"),k(s,"class","password-strength"),k(l,"class","password-strength-bars"),k(v,"class","requirement-icon"),k(C,"class","requirement-text"),z(C,"requirement-text--satisfied",e[12]),k(b,"class","requirement-item"),k(L,"class","requirement-icon"),k(A,"class","requirement-text"),z(A,"requirement-text--satisfied",e[16]),k(M,"class","requirement-item"),k(j,"class","requirement-icon"),k(P,"class","requirement-text"),z(P,"requirement-text--satisfied",e[15]),k(B,"class","requirement-item"),k(I,"class","requirement-icon"),k(N,"class","requirement-text"),z(N,"requirement-text--satisfied",e[14]),k(F,"class","requirement-item"),k(V,"class","requirement-icon"),k(U,"class","requirement-text"),z(U,"requirement-text--satisfied",e[13]),k(O,"class","requirement-item"),k(w,"class","requirements-grid"),k(t,"class","password-requirements")},m(e,a){m(e,t,a),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(t,d),u(t,l);for(let e=0;e<Y.length;e+=1)Y[e]&&Y[e].m(l,null);u(t,c),u(t,w),u(w,b),u(b,v),W.m(v,null),u(b,y),u(b,C),u(w,_),u(w,M),u(M,L),ee.m(L,null),u(M,S),u(M,A),u(w,T),u(w,B),u(B,j),ne.m(j,null),u(B,H),u(B,P),u(w,E),u(w,F),u(F,I),ie.m(I,null),u(F,D),u(F,N),u(w,R),u(w,O),u(O,V),le.m(V,null),u(O,q),u(O,U)},p(e,t){if(262144&t&&$(i,e[18]),262144&t&&a!==(a="password-strength__value password-strength__value--"+e[18].toLowerCase()+" svelte-s72hdw")&&k(o,"class",a),2048&t){let s;for(J=Z(Array(5)),s=0;s<J.length;s+=1){const n=Be(e,J,s);Y[s]?Y[s].p(n,t):(Y[s]=Ee(n),Y[s].c(),Y[s].m(l,null))}for(;s<Y.length;s+=1)Y[s].d(1);Y.length=J.length}Q!==(Q=G(e))&&(W.d(1),W=Q(e),W&&(W.c(),W.m(v,null))),4096&t&&z(C,"requirement-text--satisfied",e[12]),X!==(X=K(e))&&(ee.d(1),ee=X(e),ee&&(ee.c(),ee.m(L,null))),65536&t&&z(A,"requirement-text--satisfied",e[16]),se!==(se=te(e))&&(ne.d(1),ne=se(e),ne&&(ne.c(),ne.m(j,null))),32768&t&&z(P,"requirement-text--satisfied",e[15]),oe!==(oe=re(e))&&(ie.d(1),ie=oe(e),ie&&(ie.c(),ie.m(I,null))),16384&t&&z(N,"requirement-text--satisfied",e[14]),de!==(de=ae(e))&&(le.d(1),le=de(e),le&&(le.c(),le.m(V,null))),8192&t&&z(U,"requirement-text--satisfied",e[13])},d(e){e&&p(t),f(Y,e),W.d(),ee.d(),ne.d(),ie.d(),le.d()}}}function Ee(e){let t;return{c(){t=g("div"),k(t,"class","password-strength-bar"),z(t,"password-strength-bar--active-weak",e[11]<=2&&e[29]<e[11]),z(t,"password-strength-bar--active-fair",3===e[11]&&e[29]<e[11]),z(t,"password-strength-bar--active-good",4===e[11]&&e[29]<e[11]),z(t,"password-strength-bar--active-strong",5===e[11]&&e[29]<e[11])},m(e,s){m(e,t,s)},p(e,s){2048&s&&z(t,"password-strength-bar--active-weak",e[11]<=2&&e[29]<e[11]),2048&s&&z(t,"password-strength-bar--active-fair",3===e[11]&&e[29]<e[11]),2048&s&&z(t,"password-strength-bar--active-good",4===e[11]&&e[29]<e[11]),2048&s&&z(t,"password-strength-bar--active-strong",5===e[11]&&e[29]<e[11])},d(e){e&&p(t)}}}function Fe(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none"></circle></svg>',k(t,"class","icon-uswds icon-uswds--sm icon-uswds--neutral")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Ie(e){let t,s;return{c(){t=w("svg"),s=w("path"),k(s,"fill-rule","evenodd"),k(s,"d","M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"),k(s,"clip-rule","evenodd"),k(t,"class","icon-uswds icon-uswds--sm icon-uswds--success"),k(t,"fill","currentColor"),k(t,"viewBox","0 0 20 20"),k(t,"aria-hidden","true")},m(e,n){m(e,t,n),u(t,s)},d(e){e&&p(t)}}}function De(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none"></circle></svg>',k(t,"class","icon-uswds icon-uswds--sm icon-uswds--neutral")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Ne(e){let t,s;return{c(){t=w("svg"),s=w("path"),k(s,"fill-rule","evenodd"),k(s,"d","M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"),k(s,"clip-rule","evenodd"),k(t,"class","icon-uswds icon-uswds--sm icon-uswds--success"),k(t,"fill","currentColor"),k(t,"viewBox","0 0 20 20"),k(t,"aria-hidden","true")},m(e,n){m(e,t,n),u(t,s)},d(e){e&&p(t)}}}function Re(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none"></circle></svg>',k(t,"class","icon-uswds icon-uswds--sm icon-uswds--neutral")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Oe(e){let t,s;return{c(){t=w("svg"),s=w("path"),k(s,"fill-rule","evenodd"),k(s,"d","M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"),k(s,"clip-rule","evenodd"),k(t,"class","icon-uswds icon-uswds--sm icon-uswds--success"),k(t,"fill","currentColor"),k(t,"viewBox","0 0 20 20"),k(t,"aria-hidden","true")},m(e,n){m(e,t,n),u(t,s)},d(e){e&&p(t)}}}function Ve(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none"></circle></svg>',k(t,"class","icon-uswds icon-uswds--sm icon-uswds--neutral")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function qe(e){let t,s;return{c(){t=w("svg"),s=w("path"),k(s,"fill-rule","evenodd"),k(s,"d","M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"),k(s,"clip-rule","evenodd"),k(t,"class","icon-uswds icon-uswds--sm icon-uswds--success"),k(t,"fill","currentColor"),k(t,"viewBox","0 0 20 20"),k(t,"aria-hidden","true")},m(e,n){m(e,t,n),u(t,s)},d(e){e&&p(t)}}}function Ue(e){let t;return{c(){t=g("div"),t.innerHTML='<svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none"></circle></svg>',k(t,"class","icon-uswds icon-uswds--sm icon-uswds--neutral")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Je(e){let t,s;return{c(){t=w("svg"),s=w("path"),k(s,"fill-rule","evenodd"),k(s,"d","M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"),k(s,"clip-rule","evenodd"),k(t,"class","icon-uswds icon-uswds--sm icon-uswds--success"),k(t,"fill","currentColor"),k(t,"viewBox","0 0 20 20"),k(t,"aria-hidden","true")},m(e,n){m(e,t,n),u(t,s)},d(e){e&&p(t)}}}function Ye(e){let t,s,n,r,o,i=e[3].password+"";return{c(){t=g("div"),s=w("svg"),n=w("path"),r=h(),o=x(i),k(n,"fill-rule","evenodd"),k(n,"d","M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"),k(n,"clip-rule","evenodd"),k(s,"class","icon-uswds icon-uswds--sm icon-uswds--error"),k(s,"fill","currentColor"),k(s,"viewBox","0 0 20 20"),k(s,"aria-hidden","true"),k(t,"class","validation-message validation-message--error")},m(e,i){m(e,t,i),u(t,s),u(s,n),u(t,r),u(t,o)},p(e,t){8&t&&i!==(i=e[3].password+"")&&$(o,i)},d(e){e&&p(t)}}}function Ge(t){let s;return{c(){s=g("div"),s.innerHTML='<svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>\n          Passwords do not match',k(s,"class","validation-message validation-message--error")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function Qe(e){let t,s,n,r,o,i=e[3].confirm_password+"";return{c(){t=g("div"),s=w("svg"),n=w("path"),r=h(),o=x(i),k(n,"fill-rule","evenodd"),k(n,"d","M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"),k(n,"clip-rule","evenodd"),k(s,"class","icon-uswds icon-uswds--sm icon-uswds--error"),k(s,"fill","currentColor"),k(s,"viewBox","0 0 20 20"),k(s,"aria-hidden","true"),k(t,"class","validation-message validation-message--error")},m(e,i){m(e,t,i),u(t,s),u(s,n),u(t,r),u(t,o)},p(e,t){8&t&&i!==(i=e[3].confirm_password+"")&&$(o,i)},d(e){e&&p(t)}}}function We(t){let s;return{c(){s=g("p"),s.textContent="You must accept the terms to continue",k(s,"class","mt-1 text-uswds-sm text-uswds-red-50")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function Ze(e){let t,s,n=e[3].terms_accepted+"";return{c(){t=g("p"),s=x(n),k(t,"class","mt-1 text-uswds-sm text-uswds-red-50")},m(e,n){m(e,t,n),u(t,s)},p(e,t){8&t&&n!==(n=e[3].terms_accepted+"")&&$(s,n)},d(e){e&&p(t)}}}function Ke(e){let t,s,n,r,o,i;return{c(){t=g("div"),s=g("div"),s.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',n=h(),r=g("div"),o=g("p"),i=x(e[2]),k(s,"class","alert__icon"),k(o,"class","alert__text"),k(r,"class","alert__content"),k(t,"class","alert-uswds alert-uswds-success")},m(e,a){m(e,t,a),u(t,s),u(t,n),u(t,r),u(r,o),u(o,i)},p(e,t){4&t&&$(i,e[2])},d(e){e&&p(t)}}}function Xe(e){let t,s,n,r,o,i;return{c(){t=g("div"),s=g("div"),s.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',n=h(),r=g("div"),o=g("p"),i=x(e[1]),k(s,"class","alert__icon"),k(o,"class","alert__text"),k(r,"class","alert__content"),k(t,"class","alert-uswds alert-uswds-error")},m(e,a){m(e,t,a),u(t,s),u(t,n),u(t,r),u(r,o),u(o,i)},p(e,t){2&t&&$(i,e[1])},d(e){e&&p(t)}}}function et(e){let t;return{c(){t=x("Create account")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function tt(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n          Creating account..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"class","icon-uswds icon-uswds--sm animate-spin"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"aria-hidden","true"),M(t,"margin-right","var(--space-2)")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function st(t){let s,r,o,i,a,d,l,c,f,w,x,b,C,$,L,S,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee;function te(e,t){return e[3].email?He:e[10]?void 0:je}let se=te(t),ne=se&&se(t),re=t[5].length>0&&Pe(t),oe=t[3].password&&Ye(t);function ie(e,t){return e[3].confirm_password?Qe:!e[8]&&e[6].length>0?Ge:void 0}let ae=ie(t),de=ae&&ae(t);function le(e,t){return e[3].terms_accepted?Ze:e[7]||!1!==e[17]?void 0:We}let ce=le(t),ue=ce&&ce(t),me=t[2]&&Ke(t),pe=t[1]&&Xe(t);function fe(e,t){return e[0]?tt:et}let ge=fe(t),we=ge(t);return{c(){s=g("div"),r=g("div"),r.innerHTML='<h2 class="text-center text-uswds-2xl sm:text-uswds-3xl font-extrabold text-uswds-base-darker">Create your account</h2> <p class="mt-2 text-center text-uswds-sm text-uswds-base-darker">Join the music blocklist community</p>',o=h(),i=g("form"),a=g("div"),d=g("label"),d.textContent="Email address",l=h(),c=g("input"),f=h(),ne&&ne.c(),w=h(),x=g("div"),b=g("label"),b.textContent="Password",C=h(),$=g("input"),L=h(),re&&re.c(),S=h(),oe&&oe.c(),A=h(),T=g("div"),B=g("label"),B.textContent="Confirm Password",j=h(),H=g("input"),P=h(),de&&de.c(),E=h(),F=g("div"),I=g("div"),D=g("input"),N=h(),R=g("div"),O=g("label"),O.innerHTML='I agree to the \n          <a href="/terms" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline font-medium">Terms of Service</a>\n          and \n          <a href="/privacy" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline font-medium">Privacy Policy</a>',V=h(),ue&&ue.c(),q=h(),me&&me.c(),U=h(),pe&&pe.c(),J=h(),Y=g("div"),G=g("button"),we.c(),W=h(),Z=g("div"),K=g("button"),K.textContent="Already have an account? Sign in",k(d,"for","register-email"),k(d,"class","form-label-uswds"),k(c,"id","register-email"),k(c,"name","email"),k(c,"type","email"),k(c,"autocomplete","email"),c.required=!0,k(c,"class","form-input-uswds"),k(c,"placeholder","Enter your email"),z(c,"form-input--error",!t[10]),k(a,"class","form-field-uswds"),k(b,"for","register-password"),k(b,"class","form-label-uswds"),k($,"id","register-password"),k($,"name","password"),k($,"type","password"),k($,"autocomplete","new-password"),$.required=!0,k($,"class","form-input-uswds"),k($,"placeholder","Create a strong password"),z($,"form-input--error",t[3].password||!t[9]&&t[5].length>0),k(x,"class","form-field-uswds"),k(B,"for","confirm-password"),k(B,"class","form-label-uswds"),k(H,"id","confirm-password"),k(H,"name","confirmPassword"),k(H,"type","password"),k(H,"autocomplete","new-password"),H.required=!0,k(H,"class","form-input-uswds"),k(H,"placeholder","Confirm your password"),z(H,"form-input--error",!t[8]&&t[6].length>0),k(T,"class","form-field-uswds"),k(D,"id","terms-accepted"),k(D,"name","termsAccepted"),k(D,"type","checkbox"),D.required=!0,k(D,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300 rounded transition-colors duration-200"),k(I,"class","flex items-center icon icon-md mt-0.5"),k(O,"for","terms-accepted"),k(O,"class","text-uswds-base-darker leading-relaxed cursor-pointer"),k(R,"class","flex-1 text-uswds-sm"),k(F,"class","flex items-start space-x-3"),k(G,"type","submit"),G.disabled=Q=!t[17]||t[0],k(G,"class","btn-uswds btn-uswds-primary btn--full"),M(Y,"margin-top","var(--space-6)"),k(K,"type","button"),k(K,"class","text-indigo-600 hover:text-indigo-500 text-uswds-sm font-medium"),k(Z,"class","text-center"),k(i,"class","space-y-4 sm:space-y-6"),k(s,"class","register-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0 svelte-s72hdw")},m(e,n){m(e,s,n),u(s,r),u(s,o),u(s,i),u(i,a),u(a,d),u(a,l),u(a,c),_(c,t[4]),u(a,f),ne&&ne.m(a,null),u(i,w),u(i,x),u(x,b),u(x,C),u(x,$),_($,t[5]),u(x,L),re&&re.m(x,null),u(x,S),oe&&oe.m(x,null),u(i,A),u(i,T),u(T,B),u(T,j),u(T,H),_(H,t[6]),u(T,P),de&&de.m(T,null),u(i,E),u(i,F),u(F,I),u(I,D),D.checked=t[7],u(F,N),u(F,R),u(R,O),u(R,V),ue&&ue.m(R,null),u(i,q),me&&me.m(i,null),u(i,U),pe&&pe.m(i,null),u(i,J),u(i,Y),u(Y,G),we.m(G,null),u(i,W),u(i,Z),u(Z,K),X||(ee=[v(c,"input",t[21]),v($,"input",t[22]),v(H,"input",t[23]),v(D,"change",t[24]),v(K,"click",t[25]),v(i,"submit",y(t[20]))],X=!0)},p(e,[t]){16&t&&c.value!==e[4]&&_(c,e[4]),1024&t&&z(c,"form-input--error",!e[10]),se===(se=te(e))&&ne?ne.p(e,t):(ne&&ne.d(1),ne=se&&se(e),ne&&(ne.c(),ne.m(a,null))),32&t&&$.value!==e[5]&&_($,e[5]),552&t&&z($,"form-input--error",e[3].password||!e[9]&&e[5].length>0),e[5].length>0?re?re.p(e,t):(re=Pe(e),re.c(),re.m(x,S)):re&&(re.d(1),re=null),e[3].password?oe?oe.p(e,t):(oe=Ye(e),oe.c(),oe.m(x,null)):oe&&(oe.d(1),oe=null),64&t&&H.value!==e[6]&&_(H,e[6]),320&t&&z(H,"form-input--error",!e[8]&&e[6].length>0),ae===(ae=ie(e))&&de?de.p(e,t):(de&&de.d(1),de=ae&&ae(e),de&&(de.c(),de.m(T,null))),128&t&&(D.checked=e[7]),ce===(ce=le(e))&&ue?ue.p(e,t):(ue&&ue.d(1),ue=ce&&ce(e),ue&&(ue.c(),ue.m(R,null))),e[2]?me?me.p(e,t):(me=Ke(e),me.c(),me.m(i,U)):me&&(me.d(1),me=null),e[1]?pe?pe.p(e,t):(pe=Xe(e),pe.c(),pe.m(i,J)):pe&&(pe.d(1),pe=null),ge!==(ge=fe(e))&&(we.d(1),we=ge(e),we&&(we.c(),we.m(G,null))),131073&t&&Q!==(Q=!e[17]||e[0])&&(G.disabled=Q)},i:e,o:e,d(e){e&&p(s),ne&&ne.d(),re&&re.d(),oe&&oe.d(),de&&de.d(),ue&&ue.d(),me&&me.d(),pe&&pe.d(),we.d(),X=!1,n(ee)}}}function nt(e,t,s){let n,r,o,i,a,d,l,c,u,m,p;const f=j();let{isLoading:g=!1}=t,{error:w=""}=t,{success:x=""}=t,{fieldErrors:h={}}=t,b="",v="",y="",k=!1;return e.$$set=e=>{"isLoading"in e&&s(0,g=e.isLoading),"error"in e&&s(1,w=e.error),"success"in e&&s(2,x=e.success),"fieldErrors"in e&&s(3,h=e.fieldErrors)},e.$$.update=()=>{32&e.$$.dirty&&s(12,n=v.length>=8),32&e.$$.dirty&&s(16,r=/[A-Z]/.test(v)),32&e.$$.dirty&&s(15,o=/[a-z]/.test(v)),32&e.$$.dirty&&s(14,i=/\d/.test(v)),32&e.$$.dirty&&s(13,a=/[!@#$%^&*(),.?":{}|<>]/.test(v)),126976&e.$$.dirty&&s(11,d=[n,r,o,i,a].filter(Boolean).length),2048&e.$$.dirty&&s(18,l=0===d?"":d<=2?"Weak":d<=3?"Fair":d<=4?"Good":"Strong"),e.$$.dirty,16&e.$$.dirty&&s(10,c=0===b.length||/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b)),6176&e.$$.dirty&&s(9,u=0===v.length||n&&d>=3),96&e.$$.dirty&&s(8,m=0===y.length||v===y),2032&e.$$.dirty&&s(17,p=c&&u&&m&&k&&b.length>0&&v.length>0&&y.length>0)},[g,w,x,h,b,v,y,k,m,u,c,d,n,a,i,o,r,p,l,f,function(){p&&!g&&f("register",{email:b.trim(),password:v,confirm_password:y,terms_accepted:k})},function(){b=this.value,s(4,b)},function(){v=this.value,s(5,v)},function(){y=this.value,s(6,y)},function(){k=this.checked,s(7,k)},()=>f("switchMode")]}class rt extends oe{constructor(e){super(),re(this,e,nt,st,o,{isLoading:0,error:1,success:2,fieldErrors:3})}}function ot(t){let s,n,r,o,i,a,d,l,c,f;return{c(){s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-green-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',r=h(),o=g("div"),o.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Two-Factor Authentication Enabled!</h3> <p class="mt-2 text-uswds-sm text-uswds-base-darker">Your account is now protected with 2FA. You&#39;ll need to enter a code from your authenticator app each time you sign in.</p>',i=h(),a=g("div"),a.innerHTML='<div class="flex"><div class="flex-shrink-0"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><p class="text-uswds-sm text-yellow-800"><strong>Important:</strong> Save your recovery codes in a safe place. You&#39;ll need them if you lose access to your authenticator app.</p></div></div>',d=h(),l=g("button"),l.textContent="Continue to Dashboard",k(n,"class","mx-auto avatar avatar--xl bg-green-100"),k(a,"class","bg-yellow-50 rounded-uswds-lg p-uswds-4"),k(l,"type","button"),k(l,"class","w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(s,"class","text-center space-y-4")},m(e,p){m(e,s,p),u(s,n),u(s,r),u(s,o),u(s,i),u(s,a),u(s,d),u(s,l),c||(f=v(l,"click",t[15]),c=!0)},p:e,d(e){e&&p(s),c=!1,f()}}}function it(e){let t,s,r,o,i,a,d,l,c,f,w,x,b,y,C,$,M,L,S=e[4].length>0&&!e[6]&&dt(),A=e[3]&&lt(e);function T(e,t){return e[2]?ut:ct}let B=T(e),j=B(e);return{c(){t=g("div"),s=g("div"),r=g("h3"),r.textContent="Step 2: Verify Setup",o=h(),i=g("p"),i.textContent="Enter the 6-digit code from your authenticator app to complete setup",a=h(),d=g("div"),l=g("input"),c=h(),S&&S.c(),f=h(),A&&A.c(),w=h(),x=g("div"),b=g("button"),b.textContent="Back",y=h(),C=g("button"),j.c(),k(r,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(i,"class","text-uswds-sm text-uswds-base-darker mb-4"),k(l,"type","text"),k(l,"maxlength","6"),k(l,"pattern","[0-9]6"),k(l,"placeholder","000000"),k(l,"class","block w-full text-center text-uswds-2xl font-mono px-3 py-3 border border-gray-300 rounded-uswds-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"),z(l,"border-red-300",e[4].length>0&&!e[6]),k(d,"class","max-w-xs mx-auto"),k(s,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-6 text-center"),k(b,"type","button"),k(b,"class","flex-1 py-2 px-4 border border-gray-300 rounded-uswds-md shadow-sm text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(C,"type","button"),C.disabled=$=!e[6]||e[2],k(C,"class","flex-1 py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"),k(x,"class","flex space-x-3"),k(t,"class","space-y-4")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(s,o),u(s,i),u(s,a),u(s,d),u(d,l),_(l,e[4]),u(d,c),S&&S.m(d,null),u(t,f),A&&A.m(t,null),u(t,w),u(t,x),u(x,b),u(x,y),u(x,C),j.m(C,null),M||(L=[v(l,"input",e[13]),v(b,"click",e[14]),v(C,"click",e[8])],M=!0)},p(e,s){16&s&&l.value!==e[4]&&_(l,e[4]),80&s&&z(l,"border-red-300",e[4].length>0&&!e[6]),e[4].length>0&&!e[6]?S||(S=dt(),S.c(),S.m(d,null)):S&&(S.d(1),S=null),e[3]?A?A.p(e,s):(A=lt(e),A.c(),A.m(t,w)):A&&(A.d(1),A=null),B!==(B=T(e))&&(j.d(1),j=B(e),j&&(j.c(),j.m(C,null))),68&s&&$!==($=!e[6]||e[2])&&(C.disabled=$)},d(e){e&&p(t),S&&S.d(),A&&A.d(),j.d(),M=!1,n(L)}}}function at(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z;function A(e,t){return e[0]?pt:mt}let T=A(e),B=T(e);return{c(){t=g("div"),s=g("div"),r=g("h3"),r.textContent="Step 1: Scan QR Code",o=h(),B.c(),i=h(),a=g("p"),a.textContent="Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)",d=h(),l=g("div"),c=g("h4"),c.textContent="Can't scan? Enter manually:",f=h(),w=g("div"),b=g("code"),y=x(e[1]),C=h(),_=g("button"),_.textContent="Copy",M=h(),L=g("button"),L.textContent="I've added the account to my app",k(r,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(a,"class","mt-4 text-uswds-sm text-uswds-base-darker"),k(s,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-6 text-center"),k(c,"class","text-uswds-sm font-medium text-uswds-blue-50 mb-2"),k(b,"class","flex-1 bg-white px-3 py-2 rounded border text-uswds-sm font-mono"),k(_,"type","button"),k(_,"class","px-3 py-2 text-uswds-sm bg-uswds-blue-50 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"),k(w,"class","flex items-center space-x-2"),k(l,"class","bg-uswds-blue-50 rounded-uswds-lg p-uswds-4"),k(L,"type","button"),k(L,"class","w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(t,"class","space-y-4")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(s,o),B.m(s,null),u(s,i),u(s,a),u(t,d),u(t,l),u(l,c),u(l,f),u(l,w),u(w,b),u(b,y),u(w,C),u(w,_),u(t,M),u(t,L),S||(z=[v(_,"click",e[10]),v(L,"click",e[12])],S=!0)},p(e,t){T===(T=A(e))&&B?B.p(e,t):(B.d(1),B=T(e),B&&(B.c(),B.m(s,i))),2&t&&$(y,e[1])},d(e){e&&p(t),B.d(),S=!1,n(z)}}}function dt(e){let t;return{c(){t=g("p"),t.textContent="Please enter a 6-digit code",k(t,"class","mt-1 text-uswds-sm text-uswds-red-50")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function lt(e){let t,s,n,r,o,i,a;return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("p"),a=x(e[3]),k(n,"class",""),k(i,"class","text-uswds-sm text-uswds-red-50"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","rounded-uswds-md bg-red-50 p-uswds-4")},m(e,d){m(e,t,d),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a)},p(e,t){8&t&&$(a,e[3])},d(e){e&&p(t)}}}function ct(e){let t;return{c(){t=x("Verify & Enable")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function ut(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n            Verifying..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white inline"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function mt(t){let s;return{c(){s=g("div"),s.innerHTML='<div class="animate-spin rounded-full icon icon-xl border-b-2 border-indigo-600"></div>',k(s,"class","w-48 h-48 mx-auto bg-uswds-base-lightest rounded-uswds-lg flex items-center justify-center")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function pt(e){let t,s,n;return{c(){t=g("div"),s=g("img"),d(s.src,n=e[0])||k(s,"src",n),k(s,"alt","2FA QR Code"),k(s,"class","w-48 h-48 mx-auto"),k(t,"class","bg-white p-uswds-4 rounded-uswds-lg inline-block")},m(e,n){m(e,t,n),u(t,s)},p(e,t){1&t&&!d(s.src,n=e[0])&&k(s,"src",n)},d(e){e&&p(t)}}}function ft(t){let s,n,r,o;return{c(){s=g("div"),n=g("button"),n.textContent="Skip for now",k(n,"type","button"),k(n,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(s,"class","text-center")},m(e,i){m(e,s,i),u(s,n),r||(o=v(n,"click",t[9]),r=!0)},p:e,d(e){e&&p(s),r=!1,o()}}}function gt(t){let s,n,r,o;function i(e,t){return 1===e[5]?at:2===e[5]?it:3===e[5]?ot:void 0}let a=i(t),d=a&&a(t),l=3!==t[5]&&ft(t);return{c(){s=g("div"),n=g("div"),n.innerHTML='<h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Set up Two-Factor Authentication</h2> <p class="mt-2 text-uswds-sm text-uswds-base-darker">Add an extra layer of security to your account</p>',r=h(),d&&d.c(),o=h(),l&&l.c(),k(n,"class","text-center"),k(s,"class","max-w-md mx-auto space-y-6")},m(e,t){m(e,s,t),u(s,n),u(s,r),d&&d.m(s,null),u(s,o),l&&l.m(s,null)},p(e,[t]){a===(a=i(e))&&d?d.p(e,t):(d&&d.d(1),d=a&&a(e),d&&(d.c(),d.m(s,o))),3!==e[5]?l?l.p(e,t):(l=ft(e),l.c(),l.m(s,null)):l&&(l.d(1),l=null)},i:e,o:e,d(e){e&&p(s),d&&d.d(),l&&l.d()}}}function wt(e,t,s){let n;const r=j();let{qrCodeUrl:o=""}=t,{secret:i=""}=t,{isLoading:a=!1}=t,{error:d=""}=t,l="",c=1;return e.$$set=e=>{"qrCodeUrl"in e&&s(0,o=e.qrCodeUrl),"secret"in e&&s(1,i=e.secret),"isLoading"in e&&s(2,a=e.isLoading),"error"in e&&s(3,d=e.error)},e.$$.update=()=>{16&e.$$.dirty&&s(6,n=6===l.length&&/^\d{6}$/.test(l))},[o,i,a,d,l,c,n,r,function(){n&&r("verify",{code:l})},function(){r("cancel")},function(){navigator.clipboard.writeText(i).then(()=>{})},function(){s(5,c=3)},()=>s(5,c=2),function(){l=this.value,s(4,l)},()=>s(5,c=1),()=>r("complete")]}class xt extends oe{constructor(e){super(),re(this,e,wt,gt,o,{qrCodeUrl:0,secret:1,isLoading:2,error:3,showSuccess:11})}get showSuccess(){return this.$$.ctx[11]}}function ht(e){let t,s,n,r;return{c(){t=g("p"),s=x("Signing in as "),n=g("span"),r=x(e[2]),k(n,"class","font-medium"),k(t,"class","text-uswds-sm text-uswds-base-darker")},m(e,o){m(e,t,o),u(t,s),u(t,n),u(n,r)},p(e,t){4&t&&$(r,e[2])},d(e){e&&p(t)}}}function bt(e){let t;return{c(){t=g("p"),t.textContent="Please enter a 6-digit code",k(t,"class","mt-1 text-uswds-sm text-uswds-red-50 text-center")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function vt(e){let t,s,n,r,o,i,a;return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("p"),a=x(e[1]),k(n,"class",""),k(i,"class","text-uswds-sm text-uswds-red-50"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","rounded-uswds-md bg-red-50 p-uswds-4")},m(e,d){m(e,t,d),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a)},p(e,t){2&t&&$(a,e[1])},d(e){e&&p(t)}}}function yt(e){let t;return{c(){t=g("div"),t.innerHTML='<div class="flex items-center px-4 py-2 text-uswds-sm text-uswds-base-darker"><svg aria-hidden="true" class="animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>\n          Verifying code...</div>',k(t,"class","text-center")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function kt(t){let s,n,r;return{c(){s=g("button"),s.textContent="Verify Code",k(s,"type","button"),k(s,"class","w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[6]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function Ct(t){let s,r,o,i,a,d,l,c,f,w,x,b,y,C,$,M,L,S,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q=t[2]&&ht(t),U=t[3].length>0&&!t[4]&&bt(),J=t[1]&&vt(t),Y=t[0]&&yt(),G=t[4]&&!t[0]&&kt(t);return{c(){s=g("div"),r=g("div"),o=g("div"),o.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>',i=h(),a=g("h2"),a.textContent="Two-Factor Authentication",d=h(),l=g("p"),l.textContent="Enter the 6-digit code from your authenticator app",c=h(),q&&q.c(),f=h(),w=g("div"),x=g("div"),b=g("label"),b.textContent="Authentication Code",y=h(),C=g("div"),$=g("input"),M=h(),U&&U.c(),L=h(),J&&J.c(),S=h(),Y&&Y.c(),A=h(),G&&G.c(),T=h(),B=g("div"),j=g("p"),j.textContent="The code will automatically verify when you enter all 6 digits",H=h(),P=g("div"),E=g("button"),E.textContent="Didn't receive a code? Try again",F=h(),I=g("div"),D=g("button"),D.textContent="← Back to login",N=h(),R=g("div"),R.innerHTML='<h4 class="text-uswds-sm font-medium text-uswds-base-darker mb-2">Having trouble?</h4> <ul class="text-uswds-xs text-uswds-base-darker space-y-1"><li>• Make sure your device&#39;s time is correct</li> <li>• Try generating a new code in your authenticator app</li> <li>• Check that you&#39;re using the right account in your app</li></ul>',k(o,"class","mx-auto avatar avatar--xl bg-indigo-100"),k(a,"class","mt-4 text-uswds-2xl font-bold text-uswds-base-darker"),k(l,"class","mt-2 text-uswds-sm text-uswds-base-darker"),k(r,"class","text-center"),k(b,"for","verification-code"),k(b,"class","block text-uswds-sm font-medium text-uswds-base-darker text-center mb-2"),k($,"id","verification-code"),k($,"type","text"),k($,"maxlength","6"),k($,"pattern","[0-9]6"),k($,"placeholder","000000"),k($,"autocomplete","one-time-code"),k($,"class","block w-full text-center text-uswds-2xl font-mono px-3 py-3 border border-gray-300 rounded-uswds-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"),z($,"border-red-300",t[3].length>0&&!t[4]),z($,"border-green-300",t[4]),k(C,"class","max-w-xs mx-auto"),k(j,"class","text-uswds-xs text-uswds-base-darker"),k(E,"type","button"),k(E,"class","text-uswds-sm text-indigo-600 hover:text-indigo-500"),k(D,"type","button"),k(D,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(P,"class","space-y-1"),k(B,"class","text-center space-y-2"),k(w,"class","space-y-4"),k(R,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-4"),k(s,"class","max-w-md mx-auto space-y-6")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(r,i),u(r,a),u(r,d),u(r,l),u(r,c),q&&q.m(r,null),u(s,f),u(s,w),u(w,x),u(x,b),u(x,y),u(x,C),u(C,$),_($,t[3]),u(C,M),U&&U.m(C,null),u(w,L),J&&J.m(w,null),u(w,S),Y&&Y.m(w,null),u(w,A),G&&G.m(w,null),u(w,T),u(w,B),u(B,j),u(B,H),u(B,P),u(P,E),u(P,F),u(P,I),u(I,D),u(s,N),u(s,R),O||(V=[v($,"input",t[8]),v(E,"click",t[9]),v(D,"click",t[7])],O=!0)},p(e,[t]){e[2]?q?q.p(e,t):(q=ht(e),q.c(),q.m(r,null)):q&&(q.d(1),q=null),8&t&&$.value!==e[3]&&_($,e[3]),24&t&&z($,"border-red-300",e[3].length>0&&!e[4]),16&t&&z($,"border-green-300",e[4]),e[3].length>0&&!e[4]?U||(U=bt(),U.c(),U.m(C,null)):U&&(U.d(1),U=null),e[1]?J?J.p(e,t):(J=vt(e),J.c(),J.m(w,S)):J&&(J.d(1),J=null),e[0]?Y||(Y=yt(),Y.c(),Y.m(w,A)):Y&&(Y.d(1),Y=null),e[4]&&!e[0]?G?G.p(e,t):(G=kt(e),G.c(),G.m(w,T)):G&&(G.d(1),G=null)},i:e,o:e,d(e){e&&p(s),q&&q.d(),U&&U.d(),J&&J.d(),Y&&Y.d(),G&&G.d(),O=!1,n(V)}}}function $t(e,t,s){let n;const r=j();let{isLoading:o=!1}=t,{error:i=""}=t,{email:a=""}=t,d="";function l(){n&&r("verify",{code:d})}return e.$$set=e=>{"isLoading"in e&&s(0,o=e.isLoading),"error"in e&&s(1,i=e.error),"email"in e&&s(2,a=e.email)},e.$$.update=()=>{8&e.$$.dirty&&s(4,n=6===d.length&&/^\d{6}$/.test(d)),17&e.$$.dirty&&n&&!o&&l()},[o,i,a,d,n,r,l,function(){r("back")},function(){d=this.value,s(3,d)},()=>r("resend")]}class _t extends oe{constructor(e){super(),re(this,e,$t,Ct,o,{isLoading:0,error:1,email:2})}}function Mt(e){let t,s,n={qrCodeUrl:e[5],secret:e[6],isLoading:e[1],error:e[2]};return t=new xt({props:n}),e[20](t),t.$on("verify",e[13]),t.$on("cancel",e[17]),t.$on("complete",e[18]),{c(){ee(t.$$.fragment)},m(e,n){te(t,e,n),s=!0},p(e,s){const n={};32&s&&(n.qrCodeUrl=e[5]),64&s&&(n.secret=e[6]),2&s&&(n.isLoading=e[1]),4&s&&(n.error=e[2]),t.$set(n)},i(e){s||(Q(t.$$.fragment,e),s=!0)},o(e){W(t.$$.fragment,e),s=!1},d(s){e[20](null),se(t,s)}}}function Lt(e){let t,s;return t=new _t({props:{isLoading:e[1],error:e[2],email:e[7]}}),t.$on("verify",e[11]),t.$on("back",e[16]),t.$on("resend",e[19]),{c(){ee(t.$$.fragment)},m(e,n){te(t,e,n),s=!0},p(e,s){const n={};2&s&&(n.isLoading=e[1]),4&s&&(n.error=e[2]),128&s&&(n.email=e[7]),t.$set(n)},i(e){s||(Q(t.$$.fragment,e),s=!0)},o(e){W(t.$$.fragment,e),s=!1},d(e){se(t,e)}}}function St(e){let t,s;return t=new rt({props:{isLoading:e[1],error:e[2],success:e[3],fieldErrors:e[4]}}),t.$on("register",e[10]),t.$on("switchMode",e[14]),{c(){ee(t.$$.fragment)},m(e,n){te(t,e,n),s=!0},p(e,s){const n={};2&s&&(n.isLoading=e[1]),4&s&&(n.error=e[2]),8&s&&(n.success=e[3]),16&s&&(n.fieldErrors=e[4]),t.$set(n)},i(e){s||(Q(t.$$.fragment,e),s=!0)},o(e){W(t.$$.fragment,e),s=!1},d(e){se(t,e)}}}function zt(e){let t,s,n,r,o,i,a;return t=new Te({props:{isLoading:e[1],error:e[2]}}),t.$on("login",e[9]),t.$on("switchMode",e[15]),{c(){ee(t.$$.fragment),s=h(),n=g("div"),r=g("button"),r.textContent="Set up Two-Factor Authentication",k(r,"type","button"),k(r,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(n,"class","mt-6 text-center")},m(d,l){te(t,d,l),m(d,s,l),m(d,n,l),u(n,r),o=!0,i||(a=v(r,"click",e[12]),i=!0)},p(e,s){const n={};2&s&&(n.isLoading=e[1]),4&s&&(n.error=e[2]),t.$set(n)},i(e){o||(Q(t.$$.fragment,e),o=!0)},o(e){W(t.$$.fragment,e),o=!1},d(e){e&&(p(s),p(n)),se(t,e),i=!1,a()}}}function At(e){let t,s,n,r,o;const i=[zt,St,Lt,Mt],a=[];function d(e,t){return"login"===e[0]?0:"register"===e[0]?1:"2fa-verify"===e[0]?2:"2fa-setup"===e[0]?3:-1}return~(n=d(e))&&(r=a[n]=i[n](e)),{c(){t=g("div"),s=g("div"),r&&r.c(),k(s,"class","max-w-md w-full"),k(t,"class","min-h-screen flex items-center justify-center bg-uswds-base-lightest py-12 px-4 sm:px-6 lg:px-8")},m(e,r){m(e,t,r),u(t,s),~n&&a[n].m(s,null),o=!0},p(e,[t]){let o=n;n=d(e),n===o?~n&&a[n].p(e,t):(r&&(Y(),W(a[o],1,1,()=>{a[o]=null}),G()),~n?(r=a[n],r?r.p(e,t):(r=a[n]=i[n](e),r.c()),Q(r,1),r.m(s,null)):r=null)},i(e){o||(Q(r),o=!0)},o(e){W(r),o=!1},d(e){e&&p(t),~n&&a[n].d()}}}function Tt(e,t,s){let n,r="login",o=!1,i="",a="",d={},l="",c="",u="";function m(){s(0,r="login"),s(2,i=""),s(7,u="")}return[r,o,i,a,d,l,c,u,n,async function(e){const{email:t,password:n,totpCode:a}=e.detail;s(1,o=!0),s(2,i="");try{const e=await ve.login(t,n,a);e.success||(e.message?.toLowerCase().includes("2fa")||e.message?.toLowerCase().includes("totp")?(s(7,u=t),s(0,r="2fa-verify")):s(2,i=e.message||"Login failed"))}catch(e){s(2,i="An unexpected error occurred")}finally{s(1,o=!1)}},async function(e){const{email:t,password:n,confirm_password:l,terms_accepted:c}=e.detail;s(1,o=!0),s(2,i=""),s(3,a=""),s(4,d={});try{const e=await ve.register(t,n,l,c);e.success?e.autoLogin?(s(3,a="Account created successfully! Welcome to No Drake in the House."),setTimeout(()=>{},1500)):(s(3,a="Account created successfully! You can now sign in."),s(0,r="login"),s(2,i=""),s(4,d={})):e.errors?(s(4,d={}),e.errors.forEach(e=>{s(4,d[e.field]=e.message,d)}),s(2,i=e.message||"Please fix the errors below")):s(2,i=e.message||"Registration failed")}catch(e){s(2,i="An unexpected error occurred")}finally{s(1,o=!1)}},async function(e){const{code:t}=e.detail;s(1,o=!0),s(2,i="");try{const e=await ve.verify2FA(t);e.success||s(2,i=e.message||"Invalid verification code")}catch(e){s(2,i="An unexpected error occurred")}finally{s(1,o=!1)}},async function(){s(1,o=!0),s(2,i="");try{const e=await ve.setup2FA();e.success?(s(5,l=e.qrCodeUrl),s(6,c=e.secret),s(0,r="2fa-setup")):s(2,i=e.message||"Failed to setup 2FA")}catch(e){s(2,i="An unexpected error occurred")}finally{s(1,o=!1)}},async function(e){const{code:t}=e.detail;s(1,o=!0),s(2,i="");try{const e=await ve.verify2FA(t);e.success?n?.showSuccess():s(2,i=e.message||"Invalid verification code")}catch(e){s(2,i="An unexpected error occurred")}finally{s(1,o=!1)}},function(){s(0,r="login"),s(2,i=""),s(3,a=""),s(4,d={})},function(){s(0,r="register"),s(2,i=""),s(3,a=""),s(4,d={})},m,function(){s(0,r="login"),s(2,i=""),s(5,l=""),s(6,c="")},function(){s(0,r="login"),s(5,l=""),s(6,c="")},()=>{s(2,i="Please try logging in again"),m()},function(e){P[e?"unshift":"push"](()=>{n=e,s(8,n)})}]}class Bt extends oe{constructor(e){super(),re(this,e,Tt,At,o,{})}}const jt=ae({connections:[],isLoading:!1,error:null}),Ht=de(jt,e=>e.connections.filter(e=>"active"===e.status)),Pt=de(jt,e=>e.connections.find(e=>"spotify"===e.provider)),Et=de(Pt,e=>"active"===e?.status),Ft={fetchConnections:async()=>{jt.update(e=>({...e,isLoading:!0,error:null}));try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/connections",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();s.success?jt.update(e=>({...e,connections:s.data,isLoading:!1})):jt.update(e=>({...e,error:s.message,isLoading:!1}))}catch(e){jt.update(e=>({...e,error:"Failed to fetch connections",isLoading:!1}))}},initiateSpotifyAuth:async()=>{try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/spotify/auth",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();if(!s.success)throw new Error(s.message);window.location.href=s.data.auth_url}catch(e){jt.update(t=>({...t,error:`Failed to initiate Spotify auth: ${e instanceof Error?e.message:"Unknown error"}`}))}},handleSpotifyCallback:async(e,t)=>{try{const s=localStorage.getItem("auth_token"),n=await fetch("http://localhost:3000/api/v1/spotify/callback",{method:"POST",headers:{Authorization:`Bearer ${s}`,"Content-Type":"application/json"},body:JSON.stringify({code:e,state:t})}),r=await n.json();return r.success?(await Ft.fetchConnections(),{success:!0}):{success:!1,message:r.message}}catch(e){return{success:!1,message:"Failed to complete Spotify connection"}}},disconnectSpotify:async()=>{try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/spotify/connection",{method:"DELETE",headers:{Authorization:`Bearer ${e}`}}),s=await t.json();return s.success?(await Ft.fetchConnections(),{success:!0}):{success:!1,message:s.message}}catch(e){return{success:!1,message:"Failed to disconnect Spotify"}}},checkSpotifyHealth:async()=>{try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/spotify/health",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();if(s.success)return await Ft.fetchConnections(),s.data}catch(e){console.error("Spotify health check failed:",e)}}},It=ae({entries:[],isLoading:!1,error:null,searchResults:[],isSearching:!1});de(It,e=>e.entries.map(e=>e.artist));const Dt=de(It,e=>e.entries&&Array.isArray(e.entries)?e.entries.length:0),Nt=de(It,e=>{if(!e.entries||!Array.isArray(e.entries))return[];const t=e.entries.flatMap(e=>e.tags||[]);return[...new Set(t)].sort()}),Rt={fetchDnpList:async()=>{It.update(e=>({...e,isLoading:!0,error:null}));try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/dnp/list",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();s.success?It.update(e=>({...e,entries:s.data,isLoading:!1})):It.update(e=>({...e,error:s.message,isLoading:!1}))}catch(e){It.update(e=>({...e,error:"Failed to fetch DNP list",isLoading:!1}))}},searchArtists:async(e,t=10)=>{if(e.trim()){It.update(e=>({...e,isSearching:!0}));try{const s=localStorage.getItem("auth_token"),n=await fetch(`http://localhost:3000/api/v1/dnp/search?q=${encodeURIComponent(e)}&limit=${t}`,{headers:{Authorization:`Bearer ${s}`}}),r=await n.json();r.success?It.update(e=>({...e,searchResults:r.data,isSearching:!1})):It.update(e=>({...e,error:r.message,isSearching:!1}))}catch(e){It.update(e=>({...e,error:"Artist search failed",isSearching:!1}))}}else It.update(e=>({...e,searchResults:[]}))},addArtist:async(e,t=[],s)=>{try{const n=localStorage.getItem("auth_token"),r=await fetch("http://localhost:3000/api/v1/dnp/artists",{method:"POST",headers:{Authorization:`Bearer ${n}`,"Content-Type":"application/json"},body:JSON.stringify({query:e,tags:t,note:s})}),o=await r.json();return o.success?(await Rt.fetchDnpList(),{success:!0,data:o.data}):{success:!1,message:o.message}}catch(e){return{success:!1,message:"Failed to add artist to DNP list"}}},removeArtist:async e=>{try{const t=localStorage.getItem("auth_token"),s=await fetch(`http://localhost:3000/api/v1/dnp/artists/${e}`,{method:"DELETE",headers:{Authorization:`Bearer ${t}`}}),n=await s.json();return n.success?(await Rt.fetchDnpList(),{success:!0}):{success:!1,message:n.message}}catch(e){return{success:!1,message:"Failed to remove artist from DNP list"}}},updateEntry:async(e,t,s)=>{try{const n=localStorage.getItem("auth_token"),r=await fetch(`http://localhost:3000/api/v1/dnp/artists/${e}`,{method:"PUT",headers:{Authorization:`Bearer ${n}`,"Content-Type":"application/json"},body:JSON.stringify({tags:t,note:s})}),o=await r.json();return o.success?(await Rt.fetchDnpList(),{success:!0,data:o.data}):{success:!1,message:o.message}}catch(e){return{success:!1,message:"Failed to update DNP entry"}}},bulkImport:async(e,t)=>{try{const s=localStorage.getItem("auth_token"),n=await fetch("http://localhost:3000/api/v1/dnp/import",{method:"POST",headers:{Authorization:`Bearer ${s}`,"Content-Type":"application/json"},body:JSON.stringify({data:e,format:t})}),r=await n.json();return r.success?(await Rt.fetchDnpList(),{success:!0,data:r.data}):{success:!1,message:r.message}}catch(e){return{success:!1,message:"Bulk import failed"}}},exportList:async(e="json")=>{try{const t=localStorage.getItem("auth_token"),s=await fetch(`http://localhost:3000/api/v1/dnp/export?format=${e}`,{headers:{Authorization:`Bearer ${t}`}}),n=await s.json();return n.success?{success:!0,data:n.data}:{success:!1,message:n.message}}catch(e){return{success:!1,message:"Export failed"}}},clearSearch:()=>{It.update(e=>({...e,searchResults:[]}))}};function Ot(t){let s,r,o,i,a,d,l,c,f,w,b,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K=t[0]?.email+"";return{c(){s=g("nav"),r=g("div"),o=g("div"),i=g("div"),i.innerHTML='<h1 class="text-uswds-xl font-semibold text-uswds-base-darker">No Drake in the House</h1>',a=h(),d=g("div"),l=g("span"),c=x(K),f=h(),w=g("button"),w.textContent="Settings",b=h(),C=g("button"),C.textContent="Sign out",_=h(),M=g("div"),L=g("div"),S=g("nav"),z=g("button"),A=x("Overview"),B=h(),j=g("button"),H=x("Connections"),E=h(),F=g("button"),I=x("DNP List ("),D=x(t[2]),N=x(")"),O=h(),V=g("button"),q=x("Enforcement"),J=h(),Y=g("button"),G=x("Community Lists"),k(i,"class","flex items-center"),k(l,"class","text-uswds-sm text-uswds-base-darker"),k(w,"type","button"),k(w,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(C,"type","button"),k(C,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(d,"class","flex items-center space-x-4"),k(o,"class","flex justify-between h-16"),k(r,"class","max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"),k(s,"class","bg-white shadow-sm border-b border-gray-200"),k(z,"type","button"),k(z,"class",T="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("overview"===t[1]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(j,"type","button"),k(j,"class",P="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("connections"===t[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(F,"type","button"),k(F,"class",R="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("dnp"===t[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(V,"type","button"),k(V,"class",U="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("enforcement"===t[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(Y,"type","button"),k(Y,"class",Q="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("community"===t[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(S,"class","flex space-x-8"),k(S,"aria-label","Tabs"),k(L,"class","max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"),k(M,"class","bg-white shadow-sm")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),u(d,l),u(l,c),u(d,f),u(d,w),u(d,b),u(d,C),m(e,_,n),m(e,M,n),u(M,L),u(L,S),u(S,z),u(z,A),u(S,B),u(S,j),u(j,H),u(S,E),u(S,F),u(F,I),u(F,D),u(F,N),u(S,O),u(S,V),u(V,q),u(S,J),u(S,Y),u(Y,G),W||(Z=[v(w,"click",y(t[5])),v(C,"click",y(t[6])),v(z,"click",y(t[7])),v(j,"click",y(t[8])),v(F,"click",y(t[9])),v(V,"click",y(t[10])),v(Y,"click",y(t[11]))],W=!0)},p(e,[t]){1&t&&K!==(K=e[0]?.email+"")&&$(c,K),2&t&&T!==(T="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("overview"===e[1]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(z,"class",T),2&t&&P!==(P="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("connections"===e[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(j,"class",P),4&t&&$(D,e[2]),2&t&&R!==(R="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("dnp"===e[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(F,"class",R),2&t&&U!==(U="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("enforcement"===e[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(V,"class",U),2&t&&Q!==(Q="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("community"===e[1]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(Y,"class",Q)},i:e,o:e,d(e){e&&(p(s),p(_),p(M)),W=!1,n(Z)}}}function Vt(e,t,s){let n,r,o;function i(){ve.logout()}function a(e){ke(e)}c(e,he,e=>s(0,n=e)),c(e,ye,e=>s(1,r=e)),c(e,Dt,e=>s(2,o=e));return[n,r,o,i,a,()=>a("profile"),()=>i(),()=>a("overview"),()=>a("connections"),()=>a("dnp"),()=>a("enforcement"),()=>a("community")]}class qt extends oe{constructor(e){super(),re(this,e,Vt,Ot,o,{})}}function Ut(e){let t,s,n,r,o,i,a;return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("p"),a=x(e[1]),k(n,"class",""),k(i,"class","text-uswds-sm text-uswds-red-50"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","mb-6 bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4")},m(e,d){m(e,t,d),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a)},p(e,t){2&t&&$(a,e[1])},d(e){e&&p(t)}}}function Jt(e){let t,s,n,r=e[2].status+"";return{c(){t=g("span"),s=x(r),k(t,"class",n="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+ss(e[2].status))},m(e,n){m(e,t,n),u(t,s)},p(e,o){4&o&&r!==(r=e[2].status+"")&&$(s,r),4&o&&n!==(n="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+ss(e[2].status))&&k(t,"class",n)},d(e){e&&p(t)}}}function Yt(t){let s;return{c(){s=g("p"),s.textContent="Connect your Spotify account to manage your music library",k(s,"class","text-uswds-sm text-uswds-base-darker")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function Gt(e){let t,s,n,r,o,i,a=ns(e[2].created_at)+"",d=e[2].provider_user_id&&Qt(e),l=e[2].scopes.length>0&&Wt(e);return{c(){t=g("p"),s=x("Connected "),n=x(a),r=h(),d&&d.c(),o=h(),l&&l.c(),i=b(),k(t,"class","text-uswds-sm text-uswds-base-darker")},m(e,a){m(e,t,a),u(t,s),u(t,n),u(t,r),d&&d.m(t,null),m(e,o,a),l&&l.m(e,a),m(e,i,a)},p(e,s){4&s&&a!==(a=ns(e[2].created_at)+"")&&$(n,a),e[2].provider_user_id?d?d.p(e,s):(d=Qt(e),d.c(),d.m(t,null)):d&&(d.d(1),d=null),e[2].scopes.length>0?l?l.p(e,s):(l=Wt(e),l.c(),l.m(i.parentNode,i)):l&&(l.d(1),l=null)},d(e){e&&(p(t),p(o),p(i)),d&&d.d(),l&&l.d(e)}}}function Qt(e){let t,s,n=e[2].provider_user_id+"";return{c(){t=x("• User ID: "),s=x(n)},m(e,n){m(e,t,n),m(e,s,n)},p(e,t){4&t&&n!==(n=e[2].provider_user_id+"")&&$(s,n)},d(e){e&&(p(t),p(s))}}}function Wt(e){let t,s,n,r=e[2].scopes.join(", ")+"";return{c(){t=g("p"),s=x("Permissions: "),n=x(r),k(t,"class","text-uswds-xs text-uswds-base-darker mt-1")},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,t){4&t&&r!==(r=e[2].scopes.join(", ")+"")&&$(n,r)},d(e){e&&p(t)}}}function Zt(e){let t,s,n;function r(e,t){return e[0]?es:Xt}let o=r(e),i=o(e);return{c(){t=g("button"),i.c(),t.disabled=e[0],k(t,"class","inline-flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed")},m(r,o){m(r,t,o),i.m(t,null),s||(n=v(t,"click",e[3]),s=!0)},p(e,s){o!==(o=r(e))&&(i.d(1),i=o(e),i&&(i.c(),i.m(t,null))),1&s&&(t.disabled=e[0])},d(e){e&&p(t),i.d(),s=!1,n()}}}function Kt(t){let s,r,o,i,a;return{c(){s=g("button"),s.textContent="Check Health",r=h(),o=g("button"),o.textContent="Disconnect",k(s,"class","inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-uswds-sm leading-4 font-medium rounded-uswds-md text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(o,"class","inline-flex items-center px-3 py-2 border border-transparent text-uswds-sm leading-4 font-medium rounded-uswds-md text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500")},m(e,n){m(e,s,n),m(e,r,n),m(e,o,n),i||(a=[v(s,"click",t[5]),v(o,"click",t[4])],i=!0)},p:e,d(e){e&&(p(s),p(r),p(o)),i=!1,n(a)}}}function Xt(e){let t;return{c(){t=x("Connect")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function es(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n                  Connecting..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function ts(t){let s,n,r,o,i,a,d,l,c,f,w,x,b,v,y,C,$,_,M,L,S,z,A,T,B,j=t[1]&&Ut(t),H=t[2]&&Jt(t);function P(e,t){return e[2]?Gt:Yt}let E=P(t),F=E(t);function I(e,t){return e[2]?Kt:Zt}let D=I(t),N=D(t);return{c(){s=g("div"),n=g("div"),n.innerHTML='<h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Service Connections</h2> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Connect your streaming service accounts to manage your blocklist across platforms.</p>',r=h(),j&&j.c(),o=h(),i=g("div"),a=g("ul"),d=g("li"),l=g("div"),c=g("div"),f=g("div"),f.innerHTML='<div class="avatar avatar--lg bg-green-500"><svg class="icon-uswds icon-uswds--lg text-white" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"></path></svg></div>',w=h(),x=g("div"),b=g("div"),v=g("p"),v.textContent="Spotify",y=h(),H&&H.c(),C=h(),$=g("div"),F.c(),_=h(),M=g("div"),N.c(),L=h(),S=g("li"),S.innerHTML='<div class="px-4 py-4 flex items-center justify-between opacity-50"><div class="flex items-center"><div class="flex-shrink-0"><div class="avatar avatar--lg bg-uswds-base-lightest"><svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.526.015-1.047.057-1.564.15-.673.121-1.303.353-1.877.727C1.307 1.624.562 2.624.245 3.934.07 4.654.005 5.386.005 6.124v11.748c0 .738.065 1.47.24 2.19.317 1.31 1.062 2.31 2.18 3.043.574.374 1.204.606 1.877.727.517.093 1.038.135 1.564.15.04.001.08.004.12.004h12.014c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.733 1.863-1.733 2.18-3.043.175-.72.24-1.452.24-2.19V6.124zM12.001 4.009c2.47 0 4.471 2.001 4.471 4.471s-2.001 4.471-4.471 4.471-4.471-2.001-4.471-4.471 2.001-4.471 4.471-4.471zm0 7.542c1.693 0 3.071-1.378 3.071-3.071s-1.378-3.071-3.071-3.071-3.071 1.378-3.071 3.071 1.378 3.071 3.071 3.071z"></path></svg></div></div> <div class="ml-4"><div class="flex items-center"><p class="text-uswds-sm font-medium text-uswds-base-darker">Apple Music</p> <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium text-uswds-base-darker bg-uswds-base-lightest">Coming Soon</span></div> <p class="text-uswds-sm text-uswds-base-darker mt-1">Apple Music integration will be available in a future update</p></div></div> <button disabled="" class="inline-flex items-center px-4 py-2 border border-gray-300 text-uswds-sm font-medium rounded-uswds-md text-uswds-base-darker bg-uswds-base-lightest cursor-not-allowed">Coming Soon</button></div>',z=h(),A=g("li"),A.innerHTML='<div class="px-4 py-4 flex items-center justify-between opacity-50"><div class="flex items-center"><div class="flex-shrink-0"><div class="avatar avatar--lg bg-red-500"><svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"></path></svg></div></div> <div class="ml-4"><div class="flex items-center"><p class="text-uswds-sm font-medium text-uswds-base-darker">YouTube Music</p> <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium text-uswds-base-darker bg-uswds-base-lightest">Coming Soon</span></div> <p class="text-uswds-sm text-uswds-base-darker mt-1">YouTube Music integration will be available in a future update</p></div></div> <button disabled="" class="inline-flex items-center px-4 py-2 border border-gray-300 text-uswds-sm font-medium rounded-uswds-md text-uswds-base-darker bg-uswds-base-lightest cursor-not-allowed">Coming Soon</button></div>',T=h(),B=g("div"),B.innerHTML='<div class="flex"><div class="flex-shrink-0"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-blue-50">About Service Connections</h3> <div class="mt-2 text-uswds-sm text-uswds-blue-50"><p>Service connections allow you to apply your Do-Not-Play list across different streaming platforms. \n            Each connection is secured with OAuth 2.0 and only requests the minimum permissions needed to manage your blocklist.</p> <ul class="list-disc list-inside mt-2 space-y-1"><li>Spotify: Full library management and playlist modification</li> <li>Apple Music: Limited library access (coming soon)</li> <li>YouTube Music: Browser extension support only (coming soon)</li></ul></div></div></div>',k(n,"class","mb-6"),k(f,"class","flex-shrink-0"),k(v,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(b,"class","flex items-center"),k($,"class","mt-1"),k(x,"class","ml-4"),k(c,"class","flex items-center"),k(M,"class","flex items-center space-x-2"),k(l,"class","px-4 py-4 flex items-center justify-between"),k(a,"class","divide-y divide-gray-200"),k(i,"class","bg-white shadow overflow-hidden sm:rounded-uswds-md"),k(B,"class","mt-6 bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4"),k(s,"class","px-4 py-6 sm:px-0")},m(e,t){m(e,s,t),u(s,n),u(s,r),j&&j.m(s,null),u(s,o),u(s,i),u(i,a),u(a,d),u(d,l),u(l,c),u(c,f),u(c,w),u(c,x),u(x,b),u(b,v),u(b,y),H&&H.m(b,null),u(x,C),u(x,$),F.m($,null),u(l,_),u(l,M),N.m(M,null),u(a,L),u(a,S),u(a,z),u(a,A),u(s,T),u(s,B)},p(e,[t]){e[1]?j?j.p(e,t):(j=Ut(e),j.c(),j.m(s,o)):j&&(j.d(1),j=null),e[2]?H?H.p(e,t):(H=Jt(e),H.c(),H.m(b,null)):H&&(H.d(1),H=null),E===(E=P(e))&&F?F.p(e,t):(F.d(1),F=E(e),F&&(F.c(),F.m($,null))),D===(D=I(e))&&N?N.p(e,t):(N.d(1),N=D(e),N&&(N.c(),N.m(M,null)))},i:e,o:e,d(e){e&&p(s),j&&j.d(),H&&H.d(),F.d(),N.d()}}}function ss(e){switch(e){case"active":return"text-green-600 bg-green-100";case"expired":return"text-yellow-600 bg-yellow-100";case"error":return"text-red-600 bg-red-100";default:return"text-gray-600 bg-gray-100"}}function ns(e){return new Date(e).toLocaleDateString()}function rs(e,t,s){let n;c(e,Pt,e=>s(2,n=e));let r=!1,o="";return B(()=>{const e=new URLSearchParams(window.location.search),t=e.get("code"),n=e.get("state");t&&n&&(!async function(e,t){s(0,r=!0),s(1,o="");const n=await Ft.handleSpotifyCallback(e,t);n.success||s(1,o=n.message||"Failed to connect Spotify");s(0,r=!1)}(t,n),window.history.replaceState({},document.title,window.location.pathname))}),[r,o,n,async function(){s(0,r=!0),s(1,o="");try{await Ft.initiateSpotifyAuth()}catch(e){s(1,o="Failed to initiate Spotify connection"),s(0,r=!1)}},async function(){const e=await Ft.disconnectSpotify();e.success||s(1,o=e.message||"Failed to disconnect Spotify")},async function(){await Ft.checkSpotifyHealth()}]}class os extends oe{constructor(e){super(),re(this,e,rs,ts,o,{})}}function is(e,t,s){const n=e.slice();return n[17]=t[s],n}function as(e,t,s){const n=e.slice();return n[20]=t[s],n}function ds(e,t,s){const n=e.slice();return n[17]=t[s],n}function ls(t){let s,n,r;return{c(){s=g("button"),s.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker hover:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',k(s,"type","button"),k(s,"class","absolute inset-y-0 right-0 pr-3 flex items-center")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[9]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function cs(e){let t,s=Z(e[6].searchResults),n=[];for(let t=0;t<s.length;t+=1)n[t]=gs(as(e,s,t));return{c(){t=g("div");for(let e=0;e<n.length;e+=1)n[e].c();k(t,"class","absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-uswds-md py-1 text-uswds-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-uswds-sm")},m(e,s){m(e,t,s);for(let e=0;e<n.length;e+=1)n[e]&&n[e].m(t,null)},p(e,r){if(320&r){let o;for(s=Z(e[6].searchResults),o=0;o<s.length;o+=1){const i=as(e,s,o);n[o]?n[o].p(i,r):(n[o]=gs(i),n[o].c(),n[o].m(t,null))}for(;o<n.length;o+=1)n[o].d(1);n.length=s.length}},d(e){e&&p(t),f(n,e)}}}function us(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--sm text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',k(s,"class","icon-uswds icon-uswds--lg rounded-full bg-uswds-base-lightest flex items-center justify-center")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function ms(e){let t,s,n;return{c(){t=g("img"),d(t.src,s=e[20].metadata.image)||k(t,"src",s),k(t,"alt",n=e[20].canonical_name),k(t,"class","icon icon-xl rounded-full object-cover")},m(e,s){m(e,t,s)},p(e,r){64&r&&!d(t.src,s=e[20].metadata.image)&&k(t,"src",s),64&r&&n!==(n=e[20].canonical_name)&&k(t,"alt",n)},d(e){e&&p(t)}}}function ps(e){let t,s,n=e[20].metadata.genres.slice(0,2).join(", ")+"";return{c(){t=g("div"),s=x(n),k(t,"class","text-uswds-xs text-uswds-base-darker")},m(e,n){m(e,t,n),u(t,s)},p(e,t){64&t&&n!==(n=e[20].metadata.genres.slice(0,2).join(", ")+"")&&$(s,n)},d(e){e&&p(t)}}}function fs(e){let t,s,n,r,o=e[17].name+"";return{c(){t=g("span"),s=x(o),n=h(),k(t,"class",r="flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[17].color)},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,n){64&n&&o!==(o=e[17].name+"")&&$(s,o),64&n&&r!==(r="flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[17].color)&&k(t,"class",r)},d(e){e&&p(t)}}}function gs(e){let t,s,n,r,o,i,a,d,l,c,w,b,y,C=e[20].canonical_name+"";function _(e,t){return e[20].metadata.image?ms:us}let M=_(e),L=M(e),S=e[20].metadata.genres&&e[20].metadata.genres.length>0&&ps(e),z=Z(Ms(e[20])),A=[];for(let t=0;t<z.length;t+=1)A[t]=fs(ds(e,z,t));function T(){return e[13](e[20])}return{c(){t=g("button"),s=g("div"),n=g("div"),L.c(),r=h(),o=g("div"),i=g("div"),a=x(C),d=h(),S&&S.c(),l=h(),c=g("div");for(let e=0;e<A.length;e+=1)A[e].c();w=h(),k(i,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(n,"class","flex items-center space-x-3"),k(c,"class","flex space-x-1"),k(s,"class","flex items-center justify-between"),k(t,"type","button"),k(t,"class","w-full text-left px-4 py-2 hover:bg-uswds-base-lightest focus:bg-gray-100 focus:outline-none")},m(e,p){m(e,t,p),u(t,s),u(s,n),L.m(n,null),u(n,r),u(n,o),u(o,i),u(i,a),u(o,d),S&&S.m(o,null),u(s,l),u(s,c);for(let e=0;e<A.length;e+=1)A[e]&&A[e].m(c,null);u(t,w),b||(y=v(t,"click",T),b=!0)},p(t,s){if(M===(M=_(e=t))&&L?L.p(e,s):(L.d(1),L=M(e),L&&(L.c(),L.m(n,r))),64&s&&C!==(C=e[20].canonical_name+"")&&$(a,C),e[20].metadata.genres&&e[20].metadata.genres.length>0?S?S.p(e,s):(S=ps(e),S.c(),S.m(o,null)):S&&(S.d(1),S=null),64&s){let t;for(z=Z(Ms(e[20])),t=0;t<z.length;t+=1){const n=ds(e,z,t);A[t]?A[t].p(n,s):(A[t]=fs(n),A[t].c(),A[t].m(c,null))}for(;t<A.length;t+=1)A[t].d(1);A.length=z.length}},d(e){e&&p(t),L.d(),S&&S.d(),f(A,e),b=!1,y()}}}function ws(e){let t;return{c(){t=g("div"),t.innerHTML='<svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <p class="text-uswds-sm text-uswds-base-darker mt-1">Searching...</p>',k(t,"class","absolute z-10 mt-1 w-full bg-white shadow-lg rounded-uswds-md py-2 text-center")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function xs(e){let t,s,n,r,o,i,a,d,l,c,w,b=e[1].canonical_name+"";function v(e,t){return e[1].metadata.image?bs:hs}let y=v(e),C=y(e),_=e[1].metadata.genres&&e[1].metadata.genres.length>0&&vs(e),M=Z(Ms(e[1])),L=[];for(let t=0;t<M.length;t+=1)L[t]=ys(is(e,M,t));return{c(){t=g("div"),s=g("h4"),s.textContent="Selected Artist",n=h(),r=g("div"),C.c(),o=h(),i=g("div"),a=g("div"),d=x(b),l=h(),_&&_.c(),c=h(),w=g("div");for(let e=0;e<L.length;e+=1)L[e].c();k(s,"class","text-uswds-sm font-medium text-uswds-base-darker mb-2"),k(a,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(w,"class","flex space-x-1 mt-1"),k(i,"class","flex-1"),k(r,"class","flex items-center space-x-3"),k(t,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(t,n),u(t,r),C.m(r,null),u(r,o),u(r,i),u(i,a),u(a,d),u(i,l),_&&_.m(i,null),u(i,c),u(i,w);for(let e=0;e<L.length;e+=1)L[e]&&L[e].m(w,null)},p(e,t){if(y===(y=v(e))&&C?C.p(e,t):(C.d(1),C=y(e),C&&(C.c(),C.m(r,o))),2&t&&b!==(b=e[1].canonical_name+"")&&$(d,b),e[1].metadata.genres&&e[1].metadata.genres.length>0?_?_.p(e,t):(_=vs(e),_.c(),_.m(i,c)):_&&(_.d(1),_=null),2&t){let s;for(M=Z(Ms(e[1])),s=0;s<M.length;s+=1){const n=is(e,M,s);L[s]?L[s].p(n,t):(L[s]=ys(n),L[s].c(),L[s].m(w,null))}for(;s<L.length;s+=1)L[s].d(1);L.length=M.length}},d(e){e&&p(t),C.d(),_&&_.d(),f(L,e)}}}function hs(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',k(s,"class","avatar avatar--xl bg-uswds-base-lightest avatar__placeholder")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function bs(e){let t,s,n;return{c(){t=g("img"),d(t.src,s=e[1].metadata.image)||k(t,"src",s),k(t,"alt",n=e[1].canonical_name),k(t,"class","avatar avatar--xl object-cover")},m(e,s){m(e,t,s)},p(e,r){2&r&&!d(t.src,s=e[1].metadata.image)&&k(t,"src",s),2&r&&n!==(n=e[1].canonical_name)&&k(t,"alt",n)},d(e){e&&p(t)}}}function vs(e){let t,s,n=e[1].metadata.genres.join(", ")+"";return{c(){t=g("div"),s=x(n),k(t,"class","text-uswds-xs text-uswds-base-darker")},m(e,n){m(e,t,n),u(t,s)},p(e,t){2&t&&n!==(n=e[1].metadata.genres.join(", ")+"")&&$(s,n)},d(e){e&&p(t)}}}function ys(e){let t,s,n,r,o=e[17].name+"";return{c(){t=g("span"),s=x(o),n=h(),k(t,"class",r="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[17].color)},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,n){2&n&&o!==(o=e[17].name+"")&&$(s,o),2&n&&r!==(r="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[17].color)&&k(t,"class",r)},d(e){e&&p(t)}}}function ks(e){let t,s;return{c(){t=g("div"),s=x(e[5]),k(t,"class","text-uswds-red-50 text-uswds-sm")},m(e,n){m(e,t,n),u(t,s)},p(e,t){32&t&&$(s,e[5])},d(e){e&&p(t)}}}function Cs(e){let t;return{c(){t=x("Add to DNP List")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function $s(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n        Adding..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function _s(t){let s,r,o,i,a,d,l,c,f,w,x,b,C,$,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V=t[1]&&ls(t),q=t[6].searchResults.length>0&&!t[1]&&cs(t),U=t[6].isSearching&&ws(),J=t[1]&&xs(t),Y=t[5]&&ks(t);function G(e,t){return e[4]?$s:Cs}let Q=G(t),W=Q(t);return{c(){s=g("form"),r=g("div"),o=g("label"),o.textContent="Artist Name",i=h(),a=g("div"),d=g("input"),l=h(),V&&V.c(),c=h(),q&&q.c(),f=h(),U&&U.c(),w=h(),J&&J.c(),x=h(),b=g("div"),C=g("label"),C.textContent="Tags (optional)",$=h(),M=g("input"),L=h(),S=g("p"),S.textContent="Use tags to organize your DNP list. Separate multiple tags with commas.",z=h(),A=g("div"),T=g("label"),T.textContent="Note (optional)",B=h(),j=g("textarea"),H=h(),Y&&Y.c(),P=h(),E=g("div"),F=g("button"),F.textContent="Cancel",I=h(),D=g("button"),W.c(),k(o,"for","artist-search"),k(o,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(d,"id","artist-search"),k(d,"type","text"),k(d,"placeholder","Search for an artist..."),k(d,"class","block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(a,"class","mt-1 relative"),k(r,"class","relative"),k(C,"for","tags"),k(C,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(M,"id","tags"),k(M,"type","text"),k(M,"placeholder","e.g., controversial, personal, explicit (comma-separated)"),k(M,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(S,"class","mt-1 text-uswds-xs text-uswds-base-darker"),k(T,"for","note"),k(T,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(j,"id","note"),k(j,"rows","2"),k(j,"placeholder","Add a personal note about why you're blocking this artist..."),k(j,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(F,"type","button"),k(F,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(D,"type","submit"),D.disabled=N=t[4]||!t[0].trim(),k(D,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"),k(E,"class","flex justify-end space-x-3"),k(s,"class","space-y-4")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(r,i),u(r,a),u(a,d),_(d,t[0]),u(a,l),V&&V.m(a,null),u(r,c),q&&q.m(r,null),u(r,f),U&&U.m(r,null),u(s,w),J&&J.m(s,null),u(s,x),u(s,b),u(b,C),u(b,$),u(b,M),_(M,t[2]),u(b,L),u(b,S),u(s,z),u(s,A),u(A,T),u(A,B),u(A,j),_(j,t[3]),u(s,H),Y&&Y.m(s,null),u(s,P),u(s,E),u(E,F),u(E,I),u(E,D),W.m(D,null),R||(O=[v(d,"input",t[12]),v(M,"input",t[14]),v(j,"input",t[15]),v(F,"click",t[16]),v(s,"submit",y(t[10]))],R=!0)},p(e,[t]){1&t&&d.value!==e[0]&&_(d,e[0]),e[1]?V?V.p(e,t):(V=ls(e),V.c(),V.m(a,null)):V&&(V.d(1),V=null),e[6].searchResults.length>0&&!e[1]?q?q.p(e,t):(q=cs(e),q.c(),q.m(r,f)):q&&(q.d(1),q=null),e[6].isSearching?U||(U=ws(),U.c(),U.m(r,null)):U&&(U.d(1),U=null),e[1]?J?J.p(e,t):(J=xs(e),J.c(),J.m(s,x)):J&&(J.d(1),J=null),4&t&&M.value!==e[2]&&_(M,e[2]),8&t&&_(j,e[3]),e[5]?Y?Y.p(e,t):(Y=ks(e),Y.c(),Y.m(s,P)):Y&&(Y.d(1),Y=null),Q!==(Q=G(e))&&(W.d(1),W=Q(e),W&&(W.c(),W.m(D,null))),17&t&&N!==(N=e[4]||!e[0].trim())&&(D.disabled=N)},i:e,o:e,d(e){e&&p(s),V&&V.d(),q&&q.d(),U&&U.d(),J&&J.d(),Y&&Y.d(),W.d(),R=!1,n(O)}}}function Ms(e){const t=[];return e.external_ids.spotify&&t.push({name:"Spotify",color:"bg-green-100 text-green-800"}),e.external_ids.apple&&t.push({name:"Apple",color:"bg-gray-100 text-gray-800"}),e.external_ids.musicbrainz&&t.push({name:"MusicBrainz",color:"bg-blue-100 text-blue-800"}),t}function Ls(e,t,s){let n;c(e,It,e=>s(6,n=e));const r=j();let o,i="",a=null,d="",l="",u=!1,m="";function p(e){s(1,a=e),s(0,i=e.canonical_name),Rt.clearSearch()}return e.$$.update=()=>{2049&e.$$.dirty&&(o&&clearTimeout(o),s(11,o=setTimeout(()=>{i.trim()?Rt.searchArtists(i):Rt.clearSearch()},300)))},[i,a,d,l,u,m,n,r,p,function(){s(1,a=null),s(0,i=""),Rt.clearSearch()},async function(){if(!i.trim())return void s(5,m="Please enter an artist name");s(4,u=!0),s(5,m="");const e=d.split(",").map(e=>e.trim()).filter(e=>e),t=await Rt.addArtist(i,e,l.trim()||void 0);t.success?(s(0,i=""),s(1,a=null),s(2,d=""),s(3,l=""),r("artistAdded")):s(5,m=t.message||"Failed to add artist"),s(4,u=!1)},o,function(){i=this.value,s(0,i)},e=>p(e),function(){d=this.value,s(2,d)},function(){l=this.value,s(3,l)},()=>r("artistAdded")]}class Ss extends oe{constructor(e){super(),re(this,e,Ls,_s,o,{})}}function zs(e,t,s){const n=e.slice();return n[16]=t[s],n}function As(e,t,s){const n=e.slice();return n[19]=t[s],n}function Ts(e){let t,s,r,o,i,a,d=e[6]?"Removing...":"Remove";return{c(){t=g("button"),t.textContent="Edit",s=h(),r=g("button"),o=x(d),k(t,"class","text-indigo-600 hover:text-indigo-900 text-uswds-sm"),r.disabled=e[6],k(r,"class","text-uswds-red-50 hover:text-red-900 text-uswds-sm disabled:opacity-50")},m(n,d){m(n,t,d),m(n,s,d),m(n,r,d),u(r,o),i||(a=[v(t,"click",e[9]),v(r,"click",e[12])],i=!0)},p(e,t){64&t&&d!==(d=e[6]?"Removing...":"Remove")&&$(o,d),64&t&&(r.disabled=e[6])},d(e){e&&(p(t),p(s),p(r)),i=!1,n(a)}}}function Bs(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg sm:icon icon-md sm: text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',k(s,"class","avatar avatar--xl sm:avatar--lg bg-uswds-base-lightest avatar__placeholder")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function js(e){let t,s,n;return{c(){t=g("img"),d(t.src,s=e[0].artist.metadata.image)||k(t,"src",s),k(t,"alt",n=e[0].artist.canonical_name),k(t,"class","avatar avatar--xl sm:avatar--lg object-cover")},m(e,s){m(e,t,s)},p(e,r){1&r&&!d(t.src,s=e[0].artist.metadata.image)&&k(t,"src",s),1&r&&n!==(n=e[0].artist.canonical_name)&&k(t,"alt",n)},d(e){e&&p(t)}}}function Hs(e){let t,s,n=e[0].artist.metadata.genres.slice(0,2).join(", ")+"";return{c(){t=g("p"),s=x(n),k(t,"class","text-uswds-xs text-uswds-base-darker truncate")},m(e,n){m(e,t,n),u(t,s)},p(e,t){1&t&&n!==(n=e[0].artist.metadata.genres.slice(0,2).join(", ")+"")&&$(s,n)},d(e){e&&p(t)}}}function Ps(e){let t,s,n,r,o=e[19].name+"";return{c(){t=g("span"),s=x(o),n=h(),k(t,"class",r="flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[19].color)},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,n){1&n&&o!==(o=e[19].name+"")&&$(s,o),1&n&&r!==(r="flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+e[19].color)&&k(t,"class",r)},d(e){e&&p(t)}}}function Es(e){let t,s,r,o,i,a,d=e[6]?"Removing...":"Remove";return{c(){t=g("button"),t.textContent="Edit",s=h(),r=g("button"),o=x(d),k(t,"class","text-indigo-600 hover:text-indigo-900 text-uswds-sm whitespace-nowrap"),r.disabled=e[6],k(r,"class","text-uswds-red-50 hover:text-red-900 text-uswds-sm disabled:opacity-50 whitespace-nowrap")},m(n,d){m(n,t,d),m(n,s,d),m(n,r,d),u(r,o),i||(a=[v(t,"click",e[9]),v(r,"click",e[12])],i=!0)},p(e,t){64&t&&d!==(d=e[6]?"Removing...":"Remove")&&$(o,d),64&t&&(r.disabled=e[6])},d(e){e&&(p(t),p(s),p(r)),i=!1,n(a)}}}function Fs(e){let t,s,n=e[0].tags.length>0&&Is(e),r=e[0].note&&Ns(e);return{c(){t=g("div"),n&&n.c(),s=h(),r&&r.c(),k(t,"class","mt-2")},m(e,o){m(e,t,o),n&&n.m(t,null),u(t,s),r&&r.m(t,null)},p(e,o){e[0].tags.length>0?n?n.p(e,o):(n=Is(e),n.c(),n.m(t,s)):n&&(n.d(1),n=null),e[0].note?r?r.p(e,o):(r=Ns(e),r.c(),r.m(t,null)):r&&(r.d(1),r=null)},d(e){e&&p(t),n&&n.d(),r&&r.d()}}}function Is(e){let t,s=Z(e[0].tags),n=[];for(let t=0;t<s.length;t+=1)n[t]=Ds(zs(e,s,t));return{c(){t=g("div");for(let e=0;e<n.length;e+=1)n[e].c();k(t,"class","flex flex-wrap gap-uswds-1 mb-2")},m(e,s){m(e,t,s);for(let e=0;e<n.length;e+=1)n[e]&&n[e].m(t,null)},p(e,r){if(1&r){let o;for(s=Z(e[0].tags),o=0;o<s.length;o+=1){const i=zs(e,s,o);n[o]?n[o].p(i,r):(n[o]=Ds(i),n[o].c(),n[o].m(t,null))}for(;o<n.length;o+=1)n[o].d(1);n.length=s.length}},d(e){e&&p(t),f(n,e)}}}function Ds(e){let t,s,n,r=e[16]+"";return{c(){t=g("span"),s=x(r),n=h(),k(t,"class","inline-flex items-center px-2 py-0.5 rounded-full text-uswds-xs font-medium bg-uswds-base-lightest text-uswds-base-darker")},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,t){1&t&&r!==(r=e[16]+"")&&$(s,r)},d(e){e&&p(t)}}}function Ns(e){let t,s,n,r,o=e[0].note+"";return{c(){t=g("p"),s=x('"'),n=x(o),r=x('"'),k(t,"class","text-uswds-sm text-uswds-base-darker italic")},m(e,o){m(e,t,o),u(t,s),u(t,n),u(t,r)},p(e,t){1&t&&o!==(o=e[0].note+"")&&$(n,o)},d(e){e&&p(t)}}}function Rs(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,M,L,S,z,A,T,B,j,H,P,E,F,I=e[5]?"Saving...":"Save",D=e[7]&&Os(e);return{c(){t=g("div"),s=g("div"),r=g("div"),o=g("label"),i=x("Tags"),d=h(),l=g("input"),f=h(),w=g("div"),b=g("label"),y=x("Note"),M=h(),L=g("textarea"),z=h(),D&&D.c(),A=h(),T=g("div"),B=g("button"),B.textContent="Cancel",j=h(),H=g("button"),P=x(I),k(o,"for",a="edit-tags-"+e[0].artist.id),k(o,"class","block text-uswds-xs font-medium text-uswds-base-darker"),k(l,"id",c="edit-tags-"+e[0].artist.id),k(l,"type","text"),k(l,"placeholder","comma-separated tags"),k(l,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-2 py-1 text-uswds-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"),k(b,"for",C="edit-note-"+e[0].artist.id),k(b,"class","block text-uswds-xs font-medium text-uswds-base-darker"),k(L,"id",S="edit-note-"+e[0].artist.id),k(L,"rows","2"),k(L,"placeholder","Personal note..."),k(L,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-2 py-1 text-uswds-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"),k(w,"class","sm:col-span-2"),k(s,"class","grid grid-cols-1 sm:grid-cols-2 gap-uswds-3"),k(B,"type","button"),k(B,"class","w-full sm:w-auto px-3 py-2 sm:py-1 border border-gray-300 rounded-uswds-md text-uswds-sm sm:text-uswds-xs font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest"),k(H,"type","button"),H.disabled=e[5],k(H,"class","w-full sm:w-auto px-3 py-2 sm:py-1 border border-transparent rounded-uswds-md text-uswds-sm sm:text-uswds-xs font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"),k(T,"class","flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2"),k(t,"class","mt-3 space-y-3 sm:mt-4")},m(n,a){m(n,t,a),u(t,s),u(s,r),u(r,o),u(o,i),u(r,d),u(r,l),_(l,e[3]),u(s,f),u(s,w),u(w,b),u(b,y),u(w,M),u(w,L),_(L,e[4]),u(t,z),D&&D.m(t,null),u(t,A),u(t,T),u(T,B),u(T,j),u(T,H),u(H,P),E||(F=[v(l,"input",e[13]),v(L,"input",e[14]),v(B,"click",e[10]),v(H,"click",e[11])],E=!0)},p(e,s){1&s&&a!==(a="edit-tags-"+e[0].artist.id)&&k(o,"for",a),1&s&&c!==(c="edit-tags-"+e[0].artist.id)&&k(l,"id",c),8&s&&l.value!==e[3]&&_(l,e[3]),1&s&&C!==(C="edit-note-"+e[0].artist.id)&&k(b,"for",C),1&s&&S!==(S="edit-note-"+e[0].artist.id)&&k(L,"id",S),16&s&&_(L,e[4]),e[7]?D?D.p(e,s):(D=Os(e),D.c(),D.m(t,A)):D&&(D.d(1),D=null),32&s&&I!==(I=e[5]?"Saving...":"Save")&&$(P,I),32&s&&(H.disabled=e[5])},d(e){e&&p(t),D&&D.d(),E=!1,n(F)}}}function Os(e){let t,s;return{c(){t=g("p"),s=x(e[7]),k(t,"class","text-uswds-xs text-uswds-red-50")},m(e,n){m(e,t,n),u(t,s)},p(e,t){128&t&&$(s,e[7])},d(e){e&&p(t)}}}function Vs(t){let s,r,o,i,a,d,l,c,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q=t[0].artist.canonical_name+"",U=Us(t[0].created_at)+"",J=!t[2]&&Ts(t);function Y(e,t){return e[0].artist.metadata.image?js:Bs}let G=Y(t),Q=G(t),W=t[0].artist.metadata.genres&&t[0].artist.metadata.genres.length>0&&Hs(t),K=Z(qs(t[0].artist)),X=[];for(let e=0;e<K.length;e+=1)X[e]=Ps(As(t,K,e));let ee=!t[2]&&Es(t),te=!t[2]&&Fs(t),se=t[2]&&Rs(t);return{c(){s=g("li"),r=g("div"),o=g("div"),i=g("input"),a=h(),d=g("div"),J&&J.c(),l=h(),c=g("input"),w=h(),b=g("div"),Q.c(),y=h(),C=g("div"),_=g("div"),M=g("div"),L=g("p"),S=x(q),z=h(),W&&W.c(),A=h(),T=g("div"),B=g("div");for(let e=0;e<X.length;e+=1)X[e].c();j=h(),H=g("span"),P=x("Added "),E=x(U),F=h(),I=g("div"),ee&&ee.c(),D=h(),te&&te.c(),N=h(),se&&se.c(),k(i,"type","checkbox"),i.checked=t[1],k(i,"class","icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 border-gray-300 rounded"),k(d,"class","flex items-center space-x-2"),k(o,"class","flex items-center justify-between sm:hidden"),k(c,"type","checkbox"),c.checked=t[1],k(c,"class","hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded "),k(b,"class","flex-shrink-0"),k(L,"class","text-uswds-sm font-medium text-uswds-base-darker truncate"),k(B,"class","flex flex-wrap gap-uswds-1"),k(H,"class","text-uswds-xs text-uswds-base-darker whitespace-nowrap"),k(T,"class","flex flex-wrap items-center gap-uswds-2 mt-1"),k(M,"class","flex-1 min-w-0"),k(I,"class","hidden sm:flex items-center space-x-2 ml-4"),k(_,"class","flex flex-col sm:flex-row sm:items-center sm:justify-between"),k(C,"class","flex-1 min-w-0"),k(r,"class","flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4"),k(s,"class",R="px-4 py-4 sm:px-6 "+(t[1]?"bg-indigo-50":"hover:bg-uswds-base-lightest"))},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),J&&J.m(d,null),u(r,l),u(r,c),u(r,w),u(r,b),Q.m(b,null),u(r,y),u(r,C),u(C,_),u(_,M),u(M,L),u(L,S),u(M,z),W&&W.m(M,null),u(M,A),u(M,T),u(T,B);for(let e=0;e<X.length;e+=1)X[e]&&X[e].m(B,null);u(T,j),u(T,H),u(H,P),u(H,E),u(_,F),u(_,I),ee&&ee.m(I,null),u(C,D),te&&te.m(C,null),u(C,N),se&&se.m(C,null),O||(V=[v(i,"change",t[8]),v(c,"change",t[8])],O=!0)},p(e,[t]){if(2&t&&(i.checked=e[1]),e[2]?J&&(J.d(1),J=null):J?J.p(e,t):(J=Ts(e),J.c(),J.m(d,null)),2&t&&(c.checked=e[1]),G===(G=Y(e))&&Q?Q.p(e,t):(Q.d(1),Q=G(e),Q&&(Q.c(),Q.m(b,null))),1&t&&q!==(q=e[0].artist.canonical_name+"")&&$(S,q),e[0].artist.metadata.genres&&e[0].artist.metadata.genres.length>0?W?W.p(e,t):(W=Hs(e),W.c(),W.m(M,A)):W&&(W.d(1),W=null),1&t){let s;for(K=Z(qs(e[0].artist)),s=0;s<K.length;s+=1){const n=As(e,K,s);X[s]?X[s].p(n,t):(X[s]=Ps(n),X[s].c(),X[s].m(B,null))}for(;s<X.length;s+=1)X[s].d(1);X.length=K.length}1&t&&U!==(U=Us(e[0].created_at)+"")&&$(E,U),e[2]?ee&&(ee.d(1),ee=null):ee?ee.p(e,t):(ee=Es(e),ee.c(),ee.m(I,null)),e[2]?te&&(te.d(1),te=null):te?te.p(e,t):(te=Fs(e),te.c(),te.m(C,N)),e[2]?se?se.p(e,t):(se=Rs(e),se.c(),se.m(C,null)):se&&(se.d(1),se=null),2&t&&R!==(R="px-4 py-4 sm:px-6 "+(e[1]?"bg-indigo-50":"hover:bg-uswds-base-lightest"))&&k(s,"class",R)},i:e,o:e,d(e){e&&p(s),J&&J.d(),Q.d(),W&&W.d(),f(X,e),ee&&ee.d(),te&&te.d(),se&&se.d(),O=!1,n(V)}}}function qs(e){const t=[];return e.external_ids.spotify&&t.push({name:"Spotify",color:"bg-green-100 text-green-800"}),e.external_ids.apple&&t.push({name:"Apple",color:"bg-gray-100 text-gray-800"}),e.external_ids.musicbrainz&&t.push({name:"MusicBrainz",color:"bg-blue-100 text-blue-800"}),t}function Us(e){return new Date(e).toLocaleDateString()}function Js(e,t,s){const n=j();let{entry:r}=t,{selected:o=!1}=t,i=!1,a=r.tags.join(", "),d=r.note||"",l=!1,c=!1,u="";return e.$$set=e=>{"entry"in e&&s(0,r=e.entry),"selected"in e&&s(1,o=e.selected)},[r,o,i,a,d,l,c,u,function(){n("toggleSelect")},function(){s(2,i=!0),s(3,a=r.tags.join(", ")),s(4,d=r.note||""),s(7,u="")},function(){s(2,i=!1),s(3,a=r.tags.join(", ")),s(4,d=r.note||""),s(7,u="")},async function(){s(5,l=!0),s(7,u="");const e=a.split(",").map(e=>e.trim()).filter(e=>e),t=await Rt.updateEntry(r.artist.id,e,d.trim()||void 0);t.success?s(2,i=!1):s(7,u=t.message||"Failed to update entry"),s(5,l=!1)},async function(){if(!confirm(`Are you sure you want to remove "${r.artist.canonical_name}" from your DNP list?`))return;s(6,c=!0);const e=await Rt.removeArtist(r.artist.id);e.success||s(7,u=e.message||"Failed to remove artist"),s(6,c=!1)},function(){a=this.value,s(3,a)},function(){d=this.value,s(4,d)}]}class Ys extends oe{constructor(e){super(),re(this,e,Js,Vs,o,{entry:0,selected:1})}}function Gs(t){let s,r,o,i,a,d,l,c,f,b,y,C,_,M,L,S,z,A,T,B=1===t[0]?"artist":"artists";return{c(){s=g("div"),r=g("div"),o=g("div"),i=w("svg"),a=w("path"),d=h(),l=g("p"),c=g("span"),f=x(t[0]),b=h(),y=x(B),C=x(" selected"),_=h(),M=g("div"),L=g("button"),L.textContent="Clear selection",S=h(),z=g("button"),z.innerHTML='<svg aria-hidden="true" class="-ml-0.5 mr-2 icon-uswds icon-uswds--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>\n        Remove selected',k(a,"stroke-linecap","round"),k(a,"stroke-linejoin","round"),k(a,"stroke-width","2"),k(a,"d","M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),k(i,"aria-hidden","true"),k(i,"class","icon-uswds icon-uswds--md text-indigo-400 "),k(i,"fill","none"),k(i,"viewBox","0 0 24 24"),k(i,"stroke","currentColor"),k(c,"class","font-medium"),k(l,"class","ml-3 text-uswds-sm text-indigo-800"),k(o,"class","flex items-center"),k(L,"class","text-uswds-sm text-primary hover:text-indigo-500 text-center sm:text-left"),k(z,"class","flex items-center justify-center px-3 py-2 border border-transparent text-uswds-sm leading-4 font-medium rounded-uswds-md text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"),k(M,"class","flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3"),k(r,"class","flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0"),k(s,"class","bg-indigo-50 border border-indigo-200 rounded-uswds-md p-uswds-4")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(i,a),u(o,d),u(o,l),u(l,c),u(c,f),u(l,b),u(l,y),u(l,C),u(r,_),u(r,M),u(M,L),u(M,S),u(M,z),A||(T=[v(L,"click",t[2]),v(z,"click",t[1])],A=!0)},p(e,[t]){1&t&&$(f,e[0]),1&t&&B!==(B=1===e[0]?"artist":"artists")&&$(y,B)},i:e,o:e,d(e){e&&p(s),A=!1,n(T)}}}function Qs(e,t,s){const n=j();let{selectedCount:r=0}=t;return e.$$set=e=>{"selectedCount"in e&&s(0,r=e.selectedCount)},[r,function(){n("bulkDelete")},function(){n("clearSelection")}]}class Ws extends oe{constructor(e){super(),re(this,e,Qs,Gs,o,{selectedCount:0})}}function Zs(e,t,s){const n=e.slice();return n[19]=t[s],n}function Ks(e,t,s){const n=e.slice();return n[22]=t[s],n}function Xs(t){let s,n,r,o,i;return o=new Ss({}),o.$on("artistAdded",t[11]),{c(){s=g("div"),n=g("h3"),n.textContent="Add Artist to DNP List",r=h(),ee(o.$$.fragment),k(n,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(s,"class","mb-6 bg-white shadow rounded-uswds-lg p-uswds-6")},m(e,t){m(e,s,t),u(s,n),u(s,r),te(o,s,null),i=!0},p:e,i(e){i||(Q(o.$$.fragment,e),i=!0)},o(e){W(o.$$.fragment,e),i=!1},d(e){e&&p(s),se(o)}}}function en(e){let t,s,n,r=e[22]+"";return{c(){t=g("option"),s=x(r),t.__value=n=e[22],_(t,t.__value)},m(e,n){m(e,t,n),u(t,s)},p(e,o){64&o&&r!==(r=e[22]+"")&&$(s,r),64&o&&n!==(n=e[22])&&(t.__value=n,_(t,t.__value))},d(e){e&&p(t)}}}function tn(e){let t,s,n;return s=new Ws({props:{selectedCount:e[4].size}}),s.$on("bulkDelete",e[10]),s.$on("clearSelection",e[9]),{c(){t=g("div"),ee(s.$$.fragment),k(t,"class","mb-4")},m(e,r){m(e,t,r),te(s,t,null),n=!0},p(e,t){const n={};16&t&&(n.selectedCount=e[4].size),s.$set(n)},i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){e&&p(t),se(s)}}}function sn(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L=e[5].length+"",S=1!==e[5].length?"s":"",z=[],A=new Map,T=e[4].size>0&&an(e),B=(e[0]||e[1])&&dn(e),j=Z(e[5]);const H=e=>e[19].artist.id;for(let t=0;t<j.length;t+=1){let s=Zs(e,j,t),n=H(s);A.set(n,z[t]=ln(n,s))}return{c(){t=g("div"),s=g("div"),n=g("div"),r=g("input"),i=h(),a=g("label"),d=x(L),l=x(" artist"),c=x(S),f=h(),T&&T.c(),w=h(),B&&B.c(),b=h(),y=g("ul");for(let e=0;e<z.length;e+=1)z[e].c();k(r,"id","select-all"),k(r,"type","checkbox"),r.checked=o=e[4].size===e[5].length&&e[5].length>0,k(r,"class","icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"),k(a,"for","select-all"),k(a,"class","ml-3 text-uswds-sm text-uswds-base-darker"),k(n,"class","flex items-center"),k(s,"class","flex items-center justify-between"),k(t,"class","px-4 py-3 bg-uswds-base-lightest border-b border-gray-200 sm:px-6"),k(y,"class","divide-y divide-gray-200")},m(o,p){m(o,t,p),u(t,s),u(s,n),u(n,r),u(n,i),u(n,a),u(a,d),u(a,l),u(a,c),u(a,f),T&&T.m(a,null),u(s,w),B&&B.m(s,null),m(o,b,p),m(o,y,p);for(let e=0;e<z.length;e+=1)z[e]&&z[e].m(y,null);C=!0,_||(M=v(r,"change",e[7]),_=!0)},p(e,t){(!C||48&t&&o!==(o=e[4].size===e[5].length&&e[5].length>0))&&(r.checked=o),(!C||32&t)&&L!==(L=e[5].length+"")&&$(d,L),(!C||32&t)&&S!==(S=1!==e[5].length?"s":"")&&$(c,S),e[4].size>0?T?T.p(e,t):(T=an(e),T.c(),T.m(a,null)):T&&(T.d(1),T=null),e[0]||e[1]?B?B.p(e,t):(B=dn(e),B.c(),B.m(s,null)):B&&(B.d(1),B=null),304&t&&(j=Z(e[5]),Y(),z=X(z,t,H,0,e,j,A,y,K,ln,null,Zs),G())},i(e){if(!C){for(let e=0;e<j.length;e+=1)Q(z[e]);C=!0}},o(e){for(let e=0;e<z.length;e+=1)W(z[e]);C=!1},d(e){e&&(p(t),p(b),p(y)),T&&T.d(),B&&B.d();for(let e=0;e<z.length;e+=1)z[e].d();_=!1,M()}}}function nn(t){let s;function n(e,t){return 0===e[2].entries.length?un:cn}let r=n(t),o=r(t);return{c(){s=g("div"),o.c(),k(s,"class","p-uswds-6 text-center")},m(e,t){m(e,s,t),o.m(s,null)},p(e,t){r===(r=n(e))&&o?o.p(e,t):(o.d(1),o=r(e),o&&(o.c(),o.m(s,null)))},i:e,o:e,d(e){e&&p(s),o.d()}}}function rn(t){let s,n,r,o,i,a,d,l,c,f,b=t[2].error+"";return{c(){s=g("div"),n=w("svg"),r=w("path"),o=h(),i=g("p"),a=x(b),d=h(),l=g("button"),l.textContent="Try again",k(r,"stroke-linecap","round"),k(r,"stroke-linejoin","round"),k(r,"stroke-width","2"),k(r,"d","M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),k(n,"aria-hidden","true"),k(n,"class","mx-auto icon-uswds icon-uswds--lg text-uswds-red-50"),k(n,"fill","none"),k(n,"viewBox","0 0 24 24"),k(n,"stroke","currentColor"),k(i,"class","mt-2 text-uswds-sm text-uswds-red-50"),k(l,"class","mt-2 text-uswds-sm text-primary hover:text-indigo-500"),k(s,"class","p-uswds-6 text-center")},m(e,p){m(e,s,p),u(s,n),u(n,r),u(s,o),u(s,i),u(i,a),u(s,d),u(s,l),c||(f=v(l,"click",t[15]),c=!0)},p(e,t){4&t&&b!==(b=e[2].error+"")&&$(a,b)},i:e,o:e,d(e){e&&p(s),c=!1,f()}}}function on(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <p class="mt-2 text-uswds-sm text-uswds-base-darker">Loading DNP list...</p>',k(s,"class","p-uswds-6 text-center")},m(e,t){m(e,s,t)},p:e,i:e,o:e,d(e){e&&p(s)}}}function an(e){let t,s,n,r=e[4].size+"";return{c(){t=x("("),s=x(r),n=x(" selected)")},m(e,r){m(e,t,r),m(e,s,r),m(e,n,r)},p(e,t){16&t&&r!==(r=e[4].size+"")&&$(s,r)},d(e){e&&(p(t),p(s),p(n))}}}function dn(t){let s,n,r;return{c(){s=g("button"),s.textContent="Clear filters",k(s,"class","text-uswds-sm text-indigo-600 hover:text-indigo-500")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[17]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function ln(e,t){let s,n,r;return n=new Ys({props:{entry:t[19],selected:t[4].has(t[19].artist.id)}}),n.$on("toggleSelect",function(){return t[18](t[19])}),{key:e,first:null,c(){s=b(),ee(n.$$.fragment),this.first=s},m(e,t){m(e,s,t),te(n,e,t),r=!0},p(e,s){t=e;const r={};32&s&&(r.entry=t[19]),48&s&&(r.selected=t[4].has(t[19].artist.id)),n.$set(r)},i(e){r||(Q(n.$$.fragment,e),r=!0)},o(e){W(n.$$.fragment,e),r=!1},d(e){e&&p(s),se(n,e)}}}function cn(t){let s,n,r,o,i,a;return{c(){s=w("svg"),n=w("path"),r=h(),o=g("h3"),o.textContent="No artists match your search",i=h(),a=g("p"),a.textContent="Try adjusting your search terms or filters.",k(n,"stroke-linecap","round"),k(n,"stroke-linejoin","round"),k(n,"stroke-width","2"),k(n,"d","M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"),k(s,"aria-hidden","true"),k(s,"class","mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker"),k(s,"fill","none"),k(s,"viewBox","0 0 24 24"),k(s,"stroke","currentColor"),k(o,"class","mt-2 text-uswds-sm font-medium text-uswds-base-darker"),k(a,"class","mt-1 text-uswds-sm text-uswds-base-darker")},m(e,t){m(e,s,t),u(s,n),m(e,r,t),m(e,o,t),m(e,i,t),m(e,a,t)},p:e,d(e){e&&(p(s),p(r),p(o),p(i),p(a))}}}function un(t){let s,n,r,o,i,a,d,l,c,f,x;return{c(){s=w("svg"),n=w("path"),r=h(),o=g("h3"),o.textContent="No artists in your DNP list",i=h(),a=g("p"),a.textContent="Get started by adding artists you want to avoid.",d=h(),l=g("div"),c=g("button"),c.innerHTML='<svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>\n              Add your first artist',k(n,"stroke-linecap","round"),k(n,"stroke-linejoin","round"),k(n,"stroke-width","2"),k(n,"d","M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"),k(s,"aria-hidden","true"),k(s,"class","mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker"),k(s,"fill","none"),k(s,"viewBox","0 0 24 24"),k(s,"stroke","currentColor"),k(o,"class","mt-2 text-uswds-sm font-medium text-uswds-base-darker"),k(a,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(c,"class","inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-uswds-sm font-medium rounded-uswds-md text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(l,"class","mt-6")},m(e,p){m(e,s,p),u(s,n),m(e,r,p),m(e,o,p),m(e,i,p),m(e,a,p),m(e,d,p),m(e,l,p),u(l,c),f||(x=v(c,"click",t[16]),f=!0)},p:e,d(e){e&&(p(s),p(r),p(o),p(i),p(a),p(d),p(l)),f=!1,x()}}}function mn(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C,_,M,L,S=e[2].entries.length+"",z=e[6].length+"",A=e[2].entries.filter(fn).length+"";return{c(){t=g("div"),s=g("div"),n=g("div"),r=g("div"),o=x(S),i=h(),a=g("div"),a.textContent="Total Artists",d=h(),l=g("div"),c=g("div"),f=x(z),w=h(),b=g("div"),b.textContent="Unique Tags",v=h(),y=g("div"),C=g("div"),_=x(A),M=h(),L=g("div"),L.textContent="With Notes",k(r,"class","text-uswds-2xl font-bold text-uswds-base-darker"),k(a,"class","text-uswds-sm text-uswds-base-darker"),k(n,"class","text-center"),k(c,"class","text-uswds-2xl font-bold text-uswds-base-darker"),k(b,"class","text-uswds-sm text-uswds-base-darker"),k(l,"class","text-center"),k(C,"class","text-uswds-2xl font-bold text-uswds-base-darker"),k(L,"class","text-uswds-sm text-uswds-base-darker"),k(y,"class","text-center"),k(s,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-3"),k(t,"class","mt-6 bg-uswds-base-lightest rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(n,r),u(r,o),u(n,i),u(n,a),u(s,d),u(s,l),u(l,c),u(c,f),u(l,w),u(l,b),u(s,v),u(s,y),u(y,C),u(C,_),u(y,M),u(y,L)},p(e,t){4&t&&S!==(S=e[2].entries.length+"")&&$(o,S),64&t&&z!==(z=e[6].length+"")&&$(f,z),4&t&&A!==(A=e[2].entries.filter(fn).length+"")&&$(_,A)},d(e){e&&p(t)}}}function pn(e){let t,s,r,o,i,a,d,l,c,w,x,b,y,C,$,M,S,z,A,T,B,j,H,P,E,F,I,D,R,O,V,q,U=e[3]&&Xs(e),J=Z(e[6]),K=[];for(let t=0;t<J.length;t+=1)K[t]=en(Ks(e,J,t));let X=e[4].size>0&&tn(e);const ee=[on,rn,nn,sn],te=[];function se(e,t){return e[2].isLoading?0:e[2].error?1:0===e[5].length?2:3}I=se(e),D=te[I]=ee[I](e);let ne=e[2].entries.length>0&&mn(e);return{c(){t=g("div"),s=g("div"),r=g("div"),o=g("div"),o.innerHTML='<h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Do-Not-Play List</h2> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Manage artists you want to avoid across your streaming services.</p>',i=h(),a=g("button"),a.innerHTML='<svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>\n        Add Artist',d=h(),U&&U.c(),l=h(),c=g("div"),w=g("div"),x=g("div"),b=g("label"),b.textContent="Search artists",y=h(),C=g("div"),$=g("div"),$.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>',M=h(),S=g("input"),z=h(),A=g("div"),T=g("label"),T.textContent="Filter by tag",B=h(),j=g("select"),H=g("option"),H.textContent="All tags";for(let e=0;e<K.length;e+=1)K[e].c();P=h(),X&&X.c(),E=h(),F=g("div"),D.c(),R=h(),ne&&ne.c(),k(a,"class","flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(r,"class","flex justify-between items-center"),k(s,"class","mb-6"),k(b,"for","search"),k(b,"class","sr-only"),k($,"class","absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"),k(S,"id","search"),k(S,"type","text"),k(S,"placeholder","Search artists, tags, or notes..."),k(S,"class","block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-uswds-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(C,"class","relative"),k(x,"class","flex-1"),k(T,"for","tag-filter"),k(T,"class","sr-only"),H.__value="",_(H,H.__value),k(j,"id","tag-filter"),k(j,"class","block w-full pl-3 pr-10 py-2 text-uswds-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm rounded-uswds-md"),void 0===e[1]&&N(()=>e[14].call(j)),k(A,"class","sm:w-48"),k(w,"class","flex flex-col sm:flex-row gap-uswds-4"),k(c,"class","mb-6 bg-white shadow rounded-uswds-lg p-uswds-4"),k(F,"class","bg-white shadow overflow-hidden sm:rounded-uswds-md"),k(t,"class","px-4 py-6 sm:px-0")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(r,o),u(r,i),u(r,a),u(t,d),U&&U.m(t,null),u(t,l),u(t,c),u(c,w),u(w,x),u(x,b),u(x,y),u(x,C),u(C,$),u(C,M),u(C,S),_(S,e[0]),u(w,z),u(w,A),u(A,T),u(A,B),u(A,j),u(j,H);for(let e=0;e<K.length;e+=1)K[e]&&K[e].m(j,null);L(j,e[1],!0),u(t,P),X&&X.m(t,null),u(t,E),u(t,F),te[I].m(F,null),u(t,R),ne&&ne.m(t,null),O=!0,V||(q=[v(a,"click",e[12]),v(S,"input",e[13]),v(j,"change",e[14])],V=!0)},p(e,[s]){if(e[3]?U?(U.p(e,s),8&s&&Q(U,1)):(U=Xs(e),U.c(),Q(U,1),U.m(t,l)):U&&(Y(),W(U,1,1,()=>{U=null}),G()),1&s&&S.value!==e[0]&&_(S,e[0]),64&s){let t;for(J=Z(e[6]),t=0;t<J.length;t+=1){const n=Ks(e,J,t);K[t]?K[t].p(n,s):(K[t]=en(n),K[t].c(),K[t].m(j,null))}for(;t<K.length;t+=1)K[t].d(1);K.length=J.length}66&s&&L(j,e[1]),e[4].size>0?X?(X.p(e,s),16&s&&Q(X,1)):(X=tn(e),X.c(),Q(X,1),X.m(t,E)):X&&(Y(),W(X,1,1,()=>{X=null}),G());let n=I;I=se(e),I===n?te[I].p(e,s):(Y(),W(te[n],1,1,()=>{te[n]=null}),G(),D=te[I],D?D.p(e,s):(D=te[I]=ee[I](e),D.c()),Q(D,1),D.m(F,null)),e[2].entries.length>0?ne?ne.p(e,s):(ne=mn(e),ne.c(),ne.m(t,null)):ne&&(ne.d(1),ne=null)},i(e){O||(Q(U),Q(X),Q(D),O=!0)},o(e){W(U),W(X),W(D),O=!1},d(e){e&&p(t),U&&U.d(),f(K,e),X&&X.d(),te[I].d(),ne&&ne.d(),V=!1,n(q)}}}const fn=e=>e.note;function gn(e,t,s){let n,r,o;c(e,It,e=>s(2,r=e)),c(e,Nt,e=>s(6,o=e));let i="",a="",d=!1,l=new Set;function u(e){l.has(e)?l.delete(e):l.add(e),s(4,l)}function m(){l.clear(),s(4,l)}return e.$$.update=()=>{7&e.$$.dirty&&s(5,n=r.entries.filter(e=>{const t=!i||e.artist.canonical_name.toLowerCase().includes(i.toLowerCase())||e.tags.some(e=>e.toLowerCase().includes(i.toLowerCase()))||e.note&&e.note.toLowerCase().includes(i.toLowerCase()),s=!a||e.tags.includes(a);return t&&s}))},[i,a,r,d,l,n,o,function(){l.size===n.length?l.clear():s(4,l=new Set(n.map(e=>e.artist.id))),s(4,l)},u,m,async function(){if(0!==l.size&&confirm(`Are you sure you want to remove ${l.size} artist(s) from your DNP list?`)){const e=Array.from(l).map(e=>Rt.removeArtist(e));await Promise.all(e),m()}},function(){s(3,d=!1)},()=>s(3,d=!d),function(){i=this.value,s(0,i)},function(){a=S(this),s(1,a)},()=>Rt.fetchDnpList(),()=>s(3,d=!0),()=>{s(0,i=""),s(1,a="")},e=>u(e.artist.id)]}class wn extends oe{constructor(e){super(),re(this,e,gn,pn,o,{})}}const xn={aggressiveness:"moderate",blockCollabs:!0,blockFeaturing:!0,blockSongwriterOnly:!1},hn=ae({currentPlan:null,isPlanning:!1,isExecuting:!1,currentBatch:null,actionHistory:[],options:xn,error:null}),bn=de(hn,e=>null!==e.currentPlan),vn=de(hn,e=>{if(!e.currentBatch)return null;const{totalItems:t,completedItems:s,failedItems:n,skippedItems:r}=e.currentBatch.summary,o=s+n+r;return{total:t,processed:o,completed:s,failed:n,skipped:r,percentage:t>0?Math.round(o/t*100):0}}),yn=de(hn,e=>e.actionHistory.some(e=>"completed"===e.status&&e.items.some(e=>"completed"===e.status))),kn={updateOptions:e=>{hn.update(t=>({...t,options:{...t.options,...e}}))},createPlan:async(e,t=!0)=>{let s=xn;hn.update(e=>(s=e.options,{...e,isPlanning:!0,error:null}));try{const n=localStorage.getItem("auth_token"),r=await fetch("http://localhost:3000/api/v1/spotify/library/plan",{method:"POST",headers:{Authorization:`Bearer ${n}`,"Content-Type":"application/json"},body:JSON.stringify({providers:e,options:s,dryRun:t})}),o=await r.json();return o.success?(hn.update(e=>({...e,currentPlan:o.data,isPlanning:!1})),{success:!0,data:o.data}):(hn.update(e=>({...e,error:o.message,isPlanning:!1})),{success:!1,message:o.message})}catch(e){return hn.update(e=>({...e,error:"Failed to create enforcement plan",isPlanning:!1})),{success:!1,message:"Failed to create enforcement plan"}}},executePlan:async e=>{hn.update(e=>({...e,isExecuting:!0,error:null}));try{const t=localStorage.getItem("auth_token"),s=await fetch("http://localhost:3000/api/v1/spotify/enforcement/execute",{method:"POST",headers:{Authorization:`Bearer ${t}`,"Content-Type":"application/json"},body:JSON.stringify({planId:e,dryRun:!1})}),n=await s.json();if(n.success){const e=n.data;return hn.update(t=>({...t,currentBatch:e,isExecuting:!1})),kn.pollProgress(e.id),{success:!0,data:e}}return hn.update(e=>({...e,error:n.message,isExecuting:!1})),{success:!1,message:n.message}}catch(e){return hn.update(e=>({...e,error:"Failed to execute enforcement plan",isExecuting:!1})),{success:!1,message:"Failed to execute enforcement plan"}}},pollProgress:async e=>{const t=setInterval(async()=>{try{const s=localStorage.getItem("auth_token"),n=await fetch(`http://localhost:3000/api/v1/spotify/enforcement/progress/${e}`,{headers:{Authorization:`Bearer ${s}`}}),r=await n.json();if(r.success){const e=r.data;hn.update(t=>({...t,currentBatch:e})),"completed"!==e.status&&"failed"!==e.status&&"cancelled"!==e.status||(clearInterval(t),hn.update(t=>({...t,actionHistory:[e,...t.actionHistory],currentBatch:null,currentPlan:null})))}}catch(e){console.error("Failed to poll progress:",e)}},2e3)},rollbackBatch:async e=>{try{const t=localStorage.getItem("auth_token"),s=await fetch("http://localhost:3000/api/v1/spotify/enforcement/rollback",{method:"POST",headers:{Authorization:`Bearer ${t}`,"Content-Type":"application/json"},body:JSON.stringify({batchId:e})}),n=await s.json();return n.success?(await kn.fetchActionHistory(),{success:!0}):{success:!1,message:n.message}}catch(e){return{success:!1,message:"Failed to rollback actions"}}},fetchActionHistory:async()=>{try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/spotify/enforcement/history",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();s.success&&hn.update(e=>({...e,actionHistory:s.data}))}catch(e){console.error("Failed to fetch action history:",e)}},clearPlan:()=>{hn.update(e=>({...e,currentPlan:null,error:null}))},clearError:()=>{hn.update(e=>({...e,error:null}))}};function Cn(e){let t;return{c(){t=g("div"),t.innerHTML='<div class="flex"><div class=""><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-yellow-800">Aggressive Settings Warning</h3> <div class="mt-2 text-uswds-sm text-yellow-700"><p>These settings may remove a significant amount of content from your library. \n              We recommend reviewing the enforcement preview carefully before executing.</p></div></div></div>',k(t,"class","bg-yellow-50 border border-yellow-200 rounded-uswds-md p-uswds-4")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function $n(t){let s,r,o,i,a,d,l,c,f,w,x,b,y,C,$,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe,he,be=("aggressive"===t[0].aggressiveness||t[0].blockSongwriterOnly)&&Cn();return{c(){s=g("div"),r=g("div"),o=g("h4"),o.textContent="Enforcement Aggressiveness",i=h(),a=g("p"),a.textContent="Choose how thoroughly to apply your blocklist across your music library.",d=h(),l=g("fieldset"),c=g("legend"),c.textContent="Aggressiveness level",f=h(),w=g("div"),x=g("div"),b=g("input"),C=h(),$=g("label"),$.textContent="Conservative",_=h(),M=g("div"),M.textContent="Only remove explicitly saved/liked content. Preserves playlists and recommendations.",L=h(),S=g("div"),z=g("input"),T=h(),B=g("label"),B.textContent="Moderate (Recommended)",j=h(),H=g("div"),H.textContent="Remove from saved content and playlists. Filters recommendations where possible.",P=h(),E=g("div"),F=g("input"),D=h(),N=g("label"),N.textContent="Aggressive",R=h(),O=g("div"),O.textContent="Maximum removal including radio seeds, recommendations, and related content.",V=h(),q=g("div"),U=g("h4"),U.textContent="Collaboration Handling",J=h(),Y=g("p"),Y.textContent="Configure how to handle songs where blocked artists appear as collaborators or featured artists.",G=h(),Q=g("div"),W=g("div"),Z=g("div"),K=g("input"),ee=h(),te=g("div"),te.innerHTML='<label for="block-collabs" class="font-medium text-uswds-base-darker">Block collaborations</label> <p class="text-uswds-base-darker">Remove songs where blocked artists are listed as collaborators or co-writers.</p>',se=h(),ne=g("div"),re=g("div"),oe=g("input"),ae=h(),de=g("div"),de.innerHTML='<label for="block-featuring" class="font-medium text-uswds-base-darker">Block featuring</label> <p class="text-uswds-base-darker">Remove songs where blocked artists are featured (e.g., &quot;Song Title (feat. Blocked Artist)&quot;).</p>',le=h(),ce=g("div"),ue=g("div"),me=g("input"),fe=h(),ge=g("div"),ge.innerHTML='<label for="block-songwriter-only" class="font-medium text-uswds-base-darker">Block songwriter credits only</label> <p class="text-uswds-base-darker">Remove songs where blocked artists are credited only as songwriters (most restrictive).</p>',we=h(),be&&be.c(),k(o,"class","text-uswds-base font-medium text-uswds-base-darker"),k(a,"class","text-uswds-sm leading-5 text-uswds-base-darker"),k(c,"class","sr-only"),k(b,"id","conservative"),k(b,"name","aggressiveness"),k(b,"type","radio"),b.checked=y="conservative"===t[0].aggressiveness,k(b,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300"),k($,"for","conservative"),k($,"class","ml-3 block text-uswds-sm font-medium text-uswds-base-darker"),k(x,"class","flex items-center"),k(M,"class","ml-7 text-uswds-sm text-uswds-base-darker"),k(z,"id","moderate"),k(z,"name","aggressiveness"),k(z,"type","radio"),z.checked=A="moderate"===t[0].aggressiveness,k(z,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"),k(B,"for","moderate"),k(B,"class","ml-3 block text-uswds-sm font-medium text-uswds-base-darker"),k(S,"class","flex items-center"),k(H,"class","ml-7 text-uswds-sm text-uswds-base-darker"),k(F,"id","aggressive"),k(F,"name","aggressiveness"),k(F,"type","radio"),F.checked=I="aggressive"===t[0].aggressiveness,k(F,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"),k(N,"for","aggressive"),k(N,"class","ml-3 block text-uswds-sm font-medium text-uswds-base-darker"),k(E,"class","flex items-center"),k(O,"class","ml-7 text-uswds-sm text-uswds-base-darker"),k(w,"class","space-y-4"),k(l,"class","mt-4"),k(U,"class","text-uswds-base font-medium text-uswds-base-darker"),k(Y,"class","text-uswds-sm leading-5 text-uswds-base-darker"),k(K,"id","block-collabs"),k(K,"type","checkbox"),K.checked=X=t[0].blockCollabs,k(K,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300 rounded"),k(Z,"class","flex items-center icon icon-md"),k(te,"class","ml-3 text-uswds-sm"),k(W,"class","flex items-start"),k(oe,"id","block-featuring"),k(oe,"type","checkbox"),oe.checked=ie=t[0].blockFeaturing,k(oe,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300 rounded"),k(re,"class","flex items-center h-5"),k(de,"class","ml-3 text-uswds-sm"),k(ne,"class","flex items-start"),k(me,"id","block-songwriter-only"),k(me,"type","checkbox"),me.checked=pe=t[0].blockSongwriterOnly,k(me,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300 rounded"),k(ue,"class","flex items-center h-5"),k(ge,"class","ml-3 text-uswds-sm"),k(ce,"class","flex items-start"),k(Q,"class","mt-4 space-y-4"),k(s,"class","space-y-6")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(r,i),u(r,a),u(r,d),u(r,l),u(l,c),u(l,f),u(l,w),u(w,x),u(x,b),u(x,C),u(x,$),u(w,_),u(w,M),u(w,L),u(w,S),u(S,z),u(S,T),u(S,B),u(w,j),u(w,H),u(w,P),u(w,E),u(E,F),u(E,D),u(E,N),u(w,R),u(w,O),u(s,V),u(s,q),u(q,U),u(q,J),u(q,Y),u(q,G),u(q,Q),u(Q,W),u(W,Z),u(Z,K),u(W,ee),u(W,te),u(Q,se),u(Q,ne),u(ne,re),u(re,oe),u(ne,ae),u(ne,de),u(Q,le),u(Q,ce),u(ce,ue),u(ue,me),u(ce,fe),u(ce,ge),u(s,we),be&&be.m(s,null),xe||(he=[v(b,"change",t[4]),v(z,"change",t[5]),v(F,"change",t[6]),v(K,"change",t[7]),v(oe,"change",t[8]),v(me,"change",t[9])],xe=!0)},p(e,[t]){1&t&&y!==(y="conservative"===e[0].aggressiveness)&&(b.checked=y),1&t&&A!==(A="moderate"===e[0].aggressiveness)&&(z.checked=A),1&t&&I!==(I="aggressive"===e[0].aggressiveness)&&(F.checked=I),1&t&&X!==(X=e[0].blockCollabs)&&(K.checked=X),1&t&&ie!==(ie=e[0].blockFeaturing)&&(oe.checked=ie),1&t&&pe!==(pe=e[0].blockSongwriterOnly)&&(me.checked=pe),"aggressive"===e[0].aggressiveness||e[0].blockSongwriterOnly?be||(be=Cn(),be.c(),be.m(s,null)):be&&(be.d(1),be=null)},i:e,o:e,d(e){e&&p(s),be&&be.d(),xe=!1,n(he)}}}function _n(e,t,s){let n,r;function o(e){kn.updateOptions({aggressiveness:e})}function i(e){kn.updateOptions({[e]:!n[e]})}c(e,hn,e=>s(3,r=e));return e.$$.update=()=>{8&e.$$.dirty&&s(0,n=r.options)},[n,o,i,r,()=>o("conservative"),()=>o("moderate"),()=>o("aggressive"),()=>i("blockCollabs"),()=>i("blockFeaturing"),()=>i("blockSongwriterOnly")]}class Mn extends oe{constructor(e){super(),re(this,e,_n,$n,o,{})}}function Ln(e,t,s){const n=e.slice();return n[2]=t[s][0],n[3]=t[s][1],n}function Sn(e,t,s){const n=e.slice();return n[6]=t[s][0],n[7]=t[s][1],n}function zn(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg> <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No enforcement plan</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Create a plan to see the preview.</p>',k(s,"class","text-center py-6")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function An(e){let t,s,n,r,o,i,a,d,l,c,w,b,v,y,C,_,M,L,S,z,A=On(e[0].estimatedDuration)+"",T=e[0].planId.slice(0,8)+"",B=e[0].resumable&&Tn(),j=Z(Object.entries(e[0].impact)),H=[];for(let t=0;t<j.length;t+=1)H[t]=Nn(Ln(e,j,t));return{c(){t=g("div"),s=g("div"),n=g("div"),r=g("div"),o=g("h4"),o.textContent="Plan Summary",i=h(),a=g("p"),d=x("Estimated duration: "),l=x(A),c=h(),B&&B.c(),w=h(),b=g("div"),v=g("div"),v.textContent="Plan ID",y=h(),C=g("div"),_=x(T),M=x("..."),L=h();for(let e=0;e<H.length;e+=1)H[e].c();S=h(),z=g("div"),z.innerHTML='<div class="flex"><div class="flex-shrink-0"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-blue-50">Before You Execute</h3> <div class="mt-2 text-uswds-sm text-uswds-blue-50"><ul class="list-disc list-inside space-y-1"><li>This is a preview - no changes have been made yet</li> <li>Execution will modify your actual music library</li> <li>Some actions may not be reversible depending on platform limitations</li> <li>The process can be interrupted and resumed if needed</li></ul></div></div></div>',k(o,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(a,"class","text-uswds-sm text-uswds-base-darker"),k(v,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(C,"class","text-uswds-xs text-uswds-base-darker font-mono"),k(b,"class","text-right"),k(n,"class","flex items-center justify-between"),k(s,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-4"),k(z,"class","bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4"),k(t,"class","space-y-6")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(n,r),u(r,o),u(r,i),u(r,a),u(a,d),u(a,l),u(a,c),B&&B.m(a,null),u(n,w),u(n,b),u(b,v),u(b,y),u(b,C),u(C,_),u(C,M),u(t,L);for(let e=0;e<H.length;e+=1)H[e]&&H[e].m(t,null);u(t,S),u(t,z)},p(e,s){if(1&s&&A!==(A=On(e[0].estimatedDuration)+"")&&$(l,A),e[0].resumable?B||(B=Tn(),B.c(),B.m(a,null)):B&&(B.d(1),B=null),1&s&&T!==(T=e[0].planId.slice(0,8)+"")&&$(_,T),1&s){let n;for(j=Z(Object.entries(e[0].impact)),n=0;n<j.length;n+=1){const r=Ln(e,j,n);H[n]?H[n].p(r,s):(H[n]=Nn(r),H[n].c(),H[n].m(t,S))}for(;n<H.length;n+=1)H[n].d(1);H.length=j.length}},d(e){e&&p(t),B&&B.d(),f(H,e)}}}function Tn(e){let t;return{c(){t=x("• Resumable if interrupted")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Bn(e){let t,s,n,r,o,i,a,d,l,c,f=e[3].likedSongs.toRemove+"",w=e[3].likedSongs.collabsFound>0&&jn(e);return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-red-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>',r=h(),o=g("div"),i=g("p"),i.textContent="Liked Songs",a=h(),d=g("p"),l=x(f),c=x(" to remove\n                    "),w&&w.c(),k(n,"class","flex-shrink-0"),k(i,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(d,"class","text-uswds-sm text-uswds-base-darker"),k(o,"class","ml-3"),k(s,"class","flex items-center"),k(t,"class","bg-white border border-gray-200 rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c),w&&w.m(d,null)},p(e,t){1&t&&f!==(f=e[3].likedSongs.toRemove+"")&&$(l,f),e[3].likedSongs.collabsFound>0?w?w.p(e,t):(w=jn(e),w.c(),w.m(d,null)):w&&(w.d(1),w=null)},d(e){e&&p(t),w&&w.d()}}}function jn(e){let t,s,n,r,o,i=e[3].likedSongs.collabsFound+"";return{c(){t=g("br"),s=g("span"),n=x("("),r=x(i),o=x(" collaborations)"),k(s,"class","text-uswds-xs")},m(e,i){m(e,t,i),m(e,s,i),u(s,n),u(s,r),u(s,o)},p(e,t){1&t&&i!==(i=e[3].likedSongs.collabsFound+"")&&$(r,i)},d(e){e&&(p(t),p(s))}}}function Hn(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C=e[3].playlists.toScrub+"",_=e[3].playlists.tracksToRemove+"",M=e[3].playlists.featuringFound>0&&Pn(e);return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-blue-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path></svg>',r=h(),o=g("div"),i=g("p"),i.textContent="Playlists",a=h(),d=g("p"),l=x(C),c=x(" playlists affected\n                    "),f=g("br"),w=g("span"),b=x(_),v=x(" tracks to remove"),y=h(),M&&M.c(),k(n,"class","flex-shrink-0"),k(i,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(w,"class","text-uswds-xs"),k(d,"class","text-uswds-sm text-uswds-base-darker"),k(o,"class","ml-3"),k(s,"class","flex items-center"),k(t,"class","bg-white border border-gray-200 rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c),u(d,f),u(d,w),u(w,b),u(w,v),u(d,y),M&&M.m(d,null)},p(e,t){1&t&&C!==(C=e[3].playlists.toScrub+"")&&$(l,C),1&t&&_!==(_=e[3].playlists.tracksToRemove+"")&&$(b,_),e[3].playlists.featuringFound>0?M?M.p(e,t):(M=Pn(e),M.c(),M.m(d,null)):M&&(M.d(1),M=null)},d(e){e&&p(t),M&&M.d()}}}function Pn(e){let t,s,n,r,o,i=e[3].playlists.featuringFound+"";return{c(){t=g("br"),s=g("span"),n=x("("),r=x(i),o=x(" featuring)"),k(s,"class","text-uswds-xs")},m(e,i){m(e,t,i),m(e,s,i),u(s,n),u(s,r),u(s,o)},p(e,t){1&t&&i!==(i=e[3].playlists.featuringFound+"")&&$(r,i)},d(e){e&&(p(t),p(s))}}}function En(e){let t,s,n,r,o,i,a,d,l,c,f=e[3].following.toUnfollow+"";return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',r=h(),o=g("div"),i=g("p"),i.textContent="Following",a=h(),d=g("p"),l=x(f),c=x(" to unfollow"),k(n,"class","flex-shrink-0"),k(i,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(d,"class","text-uswds-sm text-uswds-base-darker"),k(o,"class","ml-3"),k(s,"class","flex items-center"),k(t,"class","bg-white border border-gray-200 rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c)},p(e,t){1&t&&f!==(f=e[3].following.toUnfollow+"")&&$(l,f)},d(e){e&&p(t)}}}function Fn(e){let t,s,n,r,o,i,a,d,l,c,f=e[3].radioSeeds.toFilter+"";return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m-9 0h10m-10 0a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2M7 4h10"></path></svg>',r=h(),o=g("div"),i=g("p"),i.textContent="Radio Seeds",a=h(),d=g("p"),l=x(f),c=x(" to filter"),k(n,"class","flex-shrink-0"),k(i,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(d,"class","text-uswds-sm text-uswds-base-darker"),k(o,"class","ml-3"),k(s,"class","flex items-center"),k(t,"class","bg-white border border-gray-200 rounded-uswds-lg p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c)},p(e,t){1&t&&f!==(f=e[3].radioSeeds.toFilter+"")&&$(l,f)},d(e){e&&p(t)}}}function In(e){let t,s,n,r,o=Z(Object.entries(e[0].capabilities[e[2]])),i=[];for(let t=0;t<o.length;t+=1)i[t]=Dn(Sn(e,o,t));return{c(){t=g("div"),s=g("h5"),s.textContent="Platform Capabilities",n=h(),r=g("div");for(let e=0;e<i.length;e+=1)i[e].c();k(s,"class","text-uswds-sm font-medium text-uswds-base-darker mb-2"),k(r,"class","flex flex-wrap gap-uswds-2"),k(t,"class","mt-4 pt-4 border-t border-gray-200")},m(e,o){m(e,t,o),u(t,s),u(t,n),u(t,r);for(let e=0;e<i.length;e+=1)i[e]&&i[e].m(r,null)},p(e,t){if(1&t){let s;for(o=Z(Object.entries(e[0].capabilities[e[2]])),s=0;s<o.length;s+=1){const n=Sn(e,o,s);i[s]?i[s].p(n,t):(i[s]=Dn(n),i[s].c(),i[s].m(r,null))}for(;s<i.length;s+=1)i[s].d(1);i.length=o.length}},d(e){e&&p(t),f(i,e)}}}function Dn(e){let t,s,n,r,o=e[6].replace(/_/g," ").toLowerCase()+"";return{c(){t=g("span"),s=x(o),n=h(),k(t,"class",r="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+qn(e[7]))},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,n){1&n&&o!==(o=e[6].replace(/_/g," ").toLowerCase()+"")&&$(s,o),1&n&&r!==(r="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+qn(e[7]))&&k(t,"class",r)},d(e){e&&p(t)}}}function Nn(e){let t,s,n,r,o,i,a,d,l,c,f,b,v,y,C,_,M,L,S,z,A,T,B=e[2]+"",j=e[2]+"",H=e[3].likedSongs&&Bn(e),P=e[3].playlists&&Hn(e),E=e[3].following&&En(e),F=e[3].radioSeeds&&Fn(e),I=e[0].capabilities[e[2]]&&In(e);return{c(){t=g("div"),s=g("div"),n=g("div"),r=w("svg"),o=w("path"),a=h(),d=g("div"),l=g("h4"),c=x(B),f=h(),b=g("p"),v=x("Impact preview for your "),y=x(j),C=x(" library"),_=h(),M=g("div"),H&&H.c(),L=h(),P&&P.c(),S=h(),E&&E.c(),z=h(),F&&F.c(),A=h(),I&&I.c(),T=h(),k(o,"d",i=Vn(e[2])),k(r,"aria-hidden","true"),k(r,"class","icon-uswds icon-uswds--lg text-uswds-green-50"),k(r,"fill","currentColor"),k(r,"viewBox","0 0 24 24"),k(n,"class",""),k(l,"class","text-uswds-lg font-medium text-uswds-base-darker capitalize"),k(b,"class","text-uswds-sm text-uswds-base-darker"),k(d,"class","ml-3"),k(s,"class","flex items-center mb-4"),k(M,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-2 lg:grid-cols-4"),k(t,"class","border border-gray-200 rounded-uswds-lg p-uswds-6")},m(e,i){m(e,t,i),u(t,s),u(s,n),u(n,r),u(r,o),u(s,a),u(s,d),u(d,l),u(l,c),u(d,f),u(d,b),u(b,v),u(b,y),u(b,C),u(t,_),u(t,M),H&&H.m(M,null),u(M,L),P&&P.m(M,null),u(M,S),E&&E.m(M,null),u(M,z),F&&F.m(M,null),u(t,A),I&&I.m(t,null),u(t,T)},p(e,s){1&s&&i!==(i=Vn(e[2]))&&k(o,"d",i),1&s&&B!==(B=e[2]+"")&&$(c,B),1&s&&j!==(j=e[2]+"")&&$(y,j),e[3].likedSongs?H?H.p(e,s):(H=Bn(e),H.c(),H.m(M,L)):H&&(H.d(1),H=null),e[3].playlists?P?P.p(e,s):(P=Hn(e),P.c(),P.m(M,S)):P&&(P.d(1),P=null),e[3].following?E?E.p(e,s):(E=En(e),E.c(),E.m(M,z)):E&&(E.d(1),E=null),e[3].radioSeeds?F?F.p(e,s):(F=Fn(e),F.c(),F.m(M,null)):F&&(F.d(1),F=null),e[0].capabilities[e[2]]?I?I.p(e,s):(I=In(e),I.c(),I.m(t,T)):I&&(I.d(1),I=null)},d(e){e&&p(t),H&&H.d(),P&&P.d(),E&&E.d(),F&&F.d(),I&&I.d()}}}function Rn(t){let s;function n(e,t){return e[0]?An:zn}let r=n(t),o=r(t);return{c(){o.c(),s=b()},m(e,t){o.m(e,t),m(e,s,t)},p(e,[t]){r===(r=n(e))&&o?o.p(e,t):(o.d(1),o=r(e),o&&(o.c(),o.m(s.parentNode,s)))},i:e,o:e,d(e){e&&p(s),o.d(e)}}}function On(e){const t=parseInt(e.replace("s",""));if(t<60)return`${t} seconds`;return`${Math.floor(t/60)}m ${t%60}s`}function Vn(e){return"spotify"===e?"M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z":"M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"}function qn(e){switch(e){case"SUPPORTED":return"text-green-600 bg-green-100";case"LIMITED":return"text-yellow-600 bg-yellow-100";case"UNSUPPORTED":return"text-red-600 bg-red-100";default:return"text-gray-600 bg-gray-100"}}function Un(e,t,s){let n,r;return c(e,hn,e=>s(1,r=e)),e.$$.update=()=>{2&e.$$.dirty&&s(0,n=r.currentPlan)},[n,r]}class Jn extends oe{constructor(e){super(),re(this,e,Un,Rn,o,{})}}function Yn(e,t,s){const n=e.slice();return n[7]=t[s],n}function Gn(e){let t,s,n,r,o,i,a,d,l,c,f,x,b,y,C,$;function _(e,t){return e[0].isExecuting?Kn:Zn}let M=_(e),L=M(e);return{c(){t=g("div"),s=g("div"),n=w("svg"),r=w("path"),o=h(),i=g("h3"),i.textContent="Ready to Execute",a=h(),d=g("p"),d.textContent="Your enforcement plan is ready. Click execute to apply changes to your music library.",l=h(),c=g("div"),f=g("button"),L.c(),b=h(),y=g("div"),y.innerHTML="<p>⚠️ This action will modify your music library</p> <p>Some changes may not be reversible</p>",k(r,"stroke-linecap","round"),k(r,"stroke-linejoin","round"),k(r,"stroke-width","2"),k(r,"d","M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),k(n,"aria-hidden","true"),k(n,"class","mx-auto icon-uswds icon-uswds--xl text-indigo-400"),k(n,"fill","none"),k(n,"viewBox","0 0 24 24"),k(n,"stroke","currentColor"),k(i,"class","mt-2 text-uswds-lg font-medium text-uswds-base-darker"),k(d,"class","mt-1 text-uswds-sm text-uswds-base-darker"),f.disabled=x=e[0].isExecuting,k(f,"class","inline-flex items-center px-6 py-3 border border-transparent text-uswds-base font-medium rounded-uswds-md shadow-sm text-white bg-error hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"),k(c,"class","mt-6"),k(y,"class","mt-4 text-uswds-xs text-uswds-base-darker"),k(s,"class","text-center"),k(t,"class","bg-white shadow rounded-uswds-lg p-uswds-6")},m(p,g){m(p,t,g),u(t,s),u(s,n),u(n,r),u(s,o),u(s,i),u(s,a),u(s,d),u(s,l),u(s,c),u(c,f),L.m(f,null),u(s,b),u(s,y),C||($=v(f,"click",e[4]),C=!0)},p(e,t){M!==(M=_(e))&&(L.d(1),L=M(e),L&&(L.c(),L.m(f,null))),1&t&&x!==(x=e[0].isExecuting)&&(f.disabled=x)},d(e){e&&p(t),L.d(),C=!1,$()}}}function Qn(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W=e[3].id.slice(0,8)+"",Z=e[3].status+"",K=e[3].summary.totalItems+"",X=e[3].summary.completedItems+"",ee=e[3].summary.failedItems+"",te=e[3].summary.skippedItems+"",se=e[2]&&Xn(e),ne=e[3].items.length>0&&er(e);return{c(){t=g("div"),s=g("div"),n=g("div"),r=g("h3"),r.textContent="Enforcement Execution",o=h(),i=g("p"),a=x("Batch ID: "),d=g("span"),l=x(W),c=x("..."),f=h(),w=g("span"),b=x(Z),y=h(),se&&se.c(),C=h(),_=g("div"),M=g("div"),L=g("div"),S=x(K),z=h(),A=g("div"),A.textContent="Total Items",T=h(),B=g("div"),j=g("div"),H=x(X),P=h(),E=g("div"),E.textContent="Completed",F=h(),I=g("div"),D=g("div"),N=x(ee),R=h(),O=g("div"),O.textContent="Failed",V=h(),q=g("div"),U=g("div"),J=x(te),Y=h(),G=g("div"),G.textContent="Skipped",Q=h(),ne&&ne.c(),k(r,"class","text-uswds-lg font-medium text-uswds-base-darker"),k(d,"class","font-mono"),k(i,"class","text-uswds-sm text-uswds-base-darker"),k(w,"class",v="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+or(e[3].status)),k(s,"class","flex items-center justify-between mb-4"),k(L,"class","text-uswds-lg font-semibold text-uswds-base-darker"),k(A,"class","text-uswds-xs text-uswds-base-darker"),k(M,"class","bg-uswds-base-lightest rounded-uswds-lg p-uswds-3 text-center"),k(j,"class","text-uswds-lg font-semibold text-uswds-green-50"),k(E,"class","text-uswds-xs text-uswds-base-darker"),k(B,"class","bg-green-50 rounded-uswds-lg p-uswds-3 text-center"),k(D,"class","text-uswds-lg font-semibold text-uswds-red-50"),k(O,"class","text-uswds-xs text-uswds-base-darker"),k(I,"class","bg-red-50 rounded-uswds-lg p-uswds-3 text-center"),k(U,"class","text-uswds-lg font-semibold text-warning"),k(G,"class","text-uswds-xs text-uswds-base-darker"),k(q,"class","bg-yellow-50 rounded-uswds-lg p-uswds-3 text-center"),k(_,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-4 mb-6"),k(t,"class","bg-white shadow rounded-uswds-lg p-uswds-6")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(n,r),u(n,o),u(n,i),u(i,a),u(i,d),u(d,l),u(d,c),u(s,f),u(s,w),u(w,b),u(t,y),se&&se.m(t,null),u(t,C),u(t,_),u(_,M),u(M,L),u(L,S),u(M,z),u(M,A),u(_,T),u(_,B),u(B,j),u(j,H),u(B,P),u(B,E),u(_,F),u(_,I),u(I,D),u(D,N),u(I,R),u(I,O),u(_,V),u(_,q),u(q,U),u(U,J),u(q,Y),u(q,G),u(t,Q),ne&&ne.m(t,null)},p(e,s){8&s&&W!==(W=e[3].id.slice(0,8)+"")&&$(l,W),8&s&&Z!==(Z=e[3].status+"")&&$(b,Z),8&s&&v!==(v="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+or(e[3].status))&&k(w,"class",v),e[2]?se?se.p(e,s):(se=Xn(e),se.c(),se.m(t,C)):se&&(se.d(1),se=null),8&s&&K!==(K=e[3].summary.totalItems+"")&&$(S,K),8&s&&X!==(X=e[3].summary.completedItems+"")&&$(H,X),8&s&&ee!==(ee=e[3].summary.failedItems+"")&&$(N,ee),8&s&&te!==(te=e[3].summary.skippedItems+"")&&$(J,te),e[3].items.length>0?ne?ne.p(e,s):(ne=er(e),ne.c(),ne.m(t,null)):ne&&(ne.d(1),ne=null)},d(e){e&&p(t),se&&se.d(),ne&&ne.d()}}}function Wn(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg> <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No enforcement plan available</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Create a plan first to execute enforcement.</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function Zn(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n              Execute Enforcement Plan"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),k(t,"aria-hidden","true"),k(t,"class","-ml-1 mr-3 icon-uswds icon-uswds--md"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function Kn(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n              Starting Execution..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-white"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function Xn(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C,_,L,S,z,A,T,B,j,H,P,E,F=e[2].processed+"",I=e[2].total+"",D=e[2].percentage+"",N=e[2].completed+"",R=e[2].failed+"",O=e[2].skipped+"";return{c(){t=g("div"),s=g("div"),n=g("span"),n.textContent="Progress",r=h(),o=g("span"),i=x(F),a=x(" / "),d=x(I),l=x(" ("),c=x(D),f=x("%)"),w=h(),b=g("div"),v=g("div"),y=h(),C=g("div"),_=g("span"),L=x(N),S=x(" completed"),z=h(),A=g("span"),T=x(R),B=x(" failed"),j=h(),H=g("span"),P=x(O),E=x(" skipped"),k(s,"class","flex justify-between text-uswds-sm text-uswds-base-darker mb-2"),k(v,"class","bg-primary h-2 rounded-full transition-all duration-300"),M(v,"width",e[2].percentage+"%"),k(b,"class","w-full bg-uswds-base-lightest rounded-full h-2"),k(C,"class","flex justify-between text-uswds-xs text-uswds-base-darker mt-1"),k(t,"class","mb-6")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(o,l),u(o,c),u(o,f),u(t,w),u(t,b),u(b,v),u(t,y),u(t,C),u(C,_),u(_,L),u(_,S),u(C,z),u(C,A),u(A,T),u(A,B),u(C,j),u(C,H),u(H,P),u(H,E)},p(e,t){4&t&&F!==(F=e[2].processed+"")&&$(i,F),4&t&&I!==(I=e[2].total+"")&&$(d,I),4&t&&D!==(D=e[2].percentage+"")&&$(c,D),4&t&&M(v,"width",e[2].percentage+"%"),4&t&&N!==(N=e[2].completed+"")&&$(L,N),4&t&&R!==(R=e[2].failed+"")&&$(T,R),4&t&&O!==(O=e[2].skipped+"")&&$(P,O)},d(e){e&&p(t)}}}function er(e){let t,s,n,r,o=Z(e[3].items.slice(0,10)),i=[];for(let t=0;t<o.length;t+=1)i[t]=sr(Yn(e,o,t));return{c(){t=g("div"),s=g("h4"),s.textContent="Recent Actions",n=h(),r=g("div");for(let e=0;e<i.length;e+=1)i[e].c();k(s,"class","text-uswds-sm font-medium text-uswds-base-darker mb-3"),k(r,"class","space-y-2 max-h-64 overflow-y-auto")},m(e,o){m(e,t,o),u(t,s),u(t,n),u(t,r);for(let e=0;e<i.length;e+=1)i[e]&&i[e].m(r,null)},p(e,t){if(8&t){let s;for(o=Z(e[3].items.slice(0,10)),s=0;s<o.length;s+=1){const n=Yn(e,o,s);i[s]?i[s].p(n,t):(i[s]=sr(n),i[s].c(),i[s].m(r,null))}for(;s<i.length;s+=1)i[s].d(1);i.length=o.length}},d(e){e&&p(t),f(i,e)}}}function tr(e){let t,s,n,r;return{c(){t=g("button"),s=w("svg"),n=w("path"),k(n,"stroke-linecap","round"),k(n,"stroke-linejoin","round"),k(n,"stroke-width","2"),k(n,"d","M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),k(s,"aria-hidden","true"),k(s,"class","icon-uswds icon-uswds--sm"),k(s,"fill","none"),k(s,"viewBox","0 0 24 24"),k(s,"stroke","currentColor"),k(t,"title",r=e[7].errorMessage),k(t,"class","text-uswds-red-50 hover:text-error")},m(e,r){m(e,t,r),u(t,s),u(s,n)},p(e,s){8&s&&r!==(r=e[7].errorMessage)&&k(t,"title",r)},d(e){e&&p(t)}}}function sr(e){let t,s,n,r,o,i,a,d,l,c,f,b,v,y,C,_,M,L,S,z,A,T,B=e[7].action.replace(/_/g," ")+"",j=e[7].entityType+"",H=e[7].entityId.slice(0,20)+"",P=e[7].status+"",E="failed"===e[7].status&&e[7].errorMessage&&tr(e);return{c(){t=g("div"),s=g("div"),n=w("svg"),r=w("path"),i=h(),a=g("div"),d=g("div"),l=x(B),c=h(),f=g("div"),b=x(j),v=x(": "),y=x(H),C=x("..."),_=h(),M=g("div"),L=g("span"),S=x(P),A=h(),E&&E.c(),T=h(),k(r,"stroke-linecap","round"),k(r,"stroke-linejoin","round"),k(r,"stroke-width","2"),k(r,"d",o=ir(e[7].action)),k(n,"aria-hidden","true"),k(n,"class","icon-uswds icon-uswds--sm text-uswds-base-darker"),k(n,"fill","none"),k(n,"viewBox","0 0 24 24"),k(n,"stroke","currentColor"),k(d,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(f,"class","text-uswds-xs text-uswds-base-darker"),k(s,"class","flex items-center space-x-3"),k(L,"class",z="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+or(e[7].status)),k(M,"class","flex items-center space-x-2"),k(t,"class","flex items-center justify-between py-2 px-3 bg-uswds-base-lightest rounded-uswds-md")},m(e,o){m(e,t,o),u(t,s),u(s,n),u(n,r),u(s,i),u(s,a),u(a,d),u(d,l),u(a,c),u(a,f),u(f,b),u(f,v),u(f,y),u(f,C),u(t,_),u(t,M),u(M,L),u(L,S),u(M,A),E&&E.m(M,null),u(t,T)},p(e,t){8&t&&o!==(o=ir(e[7].action))&&k(r,"d",o),8&t&&B!==(B=e[7].action.replace(/_/g," ")+"")&&$(l,B),8&t&&j!==(j=e[7].entityType+"")&&$(b,j),8&t&&H!==(H=e[7].entityId.slice(0,20)+"")&&$(y,H),8&t&&P!==(P=e[7].status+"")&&$(S,P),8&t&&z!==(z="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+or(e[7].status))&&k(L,"class",z),"failed"===e[7].status&&e[7].errorMessage?E?E.p(e,t):(E=tr(e),E.c(),E.m(M,null)):E&&(E.d(1),E=null)},d(e){e&&p(t),E&&E.d()}}}function nr(e){let t,s,n,r,o,i,a,d,l,c,f,w=e[0].error+"";return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("p"),a=x(w),d=h(),l=g("button"),l.textContent="Dismiss",k(n,"class",""),k(i,"class","text-uswds-sm text-uswds-red-50"),k(l,"class","mt-2 text-uswds-sm text-uswds-red-50 hover:text-red-500"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4")},m(p,g){m(p,t,g),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a),u(o,d),u(o,l),c||(f=v(l,"click",e[6]),c=!0)},p(e,t){1&t&&w!==(w=e[0].error+"")&&$(a,w)},d(e){e&&p(t),c=!1,f()}}}function rr(t){let s,n;function r(e,t){return e[1]?e[3]?Qn:Gn:Wn}let o=r(t),i=o(t),a=t[0].error&&nr(t);return{c(){s=g("div"),i.c(),n=h(),a&&a.c(),k(s,"class","space-y-6")},m(e,t){m(e,s,t),i.m(s,null),u(s,n),a&&a.m(s,null)},p(e,[t]){o===(o=r(e))&&i?i.p(e,t):(i.d(1),i=o(e),i&&(i.c(),i.m(s,n))),e[0].error?a?a.p(e,t):(a=nr(e),a.c(),a.m(s,null)):a&&(a.d(1),a=null)},i:e,o:e,d(e){e&&p(s),i.d(),a&&a.d()}}}function or(e){switch(e){case"pending":default:return"text-gray-600 bg-gray-100";case"running":return"text-blue-600 bg-blue-100";case"completed":return"text-green-600 bg-green-100";case"failed":return"text-red-600 bg-red-100";case"cancelled":return"text-yellow-600 bg-yellow-100"}}function ir(e){switch(e){case"remove_liked_song":return"M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z";case"remove_playlist_track":return"M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3";case"unfollow_artist":return"M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z";default:return"M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"}}function ar(e,t,s){let n,r,o,i,a;c(e,vn,e=>s(5,i=e)),c(e,hn,e=>s(0,a=e));return e.$$.update=()=>{1&e.$$.dirty&&s(1,n=a.currentPlan),1&e.$$.dirty&&s(3,r=a.currentBatch),32&e.$$.dirty&&s(2,o=i)},[a,n,o,r,async function(){if(!n)return;confirm("Are you sure you want to execute this enforcement plan? This will modify your music library and some changes may not be reversible.")&&await kn.executePlan(n.planId)},i,()=>kn.clearError()]}class dr extends oe{constructor(e){super(),re(this,e,ar,rr,o,{})}}function lr(e,t,s){const n=e.slice();return n[5]=t[s],n}function cr(e){let t;return{c(){t=g("div"),t.innerHTML='<svg aria-hidden="true" class="inline icon-uswds icon-uswds--sm text-uswds-green-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>\n        Rollback available',k(t,"class","text-uswds-sm text-uswds-base-darker")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function ur(e){let t,s,n=Z(e[0]),r=[];for(let t=0;t<n.length;t+=1)r[t]=hr(lr(e,n,t));return{c(){t=g("div"),s=g("ul");for(let e=0;e<r.length;e+=1)r[e].c();k(s,"class","divide-y divide-gray-200"),k(t,"class","bg-white shadow overflow-hidden sm:rounded-uswds-md")},m(e,n){m(e,t,n),u(t,s);for(let e=0;e<r.length;e+=1)r[e]&&r[e].m(s,null)},p(e,t){if(5&t){let o;for(n=Z(e[0]),o=0;o<n.length;o+=1){const i=lr(e,n,o);r[o]?r[o].p(i,t):(r[o]=hr(i),r[o].c(),r[o].m(s,null))}for(;o<r.length;o+=1)r[o].d(1);r.length=n.length}},d(e){e&&p(t),f(r,e)}}}function mr(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No enforcement history</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Your enforcement executions will appear here after you run them.</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function pr(e){let t,s,n=yr(e[5].completedAt)+"";return{c(){t=x("• Completed "),s=x(n)},m(e,n){m(e,t,n),m(e,s,n)},p(e,t){1&t&&n!==(n=yr(e[5].completedAt)+"")&&$(s,n)},d(e){e&&(p(t),p(s))}}}function fr(e){let t,s,n;function r(){return e[4](e[5])}return{c(){t=g("button"),t.innerHTML='<svg aria-hidden="true" class="-ml-0.5 mr-2 icon-uswds icon-uswds--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path></svg>\n                      Rollback',k(t,"class","inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-uswds-sm leading-4 font-medium rounded-uswds-md text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500")},m(e,o){m(e,t,o),s||(n=v(t,"click",r),s=!0)},p(t,s){e=t},d(e){e&&p(t),s=!1,n()}}}function gr(e){let t;return{c(){t=x(", block collaborations")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function wr(e){let t;return{c(){t=x(", block featuring")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function xr(e){let t;return{c(){t=x(", block songwriter credits")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function hr(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe,he,be,ve,ye,ke,Ce,$e,_e,Me,Le,Se,ze,Ae,Te=e[5].provider+"",Be=e[5].status+"",je=yr(e[5].createdAt)+"",He=e[5].id.slice(0,8)+"",Pe=kr(e[5])+"",Ee=e[5].summary.completedItems+"",Fe=e[5].summary.totalItems+"",Ie=e[5].summary.totalItems+"",De=e[5].summary.completedItems+"",Ne=e[5].summary.failedItems+"",Re=e[5].summary.skippedItems+"",Oe=e[5].options.aggressiveness+"",Ve=e[5].completedAt&&pr(e),qe="completed"===e[5].status&&e[5].summary.completedItems>0&&fr(e),Ue=e[5].options.blockCollabs&&gr(),Je=e[5].options.blockFeaturing&&wr(),Ye=e[5].options.blockSongwriterOnly&&xr();return{c(){t=g("li"),s=g("div"),n=g("div"),r=g("div"),o=g("div"),o.innerHTML='<svg class="icon-uswds icon-uswds--xl icon-uswds--success" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"></path></svg>',i=h(),a=g("div"),d=g("div"),l=g("p"),c=x(Te),f=x(" Enforcement"),w=h(),b=g("span"),v=x(Be),C=h(),_=g("div"),M=g("p"),L=x("Executed "),S=x(je),z=h(),Ve&&Ve.c(),A=h(),T=g("div"),B=x("Batch ID: "),j=g("span"),H=x(He),P=x("..."),E=h(),F=g("div"),I=g("div"),D=g("div"),N=x(Pe),R=x("% success"),O=h(),V=g("div"),q=x(Ee),U=x(" / "),J=x(Fe),Y=x(" items"),G=h(),qe&&qe.c(),Q=h(),W=g("div"),Z=g("div"),K=g("div"),X=g("div"),ee=x(Ie),te=h(),se=g("div"),se.textContent="Total",ne=h(),re=g("div"),oe=g("div"),ie=x(De),ae=h(),de=g("div"),de.textContent="Completed",le=h(),ce=g("div"),ue=g("div"),me=x(Ne),pe=h(),fe=g("div"),fe.textContent="Failed",ge=h(),we=g("div"),xe=g("div"),he=x(Re),be=h(),ve=g("div"),ve.textContent="Skipped",ye=h(),ke=g("div"),Ce=g("div"),$e=g("span"),$e.textContent="Options:",_e=h(),Me=x(Oe),Le=x(" aggressiveness\n                  "),Ue&&Ue.c(),Se=h(),Je&&Je.c(),ze=h(),Ye&&Ye.c(),Ae=h(),k(o,"class",""),k(l,"class","text-uswds-sm font-medium text-uswds-base-darker capitalize"),k(b,"class",y="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+vr(e[5].status)),k(d,"class","flex items-center"),k(_,"class","mt-1 flex items-center text-uswds-sm text-uswds-base-darker"),k(j,"class","font-mono"),k(T,"class","mt-1 text-uswds-xs text-uswds-base-darker"),k(a,"class","ml-4"),k(r,"class","flex items-center"),k(D,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(V,"class","text-uswds-xs text-uswds-base-darker"),k(I,"class","text-right"),k(F,"class","flex items-center space-x-4"),k(n,"class","flex items-center justify-between"),k(X,"class","text-uswds-lg font-semibold text-uswds-base-darker"),k(se,"class","text-uswds-xs text-uswds-base-darker"),k(K,"class","text-center"),k(oe,"class","text-uswds-lg font-semibold text-uswds-green-50"),k(de,"class","text-uswds-xs text-uswds-base-darker"),k(re,"class","text-center"),k(ue,"class","text-uswds-lg font-semibold text-uswds-red-50"),k(fe,"class","text-uswds-xs text-uswds-base-darker"),k(ce,"class","text-center"),k(xe,"class","text-uswds-lg font-semibold text-warning"),k(ve,"class","text-uswds-xs text-uswds-base-darker"),k(we,"class","text-center"),k(Z,"class","grid grid-cols-2 gap-uswds-4 sm:grid-cols-4"),k(W,"class","mt-4"),k($e,"class","font-medium"),k(Ce,"class","text-uswds-xs text-uswds-base-darker"),k(ke,"class","mt-3 pt-3 border-t border-gray-200"),k(s,"class","px-4 py-4 sm:px-6")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(n,r),u(r,o),u(r,i),u(r,a),u(a,d),u(d,l),u(l,c),u(l,f),u(d,w),u(d,b),u(b,v),u(a,C),u(a,_),u(_,M),u(M,L),u(M,S),u(M,z),Ve&&Ve.m(M,null),u(a,A),u(a,T),u(T,B),u(T,j),u(j,H),u(j,P),u(n,E),u(n,F),u(F,I),u(I,D),u(D,N),u(D,R),u(I,O),u(I,V),u(V,q),u(V,U),u(V,J),u(V,Y),u(F,G),qe&&qe.m(F,null),u(s,Q),u(s,W),u(W,Z),u(Z,K),u(K,X),u(X,ee),u(K,te),u(K,se),u(Z,ne),u(Z,re),u(re,oe),u(oe,ie),u(re,ae),u(re,de),u(Z,le),u(Z,ce),u(ce,ue),u(ue,me),u(ce,pe),u(ce,fe),u(Z,ge),u(Z,we),u(we,xe),u(xe,he),u(we,be),u(we,ve),u(s,ye),u(s,ke),u(ke,Ce),u(Ce,$e),u(Ce,_e),u(Ce,Me),u(Ce,Le),Ue&&Ue.m(Ce,null),u(Ce,Se),Je&&Je.m(Ce,null),u(Ce,ze),Ye&&Ye.m(Ce,null),u(t,Ae)},p(e,t){1&t&&Te!==(Te=e[5].provider+"")&&$(c,Te),1&t&&Be!==(Be=e[5].status+"")&&$(v,Be),1&t&&y!==(y="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium "+vr(e[5].status))&&k(b,"class",y),1&t&&je!==(je=yr(e[5].createdAt)+"")&&$(S,je),e[5].completedAt?Ve?Ve.p(e,t):(Ve=pr(e),Ve.c(),Ve.m(M,null)):Ve&&(Ve.d(1),Ve=null),1&t&&He!==(He=e[5].id.slice(0,8)+"")&&$(H,He),1&t&&Pe!==(Pe=kr(e[5])+"")&&$(N,Pe),1&t&&Ee!==(Ee=e[5].summary.completedItems+"")&&$(q,Ee),1&t&&Fe!==(Fe=e[5].summary.totalItems+"")&&$(J,Fe),"completed"===e[5].status&&e[5].summary.completedItems>0?qe?qe.p(e,t):(qe=fr(e),qe.c(),qe.m(F,null)):qe&&(qe.d(1),qe=null),1&t&&Ie!==(Ie=e[5].summary.totalItems+"")&&$(ee,Ie),1&t&&De!==(De=e[5].summary.completedItems+"")&&$(ie,De),1&t&&Ne!==(Ne=e[5].summary.failedItems+"")&&$(me,Ne),1&t&&Re!==(Re=e[5].summary.skippedItems+"")&&$(he,Re),1&t&&Oe!==(Oe=e[5].options.aggressiveness+"")&&$(Me,Oe),e[5].options.blockCollabs?Ue||(Ue=gr(),Ue.c(),Ue.m(Ce,Se)):Ue&&(Ue.d(1),Ue=null),e[5].options.blockFeaturing?Je||(Je=wr(),Je.c(),Je.m(Ce,ze)):Je&&(Je.d(1),Je=null),e[5].options.blockSongwriterOnly?Ye||(Ye=xr(),Ye.c(),Ye.m(Ce,null)):Ye&&(Ye.d(1),Ye=null)},d(e){e&&p(t),Ve&&Ve.d(),qe&&qe.d(),Ue&&Ue.d(),Je&&Je.d(),Ye&&Ye.d()}}}function br(t){let s,n,r,o,i,a,d,l=t[1]&&cr();function c(e,t){return 0===e[0].length?mr:ur}let f=c(t),w=f(t);return{c(){s=g("div"),n=g("div"),r=g("div"),r.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Action History</h3> <p class="text-uswds-sm text-uswds-base-darker">View and manage your past enforcement executions.</p>',o=h(),l&&l.c(),i=h(),w.c(),a=h(),d=g("div"),d.innerHTML='<div class="flex"><div class="flex-shrink-0"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-blue-50">About Rollbacks</h3> <div class="mt-2 text-uswds-sm text-uswds-blue-50"><p>Rollback attempts to undo changes made during enforcement. Success depends on platform capabilities:</p> <ul class="list-disc list-inside mt-1 space-y-1"><li>Re-adding liked songs and follows: Usually successful</li> <li>Re-adding playlist tracks: May not preserve original order</li> <li>Radio seed changes: May not be fully reversible</li></ul></div></div></div>',k(n,"class","flex justify-between items-center"),k(d,"class","bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4"),k(s,"class","space-y-6")},m(e,t){m(e,s,t),u(s,n),u(n,r),u(n,o),l&&l.m(n,null),u(s,i),w.m(s,null),u(s,a),u(s,d)},p(e,[t]){e[1]?l||(l=cr(),l.c(),l.m(n,null)):l&&(l.d(1),l=null),f===(f=c(e))&&w?w.p(e,t):(w.d(1),w=f(e),w&&(w.c(),w.m(s,a)))},i:e,o:e,d(e){e&&p(s),l&&l.d(),w.d()}}}function vr(e){switch(e){case"pending":default:return"text-gray-600 bg-gray-100";case"running":return"text-blue-600 bg-blue-100";case"completed":return"text-green-600 bg-green-100";case"failed":return"text-red-600 bg-red-100";case"cancelled":return"text-yellow-600 bg-yellow-100"}}function yr(e){return new Date(e).toLocaleString()}function kr(e){const t=e.summary.totalItems,s=e.summary.completedItems;return t>0?Math.round(s/t*100):0}function Cr(e,t,s){let n,r,o;async function i(e){if(confirm("Are you sure you want to rollback this batch? This will attempt to undo the changes made during this enforcement.")){const t=await kn.rollbackBatch(e);t.success||alert(`Rollback failed: ${t.message}`)}}c(e,hn,e=>s(3,r=e)),c(e,yn,e=>s(1,o=e));return e.$$.update=()=>{8&e.$$.dirty&&s(0,n=r.actionHistory)},[n,o,i,r,e=>i(e.id)]}class $r extends oe{constructor(e){super(),re(this,e,Cr,br,o,{})}}function _r(e){let t,s,n,r,o,i,a,d,l,c,f,w,x=!e[1]&&Mr(),b=0===e[2]&&Lr();return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("h3"),i.textContent="Setup Required",a=h(),d=g("div"),l=g("p"),l.textContent="Before you can plan enforcement, you need:",c=h(),f=g("ul"),x&&x.c(),w=h(),b&&b.c(),k(n,"class",""),k(i,"class","text-uswds-sm font-medium text-yellow-800"),k(f,"class","list-disc list-inside mt-1 space-y-1"),k(d,"class","mt-2 text-uswds-sm text-yellow-700"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","mb-6 bg-yellow-50 border border-yellow-200 rounded-uswds-md p-uswds-4")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c),u(d,f),x&&x.m(f,null),u(f,w),b&&b.m(f,null)},p(e,t){e[1]?x&&(x.d(1),x=null):x||(x=Mr(),x.c(),x.m(f,w)),0===e[2]?b||(b=Lr(),b.c(),b.m(f,null)):b&&(b.d(1),b=null)},d(e){e&&p(t),x&&x.d(),b&&b.d()}}}function Mr(e){let t;return{c(){t=g("li"),t.textContent="Connect at least one streaming service (Spotify)"},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Lr(e){let t;return{c(){t=g("li"),t.textContent="Add artists to your Do-Not-Play list"},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function Sr(t){let s,n;return s=new $r({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function zr(t){let s,n;return s=new dr({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Ar(e){let t,s,n,r,o,i,a,d,l,c;o=new Mn({});const f=[Br,Tr],w=[];function x(e,t){return e[3]?0:1}a=x(e),d=w[a]=f[a](e);let b=e[4].error&&Pr(e);return{c(){t=g("div"),s=g("div"),n=g("h3"),n.textContent="Enforcement Options",r=h(),ee(o.$$.fragment),i=h(),d.c(),l=h(),b&&b.c(),k(n,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(s,"class","bg-white shadow rounded-uswds-lg p-uswds-6"),k(t,"class","space-y-6")},m(e,d){m(e,t,d),u(t,s),u(s,n),u(s,r),te(o,s,null),u(t,i),w[a].m(t,null),u(t,l),b&&b.m(t,null),c=!0},p(e,s){let n=a;a=x(e),a===n?w[a].p(e,s):(Y(),W(w[n],1,1,()=>{w[n]=null}),G(),d=w[a],d?d.p(e,s):(d=w[a]=f[a](e),d.c()),Q(d,1),d.m(t,l)),e[4].error?b?b.p(e,s):(b=Pr(e),b.c(),b.m(t,null)):b&&(b.d(1),b=null)},i(e){c||(Q(o.$$.fragment,e),Q(d),c=!0)},o(e){W(o.$$.fragment,e),W(d),c=!1},d(e){e&&p(t),se(o),w[a].d(),b&&b.d()}}}function Tr(t){let s,n,r,o,i,a,d,l,c;function f(e,t){return e[4].isPlanning?Hr:jr}let w=f(t),x=w(t);return{c(){s=g("div"),n=g("h3"),n.textContent="Create Enforcement Plan",r=h(),o=g("p"),o.textContent="Generate a dry-run preview to see what changes will be made to your music library.",i=h(),a=g("button"),x.c(),k(n,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(o,"class","text-uswds-sm text-uswds-base-darker mb-4"),a.disabled=d=t[4].isPlanning||!t[1]||0===t[2],k(a,"class","flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"),k(s,"class","bg-white shadow rounded-uswds-lg p-uswds-6")},m(e,d){m(e,s,d),u(s,n),u(s,r),u(s,o),u(s,i),u(s,a),x.m(a,null),l||(c=v(a,"click",t[5]),l=!0)},p(e,t){w!==(w=f(e))&&(x.d(1),x=w(e),x&&(x.c(),x.m(a,null))),22&t&&d!==(d=e[4].isPlanning||!e[1]||0===e[2])&&(a.disabled=d)},i:e,o:e,d(e){e&&p(s),x.d(),l=!1,c()}}}function Br(t){let s,n,r,o,i,a,d,l,c,f;return d=new Jn({}),{c(){s=g("div"),n=g("div"),r=g("h3"),r.textContent="Enforcement Preview",o=h(),i=g("button"),i.textContent="Clear Plan",a=h(),ee(d.$$.fragment),k(r,"class","text-uswds-lg font-medium text-uswds-base-darker"),k(i,"class","text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(n,"class","flex justify-between items-center mb-4"),k(s,"class","bg-white shadow rounded-uswds-lg p-uswds-6")},m(e,p){m(e,s,p),u(s,n),u(n,r),u(n,o),u(n,i),u(s,a),te(d,s,null),l=!0,c||(f=v(i,"click",t[10]),c=!0)},p:e,i(e){l||(Q(d.$$.fragment,e),l=!0)},o(e){W(d.$$.fragment,e),l=!1},d(e){e&&p(s),se(d),c=!1,f()}}}function jr(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n              Create Enforcement Plan"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"),k(t,"aria-hidden","true"),k(t,"class","-ml-1 mr-2 icon-uswds icon-uswds--md"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function Hr(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n              Creating Plan..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function Pr(e){let t,s,n,r,o,i,a,d,l,c,f,w=e[4].error+"";return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path></svg>',r=h(),o=g("div"),i=g("p"),a=x(w),d=h(),l=g("button"),l.textContent="Dismiss",k(n,"class","flex-shrink-0"),k(i,"class","text-uswds-sm text-uswds-red-50"),k(l,"class","mt-2 text-uswds-sm text-uswds-red-50 hover:text-red-500"),k(o,"class","ml-3"),k(s,"class","flex"),k(t,"class","bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4")},m(p,g){m(p,t,g),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a),u(o,d),u(o,l),c||(f=v(l,"click",e[11]),c=!0)},p(e,t){16&t&&w!==(w=e[4].error+"")&&$(a,w)},d(e){e&&p(t),c=!1,f()}}}function Er(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,$,_,M,L,S,z,A,T,B,j,H=(!e[1]||0===e[2])&&_r(e);const P=[Ar,zr,Sr],E=[];function F(e,t){return"plan"===e[0]?0:"execute"===e[0]?1:"history"===e[0]?2:-1}return~(z=F(e))&&(A=E[z]=P[z](e)),{c(){t=g("div"),s=g("div"),s.innerHTML='<h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Enforcement Planning</h2> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Plan and execute blocklist enforcement across your connected streaming services.</p>',r=h(),H&&H.c(),o=h(),i=g("div"),a=g("nav"),d=g("button"),l=x("Plan Enforcement"),f=h(),w=g("button"),b=x("Execute Plan"),$=h(),_=g("button"),M=x("Action History"),S=h(),A&&A.c(),k(s,"class","mb-6"),k(d,"class",c="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("plan"===e[0]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(w,"class",y="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("execute"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),w.disabled=C=!e[3],k(_,"class",L="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("history"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(a,"class","flex space-x-8 px-6"),k(a,"aria-label","Tabs"),k(i,"class","bg-white shadow-sm rounded-uswds-lg mb-6"),k(t,"class","px-4 py-6 sm:px-0")},m(n,c){m(n,t,c),u(t,s),u(t,r),H&&H.m(t,null),u(t,o),u(t,i),u(i,a),u(a,d),u(d,l),u(a,f),u(a,w),u(w,b),u(a,$),u(a,_),u(_,M),u(t,S),~z&&E[z].m(t,null),T=!0,B||(j=[v(d,"click",e[7]),v(w,"click",e[8]),v(_,"click",e[9])],B=!0)},p(e,[s]){e[1]&&0!==e[2]?H&&(H.d(1),H=null):H?H.p(e,s):(H=_r(e),H.c(),H.m(t,o)),(!T||1&s&&c!==(c="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("plan"===e[0]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")))&&k(d,"class",c),(!T||1&s&&y!==(y="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("execute"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")))&&k(w,"class",y),(!T||8&s&&C!==(C=!e[3]))&&(w.disabled=C),(!T||1&s&&L!==(L="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("history"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")))&&k(_,"class",L);let n=z;z=F(e),z===n?~z&&E[z].p(e,s):(A&&(Y(),W(E[n],1,1,()=>{E[n]=null}),G()),~z?(A=E[z],A?A.p(e,s):(A=E[z]=P[z](e),A.c()),Q(A,1),A.m(t,null)):A=null)},i(e){T||(Q(A),T=!0)},o(e){W(A),T=!1},d(e){e&&p(t),H&&H.d(),~z&&E[z].d(),B=!1,n(j)}}}function Fr(e,t,s){let n,r,o,i;c(e,Et,e=>s(1,n=e)),c(e,Dt,e=>s(2,r=e)),c(e,bn,e=>s(3,o=e)),c(e,hn,e=>s(4,i=e));let a="plan";function d(e){s(0,a=e)}B(()=>{kn.fetchActionHistory()});return[a,n,r,o,i,async function(){const e=[];n&&e.push("spotify"),0!==e.length&&await kn.createPlan(e,!0)},d,()=>d("plan"),()=>d("execute"),()=>d("history"),()=>kn.clearPlan(),()=>kn.clearError()]}class Ir extends oe{constructor(e){super(),re(this,e,Fr,Er,o,{})}}const Dr=ae({lists:[],currentList:null,subscriptions:[],subscriptionImpact:null,isLoading:!1,isLoadingList:!1,isLoadingImpact:!1,searchQuery:"",sortBy:"updated_at",sortOrder:"desc",error:null}),Nr=de(Dr,e=>{let t=e.lists;if(e.searchQuery.trim()){const s=e.searchQuery.toLowerCase();t=t.filter(e=>e.name.toLowerCase().includes(s)||e.description.toLowerCase().includes(s)||e.criteria.toLowerCase().includes(s))}return t.sort((t,s)=>{let n=t[e.sortBy],r=s[e.sortBy];"created_at"!==e.sortBy&&"updated_at"!==e.sortBy||(n=new Date(n).getTime(),r=new Date(r).getTime()),"string"==typeof n&&(n=n.toLowerCase(),r=r.toLowerCase());const o=n<r?-1:n>r?1:0;return"asc"===e.sortOrder?o:-o}),t}),Rr=de(Dr,e=>new Set(e.subscriptions.map(e=>e.list_id)));de(Rr,e=>t=>e.has(t));const Or={fetchLists:async()=>{Dr.update(e=>({...e,isLoading:!0,error:null}));try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/community/lists",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();s.success?Dr.update(e=>({...e,lists:s.data,isLoading:!1})):Dr.update(e=>({...e,error:s.message,isLoading:!1}))}catch(e){Dr.update(e=>({...e,error:"Failed to fetch community lists",isLoading:!1}))}},fetchListDetails:async e=>{Dr.update(e=>({...e,isLoadingList:!0,error:null}));try{const t=localStorage.getItem("auth_token"),s=await fetch(`http://localhost:3000/api/v1/community/lists/${e}/artists`,{headers:{Authorization:`Bearer ${t}`}}),n=await s.json();n.success?Dr.update(e=>({...e,currentList:n.data,isLoadingList:!1})):Dr.update(e=>({...e,error:n.message,isLoadingList:!1}))}catch(e){Dr.update(e=>({...e,error:"Failed to fetch list details",isLoadingList:!1}))}},fetchSubscriptions:async()=>{try{const e=localStorage.getItem("auth_token"),t=await fetch("http://localhost:3000/api/v1/community/subscriptions",{headers:{Authorization:`Bearer ${e}`}}),s=await t.json();s.success&&Dr.update(e=>({...e,subscriptions:s.data}))}catch(e){console.error("Failed to fetch subscriptions:",e)}},getSubscriptionImpact:async e=>{Dr.update(e=>({...e,isLoadingImpact:!0,error:null}));try{const t=localStorage.getItem("auth_token"),s=await fetch(`http://localhost:3000/api/v1/community/lists/${e}/impact`,{headers:{Authorization:`Bearer ${t}`}}),n=await s.json();return n.success?(Dr.update(e=>({...e,subscriptionImpact:n.data,isLoadingImpact:!1})),{success:!0,data:n.data}):(Dr.update(e=>({...e,error:n.message,isLoadingImpact:!1})),{success:!1,message:n.message})}catch(e){return Dr.update(e=>({...e,error:"Failed to get subscription impact",isLoadingImpact:!1})),{success:!1,message:"Failed to get subscription impact"}}},subscribe:async(e,t,s=!0)=>{try{const n=localStorage.getItem("auth_token"),r=await fetch(`http://localhost:3000/api/v1/community/lists/${e}/subscribe`,{method:"POST",headers:{Authorization:`Bearer ${n}`,"Content-Type":"application/json"},body:JSON.stringify({version_pinned:t,auto_update:s})}),o=await r.json();return o.success?(await Or.fetchSubscriptions(),{success:!0}):{success:!1,message:o.message}}catch(e){return{success:!1,message:"Failed to subscribe to list"}}},unsubscribe:async e=>{try{const t=localStorage.getItem("auth_token"),s=await fetch(`http://localhost:3000/api/v1/community/lists/${e}/unsubscribe`,{method:"POST",headers:{Authorization:`Bearer ${t}`}}),n=await s.json();return n.success?(await Or.fetchSubscriptions(),{success:!0}):{success:!1,message:n.message}}catch(e){return{success:!1,message:"Failed to unsubscribe from list"}}},updateSubscription:async(e,t,s)=>{try{const n=localStorage.getItem("auth_token"),r=await fetch(`http://localhost:3000/api/v1/community/lists/${e}/subscription`,{method:"PUT",headers:{Authorization:`Bearer ${n}`,"Content-Type":"application/json"},body:JSON.stringify({version_pinned:t,auto_update:s})}),o=await r.json();return o.success?(await Or.fetchSubscriptions(),{success:!0}):{success:!1,message:o.message}}catch(e){return{success:!1,message:"Failed to update subscription"}}},createList:async e=>{try{const t=localStorage.getItem("auth_token"),s=await fetch("http://localhost:3000/api/v1/community/lists",{method:"POST",headers:{Authorization:`Bearer ${t}`,"Content-Type":"application/json"},body:JSON.stringify(e)}),n=await s.json();return n.success?(await Or.fetchLists(),{success:!0,data:n.data}):{success:!1,message:n.message}}catch(e){return{success:!1,message:"Failed to create community list"}}},updateSearch:e=>{Dr.update(t=>({...t,searchQuery:e}))},updateSort:(e,t)=>{Dr.update(s=>({...s,sortBy:e,sortOrder:t}))},clearCurrentList:()=>{Dr.update(e=>({...e,currentList:null}))},clearError:()=>{Dr.update(e=>({...e,error:null}))}};function Vr(e){let t;return{c(){t=g("span"),t.textContent="Subscribed",k(t,"class","ml-2 flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium text-uswds-green-50 bg-green-100")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function qr(e){let t,s,n,r;return{c(){t=x("• "),s=g("a"),n=x("Governance"),k(s,"href",r=e[0].governance_url),k(s,"target","_blank"),k(s,"class","text-primary hover:text-indigo-500")},m(e,r){m(e,t,r),m(e,s,r),u(s,n)},p(e,t){1&t&&r!==(r=e[0].governance_url)&&k(s,"href",r)},d(e){e&&(p(t),p(s))}}}function Ur(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n          Subscribe"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M12 6v6m0 0v6m0-6h6m-6 0H6"),k(t,"aria-hidden","true"),k(t,"class","-ml-0.5 mr-2 icon-uswds icon-uswds--sm"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function Jr(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n          Unsubscribe"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M6 18L18 6M6 6l12 12"),k(t,"aria-hidden","true"),k(t,"class","-ml-0.5 mr-2 icon-uswds icon-uswds--sm"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function Yr(t){let s,r,o,i,a,d,l,c,f,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe=t[0].name+"",fe=t[0].update_cadence+"",ge=t[0].description+"",we=t[0].criteria+"",xe=(t[0].artist_count||0)+"",he=(t[0].subscriber_count||0)+"",be=t[0].version+"",ve=Gr(t[0].updated_at)+"",ye=t[1]&&Vr(),ke=t[0].governance_url&&qr(t);function Ce(e,t){return e[1]?Jr:Ur}let $e=Ce(t),_e=$e(t);return{c(){s=g("div"),r=g("div"),o=g("div"),i=g("div"),a=g("h3"),d=x(pe),l=h(),ye&&ye.c(),c=h(),f=g("span"),b=x(fe),C=h(),_=g("p"),M=x(ge),L=h(),S=g("div"),z=g("h4"),z.textContent="Criteria",A=h(),T=g("p"),B=x(we),j=h(),H=g("div"),P=g("div"),E=g("span"),F=w("svg"),I=w("path"),D=h(),N=x(xe),R=x(" artists"),O=h(),V=g("span"),q=w("svg"),U=w("path"),J=h(),Y=x(he),G=x(" subscribers"),Q=h(),W=g("span"),Z=x("v"),K=x(be),X=h(),ee=g("div"),te=x("Updated "),se=x(ve),ne=h(),ke&&ke.c(),re=h(),oe=g("div"),ie=g("div"),ae=g("button"),ae.textContent="View Details",de=h(),le=g("button"),_e.c(),k(a,"class","text-uswds-lg font-medium text-uswds-base-darker truncate"),k(i,"class","flex items-center"),k(f,"class",y="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+Qr(t[0].update_cadence)),k(o,"class","flex items-center justify-between"),k(_,"class","mt-2 text-uswds-sm text-uswds-base-darker line-clamp-uswds-2"),k(z,"class","text-uswds-xs font-medium text-uswds-base-darker uppercase tracking-wide"),k(T,"class","mt-1 text-uswds-sm text-uswds-base-darker line-clamp-uswds-2"),k(S,"class","mt-3"),k(I,"stroke-linecap","round"),k(I,"stroke-linejoin","round"),k(I,"stroke-width","2"),k(I,"d","M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"),k(F,"aria-hidden","true"),k(F,"class","inline icon-uswds icon-uswds--sm text-uswds-base-darker mr-1"),k(F,"fill","none"),k(F,"viewBox","0 0 24 24"),k(F,"stroke","currentColor"),k(U,"stroke-linecap","round"),k(U,"stroke-linejoin","round"),k(U,"stroke-width","2"),k(U,"d","M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"),k(q,"aria-hidden","true"),k(q,"class","inline icon-uswds icon-uswds--sm text-uswds-base-darker mr-1"),k(q,"fill","none"),k(q,"viewBox","0 0 24 24"),k(q,"stroke","currentColor"),k(P,"class","flex items-center space-x-4"),k(H,"class","mt-4 flex items-center justify-between text-uswds-sm text-uswds-base-darker"),k(ee,"class","mt-4 text-uswds-xs text-uswds-base-darker"),k(r,"class","p-uswds-6"),k(ae,"class","text-uswds-sm text-indigo-600 hover:text-indigo-500 font-medium"),k(le,"class",ce="inline-flex items-center px-3 py-2 border border-transparent text-uswds-sm leading-4 font-medium rounded-uswds-md "+(t[1]?"text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:ring-red-500":"text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-indigo-500")+" focus:outline-none focus:ring-2 focus:ring-offset-2"),k(ie,"class","flex justify-between items-center"),k(oe,"class","bg-uswds-base-lightest px-6 py-3"),k(s,"class","bg-white overflow-hidden shadow rounded-uswds-lg hover:shadow-md transition-shadow")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(i,a),u(a,d),u(i,l),ye&&ye.m(i,null),u(o,c),u(o,f),u(f,b),u(r,C),u(r,_),u(_,M),u(r,L),u(r,S),u(S,z),u(S,A),u(S,T),u(T,B),u(r,j),u(r,H),u(H,P),u(P,E),u(E,F),u(F,I),u(E,D),u(E,N),u(E,R),u(P,O),u(P,V),u(V,q),u(q,U),u(V,J),u(V,Y),u(V,G),u(H,Q),u(H,W),u(W,Z),u(W,K),u(r,X),u(r,ee),u(ee,te),u(ee,se),u(ee,ne),ke&&ke.m(ee,null),u(s,re),u(s,oe),u(oe,ie),u(ie,ae),u(ie,de),u(ie,le),_e.m(le,null),ue||(me=[v(ae,"click",t[2]),v(le,"click",t[3])],ue=!0)},p(e,[t]){1&t&&pe!==(pe=e[0].name+"")&&$(d,pe),e[1]?ye||(ye=Vr(),ye.c(),ye.m(i,null)):ye&&(ye.d(1),ye=null),1&t&&fe!==(fe=e[0].update_cadence+"")&&$(b,fe),1&t&&y!==(y="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+Qr(e[0].update_cadence))&&k(f,"class",y),1&t&&ge!==(ge=e[0].description+"")&&$(M,ge),1&t&&we!==(we=e[0].criteria+"")&&$(B,we),1&t&&xe!==(xe=(e[0].artist_count||0)+"")&&$(N,xe),1&t&&he!==(he=(e[0].subscriber_count||0)+"")&&$(Y,he),1&t&&be!==(be=e[0].version+"")&&$(K,be),1&t&&ve!==(ve=Gr(e[0].updated_at)+"")&&$(se,ve),e[0].governance_url?ke?ke.p(e,t):(ke=qr(e),ke.c(),ke.m(ee,null)):ke&&(ke.d(1),ke=null),$e!==($e=Ce(e))&&(_e.d(1),_e=$e(e),_e&&(_e.c(),_e.m(le,null))),2&t&&ce!==(ce="inline-flex items-center px-3 py-2 border border-transparent text-uswds-sm leading-4 font-medium rounded-uswds-md "+(e[1]?"text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:ring-red-500":"text-indigo-700 bg-indigo-100 hover:bg-indigo-200 focus:ring-indigo-500")+" focus:outline-none focus:ring-2 focus:ring-offset-2")&&k(le,"class",ce)},i:e,o:e,d(e){e&&p(s),ye&&ye.d(),ke&&ke.d(),_e.d(),ue=!1,n(me)}}}function Gr(e){return new Date(e).toLocaleDateString()}function Qr(e){switch(e.toLowerCase()){case"daily":return"text-red-600 bg-red-100";case"weekly":return"text-yellow-600 bg-yellow-100";case"monthly":return"text-green-600 bg-green-100";case"as-needed":return"text-blue-600 bg-blue-100";default:return"text-gray-600 bg-gray-100"}}function Wr(e,t,s){let n,r;c(e,Rr,e=>s(4,r=e));let{list:o}=t;return e.$$set=e=>{"list"in e&&s(0,o=e.list)},e.$$.update=()=>{17&e.$$.dirty&&s(1,n=r.has(o.id))},[o,n,async function(){await Or.fetchListDetails(o.id)},async function(){if(n){const e=await Or.unsubscribe(o.id);e.success||alert(`Failed to unsubscribe: ${e.message}`)}else{const e=await Or.getSubscriptionImpact(o.id);if(e.success){if(confirm(`This list will add ${e.data.artists_to_add} artists to your DNP list. Continue?`)){const e=await Or.subscribe(o.id);e.success||alert(`Failed to subscribe: ${e.message}`)}}}},r]}class Zr extends oe{constructor(e){super(),re(this,e,Wr,Yr,o,{list:0})}}function Kr(e,t,s){const n=e.slice();return n[15]=t[s],n}function Xr(e,t,s){const n=e.slice();return n[18]=t[s],n}function eo(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg> <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No list selected</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Select a list to view its details.</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function to(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe,he,be,ve,ye,ke,Ce,$e,_e,Me,Le,Se,ze,Ae,Te,Be=e[0].version+"",je=e[0].name+"",He=e[0].description+"",Pe=(e[0].artists?.length||0)+"",Ee=(e[0].subscriber_count||0)+"",Fe=e[0].update_cadence+"",Ie=e[0].criteria+"",De=e[0].update_cadence+"",Ne=ho(e[0].updated_at)+"",Re=(e[0].artists?.length||0)+"",Oe=e[5]&&so();function Ve(e,t){return e[5]?ro:no}let qe=Ve(e),Ue=qe(e),Je=e[2]&&oo(e),Ye=e[0].governance_url&&io(e);function Ge(e,t){return e[1].isLoadingList?co:e[0].artists&&e[0].artists.length>0?lo:ao}let Qe=Ge(e),We=Qe(e);return{c(){t=g("div"),s=g("div"),r=g("div"),o=g("button"),o.innerHTML='<svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>\n          Back to lists',i=h(),a=g("div"),Oe&&Oe.c(),d=h(),l=g("span"),c=x("v"),f=x(Be),w=h(),b=g("div"),y=g("div"),C=g("h1"),_=x(je),M=h(),L=g("p"),S=x(He),z=h(),A=g("div"),T=g("div"),B=g("div"),j=x(Pe),H=h(),P=g("div"),P.textContent="Artists",E=h(),F=g("div"),I=g("div"),D=x(Ee),N=h(),R=g("div"),R.textContent="Subscribers",O=h(),V=g("div"),q=g("div"),U=x(Fe),J=h(),Y=g("div"),Y.textContent="Updates",G=h(),Q=g("div"),W=g("button"),Ue.c(),K=h(),Je&&Je.c(),X=h(),ee=g("div"),te=g("h3"),te.textContent="List Criteria & Governance",se=h(),ne=g("div"),re=g("div"),oe=g("h4"),oe.textContent="Inclusion Criteria",ie=h(),ae=g("p"),de=x(Ie),le=h(),ce=g("div"),ue=g("div"),me=g("h4"),me.textContent="Update Cadence",pe=h(),fe=g("p"),ge=x(De),we=h(),xe=g("div"),he=g("h4"),he.textContent="Last Updated",be=h(),ve=g("p"),ye=x(Ne),ke=h(),Ye&&Ye.c(),Ce=h(),$e=g("div"),_e=g("h3"),Me=x("Artists ("),Le=x(Re),Se=x(")"),ze=h(),We.c(),k(o,"class","flex items-center text-uswds-sm text-uswds-base-darker hover:text-gray-700"),k(l,"class","text-uswds-sm text-uswds-base-darker"),k(a,"class","flex items-center space-x-2"),k(r,"class","flex items-center justify-between mb-4"),k(C,"class","text-uswds-2xl font-bold text-uswds-base-darker"),k(L,"class","mt-2 text-uswds-base-darker"),k(B,"class","text-uswds-lg font-semibold text-uswds-base-darker"),k(P,"class","text-uswds-sm text-uswds-base-darker"),k(T,"class","text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg"),k(I,"class","text-uswds-lg font-semibold text-uswds-base-darker"),k(R,"class","text-uswds-sm text-uswds-base-darker"),k(F,"class","text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg"),k(q,"class","text-uswds-lg font-semibold text-uswds-base-darker"),k(Y,"class","text-uswds-sm text-uswds-base-darker"),k(V,"class","text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg"),k(A,"class","mt-4 grid grid-cols-1 gap-uswds-4 sm:grid-cols-3"),k(y,"class","flex-1"),k(W,"class",Z="inline-flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm "+(e[5]?"text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:ring-red-500":"text-white bg-primary hover:bg-indigo-700 focus:ring-indigo-500")+" focus:outline-none focus:ring-2 focus:ring-offset-2"),k(Q,"class","ml-6"),k(b,"class","flex justify-between items-start"),k(s,"class","bg-white shadow rounded-uswds-lg p-uswds-6"),k(te,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(oe,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(ae,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(me,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(fe,"class","mt-1 text-uswds-sm text-uswds-base-darker capitalize"),k(he,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(ve,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(ce,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-2"),k(ne,"class","space-y-4"),k(ee,"class","bg-white shadow rounded-uswds-lg p-uswds-6"),k(_e,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k($e,"class","bg-white shadow rounded-uswds-lg p-uswds-6"),k(t,"class","space-y-6")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(r,o),u(r,i),u(r,a),Oe&&Oe.m(a,null),u(a,d),u(a,l),u(l,c),u(l,f),u(s,w),u(s,b),u(b,y),u(y,C),u(C,_),u(y,M),u(y,L),u(L,S),u(y,z),u(y,A),u(A,T),u(T,B),u(B,j),u(T,H),u(T,P),u(A,E),u(A,F),u(F,I),u(I,D),u(F,N),u(F,R),u(A,O),u(A,V),u(V,q),u(q,U),u(V,J),u(V,Y),u(b,G),u(b,Q),u(Q,W),Ue.m(W,null),u(t,K),Je&&Je.m(t,null),u(t,X),u(t,ee),u(ee,te),u(ee,se),u(ee,ne),u(ne,re),u(re,oe),u(re,ie),u(re,ae),u(ae,de),u(ne,le),u(ne,ce),u(ce,ue),u(ue,me),u(ue,pe),u(ue,fe),u(fe,ge),u(ce,we),u(ce,xe),u(xe,he),u(xe,be),u(xe,ve),u(ve,ye),u(ne,ke),Ye&&Ye.m(ne,null),u(t,Ce),u(t,$e),u($e,_e),u(_e,Me),u(_e,Le),u(_e,Se),u($e,ze),We.m($e,null),Ae||(Te=[v(o,"click",e[6]),v(W,"click",e[7])],Ae=!0)},p(e,s){e[5]?Oe||(Oe=so(),Oe.c(),Oe.m(a,d)):Oe&&(Oe.d(1),Oe=null),1&s&&Be!==(Be=e[0].version+"")&&$(f,Be),1&s&&je!==(je=e[0].name+"")&&$(_,je),1&s&&He!==(He=e[0].description+"")&&$(S,He),1&s&&Pe!==(Pe=(e[0].artists?.length||0)+"")&&$(j,Pe),1&s&&Ee!==(Ee=(e[0].subscriber_count||0)+"")&&$(D,Ee),1&s&&Fe!==(Fe=e[0].update_cadence+"")&&$(U,Fe),qe!==(qe=Ve(e))&&(Ue.d(1),Ue=qe(e),Ue&&(Ue.c(),Ue.m(W,null))),32&s&&Z!==(Z="inline-flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm "+(e[5]?"text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:ring-red-500":"text-white bg-primary hover:bg-indigo-700 focus:ring-indigo-500")+" focus:outline-none focus:ring-2 focus:ring-offset-2")&&k(W,"class",Z),e[2]?Je?Je.p(e,s):(Je=oo(e),Je.c(),Je.m(t,X)):Je&&(Je.d(1),Je=null),1&s&&Ie!==(Ie=e[0].criteria+"")&&$(de,Ie),1&s&&De!==(De=e[0].update_cadence+"")&&$(ge,De),1&s&&Ne!==(Ne=ho(e[0].updated_at)+"")&&$(ye,Ne),e[0].governance_url?Ye?Ye.p(e,s):(Ye=io(e),Ye.c(),Ye.m(ne,null)):Ye&&(Ye.d(1),Ye=null),1&s&&Re!==(Re=(e[0].artists?.length||0)+"")&&$(Le,Re),Qe===(Qe=Ge(e))&&We?We.p(e,s):(We.d(1),We=Qe(e),We&&(We.c(),We.m($e,null)))},d(e){e&&p(t),Oe&&Oe.d(),Ue.d(),Je&&Je.d(),Ye&&Ye.d(),We.d(),Ae=!1,n(Te)}}}function so(e){let t;return{c(){t=g("span"),t.textContent="Subscribed",k(t,"class","inline-flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium text-uswds-green-50 bg-green-100")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function no(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n              Subscribe"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M12 6v6m0 0v6m0-6h6m-6 0H6"),k(t,"aria-hidden","true"),k(t,"class","-ml-1 mr-2 icon-uswds icon-uswds--md"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function ro(e){let t,s,n;return{c(){t=w("svg"),s=w("path"),n=x("\n              Unsubscribe"),k(s,"stroke-linecap","round"),k(s,"stroke-linejoin","round"),k(s,"stroke-width","2"),k(s,"d","M6 18L18 6M6 6l12 12"),k(t,"aria-hidden","true"),k(t,"class","-ml-1 mr-2 icon-uswds icon-uswds--md"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24"),k(t,"stroke","currentColor")},m(e,r){m(e,t,r),u(t,s),m(e,n,r)},d(e){e&&(p(t),p(n))}}}function oo(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G=!1,Q=e[0].version+"";return U=C(e[11][0]),{c(){t=g("div"),s=g("h3"),s.textContent="Subscription Options",r=h(),o=g("div"),i=g("div"),a=g("h4"),a.textContent="Version Pinning",d=h(),l=g("div"),c=g("div"),f=g("input"),w=h(),b=g("label"),b.textContent="Auto-update to latest version (recommended)",y=h(),M=g("div"),L=g("input"),z=h(),A=g("label"),T=x("Pin to current version (v"),B=x(Q),j=x(")"),H=h(),P=g("div"),E=g("div"),F=g("input"),I=h(),D=g("div"),D.innerHTML='<label for="auto-update-checkbox" class="font-medium text-uswds-base-darker">Enable automatic updates</label> <p class="text-uswds-base-darker">Receive notifications when the list is updated and apply changes automatically.</p>',N=h(),R=g("div"),O=g("button"),O.textContent="Cancel",V=h(),q=g("button"),q.textContent="Subscribe",k(s,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(a,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(f,"id","auto-update"),k(f,"type","radio"),f.__value=null,_(f,f.__value),k(f,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300"),k(b,"for","auto-update"),k(b,"class","ml-3 block text-uswds-sm text-uswds-base-darker"),k(c,"class","flex items-center"),k(L,"id","pin-version"),k(L,"type","radio"),L.__value=S=e[0].version,_(L,L.__value),k(L,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"),k(A,"for","pin-version"),k(A,"class","ml-3 block text-uswds-sm text-uswds-base-darker"),k(M,"class","flex items-center"),k(l,"class","mt-2 space-y-2"),k(F,"id","auto-update-checkbox"),k(F,"type","checkbox"),k(F,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300 rounded"),k(E,"class","flex items-center icon icon-md"),k(D,"class","ml-3 text-uswds-sm"),k(P,"class","flex items-start"),k(o,"class","space-y-4"),k(O,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(q,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(R,"class","mt-6 flex justify-end space-x-3"),k(t,"class","bg-white shadow rounded-uswds-lg p-uswds-6 border-2 border-indigo-200"),U.p(f,L)},m(n,p){m(n,t,p),u(t,s),u(t,r),u(t,o),u(o,i),u(i,a),u(i,d),u(i,l),u(l,c),u(c,f),f.checked=f.__value===e[3],u(c,w),u(c,b),u(l,y),u(l,M),u(M,L),L.checked=L.__value===e[3],u(M,z),u(M,A),u(A,T),u(A,B),u(A,j),u(o,H),u(o,P),u(P,E),u(E,F),F.checked=e[4],u(P,I),u(P,D),u(t,N),u(t,R),u(R,O),u(R,V),u(R,q),J||(Y=[v(f,"change",e[10]),v(L,"change",e[12]),v(F,"change",e[13]),v(O,"click",e[14]),v(q,"click",e[8])],J=!0)},p(e,t){8&t&&(f.checked=f.__value===e[3]),1&t&&S!==(S=e[0].version)&&(L.__value=S,_(L,L.__value),G=!0),(G||8&t)&&(L.checked=L.__value===e[3]),1&t&&Q!==(Q=e[0].version+"")&&$(B,Q),16&t&&(F.checked=e[4])},d(e){e&&p(t),U.r(),J=!1,n(Y)}}}function io(e){let t,s,n,r,o,i;return{c(){t=g("div"),s=g("h4"),s.textContent="Governance Process",n=h(),r=g("a"),o=x("View governance documentation →"),k(s,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(r,"href",i=e[0].governance_url),k(r,"target","_blank"),k(r,"class","mt-1 text-uswds-sm text-indigo-600 hover:text-indigo-500")},m(e,i){m(e,t,i),u(t,s),u(t,n),u(t,r),u(r,o)},p(e,t){1&t&&i!==(i=e[0].governance_url)&&k(r,"href",i)},d(e){e&&p(t)}}}function ao(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg> <p class="mt-2 text-uswds-sm text-uswds-base-darker">No artists in this list yet.</p>',k(s,"class","text-center py-6")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function lo(e){let t,s=Z(e[0].artists),n=[];for(let t=0;t<s.length;t+=1)n[t]=wo(Kr(e,s,t));return{c(){t=g("div");for(let e=0;e<n.length;e+=1)n[e].c();k(t,"class","space-y-3 max-h-96 overflow-y-auto")},m(e,s){m(e,t,s);for(let e=0;e<n.length;e+=1)n[e]&&n[e].m(t,null)},p(e,r){if(1&r){let o;for(s=Z(e[0].artists),o=0;o<s.length;o+=1){const i=Kr(e,s,o);n[o]?n[o].p(i,r):(n[o]=wo(i),n[o].c(),n[o].m(t,null))}for(;o<n.length;o+=1)n[o].d(1);n.length=s.length}},d(e){e&&p(t),f(n,e)}}}function co(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <p class="mt-2 text-uswds-sm text-uswds-base-darker">Loading artists...</p>',k(s,"class","text-center py-6")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function uo(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>',k(s,"class","icon-uswds icon-uswds--xl rounded-full bg-uswds-base-lightest flex items-center justify-center")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function mo(e){let t,s,n;return{c(){t=g("img"),d(t.src,s=e[15].artist.metadata.image)||k(t,"src",s),k(t,"alt",n=e[15].artist.canonical_name),k(t,"class","avatar avatar--lg object-cover")},m(e,s){m(e,t,s)},p(e,r){1&r&&!d(t.src,s=e[15].artist.metadata.image)&&k(t,"src",s),1&r&&n!==(n=e[15].artist.canonical_name)&&k(t,"alt",n)},d(e){e&&p(t)}}}function po(e){let t,s,n=e[15].artist.metadata.genres.slice(0,2).join(", ")+"";return{c(){t=g("div"),s=x(n),k(t,"class","text-uswds-xs text-uswds-base-darker")},m(e,n){m(e,t,n),u(t,s)},p(e,t){1&t&&n!==(n=e[15].artist.metadata.genres.slice(0,2).join(", ")+"")&&$(s,n)},d(e){e&&p(t)}}}function fo(e){let t,s,n,r,o=e[18].name+"";return{c(){t=g("span"),s=x(o),n=h(),k(t,"class",r="inline-flex items-center px-1.5 py-0.5 rounded text-uswds-xs font-medium "+e[18].color)},m(e,r){m(e,t,r),u(t,s),u(t,n)},p(e,n){1&n&&o!==(o=e[18].name+"")&&$(s,o),1&n&&r!==(r="inline-flex items-center px-1.5 py-0.5 rounded text-uswds-xs font-medium "+e[18].color)&&k(t,"class",r)},d(e){e&&p(t)}}}function go(e){let t,s,n;return{c(){t=g("a"),s=x("View rationale"),k(t,"href",n=e[15].rationale_link),k(t,"target","_blank"),k(t,"class","text-uswds-xs text-indigo-600 hover:text-indigo-500")},m(e,n){m(e,t,n),u(t,s)},p(e,s){1&s&&n!==(n=e[15].rationale_link)&&k(t,"href",n)},d(e){e&&p(t)}}}function wo(e){let t,s,n,r,o,i,a,d,l,c,w,b,v,y,C,_,M=e[15].artist.canonical_name+"",L=ho(e[15].added_at)+"";function S(e,t){return e[15].artist.metadata.image?mo:uo}let z=S(e),A=z(e),T=e[15].artist.metadata.genres&&e[15].artist.metadata.genres.length>0&&po(e),B=Z(bo(e[15].artist)),j=[];for(let t=0;t<B.length;t+=1)j[t]=fo(Xr(e,B,t));let H=e[15].rationale_link&&go(e);return{c(){t=g("div"),s=g("div"),A.c(),n=h(),r=g("div"),o=g("div"),i=x(M),a=h(),T&&T.c(),d=h(),l=g("div");for(let e=0;e<j.length;e+=1)j[e].c();c=h(),w=g("div"),b=g("div"),v=x("Added "),y=x(L),C=h(),H&&H.c(),_=h(),k(o,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(l,"class","flex space-x-1 mt-1"),k(s,"class","flex items-center space-x-3"),k(b,"class","text-uswds-xs text-uswds-base-darker"),k(w,"class","text-right"),k(t,"class","flex items-center justify-between py-3 px-4 bg-uswds-base-lightest rounded-uswds-lg")},m(e,p){m(e,t,p),u(t,s),A.m(s,null),u(s,n),u(s,r),u(r,o),u(o,i),u(r,a),T&&T.m(r,null),u(r,d),u(r,l);for(let e=0;e<j.length;e+=1)j[e]&&j[e].m(l,null);u(t,c),u(t,w),u(w,b),u(b,v),u(b,y),u(w,C),H&&H.m(w,null),u(t,_)},p(e,t){if(z===(z=S(e))&&A?A.p(e,t):(A.d(1),A=z(e),A&&(A.c(),A.m(s,n))),1&t&&M!==(M=e[15].artist.canonical_name+"")&&$(i,M),e[15].artist.metadata.genres&&e[15].artist.metadata.genres.length>0?T?T.p(e,t):(T=po(e),T.c(),T.m(r,d)):T&&(T.d(1),T=null),1&t){let s;for(B=Z(bo(e[15].artist)),s=0;s<B.length;s+=1){const n=Xr(e,B,s);j[s]?j[s].p(n,t):(j[s]=fo(n),j[s].c(),j[s].m(l,null))}for(;s<j.length;s+=1)j[s].d(1);j.length=B.length}1&t&&L!==(L=ho(e[15].added_at)+"")&&$(y,L),e[15].rationale_link?H?H.p(e,t):(H=go(e),H.c(),H.m(w,null)):H&&(H.d(1),H=null)},d(e){e&&p(t),A.d(),T&&T.d(),f(j,e),H&&H.d()}}}function xo(t){let s;function n(e,t){return e[0]?to:eo}let r=n(t),o=r(t);return{c(){o.c(),s=b()},m(e,t){o.m(e,t),m(e,s,t)},p(e,[t]){r===(r=n(e))&&o?o.p(e,t):(o.d(1),o=r(e),o&&(o.c(),o.m(s.parentNode,s)))},i:e,o:e,d(e){e&&p(s),o.d(e)}}}function ho(e){return new Date(e).toLocaleDateString()}function bo(e){const t=[];return e.external_ids.spotify&&t.push({name:"Spotify",color:"bg-green-100 text-green-800"}),e.external_ids.apple&&t.push({name:"Apple",color:"bg-gray-100 text-gray-800"}),e.external_ids.musicbrainz&&t.push({name:"MusicBrainz",color:"bg-blue-100 text-blue-800"}),t}function vo(e,t,s){let n,r,o,i;c(e,Rr,e=>s(9,o=e)),c(e,Dr,e=>s(1,i=e));let a=!1,d=null,l=!0;return e.$$.update=()=>{2&e.$$.dirty&&s(0,n=i.currentList),513&e.$$.dirty&&s(5,r=!!n&&o.has(n.id))},[n,i,a,d,l,r,function(){Or.clearCurrentList()},async function(){if(n)if(r){const e=await Or.unsubscribe(n.id);e.success||alert(`Failed to unsubscribe: ${e.message}`)}else s(2,a=!0)},async function(){if(!n)return;const e=await Or.getSubscriptionImpact(n.id);if(e.success){if(confirm(`This list will add ${e.data.artists_to_add} artists to your DNP list. Continue?`)){const e=await Or.subscribe(n.id,d||void 0,l);e.success?s(2,a=!1):alert(`Failed to subscribe: ${e.message}`)}}},o,function(){d=this.__value,s(3,d)},[[]],function(){d=this.__value,s(3,d)},function(){l=this.checked,s(4,l)},()=>s(2,a=!1)]}class yo extends oe{constructor(e){super(),re(this,e,vo,xo,o,{})}}function ko(e){let t,s;return{c(){t=g("div"),s=x(e[7]),k(t,"class","text-uswds-red-50 text-uswds-sm")},m(e,n){m(e,t,n),u(t,s)},p(e,t){128&t&&$(s,e[7])},d(e){e&&p(t)}}}function Co(e){let t;return{c(){t=x("Create List")},m(e,s){m(e,t,s)},d(e){e&&p(t)}}}function $o(e){let t,s,n,r;return{c(){t=w("svg"),s=w("circle"),n=w("path"),r=x("\n        Creating..."),k(s,"class","opacity-25"),k(s,"cx","12"),k(s,"cy","12"),k(s,"r","10"),k(s,"stroke","currentColor"),k(s,"stroke-width","4"),k(n,"class","opacity-75"),k(n,"fill","currentColor"),k(n,"d","M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"),k(t,"aria-hidden","true"),k(t,"class","animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white"),k(t,"xmlns","http://www.w3.org/2000/svg"),k(t,"fill","none"),k(t,"viewBox","0 0 24 24")},m(e,o){m(e,t,o),u(t,s),u(t,n),m(e,r,o)},d(e){e&&(p(t),p(r))}}}function _o(t){let s,r,o,i,a,d,l,c,f,w,x,b,$,M,S,z,A,T,B,j,H,P,E,F,I,D,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe,he,be,ve=t[7]&&ko(t);function ye(e,t){return e[6]?$o:Co}let ke=ye(t),Ce=ke(t);return xe=C(t[16][0]),{c(){s=g("form"),r=g("div"),o=g("label"),o.textContent="List Name *",i=h(),a=g("input"),d=h(),l=g("div"),c=g("label"),c.textContent="Description *",f=h(),w=g("textarea"),x=h(),b=g("div"),$=g("label"),$.textContent="Inclusion Criteria *",M=h(),S=g("textarea"),z=h(),A=g("p"),A.textContent="Criteria must be factual and neutral. Avoid subjective terms or personal opinions.",T=h(),B=g("div"),j=g("label"),j.textContent="Governance Documentation URL",H=h(),P=g("input"),E=h(),F=g("p"),F.textContent="Link to documentation explaining your list's governance process and appeals procedure.",I=h(),D=g("div"),R=g("label"),R.textContent="Update Cadence",O=h(),V=g("select"),q=g("option"),q.textContent="Daily",U=g("option"),U.textContent="Weekly",J=g("option"),J.textContent="Monthly",Y=g("option"),Y.textContent="As Needed",G=h(),Q=g("div"),W=g("h4"),W.textContent="Visibility",Z=h(),K=g("div"),X=g("div"),ee=g("input"),te=h(),se=g("label"),se.textContent="Public - Anyone can discover and subscribe",ne=h(),re=g("div"),oe=g("input"),ie=h(),ae=g("label"),ae.textContent="Private - Only you can manage, others need direct link",de=h(),ve&&ve.c(),le=h(),ce=g("div"),ue=g("button"),ue.textContent="Cancel",me=h(),pe=g("button"),Ce.c(),ge=h(),we=g("div"),we.innerHTML='<div class="flex"><div class=""><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-yellow-800">Community List Guidelines</h3> <div class="mt-2 text-uswds-sm text-yellow-700"><ul class="list-disc list-inside space-y-1"><li>Use neutral, factual language in criteria</li> <li>Provide clear governance and appeals processes</li> <li>Maintain transparency about list updates</li> <li>Respect platform terms of service</li> <li>Focus on user preferences, not personal judgments</li></ul></div></div></div>',k(o,"for","name"),k(o,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(a,"id","name"),k(a,"type","text"),k(a,"placeholder","e.g., Controversial Artists List"),k(a,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),a.required=!0,k(c,"for","description"),k(c,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(w,"id","description"),k(w,"rows","3"),k(w,"placeholder","Describe the purpose and scope of this list..."),k(w,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),w.required=!0,k($,"for","criteria"),k($,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(S,"id","criteria"),k(S,"rows","4"),k(S,"placeholder","Define clear, neutral criteria for including artists in this list. Avoid subjective language or personal opinions."),k(S,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),S.required=!0,k(A,"class","mt-1 text-uswds-xs text-uswds-base-darker"),k(j,"for","governance-url"),k(j,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(P,"id","governance-url"),k(P,"type","url"),k(P,"placeholder","https://example.com/governance-process"),k(P,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(F,"class","mt-1 text-uswds-xs text-uswds-base-darker"),k(R,"for","update-cadence"),k(R,"class","block text-uswds-sm font-medium text-uswds-base-darker"),q.__value="daily",_(q,q.__value),U.__value="weekly",_(U,U.__value),J.__value="monthly",_(J,J.__value),Y.__value="as-needed",_(Y,Y.__value),k(V,"id","update-cadence"),k(V,"class","mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),void 0===t[4]&&N(()=>t[14].call(V)),k(W,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(ee,"id","public"),k(ee,"type","radio"),ee.__value="public",_(ee,ee.__value),k(ee,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300"),k(se,"for","public"),k(se,"class","ml-3 block text-uswds-sm text-uswds-base-darker"),k(X,"class","flex items-center"),k(oe,"id","private"),k(oe,"type","radio"),oe.__value="private",_(oe,oe.__value),k(oe,"class","focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"),k(ae,"for","private"),k(ae,"class","ml-3 block text-uswds-sm text-uswds-base-darker"),k(re,"class","flex items-center"),k(K,"class","mt-2 space-y-2"),k(ue,"type","button"),k(ue,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(pe,"type","submit"),pe.disabled=fe=t[6]||!t[0].trim()||!t[1].trim()||!t[2].trim(),k(pe,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"),k(ce,"class","flex justify-end space-x-3"),k(we,"class","bg-yellow-50 border border-yellow-200 rounded-uswds-md p-uswds-4"),k(s,"class","space-y-6"),xe.p(ee,oe)},m(e,n){m(e,s,n),u(s,r),u(r,o),u(r,i),u(r,a),_(a,t[0]),u(s,d),u(s,l),u(l,c),u(l,f),u(l,w),_(w,t[1]),u(s,x),u(s,b),u(b,$),u(b,M),u(b,S),_(S,t[2]),u(b,z),u(b,A),u(s,T),u(s,B),u(B,j),u(B,H),u(B,P),_(P,t[3]),u(B,E),u(B,F),u(s,I),u(s,D),u(D,R),u(D,O),u(D,V),u(V,q),u(V,U),u(V,J),u(V,Y),L(V,t[4],!0),u(s,G),u(s,Q),u(Q,W),u(Q,Z),u(Q,K),u(K,X),u(X,ee),ee.checked=ee.__value===t[5],u(X,te),u(X,se),u(K,ne),u(K,re),u(re,oe),oe.checked=oe.__value===t[5],u(re,ie),u(re,ae),u(s,de),ve&&ve.m(s,null),u(s,le),u(s,ce),u(ce,ue),u(ce,me),u(ce,pe),Ce.m(pe,null),u(s,ge),u(s,we),he||(be=[v(a,"input",t[10]),v(w,"input",t[11]),v(S,"input",t[12]),v(P,"input",t[13]),v(V,"change",t[14]),v(ee,"change",t[15]),v(oe,"change",t[17]),v(ue,"click",t[18]),v(s,"submit",y(t[9]))],he=!0)},p(e,[t]){1&t&&a.value!==e[0]&&_(a,e[0]),2&t&&_(w,e[1]),4&t&&_(S,e[2]),8&t&&P.value!==e[3]&&_(P,e[3]),16&t&&L(V,e[4]),32&t&&(ee.checked=ee.__value===e[5]),32&t&&(oe.checked=oe.__value===e[5]),e[7]?ve?ve.p(e,t):(ve=ko(e),ve.c(),ve.m(s,le)):ve&&(ve.d(1),ve=null),ke!==(ke=ye(e))&&(Ce.d(1),Ce=ke(e),Ce&&(Ce.c(),Ce.m(pe,null))),71&t&&fe!==(fe=e[6]||!e[0].trim()||!e[1].trim()||!e[2].trim())&&(pe.disabled=fe)},i:e,o:e,d(e){e&&p(s),ve&&ve.d(),Ce.d(),xe.r(),he=!1,n(be)}}}function Mo(e,t,s){const n=j();let r="",o="",i="",a="",d="monthly",l="public",c=!1,u="";return[r,o,i,a,d,l,c,u,n,async function(){if(!r.trim()||!o.trim()||!i.trim())return void s(7,u="Please fill in all required fields");s(6,c=!0),s(7,u="");const e=await Or.createList({name:r.trim(),description:o.trim(),criteria:i.trim(),governance_url:a.trim()||void 0,update_cadence:d,visibility:l});e.success?(s(0,r=""),s(1,o=""),s(2,i=""),s(3,a=""),s(4,d="monthly"),s(5,l="public"),n("listCreated")):s(7,u=e.message||"Failed to create community list"),s(6,c=!1)},function(){r=this.value,s(0,r)},function(){o=this.value,s(1,o)},function(){i=this.value,s(2,i)},function(){a=this.value,s(3,a)},function(){d=S(this),s(4,d)},function(){l=this.__value,s(5,l)},[[]],function(){l=this.__value,s(5,l)},()=>n("listCreated")]}class Lo extends oe{constructor(e){super(),re(this,e,Mo,_o,o,{})}}function So(e,t,s){const n=e.slice();return n[11]=t[s],n}function zo(e){let t,s,n=Z(e[0]),r=[];for(let t=0;t<n.length;t+=1)r[t]=Bo(So(e,n,t));return{c(){t=g("div"),s=g("ul");for(let e=0;e<r.length;e+=1)r[e].c();k(s,"class","divide-y divide-gray-200"),k(t,"class","bg-white shadow overflow-hidden sm:rounded-uswds-md")},m(e,n){m(e,t,n),u(t,s);for(let e=0;e<r.length;e+=1)r[e]&&r[e].m(s,null)},p(e,t){if(31&t){let o;for(n=Z(e[0]),o=0;o<n.length;o+=1){const i=So(e,n,o);r[o]?r[o].p(i,t):(r[o]=Bo(i),r[o].c(),r[o].m(s,null))}for(;o<r.length;o+=1)r[o].d(1);r.length=n.length}},d(e){e&&p(t),f(r,e)}}}function Ao(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg> <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No subscriptions yet</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Browse community lists to find ones that match your preferences.</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function To(e){let t,s,n,r=e[11].version_pinned+"";return{c(){t=x("(pinned to v"),s=x(r),n=x(")")},m(e,r){m(e,t,r),m(e,s,r),m(e,n,r)},p(e,t){1&t&&r!==(r=e[11].version_pinned+"")&&$(s,r)},d(e){e&&(p(t),p(s),p(n))}}}function Bo(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe,he,be,ve,ye,ke,Ce,$e,_e,Me,Le,Se,ze,Ae,Te=e[11].list.name+"",Be=e[11].list.update_cadence+"",je=Ho(e[11].created_at)+"",He=e[11].list.version+"",Pe=e[11].list.description+"",Ee=e[11].list.version+"",Fe=e[11].version_pinned&&To(e);function Ie(){return e[6](e[11])}function De(){return e[7](e[11])}function Ne(){return e[8](e[11])}function Re(){return e[9](e[11])}function Oe(...t){return e[10](e[11],...t)}return{c(){t=g("li"),s=g("div"),r=g("div"),o=g("div"),i=g("div"),i.innerHTML='<div class="avatar avatar--lg bg-indigo-100"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg></div>',a=h(),d=g("div"),l=g("div"),c=g("p"),f=x(Te),w=h(),b=g("span"),y=x(Be),_=h(),M=g("div"),L=g("p"),S=x("Subscribed "),z=x(je),A=x("\n                        • v"),T=x(He),B=h(),Fe&&Fe.c(),j=h(),H=g("p"),P=x(Pe),E=h(),F=g("div"),I=g("button"),I.textContent="View Details",D=h(),N=g("button"),N.textContent="Unsubscribe",R=h(),O=g("div"),V=g("div"),q=g("div"),U=g("h5"),U.textContent="Version Preference",J=h(),Y=g("div"),G=g("div"),Q=g("input"),K=h(),X=g("label"),ee=x("Auto-update to latest"),se=h(),ne=g("div"),re=g("input"),ae=h(),de=g("label"),le=x("Pin to v"),ce=x(Ee),me=h(),pe=g("div"),fe=g("h5"),fe.textContent="Update Notifications",ge=h(),we=g("div"),xe=g("div"),he=g("input"),ye=h(),ke=g("div"),Ce=g("label"),$e=x("Enable automatic updates"),Me=h(),Le=g("p"),Le.textContent="Apply changes when the list is updated",Se=h(),k(i,"class",""),k(c,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(b,"class",C="ml-2 flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+Po(e[11].list.update_cadence)),k(l,"class","flex items-center"),k(M,"class","mt-1 flex items-center text-uswds-sm text-uswds-base-darker"),k(H,"class","mt-1 text-uswds-sm text-uswds-base-darker line-clamp-uswds-1"),k(d,"class","ml-4"),k(o,"class","flex items-center"),k(I,"class","text-indigo-600 hover:text-indigo-900 text-uswds-sm font-medium"),k(N,"class","text-uswds-red-50 hover:text-red-900 text-uswds-sm font-medium"),k(F,"class","flex items-center space-x-2"),k(r,"class","flex items-center justify-between"),k(U,"class","block text-uswds-xs font-medium text-uswds-base-darker mb-2"),k(Q,"id",W="auto-"+e[11].list_id),k(Q,"type","radio"),Q.checked=Z=!e[11].version_pinned,k(Q,"class","focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300"),k(X,"for",te="auto-"+e[11].list_id),k(X,"class","ml-2 block text-uswds-xs text-uswds-base-darker"),k(G,"class","flex items-center"),k(re,"id",oe="pin-"+e[11].list_id),k(re,"type","radio"),re.checked=ie=!!e[11].version_pinned,k(re,"class","focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300"),k(de,"for",ue="pin-"+e[11].list_id),k(de,"class","ml-2 block text-uswds-xs text-uswds-base-darker"),k(ne,"class","flex items-center"),k(Y,"class","space-y-2"),k(fe,"class","block text-uswds-xs font-medium text-uswds-base-darker mb-2"),k(he,"id",be="auto-update-"+e[11].list_id),k(he,"type","checkbox"),he.checked=ve=e[11].auto_update,k(he,"class","focus:ring-indigo-500 h-3 w-3 text-indigo-600 border-gray-300 rounded"),k(xe,"class","flex items-center icon icon-sm"),k(Ce,"for",_e="auto-update-"+e[11].list_id),k(Ce,"class","font-medium text-uswds-base-darker"),k(Le,"class","text-uswds-base-darker"),k(ke,"class","ml-2 text-uswds-xs"),k(we,"class","flex items-start"),k(V,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-2"),k(O,"class","mt-4 pt-4 border-t border-gray-200"),k(s,"class","px-4 py-4 sm:px-6")},m(e,n){m(e,t,n),u(t,s),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),u(d,l),u(l,c),u(c,f),u(l,w),u(l,b),u(b,y),u(d,_),u(d,M),u(M,L),u(L,S),u(L,z),u(L,A),u(L,T),u(L,B),Fe&&Fe.m(L,null),u(d,j),u(d,H),u(H,P),u(r,E),u(r,F),u(F,I),u(F,D),u(F,N),u(s,R),u(s,O),u(O,V),u(V,q),u(q,U),u(q,J),u(q,Y),u(Y,G),u(G,Q),u(G,K),u(G,X),u(X,ee),u(Y,se),u(Y,ne),u(ne,re),u(ne,ae),u(ne,de),u(de,le),u(de,ce),u(V,me),u(V,pe),u(pe,fe),u(pe,ge),u(pe,we),u(we,xe),u(xe,he),u(we,ye),u(we,ke),u(ke,Ce),u(Ce,$e),u(ke,Me),u(ke,Le),u(t,Se),ze||(Ae=[v(I,"click",Ie),v(N,"click",De),v(Q,"change",Ne),v(re,"change",Re),v(he,"change",Oe)],ze=!0)},p(t,s){e=t,1&s&&Te!==(Te=e[11].list.name+"")&&$(f,Te),1&s&&Be!==(Be=e[11].list.update_cadence+"")&&$(y,Be),1&s&&C!==(C="ml-2 flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium "+Po(e[11].list.update_cadence))&&k(b,"class",C),1&s&&je!==(je=Ho(e[11].created_at)+"")&&$(z,je),1&s&&He!==(He=e[11].list.version+"")&&$(T,He),e[11].version_pinned?Fe?Fe.p(e,s):(Fe=To(e),Fe.c(),Fe.m(L,null)):Fe&&(Fe.d(1),Fe=null),1&s&&Pe!==(Pe=e[11].list.description+"")&&$(P,Pe),1&s&&W!==(W="auto-"+e[11].list_id)&&k(Q,"id",W),1&s&&Z!==(Z=!e[11].version_pinned)&&(Q.checked=Z),1&s&&te!==(te="auto-"+e[11].list_id)&&k(X,"for",te),1&s&&oe!==(oe="pin-"+e[11].list_id)&&k(re,"id",oe),1&s&&ie!==(ie=!!e[11].version_pinned)&&(re.checked=ie),1&s&&Ee!==(Ee=e[11].list.version+"")&&$(ce,Ee),1&s&&ue!==(ue="pin-"+e[11].list_id)&&k(de,"for",ue),1&s&&be!==(be="auto-update-"+e[11].list_id)&&k(he,"id",be),1&s&&ve!==(ve=e[11].auto_update)&&(he.checked=ve),1&s&&_e!==(_e="auto-update-"+e[11].list_id)&&k(Ce,"for",_e)},d(e){e&&p(t),Fe&&Fe.d(),ze=!1,n(Ae)}}}function jo(t){let s,n,r,o,i;function a(e,t){return 0===e[0].length?Ao:zo}let d=a(t),l=d(t);return{c(){s=g("div"),n=g("div"),n.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">My Subscriptions</h3> <p class="text-uswds-sm text-uswds-base-darker">Manage your community list subscriptions and update preferences.</p>',r=h(),l.c(),o=h(),i=g("div"),i.innerHTML='<div class="flex"><div class="flex-shrink-0"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-blue-50">Managing Your Subscriptions</h3> <div class="mt-2 text-uswds-sm text-uswds-blue-50"><ul class="list-disc list-inside space-y-1"><li><strong>Auto-update:</strong> Automatically apply changes when lists are updated</li> <li><strong>Version pinning:</strong> Stay on a specific version to avoid unexpected changes</li> <li><strong>Notifications:</strong> Get notified about list updates and changes</li> <li><strong>Impact preview:</strong> See what changes will be made before they&#39;re applied</li></ul></div></div></div>',k(i,"class","bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4"),k(s,"class","space-y-6")},m(e,t){m(e,s,t),u(s,n),u(s,r),l.m(s,null),u(s,o),u(s,i)},p(e,[t]){d===(d=a(e))&&l?l.p(e,t):(l.d(1),l=d(e),l&&(l.c(),l.m(s,o)))},i:e,o:e,d(e){e&&p(s),l.d()}}}function Ho(e){return new Date(e).toLocaleDateString()}function Po(e){switch(e.toLowerCase()){case"daily":return"text-red-600 bg-red-100";case"weekly":return"text-yellow-600 bg-yellow-100";case"monthly":return"text-green-600 bg-green-100";case"as-needed":return"text-blue-600 bg-blue-100";default:return"text-gray-600 bg-gray-100"}}function Eo(e,t,s){let n,r;async function o(e,t,s){const n=await Or.updateSubscription(e,t,s);n.success||alert(`Failed to update subscription: ${n.message}`)}async function i(e,t){if(confirm(`Are you sure you want to unsubscribe from "${t}"?`)){const t=await Or.unsubscribe(e);t.success||alert(`Failed to unsubscribe: ${t.message}`)}}async function a(e){await Or.fetchListDetails(e)}function d(e,t,s){o(e,t,s.target.checked)}c(e,Dr,e=>s(5,r=e));return e.$$.update=()=>{32&e.$$.dirty&&s(0,n=r.subscriptions)},[n,o,i,a,d,r,e=>a(e.list_id),e=>i(e.list_id,e.list.name),e=>o(e.list_id,void 0,e.auto_update),e=>o(e.list_id,e.list.version,e.auto_update),(e,t)=>d(e.list_id,e.version_pinned,t)]}class Fo extends oe{constructor(e){super(),re(this,e,Eo,jo,o,{})}}function Io(e,t,s){const n=e.slice();return n[14]=t[s],n}function Do(t){let s,n,r,o,i;return o=new Lo({}),o.$on("listCreated",t[9]),{c(){s=g("div"),n=g("h3"),n.textContent="Create Community List",r=h(),ee(o.$$.fragment),k(n,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(s,"class","mb-6 bg-white shadow rounded-uswds-lg p-uswds-6")},m(e,t){m(e,s,t),u(s,n),u(s,r),te(o,s,null),i=!0},p:e,i(e){i||(Q(o.$$.fragment,e),i=!0)},o(e){W(o.$$.fragment,e),i=!1},d(e){e&&p(s),se(o)}}}function No(t){let s,n;return s=new Fo({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Ro(e){let t,s,n,r;const o=[Vo,Oo],i=[];function a(e,t){return e[3].currentList?0:1}return t=a(e),s=i[t]=o[t](e),{c(){s.c(),n=b()},m(e,s){i[t].m(e,s),m(e,n,s),r=!0},p(e,r){let d=t;t=a(e),t===d?i[t].p(e,r):(Y(),W(i[d],1,1,()=>{i[d]=null}),G(),s=i[t],s?s.p(e,r):(s=i[t]=o[t](e),s.c()),Q(s,1),s.m(n.parentNode,n))},i(e){r||(Q(s),r=!0)},o(e){W(s),r=!1},d(e){e&&p(n),i[t].d(e)}}}function Oo(e){let t,s,r,o,i,a,d,l,c,f,w,x,b,y,C,$,M,L,S,z,A,T,B,j,H,P,E,F;const I=[Yo,Jo,Uo,qo],D=[];function N(e,t){return e[3].isLoading?0:e[3].error?1:0===e[4].length?2:3}return j=N(e),H=D[j]=I[j](e),{c(){t=g("div"),s=g("div"),r=g("div"),o=g("div"),i=g("label"),i.textContent="Search lists",a=h(),d=g("div"),l=g("div"),l.innerHTML='<svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>',c=h(),f=g("input"),x=h(),b=g("div"),y=g("label"),y.textContent="Sort by",C=h(),$=g("select"),M=g("option"),M.textContent="Recently Updated",L=g("option"),L.textContent="Newest First",S=g("option"),S.textContent="Name A-Z",z=g("option"),z.textContent="Name Z-A",A=g("option"),A.textContent="Most Artists",T=g("option"),T.textContent="Most Subscribers",B=h(),H.c(),k(i,"for","search"),k(i,"class","sr-only"),k(l,"class","absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"),k(f,"id","search"),k(f,"type","text"),k(f,"placeholder","Search lists by name, description, or criteria..."),f.value=w=e[3].searchQuery,k(f,"class","block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-uswds-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(d,"class","relative"),k(o,"class","flex-1"),k(y,"for","sort"),k(y,"class","sr-only"),M.__value="updated_at:desc",_(M,M.__value),L.__value="created_at:desc",_(L,L.__value),S.__value="name:asc",_(S,S.__value),z.__value="name:desc",_(z,z.__value),A.__value="artist_count:desc",_(A,A.__value),T.__value="subscriber_count:desc",_(T,T.__value),k($,"id","sort"),k($,"class","block w-full pl-3 pr-10 py-2 text-uswds-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm rounded-uswds-md"),k(b,"class","sm:w-48"),k(r,"class","flex flex-col sm:flex-row gap-uswds-4"),k(s,"class","bg-white shadow rounded-uswds-lg p-uswds-4"),k(t,"class","space-y-6")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c),u(d,f),u(r,x),u(r,b),u(b,y),u(b,C),u(b,$),u($,M),u($,L),u($,S),u($,z),u($,A),u($,T),u(t,B),D[j].m(t,null),P=!0,E||(F=[v(f,"input",e[6]),v($,"change",e[7])],E=!0)},p(e,s){(!P||8&s&&w!==(w=e[3].searchQuery)&&f.value!==w)&&(f.value=w);let n=j;j=N(e),j===n?D[j].p(e,s):(Y(),W(D[n],1,1,()=>{D[n]=null}),G(),H=D[j],H?H.p(e,s):(H=D[j]=I[j](e),H.c()),Q(H,1),H.m(t,null))},i(e){P||(Q(H),P=!0)},o(e){W(H),P=!1},d(e){e&&p(t),D[j].d(),E=!1,n(F)}}}function Vo(t){let s,n;return s=new yo({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function qo(e){let t,s,n=[],r=new Map,o=Z(e[4]);const i=e=>e[14].id;for(let t=0;t<o.length;t+=1){let s=Io(e,o,t),a=i(s);r.set(a,n[t]=Go(a,s))}return{c(){t=g("div");for(let e=0;e<n.length;e+=1)n[e].c();k(t,"class","grid grid-cols-1 gap-uswds-6 sm:grid-cols-2 lg:grid-cols-3")},m(e,r){m(e,t,r);for(let e=0;e<n.length;e+=1)n[e]&&n[e].m(t,null);s=!0},p(e,s){16&s&&(o=Z(e[4]),Y(),n=X(n,s,i,0,e,o,r,t,K,Go,null,Io),G())},i(e){if(!s){for(let e=0;e<o.length;e+=1)Q(n[e]);s=!0}},o(e){for(let e=0;e<n.length;e+=1)W(n[e]);s=!1},d(e){e&&p(t);for(let e=0;e<n.length;e+=1)n[e].d()}}}function Uo(t){let s;function n(e,t){return 0===e[3].lists.length?Wo:Qo}let r=n(t),o=r(t);return{c(){s=g("div"),o.c(),k(s,"class","text-center py-12")},m(e,t){m(e,s,t),o.m(s,null)},p(e,t){r===(r=n(e))&&o?o.p(e,t):(o.d(1),o=r(e),o&&(o.c(),o.m(s,null)))},i:e,o:e,d(e){e&&p(s),o.d()}}}function Jo(t){let s,n,r,o,i,a,d,l,c,f,b=t[3].error+"";return{c(){s=g("div"),n=w("svg"),r=w("path"),o=h(),i=g("p"),a=x(b),d=h(),l=g("button"),l.textContent="Try again",k(r,"stroke-linecap","round"),k(r,"stroke-linejoin","round"),k(r,"stroke-width","2"),k(r,"d","M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"),k(n,"aria-hidden","true"),k(n,"class","mx-auto icon-uswds icon-uswds--lg text-uswds-red-50"),k(n,"fill","none"),k(n,"viewBox","0 0 24 24"),k(n,"stroke","currentColor"),k(i,"class","mt-2 text-uswds-sm text-uswds-red-50"),k(l,"class","mt-2 text-uswds-sm text-indigo-600 hover:text-indigo-500"),k(s,"class","text-center py-12")},m(e,p){m(e,s,p),u(s,n),u(n,r),u(s,o),u(s,i),u(i,a),u(s,d),u(s,l),c||(f=v(l,"click",t[12]),c=!0)},p(e,t){8&t&&b!==(b=e[3].error+"")&&$(a,b)},i:e,o:e,d(e){e&&p(s),c=!1,f()}}}function Yo(t){let s;return{c(){s=g("div"),s.innerHTML='<svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> <p class="mt-2 text-uswds-sm text-uswds-base-darker">Loading community lists...</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,i:e,o:e,d(e){e&&p(s)}}}function Go(e,t){let s,n,r;return n=new Zr({props:{list:t[14]}}),{key:e,first:null,c(){s=b(),ee(n.$$.fragment),this.first=s},m(e,t){m(e,s,t),te(n,e,t),r=!0},p(e,s){t=e;const r={};16&s&&(r.list=t[14]),n.$set(r)},i(e){r||(Q(n.$$.fragment,e),r=!0)},o(e){W(n.$$.fragment,e),r=!1},d(e){e&&p(s),se(n,e)}}}function Qo(t){let s,n,r,o,i,a;return{c(){s=w("svg"),n=w("path"),r=h(),o=g("h3"),o.textContent="No lists match your search",i=h(),a=g("p"),a.textContent="Try adjusting your search terms or filters.",k(n,"stroke-linecap","round"),k(n,"stroke-linejoin","round"),k(n,"stroke-width","2"),k(n,"d","M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"),k(s,"aria-hidden","true"),k(s,"class","mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker"),k(s,"fill","none"),k(s,"viewBox","0 0 24 24"),k(s,"stroke","currentColor"),k(o,"class","mt-2 text-uswds-sm font-medium text-uswds-base-darker"),k(a,"class","mt-1 text-uswds-sm text-uswds-base-darker")},m(e,t){m(e,s,t),u(s,n),m(e,r,t),m(e,o,t),m(e,i,t),m(e,a,t)},p:e,d(e){e&&(p(s),p(r),p(o),p(i),p(a))}}}function Wo(t){let s,n,r,o,i,a,d,l,c,f,x;return{c(){s=w("svg"),n=w("path"),r=h(),o=g("h3"),o.textContent="No community lists yet",i=h(),a=g("p"),a.textContent="Be the first to create a community list.",d=h(),l=g("div"),c=g("button"),c.innerHTML='<svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>\n                  Create your first list',k(n,"stroke-linecap","round"),k(n,"stroke-linejoin","round"),k(n,"stroke-width","2"),k(n,"d","M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"),k(s,"aria-hidden","true"),k(s,"class","mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker"),k(s,"fill","none"),k(s,"viewBox","0 0 24 24"),k(s,"stroke","currentColor"),k(o,"class","mt-2 text-uswds-sm font-medium text-uswds-base-darker"),k(a,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(c,"class","inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-uswds-sm font-medium rounded-uswds-md text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(l,"class","mt-6")},m(e,p){m(e,s,p),u(s,n),m(e,r,p),m(e,o,p),m(e,i,p),m(e,a,p),m(e,d,p),m(e,l,p),u(l,c),f||(x=v(c,"click",t[13]),f=!0)},p:e,d(e){e&&(p(s),p(r),p(o),p(i),p(a),p(d),p(l)),f=!1,x()}}}function Zo(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I=e[2].size+"",D=e[1]&&Do(e);const N=[Ro,No],R=[];function O(e,t){return"browse"===e[0]?0:"subscriptions"===e[0]?1:-1}return~(T=O(e))&&(B=R[T]=N[T](e)),{c(){t=g("div"),s=g("div"),r=g("div"),o=g("div"),o.innerHTML='<h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Community Lists</h2> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Discover and subscribe to community-curated blocklists.</p>',i=h(),a=g("button"),a.innerHTML='<svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>\n        Create List',d=h(),D&&D.c(),l=h(),c=g("div"),f=g("nav"),w=g("button"),b=x("Browse Lists"),C=h(),_=g("button"),M=x("My Subscriptions ("),L=x(I),S=x(")"),A=h(),B&&B.c(),j=h(),H=g("div"),H.innerHTML='<div class="flex"><div class=""><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg></div> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-blue-50">About Community Lists</h3> <div class="mt-2 text-uswds-sm text-uswds-blue-50"><p>Community lists are curated blocklists created and maintained by other users. \n            Each list has clear criteria and governance processes to ensure quality and transparency.</p> <ul class="list-disc list-inside mt-2 space-y-1"><li>Subscribe to lists that match your preferences</li> <li>Pin specific versions or enable auto-updates</li> <li>Preview impact before subscribing</li> <li>Appeal decisions through structured processes</li></ul></div></div></div>',k(a,"class","flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(r,"class","flex justify-between items-center"),k(s,"class","mb-6"),k(w,"class",y="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("browse"===e[0]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(_,"class",z="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("subscriptions"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(f,"class","flex space-x-8 px-6"),k(f,"aria-label","Tabs"),k(c,"class","bg-white shadow-sm rounded-uswds-lg mb-6"),k(H,"class","mt-8 bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4"),k(t,"class","px-4 py-6 sm:px-0")},m(n,p){m(n,t,p),u(t,s),u(s,r),u(r,o),u(r,i),u(r,a),u(t,d),D&&D.m(t,null),u(t,l),u(t,c),u(c,f),u(f,w),u(w,b),u(f,C),u(f,_),u(_,M),u(_,L),u(_,S),u(t,A),~T&&R[T].m(t,null),u(t,j),u(t,H),P=!0,E||(F=[v(a,"click",e[8]),v(w,"click",e[10]),v(_,"click",e[11])],E=!0)},p(e,[s]){e[1]?D?(D.p(e,s),2&s&&Q(D,1)):(D=Do(e),D.c(),Q(D,1),D.m(t,l)):D&&(Y(),W(D,1,1,()=>{D=null}),G()),(!P||1&s&&y!==(y="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("browse"===e[0]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")))&&k(w,"class",y),(!P||4&s)&&I!==(I=e[2].size+"")&&$(L,I),(!P||1&s&&z!==(z="py-4 px-1 border-b-2 font-medium text-uswds-sm "+("subscriptions"===e[0]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")))&&k(_,"class",z);let n=T;T=O(e),T===n?~T&&R[T].p(e,s):(B&&(Y(),W(R[n],1,1,()=>{R[n]=null}),G()),~T?(B=R[T],B?B.p(e,s):(B=R[T]=N[T](e),B.c()),Q(B,1),B.m(t,j)):B=null)},i(e){P||(Q(D),Q(B),P=!0)},o(e){W(D),W(B),P=!1},d(e){e&&p(t),D&&D.d(),~T&&R[T].d(),E=!1,n(F)}}}function Ko(e,t,s){let n,r,o;c(e,Rr,e=>s(2,n=e)),c(e,Dr,e=>s(3,r=e)),c(e,Nr,e=>s(4,o=e));let i="browse",a=!1;function d(e){s(0,i=e),s(1,a=!1),Or.clearCurrentList()}B(async()=>{await Or.fetchLists(),await Or.fetchSubscriptions()});return[i,a,n,r,o,d,function(e){const t=e.target;Or.updateSearch(t.value)},function(e){const t=e.target,[s,n]=t.value.split(":");Or.updateSort(s,n)},()=>s(1,a=!a),()=>s(1,a=!1),()=>d("browse"),()=>d("subscriptions"),()=>Or.fetchLists(),()=>s(1,a=!0)]}class Xo extends oe{constructor(e){super(),re(this,e,Ko,Zo,o,{})}}function ei(e){let t,s,n,r,o,i,a,d;return{c(){t=g("div"),s=g("div"),n=w("svg"),r=w("path"),o=h(),i=g("div"),a=g("p"),d=x(e[2]),k(r,"fill-rule","evenodd"),k(r,"d","M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"),k(r,"clip-rule","evenodd"),k(n,"aria-hidden","true"),k(n,"class","icon-uswds icon-uswds--md text-uswds-red-50"),k(n,"viewBox","0 0 20 20"),k(n,"fill","currentColor"),k(a,"class","text-uswds-sm text-uswds-red-50"),k(i,"class","ml-3"),k(s,"class","flex"),k(t,"class","mb-6 bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4")},m(e,l){m(e,t,l),u(t,s),u(s,n),u(n,r),u(s,o),u(s,i),u(i,a),u(a,d)},p(e,t){4&t[0]&&$(d,e[2])},d(e){e&&p(t)}}}function ti(e){let t,s,n,r,o,i,a,d;return{c(){t=g("div"),s=g("div"),n=w("svg"),r=w("path"),o=h(),i=g("div"),a=g("p"),d=x(e[3]),k(r,"fill-rule","evenodd"),k(r,"d","M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"),k(r,"clip-rule","evenodd"),k(n,"aria-hidden","true"),k(n,"class","icon-uswds icon-uswds--md text-uswds-green-50"),k(n,"viewBox","0 0 20 20"),k(n,"fill","currentColor"),k(a,"class","text-uswds-sm text-uswds-green-50"),k(i,"class","ml-3"),k(s,"class","flex"),k(t,"class","mb-6 bg-green-50 border border-green-200 rounded-uswds-md p-uswds-4")},m(e,l){m(e,t,l),u(t,s),u(s,n),u(n,r),u(s,o),u(s,i),u(i,a),u(a,d)},p(e,t){8&t[0]&&$(d,e[3])},d(e){e&&p(t)}}}function si(e){let t,s,r,o,i,a,d,l,c,f,w,y,C,$,_,M,L,S,z,A,T,B,j,H,P="profile"===e[4]&&ri(e),E="security"===e[4]&&li(e),F="preferences"===e[4]&&mi(e),I="data"===e[4]&&pi(e);return{c(){t=g("div"),s=g("nav"),r=g("button"),o=x("Profile"),a=h(),d=g("button"),l=x("Security"),f=h(),w=g("button"),y=x("Preferences"),$=h(),_=g("button"),M=x("Data & Privacy"),S=h(),P&&P.c(),z=h(),E&&E.c(),A=h(),F&&F.c(),T=h(),I&&I.c(),B=b(),k(r,"class",i="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("profile"===e[4]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(d,"class",c="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("security"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(w,"class",C="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("preferences"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(_,"class",L="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("data"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300")),k(s,"class","-mb-px flex space-x-8"),k(t,"class","border-b border-gray-200 mb-6")},m(n,i){m(n,t,i),u(t,s),u(s,r),u(r,o),u(s,a),u(s,d),u(d,l),u(s,f),u(s,w),u(w,y),u(s,$),u(s,_),u(_,M),m(n,S,i),P&&P.m(n,i),m(n,z,i),E&&E.m(n,i),m(n,A,i),F&&F.m(n,i),m(n,T,i),I&&I.m(n,i),m(n,B,i),j||(H=[v(r,"click",e[22]),v(d,"click",e[23]),v(w,"click",e[24]),v(_,"click",e[25])],j=!0)},p(e,t){16&t[0]&&i!==(i="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("profile"===e[4]?"border-indigo-500 text-primary":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(r,"class",i),16&t[0]&&c!==(c="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("security"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(d,"class",c),16&t[0]&&C!==(C="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("preferences"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(w,"class",C),16&t[0]&&L!==(L="py-2 px-1 border-b-2 font-medium text-uswds-sm "+("data"===e[4]?"border-indigo-500 text-indigo-600":"border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300"))&&k(_,"class",L),"profile"===e[4]?P?P.p(e,t):(P=ri(e),P.c(),P.m(z.parentNode,z)):P&&(P.d(1),P=null),"security"===e[4]?E?E.p(e,t):(E=li(e),E.c(),E.m(A.parentNode,A)):E&&(E.d(1),E=null),"preferences"===e[4]?F?F.p(e,t):(F=mi(e),F.c(),F.m(T.parentNode,T)):F&&(F.d(1),F=null),"data"===e[4]?I?I.p(e,t):(I=pi(e),I.c(),I.m(B.parentNode,B)):I&&(I.d(1),I=null)},d(e){e&&(p(t),p(S),p(z),p(A),p(T),p(B)),P&&P.d(e),E&&E.d(e),F&&F.d(e),I&&I.d(e),j=!1,n(H)}}}function ni(t){let s;return{c(){s=g("div"),s.innerHTML='<div class="animate-spin rounded-full icon icon-xl border-b-2 border-indigo-600 mx-auto"></div> <p class="mt-2 text-uswds-base-darker">Loading profile...</p>',k(s,"class","text-center py-12")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function ri(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C,_,M,L,S,z,A,T,B=bi(e[0].created_at)+"",j=bi(e[0].updated_at)+"";function H(e,t){return e[5]?ii:oi}let P=H(e),E=P(e),F=e[0].last_login&&ai(e),I=e[5]&&di(e);return{c(){t=g("div"),s=g("div"),s.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Profile Information</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Update your account&#39;s profile information and email address.</p>',n=h(),r=g("div"),o=g("div"),i=g("div"),a=g("label"),a.textContent="Email",d=h(),E.c(),l=h(),c=g("div"),f=g("div"),w=g("span"),w.textContent="Account Created",b=h(),v=g("p"),y=x(B),C=h(),_=g("div"),M=g("span"),M.textContent="Last Updated",L=h(),S=g("p"),z=x(j),A=h(),F&&F.c(),T=h(),I&&I.c(),k(s,"class","px-6 py-4 border-b border-gray-200"),k(a,"for","email"),k(a,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(w,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(v,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(M,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(S,"class","mt-1 text-uswds-sm text-uswds-base-darker"),k(c,"class","grid grid-cols-1 gap-uswds-6 sm:grid-cols-2"),k(o,"class","space-y-6"),k(r,"class","px-6 py-4"),k(t,"class","bg-white shadow rounded-uswds-lg")},m(e,p){m(e,t,p),u(t,s),u(t,n),u(t,r),u(r,o),u(o,i),u(i,a),u(i,d),E.m(i,null),u(o,l),u(o,c),u(c,f),u(f,w),u(f,b),u(f,v),u(v,y),u(c,C),u(c,_),u(_,M),u(_,L),u(_,S),u(S,z),u(c,A),F&&F.m(c,null),u(o,T),I&&I.m(o,null)},p(e,t){P===(P=H(e))&&E?E.p(e,t):(E.d(1),E=P(e),E&&(E.c(),E.m(i,null))),1&t[0]&&B!==(B=bi(e[0].created_at)+"")&&$(y,B),1&t[0]&&j!==(j=bi(e[0].updated_at)+"")&&$(z,j),e[0].last_login?F?F.p(e,t):(F=ai(e),F.c(),F.m(c,null)):F&&(F.d(1),F=null),e[5]?I?I.p(e,t):(I=di(e),I.c(),I.m(o,null)):I&&(I.d(1),I=null)},d(e){e&&p(t),E.d(),F&&F.d(),I&&I.d()}}}function oi(e){let t,s,n,r,o,i,a,d=e[0].email+"";return{c(){t=g("div"),s=g("span"),n=x(d),r=h(),o=g("button"),o.textContent="Edit",k(s,"class","text-uswds-sm text-uswds-base-darker"),k(o,"class","text-uswds-sm text-indigo-600 hover:text-indigo-500"),k(t,"class","mt-1 flex items-center justify-between")},m(d,l){m(d,t,l),u(t,s),u(s,n),u(t,r),u(t,o),i||(a=v(o,"click",e[27]),i=!0)},p(e,t){1&t[0]&&d!==(d=e[0].email+"")&&$(n,d)},d(e){e&&p(t),i=!1,a()}}}function ii(e){let t,s,n,r;return{c(){t=g("div"),s=g("input"),k(s,"type","email"),k(s,"id","email"),k(s,"class","flex-1 min-w-0 block w-full px-3 py-2 rounded-uswds-md border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"),k(s,"placeholder","Enter your email"),k(t,"class","mt-1 flex rounded-uswds-md shadow-sm")},m(o,i){m(o,t,i),u(t,s),_(s,e[6]),n||(r=v(s,"input",e[26]),n=!0)},p(e,t){64&t[0]&&s.value!==e[6]&&_(s,e[6])},d(e){e&&p(t),n=!1,r()}}}function ai(e){let t,s,n,r,o,i=bi(e[0].last_login)+"";return{c(){t=g("div"),s=g("span"),s.textContent="Last Login",n=h(),r=g("p"),o=x(i),k(s,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(r,"class","mt-1 text-uswds-sm text-uswds-base-darker")},m(e,i){m(e,t,i),u(t,s),u(t,n),u(t,r),u(r,o)},p(e,t){1&t[0]&&i!==(i=bi(e[0].last_login)+"")&&$(o,i)},d(e){e&&p(t)}}}function di(e){let t,s,r,o,i,a,d,l=e[1]?"Saving...":"Save Changes";return{c(){t=g("div"),s=g("button"),s.textContent="Cancel",r=h(),o=g("button"),i=x(l),k(s,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker hover:bg-uswds-base-lightest"),o.disabled=e[1],k(o,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"),k(t,"class","flex justify-end space-x-3")},m(n,l){m(n,t,l),u(t,s),u(t,r),u(t,o),u(o,i),a||(d=[v(s,"click",e[28]),v(o,"click",e[15])],a=!0)},p(e,t){2&t[0]&&l!==(l=e[1]?"Saving...":"Save Changes")&&$(i,l),2&t[0]&&(o.disabled=e[1])},d(e){e&&p(t),a=!1,n(d)}}}function li(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,v,y,C=e[0].totp_enabled?"Enabled":"Disabled",_=e[0].totp_enabled?"Your account is protected with 2FA":"Enable 2FA to secure your account";function M(e,t){return e[0].totp_enabled?ui:ci}let L=M(e),S=L(e);return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Two-Factor Authentication</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Add an extra layer of security to your account with 2FA.</p>',r=h(),o=g("div"),i=g("div"),a=g("div"),d=g("p"),l=x("Status: "),c=x(C),f=h(),w=g("p"),b=x(_),v=h(),y=g("div"),S.c(),k(n,"class","px-6 py-4 border-b border-gray-200"),k(d,"class","text-uswds-sm font-medium text-uswds-base-darker"),k(w,"class","text-uswds-sm text-uswds-base-darker"),k(i,"class","flex items-center justify-between"),k(o,"class","px-6 py-4"),k(s,"class","bg-white shadow rounded-uswds-lg"),k(t,"class","space-y-6")},m(e,p){m(e,t,p),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a),u(a,d),u(d,l),u(d,c),u(a,f),u(a,w),u(w,b),u(i,v),u(i,y),S.m(y,null)},p(e,t){1&t[0]&&C!==(C=e[0].totp_enabled?"Enabled":"Disabled")&&$(c,C),1&t[0]&&_!==(_=e[0].totp_enabled?"Your account is protected with 2FA":"Enable 2FA to secure your account")&&$(b,_),L===(L=M(e))&&S?S.p(e,t):(S.d(1),S=L(e),S&&(S.c(),S.m(y,null)))},d(e){e&&p(t),S.d()}}}function ci(t){let s,n,r;return{c(){s=g("button"),s.textContent="Enable 2FA",k(s,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white btn btn-primary")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[30]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function ui(t){let s,n,r;return{c(){s=g("button"),s.textContent="Disable 2FA",k(s,"class","px-4 py-2 border border-red-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-red-50 hover:bg-red-50")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[29]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function mi(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F=e[1]?"Saving...":"Save Preferences";return{c(){t=g("div"),s=g("div"),s.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Preferences</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Customize your experience and notification settings.</p>',r=h(),o=g("div"),i=g("div"),a=g("div"),d=g("div"),d.innerHTML='<span class="text-uswds-sm font-medium text-uswds-base-darker">Email Notifications</span> <p class="text-uswds-sm text-uswds-base-darker">Receive email updates about your account activity</p>',l=h(),c=g("label"),f=g("input"),w=h(),b=g("div"),y=h(),C=g("div"),_=g("div"),_.innerHTML='<span class="text-uswds-sm font-medium text-uswds-base-darker">Privacy Mode</span> <p class="text-uswds-sm text-uswds-base-darker">Hide your activity from other users</p>',M=h(),L=g("label"),S=g("input"),z=h(),A=g("div"),T=h(),B=g("div"),j=g("button"),H=x(F),k(s,"class","px-6 py-4 border-b border-gray-200"),k(f,"type","checkbox"),k(f,"class","sr-only peer"),k(b,"class","w-11 icon icon-lg bg-uswds-base-lightest peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:icon icon-md after: after:transition-all peer-checked:bg-indigo-600"),k(c,"class","relative flex items-center cursor-pointer"),k(a,"class","flex items-center justify-between"),k(S,"type","checkbox"),k(S,"class","sr-only peer"),k(A,"class","w-11 h-6 bg-uswds-base-lightest peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"),k(L,"class","relative inline-flex items-center cursor-pointer"),k(C,"class","flex items-center justify-between"),j.disabled=e[1],k(j,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"),k(B,"class","flex justify-end"),k(i,"class","space-y-6"),k(o,"class","px-6 py-4"),k(t,"class","bg-white shadow rounded-uswds-lg")},m(n,p){m(n,t,p),u(t,s),u(t,r),u(t,o),u(o,i),u(i,a),u(a,d),u(a,l),u(a,c),u(c,f),f.checked=e[7].email_notifications,u(c,w),u(c,b),u(i,y),u(i,C),u(C,_),u(C,M),u(C,L),u(L,S),S.checked=e[7].privacy_mode,u(L,z),u(L,A),u(i,T),u(i,B),u(B,j),u(j,H),P||(E=[v(f,"change",e[31]),v(S,"change",e[32]),v(j,"click",e[16])],P=!0)},p(e,t){128&t[0]&&(f.checked=e[7].email_notifications),128&t[0]&&(S.checked=e[7].privacy_mode),2&t[0]&&F!==(F=e[1]?"Saving...":"Save Preferences")&&$(H,F),2&t[0]&&(j.disabled=e[1])},d(e){e&&p(t),P=!1,n(E)}}}function pi(e){let t,s,n,r,o,i,a,d,l,c,f,w,b,y,C=e[10]?"Exporting...":"Export My Data";function _(e,t){return e[11]?fi:gi}let M=_(e),L=M(e);return{c(){t=g("div"),s=g("div"),n=g("div"),n.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-base-darker">Data Export</h3> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Download a copy of all your data for your records.</p>',r=h(),o=g("div"),i=g("button"),a=x(C),d=h(),l=g("div"),c=g("div"),c.innerHTML='<h3 class="text-uswds-lg font-medium text-uswds-red-50">Delete Account</h3> <p class="mt-1 text-uswds-sm text-uswds-red-50">Permanently delete your account and all associated data.</p>',f=h(),w=g("div"),L.c(),k(n,"class","px-6 py-4 border-b border-gray-200"),i.disabled=e[10],k(i,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"),k(o,"class","px-6 py-4"),k(s,"class","bg-white shadow rounded-uswds-lg"),k(c,"class","px-6 py-4 border-b border-red-200"),k(w,"class","px-6 py-4"),k(l,"class","bg-white shadow rounded-uswds-lg border-red-200"),k(t,"class","space-y-6")},m(p,g){m(p,t,g),u(t,s),u(s,n),u(s,r),u(s,o),u(o,i),u(i,a),u(t,d),u(t,l),u(l,c),u(l,f),u(l,w),L.m(w,null),b||(y=v(i,"click",e[17]),b=!0)},p(e,t){1024&t[0]&&C!==(C=e[10]?"Exporting...":"Export My Data")&&$(a,C),1024&t[0]&&(i.disabled=e[10]),M===(M=_(e))&&L?L.p(e,t):(L.d(1),L=M(e),L&&(L.c(),L.m(w,null)))},d(e){e&&p(t),L.d(),b=!1,y()}}}function fi(e){let t,s,r,o,i,a,d,l,c,f,w,b,y,C,M,L,S,z,A,T,B,j,H=e[14]?"Deleting...":"Delete Account";return{c(){t=g("div"),s=g("div"),s.innerHTML='<div class="flex"><svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg> <div class="ml-3"><h3 class="text-uswds-sm font-medium text-uswds-red-50">This action cannot be undone</h3> <p class="mt-2 text-uswds-sm text-uswds-red-50">This will permanently delete your account, DNP lists, and all associated data.</p></div></div>',r=h(),o=g("div"),i=g("label"),i.textContent="Confirm your email address",a=h(),d=g("input"),c=h(),f=g("div"),w=g("label"),w.textContent="Reason for deletion (optional)",b=h(),y=g("textarea"),C=h(),M=g("div"),L=g("button"),L.textContent="Cancel",S=h(),z=g("button"),A=x(H),k(s,"class","bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4"),k(i,"for","confirm-email"),k(i,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(d,"type","email"),k(d,"id","confirm-email"),k(d,"placeholder",l=e[0].email),k(d,"class","mt-1 block w-full px-3 py-2 border border-gray-300 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-uswds-sm"),k(w,"for","delete-reason"),k(w,"class","block text-uswds-sm font-medium text-uswds-base-darker"),k(y,"id","delete-reason"),k(y,"rows","3"),k(y,"class","mt-1 block w-full px-3 py-2 border border-gray-300 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-uswds-sm"),k(y,"placeholder","Help us improve by telling us why you're leaving..."),k(L,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker hover:bg-uswds-base-lightest"),z.disabled=T=e[14]||e[12]!==e[0].email,k(z,"class","px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-error hover:bg-red-700 disabled:opacity-50"),k(M,"class","flex justify-end space-x-3"),k(t,"class","space-y-4")},m(n,l){m(n,t,l),u(t,s),u(t,r),u(t,o),u(o,i),u(o,a),u(o,d),_(d,e[12]),u(t,c),u(t,f),u(f,w),u(f,b),u(f,y),_(y,e[13]),u(t,C),u(t,M),u(M,L),u(M,S),u(M,z),u(z,A),B||(j=[v(d,"input",e[34]),v(y,"input",e[35]),v(L,"click",e[36]),v(z,"click",e[18])],B=!0)},p(e,t){1&t[0]&&l!==(l=e[0].email)&&k(d,"placeholder",l),4096&t[0]&&d.value!==e[12]&&_(d,e[12]),8192&t[0]&&_(y,e[13]),16384&t[0]&&H!==(H=e[14]?"Deleting...":"Delete Account")&&$(A,H),20481&t[0]&&T!==(T=e[14]||e[12]!==e[0].email)&&(z.disabled=T)},d(e){e&&p(t),B=!1,n(j)}}}function gi(t){let s,n,r;return{c(){s=g("button"),s.textContent="Delete Account",k(s,"class","px-4 py-2 border border-red-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-red-50 hover:bg-red-50")},m(e,o){m(e,s,o),n||(r=v(s,"click",t[33]),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function wi(t){let s,n;return s=new xt({}),s.$on("complete",t[19]),s.$on("cancel",t[20]),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function xi(t){let s,r,o,i,a,d,l,c,f,w,x,b,y,C;return{c(){s=g("div"),r=g("div"),o=g("div"),i=g("h3"),i.textContent="Disable Two-Factor Authentication",a=h(),d=g("p"),d.textContent="Enter your 2FA code to disable two-factor authentication",l=h(),c=g("div"),f=g("input"),w=h(),x=g("div"),b=g("button"),b.textContent="Cancel",k(i,"class","text-uswds-lg font-medium text-uswds-base-darker mb-4"),k(d,"class","text-uswds-sm text-uswds-base-darker mb-6"),k(f,"type","text"),k(f,"placeholder","Enter 6-digit code"),k(f,"maxlength","6"),k(f,"class","w-full px-3 py-2 border border-gray-300 rounded-uswds-md text-center text-uswds-lg tracking-widest"),k(c,"class","mb-4"),k(b,"class","px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker hover:bg-uswds-base-lightest"),k(x,"class","flex justify-center space-x-3"),k(o,"class","mt-3 text-center"),k(r,"class","relative top-uswds-20 mx-auto p-5 border w-96 shadow-lg rounded-uswds-md bg-white"),k(s,"class","fixed inset-0 bg-uswds-base-lightest bg-opacity-50 overflow-y-auto h-full w-full z-50")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),u(o,l),u(o,c),u(c,f),u(o,w),u(o,x),u(x,b),y||(C=[v(f,"input",t[21]),v(b,"click",t[37])],y=!0)},p:e,d(e){e&&p(s),y=!1,n(C)}}}function hi(e){let t,s,n,r,o,i,a,d,l,c=e[2]&&ei(e),f=e[3]&&ti(e);function w(e,t){return e[1]&&!e[0]?ni:e[0]?si:void 0}let x=w(e),v=x&&x(e),y=e[8]&&wi(e),C=e[9]&&xi(e);return{c(){t=g("div"),s=g("div"),s.innerHTML='<h1 class="text-uswds-2xl font-bold text-uswds-base-darker">Account Settings</h1> <p class="mt-1 text-uswds-sm text-uswds-base-darker">Manage your account information, security settings, and preferences.</p>',n=h(),c&&c.c(),r=h(),f&&f.c(),o=h(),v&&v.c(),i=h(),y&&y.c(),a=h(),C&&C.c(),d=b(),k(s,"class","mb-8"),k(t,"class","max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8")},m(e,p){m(e,t,p),u(t,s),u(t,n),c&&c.m(t,null),u(t,r),f&&f.m(t,null),u(t,o),v&&v.m(t,null),m(e,i,p),y&&y.m(e,p),m(e,a,p),C&&C.m(e,p),m(e,d,p),l=!0},p(e,s){e[2]?c?c.p(e,s):(c=ei(e),c.c(),c.m(t,r)):c&&(c.d(1),c=null),e[3]?f?f.p(e,s):(f=ti(e),f.c(),f.m(t,o)):f&&(f.d(1),f=null),x===(x=w(e))&&v?v.p(e,s):(v&&v.d(1),v=x&&x(e),v&&(v.c(),v.m(t,null))),e[8]?y?(y.p(e,s),256&s[0]&&Q(y,1)):(y=wi(e),y.c(),Q(y,1),y.m(a.parentNode,a)):y&&(Y(),W(y,1,1,()=>{y=null}),G()),e[9]?C?C.p(e,s):(C=xi(e),C.c(),C.m(d.parentNode,d)):C&&(C.d(1),C=null)},i(e){l||(Q(y),l=!0)},o(e){W(y),l=!1},d(e){e&&(p(t),p(i),p(a),p(d)),c&&c.d(),f&&f.d(),v&&v.d(),y&&y.d(e),C&&C.d(e)}}}function bi(e){return new Date(e).toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})}function vi(e,t,s){let n=null,r=!1,o="",i="",a="profile",d=!1,l="",c={two_factor_enabled:!1,email_notifications:!0,privacy_mode:!1},u=!1,m=!1,p=!1,f=!1,g="",w="",x=!1;async function h(){s(1,r=!0),s(2,o="");try{const e=await me("/users/profile");e.success?(s(0,n=e.data),s(6,l=n?.email||""),s(7,c={two_factor_enabled:n?.settings?.two_factor_enabled||!1,email_notifications:n?.settings?.email_notifications||!0,privacy_mode:n?.settings?.privacy_mode||!1})):s(2,o=e.message||"Failed to load profile")}catch(e){s(2,o=e.message||"Failed to load profile")}finally{s(1,r=!1)}}B(async()=>{await h()});return[n,r,o,i,a,d,l,c,u,m,p,f,g,w,x,async function(){if(n){s(1,r=!0),s(2,o=""),s(3,i="");try{const e=await fe("/users/profile",{email:l!==n.email?l:void 0});e.success?(s(0,n=e.data),s(5,d=!1),s(3,i="Profile updated successfully"),await ve.fetchProfile()):s(2,o=e.message||"Failed to update profile")}catch(e){s(2,o=e.message||"Failed to update profile")}finally{s(1,r=!1)}}},async function(){if(n){s(1,r=!0),s(2,o=""),s(3,i="");try{const e=await fe("/users/profile",{settings:c});e.success?(s(0,n=e.data),s(3,i="Settings updated successfully")):s(2,o=e.message||"Failed to update settings")}catch(e){s(2,o=e.message||"Failed to update settings")}finally{s(1,r=!1)}}},async function(){s(10,p=!0),s(2,o="");try{const e=await me("/users/export");if(e.success){const t=new Blob([JSON.stringify(e.data,null,2)],{type:"application/json"}),n=URL.createObjectURL(t),r=document.createElement("a");r.href=n,r.download=`no-drake-data-export-${(new Date).toISOString().split("T")[0]}.json`,document.body.appendChild(r),r.click(),document.body.removeChild(r),URL.revokeObjectURL(n),s(3,i="Data exported successfully")}else s(2,o=e.message||"Failed to export data")}catch(e){s(2,o=e.message||"Failed to export data")}finally{s(10,p=!1)}},async function(){if(n&&g===n.email){s(14,x=!0),s(2,o="");try{const e=await ge("/users/account",{confirmation_email:g,reason:w||void 0});e.success?await ve.logout():s(2,o=e.message||"Failed to delete account")}catch(e){s(2,o=e.message||"Failed to delete account")}finally{s(14,x=!1)}}else s(2,o="Email confirmation does not match")},function(){s(8,u=!1),h(),s(3,i="2FA enabled successfully")},function(){s(8,u=!1)},function(e){const t=e.target.value;6===t.length&&/^\d{6}$/.test(t)&&async function(e){try{const t=await ve.disable2FA(e);t.success?(s(9,m=!1),await h(),s(3,i="2FA disabled successfully")):s(2,o=t.message||"Failed to disable 2FA")}catch(e){s(2,o=e.message||"Failed to disable 2FA")}}(t)},()=>s(4,a="profile"),()=>s(4,a="security"),()=>s(4,a="preferences"),()=>s(4,a="data"),function(){l=this.value,s(6,l)},()=>s(5,d=!0),()=>{s(5,d=!1),s(6,l=n?.email||"")},()=>s(9,m=!0),()=>s(8,u=!0),function(){c.email_notifications=this.checked,s(7,c)},function(){c.privacy_mode=this.checked,s(7,c)},()=>s(11,f=!0),function(){g=this.value,s(12,g)},function(){w=this.value,s(13,w)},()=>{s(11,f=!1),s(12,g=""),s(13,w="")},()=>s(9,m=!1)]}class yi extends oe{constructor(e){super(),re(this,e,vi,hi,o,{},null,[-1,-1])}}function ki(t){let s,r,o,i,a,d,l,c,f,w,b,y,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U;return{c(){s=g("div"),r=g("div"),o=g("h1"),o.textContent="CSS and Navigation Test",i=h(),a=g("div"),d=g("h2"),l=x("Current Route: "),c=x(t[0]),f=h(),w=g("div"),w.innerHTML='<div class="bg-blue-50 p-4 rounded border"><h3 class="font-medium text-blue-900">CSS Test</h3> <p class="text-blue-700 text-sm">If you can see this styled properly, CSS is working!</p></div> <div class="bg-green-50 p-4 rounded border"><h3 class="font-medium text-green-900">Layout Test</h3> <p class="text-green-700 text-sm">This should be in a 2-column grid layout.</p></div>',b=h(),y=g("div"),y.innerHTML='<button class="btn btn-primary">Primary Button</button> <button class="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300">Secondary Button</button>',C=h(),_=g("div"),M=g("h2"),M.textContent="Navigation Test",L=h(),S=g("p"),S.textContent="Click the tabs above to test navigation. The route should change without page refresh.",z=h(),A=g("div"),T=g("p"),B=x("Current route: "),j=g("code"),H=x(t[0]),P=h(),E=g("div"),F=g("button"),F.textContent="Test Overview",I=h(),D=g("button"),D.textContent="Test Connections",N=h(),R=g("button"),R.textContent="Test DNP",O=h(),V=g("button"),V.textContent="Test Community",k(o,"class","text-2xl font-bold text-gray-900 mb-6"),k(d,"class","text-lg font-semibold mb-4"),k(w,"class","grid grid-cols-2 gap-4 mb-6"),k(y,"class","flex gap-4"),k(a,"class","bg-white rounded-lg shadow p-6 mb-6"),k(M,"class","text-lg font-semibold mb-4"),k(S,"class","text-gray-600 mb-4"),k(j,"class","bg-gray-100 px-2 py-1 rounded"),k(A,"class","text-sm text-gray-500 mb-4"),k(F,"class","btn btn-primary text-sm"),k(D,"class","btn btn-primary text-sm"),k(R,"class","btn btn-primary text-sm"),k(V,"class","btn btn-primary text-sm"),k(E,"class","flex gap-2 flex-wrap"),k(_,"class","bg-white rounded-lg shadow p-6"),k(r,"class","max-w-4xl mx-auto"),k(s,"class","min-h-screen bg-gray-50 p-8")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(r,i),u(r,a),u(a,d),u(d,l),u(d,c),u(a,f),u(a,w),u(a,b),u(a,y),u(r,C),u(r,_),u(_,M),u(_,L),u(_,S),u(_,z),u(_,A),u(A,T),u(T,B),u(T,j),u(j,H),u(_,P),u(_,E),u(E,F),u(E,I),u(E,D),u(E,N),u(E,R),u(E,O),u(E,V),q||(U=[v(F,"click",t[2]),v(D,"click",t[3]),v(R,"click",t[4]),v(V,"click",t[5])],q=!0)},p(e,[t]){1&t&&$(c,e[0]),1&t&&$(H,e[0])},i:e,o:e,d(e){e&&p(s),q=!1,n(U)}}}function Ci(e,t,s){let n;function r(e){console.log("SimpleTest: Testing navigation to:",e),ke(e)}c(e,ye,e=>s(0,n=e));return e.$$.update=()=>{1&e.$$.dirty&&console.log("SimpleTest: Current route changed to:",n)},[n,r,()=>r("overview"),()=>r("connections"),()=>r("dnp"),()=>r("community")]}class $i extends oe{constructor(e){super(),re(this,e,Ci,ki,o,{})}}function _i(t){let s,r,o,i,a,d,l,c,f,w,x,b,C,$,_,M,L,S,z,A,T;return{c(){s=g("div"),r=g("div"),o=g("div"),i=g("div"),i.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>',a=h(),d=g("div"),l=g("h3"),l.textContent="Welcome to No Drake in the House! 🎵",c=h(),f=g("div"),f.innerHTML="<p>Your account has been created successfully. Get started by connecting your music streaming services and building your first DNP list.</p>",w=h(),x=g("div"),b=g("div"),C=g("button"),C.textContent="Connect Services",$=h(),_=g("button"),_.textContent="Dismiss",M=h(),L=g("div"),S=g("div"),z=g("button"),z.innerHTML='<span class="sr-only">Dismiss</span> <svg class="icon-uswds icon-uswds--lg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path></svg>',k(i,"class",""),k(l,"class","text-uswds-sm font-medium text-uswds-green-50"),k(f,"class","mt-2 text-uswds-sm text-uswds-green-50"),k(C,"type","button"),k(C,"class","bg-green-50 px-2 py-1.5 rounded-uswds-md text-uswds-sm font-medium text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"),k(_,"type","button"),k(_,"class","ml-3 bg-green-50 px-2 py-1.5 rounded-uswds-md text-uswds-sm font-medium text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"),k(b,"class","-mx-2 -my-1.5 flex"),k(x,"class","mt-4"),k(d,"class","ml-3 flex-1"),k(z,"type","button"),k(z,"class","flex bg-green-50 rounded-uswds-md p-uswds-1.5 text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"),k(S,"class","-mx-1.5 -my-1.5"),k(L,"class","ml-auto pl-3"),k(o,"class","flex"),k(r,"class","rounded-uswds-md bg-green-50 p-uswds-4 border border-green-200"),k(s,"class","max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(o,a),u(o,d),u(d,l),u(d,c),u(d,f),u(d,w),u(d,x),u(x,b),u(b,C),u(b,$),u(b,_),u(o,M),u(o,L),u(L,S),u(S,z),A||(T=[v(C,"click",y(t[7])),v(_,"click",y(t[8])),v(z,"click",y(t[9]))],A=!0)},p:e,d(e){e&&p(s),A=!1,n(T)}}}function Mi(t){let s,n;return s=new yi({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Li(t){let s,n;return s=new Xo({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Si(t){let s,n;return s=new Ir({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function zi(t){let s,n;return s=new wn({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Ai(t){let s,n;return s=new os({}),{c(){ee(s.$$.fragment)},m(e,t){te(s,e,t),n=!0},p:e,i(e){n||(Q(s.$$.fragment,e),n=!0)},o(e){W(s.$$.fragment,e),n=!1},d(e){se(s,e)}}}function Ti(t){let s,r,o,i,a,d,l,c,f,b,C,_,M,L,S,z,A,T,B,j,H,P,E,F,I,D,N,R,O,V,q,U,J,Y,G,Q,W,Z,K,X,ee,te,se,ne,re,oe,ie,ae,de,le,ce,ue,me,pe,fe,ge,we,xe=t[2].length+"",he=t[4]?"Active":"Setup Required";function be(e,t){return e[4]?Bi:ji}let ve=be(t),ye=ve(t);function ke(e,t){return e[4]&&e[3]>0?Pi:Hi}let Ce=ke(t),$e=Ce(t);return{c(){s=g("div"),r=g("div"),o=g("div"),i=g("div"),a=g("div"),d=g("div"),d.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--neutral" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>',l=h(),c=g("div"),f=g("dl"),b=g("dt"),b.textContent="Connected Services\n                    ",C=g("dd"),_=x(xe),M=h(),L=g("div"),S=g("div"),z=g("button"),z.textContent="Manage connections",A=h(),T=g("div"),B=g("div"),j=g("div"),H=g("div"),H.innerHTML='<svg class="icon-uswds icon-uswds--lg icon-uswds--neutral" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636"></path></svg>',P=h(),E=g("div"),F=g("dl"),I=g("dt"),I.textContent="Blocked Artists\n                    ",D=g("dd"),N=x(t[3]),R=h(),O=g("div"),V=g("div"),q=g("button"),q.textContent="Manage DNP list",U=h(),J=g("div"),Y=g("div"),G=g("div"),Q=g("div"),W=w("svg"),Z=w("path"),X=h(),ee=g("div"),te=g("dl"),se=g("dt"),se.textContent="System Status\n                    ",ne=g("dd"),re=x(he),oe=h(),ie=g("div"),ae=g("div"),ye.c(),de=h(),le=g("div"),ce=g("h3"),ce.textContent="Quick Actions",ue=h(),me=g("div"),pe=g("button"),pe.innerHTML='<svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">Add Artist to DNP List</span>',fe=h(),$e.c(),k(d,"class","flex-shrink-0"),k(b,"class","text-uswds-sm font-medium text-uswds-base-darker truncate"),k(C,"class","text-uswds-lg font-medium text-uswds-base-darker"),k(c,"class","ml-5 w-0 flex-1"),k(a,"class","flex items-center"),k(i,"class","p-uswds-5"),k(z,"type","button"),k(z,"class","font-medium text-indigo-700 hover:text-indigo-900"),k(S,"class","text-uswds-sm"),k(L,"class","bg-uswds-base-lightest px-5 py-3"),k(o,"class","bg-white overflow-hidden shadow rounded-uswds-lg"),k(H,"class","flex-shrink-0"),k(I,"class","text-uswds-sm font-medium text-uswds-base-darker truncate"),k(D,"class","text-uswds-lg font-medium text-uswds-base-darker"),k(E,"class","ml-5 w-0 flex-1"),k(j,"class","flex items-center"),k(B,"class","p-uswds-5"),k(q,"type","button"),k(q,"class","font-medium text-indigo-700 hover:text-indigo-900"),k(V,"class","text-uswds-sm"),k(O,"class","bg-uswds-base-lightest px-5 py-3"),k(T,"class","bg-white overflow-hidden shadow rounded-uswds-lg"),k(Z,"stroke-linecap","round"),k(Z,"stroke-linejoin","round"),k(Z,"stroke-width","2"),k(Z,"d","M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"),k(W,"class",K="icon-uswds icon-uswds--lg "+(t[4]?"icon-uswds--success":"icon-uswds--neutral")),k(W,"fill","none"),k(W,"viewBox","0 0 24 24"),k(W,"stroke","currentColor"),k(W,"aria-hidden","true"),k(Q,"class","flex-shrink-0"),k(se,"class","text-uswds-sm font-medium text-uswds-base-darker truncate"),k(ne,"class","text-uswds-lg font-medium text-uswds-base-darker"),k(ee,"class","ml-5 w-0 flex-1"),k(G,"class","flex items-center"),k(Y,"class","p-uswds-5"),k(ae,"class","text-uswds-sm"),k(ie,"class","bg-uswds-base-lightest px-5 py-3"),k(J,"class","bg-white overflow-hidden shadow rounded-uswds-lg"),k(r,"class","grid grid-cols-1 gap-uswds-6 sm:grid-cols-2 lg:grid-cols-3"),k(ce,"class","text-uswds-lg leading-6 font-medium text-uswds-base-darker mb-4"),k(pe,"type","button"),k(pe,"class","relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"),k(me,"class","grid grid-cols-1 gap-uswds-4 sm:grid-cols-2"),k(le,"class","mt-8"),k(s,"class","px-4 py-6 sm:px-0")},m(e,n){m(e,s,n),u(s,r),u(r,o),u(o,i),u(i,a),u(a,d),u(a,l),u(a,c),u(c,f),u(f,b),u(f,C),u(C,_),u(o,M),u(o,L),u(L,S),u(S,z),u(r,A),u(r,T),u(T,B),u(B,j),u(j,H),u(j,P),u(j,E),u(E,F),u(F,I),u(F,D),u(D,N),u(T,R),u(T,O),u(O,V),u(V,q),u(r,U),u(r,J),u(J,Y),u(Y,G),u(G,Q),u(Q,W),u(W,Z),u(G,X),u(G,ee),u(ee,te),u(te,se),u(te,ne),u(ne,re),u(J,oe),u(J,ie),u(ie,ae),ye.m(ae,null),u(s,de),u(s,le),u(le,ce),u(le,ue),u(le,me),u(me,pe),u(me,fe),$e.m(me,null),ge||(we=[v(z,"click",y(t[10])),v(q,"click",y(t[11])),v(pe,"click",y(t[13]))],ge=!0)},p(e,t){4&t&&xe!==(xe=e[2].length+"")&&$(_,xe),8&t&&$(N,e[3]),16&t&&K!==(K="icon-uswds icon-uswds--lg "+(e[4]?"icon-uswds--success":"icon-uswds--neutral"))&&k(W,"class",K),16&t&&he!==(he=e[4]?"Active":"Setup Required")&&$(re,he),ve===(ve=be(e))&&ye?ye.p(e,t):(ye.d(1),ye=ve(e),ye&&(ye.c(),ye.m(ae,null))),Ce===(Ce=ke(e))&&$e?$e.p(e,t):($e.d(1),$e=Ce(e),$e&&($e.c(),$e.m(me,null)))},i:e,o:e,d(e){e&&p(s),ye.d(),$e.d(),ge=!1,n(we)}}}function Bi(t){let s;return{c(){s=g("span"),s.textContent="Ready to use",k(s,"class","text-uswds-green-50")},m(e,t){m(e,s,t)},p:e,d(e){e&&p(s)}}}function ji(t){let s,n,r;return{c(){s=g("button"),s.textContent="Connect Spotify",k(s,"type","button"),k(s,"class","font-medium text-indigo-700 hover:text-indigo-900")},m(e,o){m(e,s,o),n||(r=v(s,"click",y(t[12])),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function Hi(t){let s,n,r;return{c(){s=g("button"),s.innerHTML='<svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg> <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">Connect Spotify</span>',k(s,"type","button"),k(s,"class","relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500")},m(e,o){m(e,s,o),n||(r=v(s,"click",y(t[15])),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function Pi(t){let s,n,r;return{c(){s=g("button"),s.innerHTML='<svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">Plan Enforcement</span>',k(s,"type","button"),k(s,"class","relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500")},m(e,o){m(e,s,o),n||(r=v(s,"click",y(t[14])),n=!0)},p:e,d(e){e&&p(s),n=!1,r()}}}function Ei(e){let t,s,n,r,o,i,a,d,l,c;s=new qt({});let f=e[1]&&_i(e);i=new $i({});const w=[Ti,Ai,zi,Si,Li,Mi],x=[];function b(e,t){return"overview"===e[0]?0:"connections"===e[0]?1:"dnp"===e[0]?2:"enforcement"===e[0]?3:"community"===e[0]?4:"profile"===e[0]?5:-1}return~(d=b(e))&&(l=x[d]=w[d](e)),{c(){t=g("div"),ee(s.$$.fragment),n=h(),f&&f.c(),r=h(),o=g("main"),ee(i.$$.fragment),a=h(),l&&l.c(),k(o,"class","max-w-7xl mx-auto py-6 sm:px-6 lg:px-8"),k(t,"class","min-h-screen bg-uswds-base-lightest")},m(e,l){m(e,t,l),te(s,t,null),u(t,n),f&&f.m(t,null),u(t,r),u(t,o),te(i,o,null),u(o,a),~d&&x[d].m(o,null),c=!0},p(e,[s]){e[1]?f?f.p(e,s):(f=_i(e),f.c(),f.m(t,r)):f&&(f.d(1),f=null);let n=d;d=b(e),d===n?~d&&x[d].p(e,s):(l&&(Y(),W(x[n],1,1,()=>{x[n]=null}),G()),~d?(l=x[d],l?l.p(e,s):(l=x[d]=w[d](e),l.c()),Q(l,1),l.m(o,null)):l=null)},i(e){c||(Q(s.$$.fragment,e),Q(i.$$.fragment,e),Q(l),c=!0)},o(e){W(s.$$.fragment,e),W(i.$$.fragment,e),W(l),c=!1},d(e){e&&p(t),se(s),f&&f.d(),se(i),~d&&x[d].d()}}}function Fi(e,t,s){let n,r,o,i,a;c(e,ye,e=>s(0,n=e)),c(e,be,e=>s(16,r=e)),c(e,Ht,e=>s(2,o=e)),c(e,Dt,e=>s(3,i=e)),c(e,Et,e=>s(4,a=e));let d=!1;function l(e){console.log("Dashboard: Navigating to:",e),ke(e)}function u(){s(1,d=!1),ve.clearJustRegistered()}B(async()=>{try{await Ft.fetchConnections()}catch(e){console.log("Connection fetch failed (backend not running):",e)}try{await Rt.fetchDnpList()}catch(e){console.log("DNP list fetch failed (backend not running):",e)}r&&(s(1,d=!0),setTimeout(()=>{s(1,d=!1),ve.clearJustRegistered()},5e3))});return e.$$.update=()=>{1&e.$$.dirty&&console.log("Dashboard: Current route changed to:",n)},[n,d,o,i,a,l,u,()=>l("connections"),()=>u(),()=>u(),()=>l("connections"),()=>l("dnp"),()=>l("connections"),()=>l("dnp"),()=>l("enforcement"),()=>l("connections")]}class Ii extends oe{constructor(e){super(),re(this,e,Fi,Ei,o,{})}}function Di(e){let t,s;return t=new Bt({}),{c(){ee(t.$$.fragment)},m(e,n){te(t,e,n),s=!0},i(e){s||(Q(t.$$.fragment,e),s=!0)},o(e){W(t.$$.fragment,e),s=!1},d(e){se(t,e)}}}function Ni(e){let t,s;return t=new Ii({}),{c(){ee(t.$$.fragment)},m(e,n){te(t,e,n),s=!0},i(e){s||(Q(t.$$.fragment,e),s=!0)},o(e){W(t.$$.fragment,e),s=!1},d(e){se(t,e)}}}function Ri(t){let s;return{c(){s=g("div"),s.innerHTML='<div class="text-center"><div class="icon icon-xl icon-primary animate-spin rounded-full border-b-2 border-primary mx-auto"></div> <p class="mt-4 text-gray-600">Loading...</p></div>',k(s,"class","min-h-screen flex items-center justify-center bg-gray-50")},m(e,t){m(e,s,t)},i:e,o:e,d(e){e&&p(s)}}}function Oi(e){let t,s,n,r;const o=[Ri,Ni,Di],i=[];function a(e,t){return e[0]?e[1]?1:2:0}return t=a(e),s=i[t]=o[t](e),{c(){s.c(),n=b()},m(e,s){i[t].m(e,s),m(e,n,s),r=!0},p(e,[r]){let d=t;t=a(e),t!==d&&(Y(),W(i[d],1,1,()=>{i[d]=null}),G(),s=i[t],s||(s=i[t]=o[t](e),s.c()),Q(s,1),s.m(n.parentNode,n))},i(e){r||(Q(s),r=!0)},o(e){W(s),r=!1},d(e){e&&p(n),i[t].d(e)}}}function Vi(e,t,s){let n;c(e,xe,e=>s(1,n=e));let r=!1;return B(async()=>{console.log("App mounting...");try{!function(){if("undefined"!=typeof window){window.addEventListener("popstate",e=>{const t=window.location.pathname;let s="overview";"/connections"===t?s="connections":"/dnp"===t?s="dnp":"/enforcement"===t?s="enforcement":"/community"===t?s="community":"/profile"===t&&(s="profile"),ye.set(s)});const e=window.location.pathname;let t="overview";"/connections"===e?t="connections":"/dnp"===e?t="dnp":"/enforcement"===e?t="enforcement":"/community"===e?t="community":"/profile"===e&&(t="profile"),ye.set(t)}}(),console.log("Router initialized"),await ve.fetchProfile(),console.log("Auth profile fetched")}catch(e){console.error("Error during app initialization:",e)}finally{s(0,r=!0),console.log("App initialized, isAuthenticated:",n)}}),[r,n]}return new class extends oe{constructor(e){super(),re(this,e,Vi,Oi,o,{})}}({target:document.body})}();
+
+(function(l, r) { if (!l || l.getElementById('livereloadscript')) return; r = l.createElement('script'); r.async = 1; r.src = '//' + (self.location.host || 'localhost').split(':')[0] + ':35734/livereload.js?snipver=1'; r.id = 'livereloadscript'; l.getElementsByTagName('head')[0].appendChild(r) })(self.document);
+var app = (function () {
+	'use strict';
+
+	/** @returns {void} */
+	function noop() {}
+
+	/** @returns {void} */
+	function add_location(element, file, line, column, char) {
+		element.__svelte_meta = {
+			loc: { file, line, column, char }
+		};
+	}
+
+	function run(fn) {
+		return fn();
+	}
+
+	function blank_object() {
+		return Object.create(null);
+	}
+
+	/**
+	 * @param {Function[]} fns
+	 * @returns {void}
+	 */
+	function run_all(fns) {
+		fns.forEach(run);
+	}
+
+	/**
+	 * @param {any} thing
+	 * @returns {thing is Function}
+	 */
+	function is_function(thing) {
+		return typeof thing === 'function';
+	}
+
+	/** @returns {boolean} */
+	function safe_not_equal(a, b) {
+		return a != a ? b == b : a !== b || (a && typeof a === 'object') || typeof a === 'function';
+	}
+
+	let src_url_equal_anchor;
+
+	/**
+	 * @param {string} element_src
+	 * @param {string} url
+	 * @returns {boolean}
+	 */
+	function src_url_equal(element_src, url) {
+		if (element_src === url) return true;
+		if (!src_url_equal_anchor) {
+			src_url_equal_anchor = document.createElement('a');
+		}
+		// This is actually faster than doing URL(..).href
+		src_url_equal_anchor.href = url;
+		return element_src === src_url_equal_anchor.href;
+	}
+
+	/** @returns {boolean} */
+	function is_empty(obj) {
+		return Object.keys(obj).length === 0;
+	}
+
+	/** @returns {void} */
+	function validate_store(store, name) {
+		if (store != null && typeof store.subscribe !== 'function') {
+			throw new Error(`'${name}' is not a store with a 'subscribe' method`);
+		}
+	}
+
+	function subscribe(store, ...callbacks) {
+		if (store == null) {
+			for (const callback of callbacks) {
+				callback(undefined);
+			}
+			return noop;
+		}
+		const unsub = store.subscribe(...callbacks);
+		return unsub.unsubscribe ? () => unsub.unsubscribe() : unsub;
+	}
+
+	/** @returns {void} */
+	function component_subscribe(component, store, callback) {
+		component.$$.on_destroy.push(subscribe(store, callback));
+	}
+
+	/** @type {typeof globalThis} */
+	const globals =
+		typeof window !== 'undefined'
+			? window
+			: typeof globalThis !== 'undefined'
+			? globalThis
+			: // @ts-ignore Node typings have this
+			  global;
+
+	/**
+	 * @param {Node} target
+	 * @param {Node} node
+	 * @returns {void}
+	 */
+	function append(target, node) {
+		target.appendChild(node);
+	}
+
+	/**
+	 * @param {Node} target
+	 * @param {Node} node
+	 * @param {Node} [anchor]
+	 * @returns {void}
+	 */
+	function insert(target, node, anchor) {
+		target.insertBefore(node, anchor || null);
+	}
+
+	/**
+	 * @param {Node} node
+	 * @returns {void}
+	 */
+	function detach(node) {
+		if (node.parentNode) {
+			node.parentNode.removeChild(node);
+		}
+	}
+
+	/**
+	 * @returns {void} */
+	function destroy_each(iterations, detaching) {
+		for (let i = 0; i < iterations.length; i += 1) {
+			if (iterations[i]) iterations[i].d(detaching);
+		}
+	}
+
+	/**
+	 * @template {keyof HTMLElementTagNameMap} K
+	 * @param {K} name
+	 * @returns {HTMLElementTagNameMap[K]}
+	 */
+	function element(name) {
+		return document.createElement(name);
+	}
+
+	/**
+	 * @template {keyof SVGElementTagNameMap} K
+	 * @param {K} name
+	 * @returns {SVGElement}
+	 */
+	function svg_element(name) {
+		return document.createElementNS('http://www.w3.org/2000/svg', name);
+	}
+
+	/**
+	 * @param {string} data
+	 * @returns {Text}
+	 */
+	function text(data) {
+		return document.createTextNode(data);
+	}
+
+	/**
+	 * @returns {Text} */
+	function space() {
+		return text(' ');
+	}
+
+	/**
+	 * @returns {Text} */
+	function empty() {
+		return text('');
+	}
+
+	/**
+	 * @param {EventTarget} node
+	 * @param {string} event
+	 * @param {EventListenerOrEventListenerObject} handler
+	 * @param {boolean | AddEventListenerOptions | EventListenerOptions} [options]
+	 * @returns {() => void}
+	 */
+	function listen(node, event, handler, options) {
+		node.addEventListener(event, handler, options);
+		return () => node.removeEventListener(event, handler, options);
+	}
+
+	/**
+	 * @returns {(event: any) => any} */
+	function prevent_default(fn) {
+		return function (event) {
+			event.preventDefault();
+			// @ts-ignore
+			return fn.call(this, event);
+		};
+	}
+
+	/**
+	 * @param {Element} node
+	 * @param {string} attribute
+	 * @param {string} [value]
+	 * @returns {void}
+	 */
+	function attr(node, attribute, value) {
+		if (value == null) node.removeAttribute(attribute);
+		else if (node.getAttribute(attribute) !== value) node.setAttribute(attribute, value);
+	}
+
+	/**
+	 * @param {Element} element
+	 * @returns {ChildNode[]}
+	 */
+	function children(element) {
+		return Array.from(element.childNodes);
+	}
+
+	/**
+	 * @returns {void} */
+	function set_input_value(input, value) {
+		input.value = value == null ? '' : value;
+	}
+
+	/**
+	 * @template T
+	 * @param {string} type
+	 * @param {T} [detail]
+	 * @param {{ bubbles?: boolean, cancelable?: boolean }} [options]
+	 * @returns {CustomEvent<T>}
+	 */
+	function custom_event(type, detail, { bubbles = false, cancelable = false } = {}) {
+		return new CustomEvent(type, { detail, bubbles, cancelable });
+	}
+
+	/**
+	 * @typedef {Node & {
+	 * 	claim_order?: number;
+	 * 	hydrate_init?: true;
+	 * 	actual_end_child?: NodeEx;
+	 * 	childNodes: NodeListOf<NodeEx>;
+	 * }} NodeEx
+	 */
+
+	/** @typedef {ChildNode & NodeEx} ChildNodeEx */
+
+	/** @typedef {NodeEx & { claim_order: number }} NodeEx2 */
+
+	/**
+	 * @typedef {ChildNodeEx[] & {
+	 * 	claim_info?: {
+	 * 		last_index: number;
+	 * 		total_claimed: number;
+	 * 	};
+	 * }} ChildNodeArray
+	 */
+
+	let current_component;
+
+	/** @returns {void} */
+	function set_current_component(component) {
+		current_component = component;
+	}
+
+	function get_current_component() {
+		if (!current_component) throw new Error('Function called outside component initialization');
+		return current_component;
+	}
+
+	/**
+	 * The `onMount` function schedules a callback to run as soon as the component has been mounted to the DOM.
+	 * It must be called during the component's initialisation (but doesn't need to live *inside* the component;
+	 * it can be called from an external module).
+	 *
+	 * If a function is returned _synchronously_ from `onMount`, it will be called when the component is unmounted.
+	 *
+	 * `onMount` does not run inside a [server-side component](https://svelte.dev/docs#run-time-server-side-component-api).
+	 *
+	 * https://svelte.dev/docs/svelte#onmount
+	 * @template T
+	 * @param {() => import('./private.js').NotFunction<T> | Promise<import('./private.js').NotFunction<T>> | (() => any)} fn
+	 * @returns {void}
+	 */
+	function onMount(fn) {
+		get_current_component().$$.on_mount.push(fn);
+	}
+
+	const dirty_components = [];
+	const binding_callbacks = [];
+
+	let render_callbacks = [];
+
+	const flush_callbacks = [];
+
+	const resolved_promise = /* @__PURE__ */ Promise.resolve();
+
+	let update_scheduled = false;
+
+	/** @returns {void} */
+	function schedule_update() {
+		if (!update_scheduled) {
+			update_scheduled = true;
+			resolved_promise.then(flush);
+		}
+	}
+
+	/** @returns {void} */
+	function add_render_callback(fn) {
+		render_callbacks.push(fn);
+	}
+
+	// flush() calls callbacks in this order:
+	// 1. All beforeUpdate callbacks, in order: parents before children
+	// 2. All bind:this callbacks, in reverse order: children before parents.
+	// 3. All afterUpdate callbacks, in order: parents before children. EXCEPT
+	//    for afterUpdates called during the initial onMount, which are called in
+	//    reverse order: children before parents.
+	// Since callbacks might update component values, which could trigger another
+	// call to flush(), the following steps guard against this:
+	// 1. During beforeUpdate, any updated components will be added to the
+	//    dirty_components array and will cause a reentrant call to flush(). Because
+	//    the flush index is kept outside the function, the reentrant call will pick
+	//    up where the earlier call left off and go through all dirty components. The
+	//    current_component value is saved and restored so that the reentrant call will
+	//    not interfere with the "parent" flush() call.
+	// 2. bind:this callbacks cannot trigger new flush() calls.
+	// 3. During afterUpdate, any updated components will NOT have their afterUpdate
+	//    callback called a second time; the seen_callbacks set, outside the flush()
+	//    function, guarantees this behavior.
+	const seen_callbacks = new Set();
+
+	let flushidx = 0; // Do *not* move this inside the flush() function
+
+	/** @returns {void} */
+	function flush() {
+		// Do not reenter flush while dirty components are updated, as this can
+		// result in an infinite loop. Instead, let the inner flush handle it.
+		// Reentrancy is ok afterwards for bindings etc.
+		if (flushidx !== 0) {
+			return;
+		}
+		const saved_component = current_component;
+		do {
+			// first, call beforeUpdate functions
+			// and update components
+			try {
+				while (flushidx < dirty_components.length) {
+					const component = dirty_components[flushidx];
+					flushidx++;
+					set_current_component(component);
+					update(component.$$);
+				}
+			} catch (e) {
+				// reset dirty state to not end up in a deadlocked state and then rethrow
+				dirty_components.length = 0;
+				flushidx = 0;
+				throw e;
+			}
+			set_current_component(null);
+			dirty_components.length = 0;
+			flushidx = 0;
+			while (binding_callbacks.length) binding_callbacks.pop()();
+			// then, once components are updated, call
+			// afterUpdate functions. This may cause
+			// subsequent updates...
+			for (let i = 0; i < render_callbacks.length; i += 1) {
+				const callback = render_callbacks[i];
+				if (!seen_callbacks.has(callback)) {
+					// ...so guard against infinite loops
+					seen_callbacks.add(callback);
+					callback();
+				}
+			}
+			render_callbacks.length = 0;
+		} while (dirty_components.length);
+		while (flush_callbacks.length) {
+			flush_callbacks.pop()();
+		}
+		update_scheduled = false;
+		seen_callbacks.clear();
+		set_current_component(saved_component);
+	}
+
+	/** @returns {void} */
+	function update($$) {
+		if ($$.fragment !== null) {
+			$$.update();
+			run_all($$.before_update);
+			const dirty = $$.dirty;
+			$$.dirty = [-1];
+			$$.fragment && $$.fragment.p($$.ctx, dirty);
+			$$.after_update.forEach(add_render_callback);
+		}
+	}
+
+	/**
+	 * Useful for example to execute remaining `afterUpdate` callbacks before executing `destroy`.
+	 * @param {Function[]} fns
+	 * @returns {void}
+	 */
+	function flush_render_callbacks(fns) {
+		const filtered = [];
+		const targets = [];
+		render_callbacks.forEach((c) => (fns.indexOf(c) === -1 ? filtered.push(c) : targets.push(c)));
+		targets.forEach((c) => c());
+		render_callbacks = filtered;
+	}
+
+	const outroing = new Set();
+
+	/**
+	 * @type {Outro}
+	 */
+	let outros;
+
+	/**
+	 * @returns {void} */
+	function group_outros() {
+		outros = {
+			r: 0,
+			c: [],
+			p: outros // parent group
+		};
+	}
+
+	/**
+	 * @returns {void} */
+	function check_outros() {
+		if (!outros.r) {
+			run_all(outros.c);
+		}
+		outros = outros.p;
+	}
+
+	/**
+	 * @param {import('./private.js').Fragment} block
+	 * @param {0 | 1} [local]
+	 * @returns {void}
+	 */
+	function transition_in(block, local) {
+		if (block && block.i) {
+			outroing.delete(block);
+			block.i(local);
+		}
+	}
+
+	/**
+	 * @param {import('./private.js').Fragment} block
+	 * @param {0 | 1} local
+	 * @param {0 | 1} [detach]
+	 * @param {() => void} [callback]
+	 * @returns {void}
+	 */
+	function transition_out(block, local, detach, callback) {
+		if (block && block.o) {
+			if (outroing.has(block)) return;
+			outroing.add(block);
+			outros.c.push(() => {
+				outroing.delete(block);
+				if (callback) {
+					if (detach) block.d(1);
+					callback();
+				}
+			});
+			block.o(local);
+		} else if (callback) {
+			callback();
+		}
+	}
+
+	/** @typedef {1} INTRO */
+	/** @typedef {0} OUTRO */
+	/** @typedef {{ direction: 'in' | 'out' | 'both' }} TransitionOptions */
+	/** @typedef {(node: Element, params: any, options: TransitionOptions) => import('../transition/public.js').TransitionConfig} TransitionFn */
+
+	/**
+	 * @typedef {Object} Outro
+	 * @property {number} r
+	 * @property {Function[]} c
+	 * @property {Object} p
+	 */
+
+	/**
+	 * @typedef {Object} PendingProgram
+	 * @property {number} start
+	 * @property {INTRO|OUTRO} b
+	 * @property {Outro} [group]
+	 */
+
+	/**
+	 * @typedef {Object} Program
+	 * @property {number} a
+	 * @property {INTRO|OUTRO} b
+	 * @property {1|-1} d
+	 * @property {number} duration
+	 * @property {number} start
+	 * @property {number} end
+	 * @property {Outro} [group]
+	 */
+
+	// general each functions:
+
+	function ensure_array_like(array_like_or_iterator) {
+		return array_like_or_iterator?.length !== undefined
+			? array_like_or_iterator
+			: Array.from(array_like_or_iterator);
+	}
+
+	/** @returns {void} */
+	function create_component(block) {
+		block && block.c();
+	}
+
+	/** @returns {void} */
+	function mount_component(component, target, anchor) {
+		const { fragment, after_update } = component.$$;
+		fragment && fragment.m(target, anchor);
+		// onMount happens before the initial afterUpdate
+		add_render_callback(() => {
+			const new_on_destroy = component.$$.on_mount.map(run).filter(is_function);
+			// if the component was destroyed immediately
+			// it will update the `$$.on_destroy` reference to `null`.
+			// the destructured on_destroy may still reference to the old array
+			if (component.$$.on_destroy) {
+				component.$$.on_destroy.push(...new_on_destroy);
+			} else {
+				// Edge case - component was destroyed immediately,
+				// most likely as a result of a binding initialising
+				run_all(new_on_destroy);
+			}
+			component.$$.on_mount = [];
+		});
+		after_update.forEach(add_render_callback);
+	}
+
+	/** @returns {void} */
+	function destroy_component(component, detaching) {
+		const $$ = component.$$;
+		if ($$.fragment !== null) {
+			flush_render_callbacks($$.after_update);
+			run_all($$.on_destroy);
+			$$.fragment && $$.fragment.d(detaching);
+			// TODO null out other refs, including component.$$ (but need to
+			// preserve final state?)
+			$$.on_destroy = $$.fragment = null;
+			$$.ctx = [];
+		}
+	}
+
+	/** @returns {void} */
+	function make_dirty(component, i) {
+		if (component.$$.dirty[0] === -1) {
+			dirty_components.push(component);
+			schedule_update();
+			component.$$.dirty.fill(0);
+		}
+		component.$$.dirty[(i / 31) | 0] |= 1 << i % 31;
+	}
+
+	// TODO: Document the other params
+	/**
+	 * @param {SvelteComponent} component
+	 * @param {import('./public.js').ComponentConstructorOptions} options
+	 *
+	 * @param {import('./utils.js')['not_equal']} not_equal Used to compare props and state values.
+	 * @param {(target: Element | ShadowRoot) => void} [append_styles] Function that appends styles to the DOM when the component is first initialised.
+	 * This will be the `add_css` function from the compiled component.
+	 *
+	 * @returns {void}
+	 */
+	function init(
+		component,
+		options,
+		instance,
+		create_fragment,
+		not_equal,
+		props,
+		append_styles = null,
+		dirty = [-1]
+	) {
+		const parent_component = current_component;
+		set_current_component(component);
+		/** @type {import('./private.js').T$$} */
+		const $$ = (component.$$ = {
+			fragment: null,
+			ctx: [],
+			// state
+			props,
+			update: noop,
+			not_equal,
+			bound: blank_object(),
+			// lifecycle
+			on_mount: [],
+			on_destroy: [],
+			on_disconnect: [],
+			before_update: [],
+			after_update: [],
+			context: new Map(options.context || (parent_component ? parent_component.$$.context : [])),
+			// everything else
+			callbacks: blank_object(),
+			dirty,
+			skip_bound: false,
+			root: options.target || parent_component.$$.root
+		});
+		append_styles && append_styles($$.root);
+		let ready = false;
+		$$.ctx = instance
+			? instance(component, options.props || {}, (i, ret, ...rest) => {
+					const value = rest.length ? rest[0] : ret;
+					if ($$.ctx && not_equal($$.ctx[i], ($$.ctx[i] = value))) {
+						if (!$$.skip_bound && $$.bound[i]) $$.bound[i](value);
+						if (ready) make_dirty(component, i);
+					}
+					return ret;
+			  })
+			: [];
+		$$.update();
+		ready = true;
+		run_all($$.before_update);
+		// `false` as a special case of no DOM component
+		$$.fragment = create_fragment ? create_fragment($$.ctx) : false;
+		if (options.target) {
+			if (options.hydrate) {
+				// TODO: what is the correct type here?
+				// @ts-expect-error
+				const nodes = children(options.target);
+				$$.fragment && $$.fragment.l(nodes);
+				nodes.forEach(detach);
+			} else {
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+				$$.fragment && $$.fragment.c();
+			}
+			if (options.intro) transition_in(component.$$.fragment);
+			mount_component(component, options.target, options.anchor);
+			flush();
+		}
+		set_current_component(parent_component);
+	}
+
+	/**
+	 * Base class for Svelte components. Used when dev=false.
+	 *
+	 * @template {Record<string, any>} [Props=any]
+	 * @template {Record<string, any>} [Events=any]
+	 */
+	class SvelteComponent {
+		/**
+		 * ### PRIVATE API
+		 *
+		 * Do not use, may change at any time
+		 *
+		 * @type {any}
+		 */
+		$$ = undefined;
+		/**
+		 * ### PRIVATE API
+		 *
+		 * Do not use, may change at any time
+		 *
+		 * @type {any}
+		 */
+		$$set = undefined;
+
+		/** @returns {void} */
+		$destroy() {
+			destroy_component(this, 1);
+			this.$destroy = noop;
+		}
+
+		/**
+		 * @template {Extract<keyof Events, string>} K
+		 * @param {K} type
+		 * @param {((e: Events[K]) => void) | null | undefined} callback
+		 * @returns {() => void}
+		 */
+		$on(type, callback) {
+			if (!is_function(callback)) {
+				return noop;
+			}
+			const callbacks = this.$$.callbacks[type] || (this.$$.callbacks[type] = []);
+			callbacks.push(callback);
+			return () => {
+				const index = callbacks.indexOf(callback);
+				if (index !== -1) callbacks.splice(index, 1);
+			};
+		}
+
+		/**
+		 * @param {Partial<Props>} props
+		 * @returns {void}
+		 */
+		$set(props) {
+			if (this.$$set && !is_empty(props)) {
+				this.$$.skip_bound = true;
+				this.$$set(props);
+				this.$$.skip_bound = false;
+			}
+		}
+	}
+
+	/**
+	 * @typedef {Object} CustomElementPropDefinition
+	 * @property {string} [attribute]
+	 * @property {boolean} [reflect]
+	 * @property {'String'|'Boolean'|'Number'|'Array'|'Object'} [type]
+	 */
+
+	// generated during release, do not modify
+
+	/**
+	 * The current version, as set in package.json.
+	 *
+	 * https://svelte.dev/docs/svelte-compiler#svelte-version
+	 * @type {string}
+	 */
+	const VERSION = '4.2.20';
+	const PUBLIC_VERSION = '4';
+
+	/**
+	 * @template T
+	 * @param {string} type
+	 * @param {T} [detail]
+	 * @returns {void}
+	 */
+	function dispatch_dev(type, detail) {
+		document.dispatchEvent(custom_event(type, { version: VERSION, ...detail }, { bubbles: true }));
+	}
+
+	/**
+	 * @param {Node} target
+	 * @param {Node} node
+	 * @returns {void}
+	 */
+	function append_dev(target, node) {
+		dispatch_dev('SvelteDOMInsert', { target, node });
+		append(target, node);
+	}
+
+	/**
+	 * @param {Node} target
+	 * @param {Node} node
+	 * @param {Node} [anchor]
+	 * @returns {void}
+	 */
+	function insert_dev(target, node, anchor) {
+		dispatch_dev('SvelteDOMInsert', { target, node, anchor });
+		insert(target, node, anchor);
+	}
+
+	/**
+	 * @param {Node} node
+	 * @returns {void}
+	 */
+	function detach_dev(node) {
+		dispatch_dev('SvelteDOMRemove', { node });
+		detach(node);
+	}
+
+	/**
+	 * @param {Node} node
+	 * @param {string} event
+	 * @param {EventListenerOrEventListenerObject} handler
+	 * @param {boolean | AddEventListenerOptions | EventListenerOptions} [options]
+	 * @param {boolean} [has_prevent_default]
+	 * @param {boolean} [has_stop_propagation]
+	 * @param {boolean} [has_stop_immediate_propagation]
+	 * @returns {() => void}
+	 */
+	function listen_dev(
+		node,
+		event,
+		handler,
+		options,
+		has_prevent_default,
+		has_stop_propagation,
+		has_stop_immediate_propagation
+	) {
+		const modifiers =
+			options === true ? ['capture'] : options ? Array.from(Object.keys(options)) : [];
+		if (has_prevent_default) modifiers.push('preventDefault');
+		if (has_stop_propagation) modifiers.push('stopPropagation');
+		if (has_stop_immediate_propagation) modifiers.push('stopImmediatePropagation');
+		dispatch_dev('SvelteDOMAddEventListener', { node, event, handler, modifiers });
+		const dispose = listen(node, event, handler, options);
+		return () => {
+			dispatch_dev('SvelteDOMRemoveEventListener', { node, event, handler, modifiers });
+			dispose();
+		};
+	}
+
+	/**
+	 * @param {Element} node
+	 * @param {string} attribute
+	 * @param {string} [value]
+	 * @returns {void}
+	 */
+	function attr_dev(node, attribute, value) {
+		attr(node, attribute, value);
+		if (value == null) dispatch_dev('SvelteDOMRemoveAttribute', { node, attribute });
+		else dispatch_dev('SvelteDOMSetAttribute', { node, attribute, value });
+	}
+
+	/**
+	 * @param {Element} node
+	 * @param {string} property
+	 * @param {any} [value]
+	 * @returns {void}
+	 */
+	function prop_dev(node, property, value) {
+		node[property] = value;
+		dispatch_dev('SvelteDOMSetProperty', { node, property, value });
+	}
+
+	/**
+	 * @param {Text} text
+	 * @param {unknown} data
+	 * @returns {void}
+	 */
+	function set_data_dev(text, data) {
+		data = '' + data;
+		if (text.data === data) return;
+		dispatch_dev('SvelteDOMSetData', { node: text, data });
+		text.data = /** @type {string} */ (data);
+	}
+
+	function ensure_array_like_dev(arg) {
+		if (
+			typeof arg !== 'string' &&
+			!(arg && typeof arg === 'object' && 'length' in arg) &&
+			!(typeof Symbol === 'function' && arg && Symbol.iterator in arg)
+		) {
+			throw new Error('{#each} only works with iterable values.');
+		}
+		return ensure_array_like(arg);
+	}
+
+	/**
+	 * @returns {void} */
+	function validate_slots(name, slot, keys) {
+		for (const slot_key of Object.keys(slot)) {
+			if (!~keys.indexOf(slot_key)) {
+				console.warn(`<${name}> received an unexpected slot "${slot_key}".`);
+			}
+		}
+	}
+
+	/**
+	 * Base class for Svelte components with some minor dev-enhancements. Used when dev=true.
+	 *
+	 * Can be used to create strongly typed Svelte components.
+	 *
+	 * #### Example:
+	 *
+	 * You have component library on npm called `component-library`, from which
+	 * you export a component called `MyComponent`. For Svelte+TypeScript users,
+	 * you want to provide typings. Therefore you create a `index.d.ts`:
+	 * ```ts
+	 * import { SvelteComponent } from "svelte";
+	 * export class MyComponent extends SvelteComponent<{foo: string}> {}
+	 * ```
+	 * Typing this makes it possible for IDEs like VS Code with the Svelte extension
+	 * to provide intellisense and to use the component like this in a Svelte file
+	 * with TypeScript:
+	 * ```svelte
+	 * <script lang="ts">
+	 * 	import { MyComponent } from "component-library";
+	 * </script>
+	 * <MyComponent foo={'bar'} />
+	 * ```
+	 * @template {Record<string, any>} [Props=any]
+	 * @template {Record<string, any>} [Events=any]
+	 * @template {Record<string, any>} [Slots=any]
+	 * @extends {SvelteComponent<Props, Events>}
+	 */
+	class SvelteComponentDev extends SvelteComponent {
+		/**
+		 * For type checking capabilities only.
+		 * Does not exist at runtime.
+		 * ### DO NOT USE!
+		 *
+		 * @type {Props}
+		 */
+		$$prop_def;
+		/**
+		 * For type checking capabilities only.
+		 * Does not exist at runtime.
+		 * ### DO NOT USE!
+		 *
+		 * @type {Events}
+		 */
+		$$events_def;
+		/**
+		 * For type checking capabilities only.
+		 * Does not exist at runtime.
+		 * ### DO NOT USE!
+		 *
+		 * @type {Slots}
+		 */
+		$$slot_def;
+
+		/** @param {import('./public.js').ComponentConstructorOptions<Props>} options */
+		constructor(options) {
+			if (!options || (!options.target && !options.$$inline)) {
+				throw new Error("'target' is a required option");
+			}
+			super();
+		}
+
+		/** @returns {void} */
+		$destroy() {
+			super.$destroy();
+			this.$destroy = () => {
+				console.warn('Component was already destroyed'); // eslint-disable-line no-console
+			};
+		}
+
+		/** @returns {void} */
+		$capture_state() {}
+
+		/** @returns {void} */
+		$inject_state() {}
+	}
+
+	if (typeof window !== 'undefined')
+		// @ts-ignore
+		(window.__svelte || (window.__svelte = { v: new Set() })).v.add(PUBLIC_VERSION);
+
+	const subscriber_queue = [];
+
+	/**
+	 * Creates a `Readable` store that allows reading by subscription.
+	 *
+	 * https://svelte.dev/docs/svelte-store#readable
+	 * @template T
+	 * @param {T} [value] initial value
+	 * @param {import('./public.js').StartStopNotifier<T>} [start]
+	 * @returns {import('./public.js').Readable<T>}
+	 */
+	function readable(value, start) {
+		return {
+			subscribe: writable(value, start).subscribe
+		};
+	}
+
+	/**
+	 * Create a `Writable` store that allows both updating and reading by subscription.
+	 *
+	 * https://svelte.dev/docs/svelte-store#writable
+	 * @template T
+	 * @param {T} [value] initial value
+	 * @param {import('./public.js').StartStopNotifier<T>} [start]
+	 * @returns {import('./public.js').Writable<T>}
+	 */
+	function writable(value, start = noop) {
+		/** @type {import('./public.js').Unsubscriber} */
+		let stop;
+		/** @type {Set<import('./private.js').SubscribeInvalidateTuple<T>>} */
+		const subscribers = new Set();
+		/** @param {T} new_value
+		 * @returns {void}
+		 */
+		function set(new_value) {
+			if (safe_not_equal(value, new_value)) {
+				value = new_value;
+				if (stop) {
+					// store is ready
+					const run_queue = !subscriber_queue.length;
+					for (const subscriber of subscribers) {
+						subscriber[1]();
+						subscriber_queue.push(subscriber, value);
+					}
+					if (run_queue) {
+						for (let i = 0; i < subscriber_queue.length; i += 2) {
+							subscriber_queue[i][0](subscriber_queue[i + 1]);
+						}
+						subscriber_queue.length = 0;
+					}
+				}
+			}
+		}
+
+		/**
+		 * @param {import('./public.js').Updater<T>} fn
+		 * @returns {void}
+		 */
+		function update(fn) {
+			set(fn(value));
+		}
+
+		/**
+		 * @param {import('./public.js').Subscriber<T>} run
+		 * @param {import('./private.js').Invalidator<T>} [invalidate]
+		 * @returns {import('./public.js').Unsubscriber}
+		 */
+		function subscribe(run, invalidate = noop) {
+			/** @type {import('./private.js').SubscribeInvalidateTuple<T>} */
+			const subscriber = [run, invalidate];
+			subscribers.add(subscriber);
+			if (subscribers.size === 1) {
+				stop = start(set, update) || noop;
+			}
+			run(value);
+			return () => {
+				subscribers.delete(subscriber);
+				if (subscribers.size === 0 && stop) {
+					stop();
+					stop = null;
+				}
+			};
+		}
+		return { set, update, subscribe };
+	}
+
+	/**
+	 * Derived value store by synchronizing one or more readable stores and
+	 * applying an aggregation function over its input values.
+	 *
+	 * https://svelte.dev/docs/svelte-store#derived
+	 * @template {import('./private.js').Stores} S
+	 * @template T
+	 * @overload
+	 * @param {S} stores - input stores
+	 * @param {(values: import('./private.js').StoresValues<S>, set: (value: T) => void, update: (fn: import('./public.js').Updater<T>) => void) => import('./public.js').Unsubscriber | void} fn - function callback that aggregates the values
+	 * @param {T} [initial_value] - initial value
+	 * @returns {import('./public.js').Readable<T>}
+	 */
+
+	/**
+	 * Derived value store by synchronizing one or more readable stores and
+	 * applying an aggregation function over its input values.
+	 *
+	 * https://svelte.dev/docs/svelte-store#derived
+	 * @template {import('./private.js').Stores} S
+	 * @template T
+	 * @overload
+	 * @param {S} stores - input stores
+	 * @param {(values: import('./private.js').StoresValues<S>) => T} fn - function callback that aggregates the values
+	 * @param {T} [initial_value] - initial value
+	 * @returns {import('./public.js').Readable<T>}
+	 */
+
+	/**
+	 * @template {import('./private.js').Stores} S
+	 * @template T
+	 * @param {S} stores
+	 * @param {Function} fn
+	 * @param {T} [initial_value]
+	 * @returns {import('./public.js').Readable<T>}
+	 */
+	function derived(stores, fn, initial_value) {
+		const single = !Array.isArray(stores);
+		/** @type {Array<import('./public.js').Readable<any>>} */
+		const stores_array = single ? [stores] : stores;
+		if (!stores_array.every(Boolean)) {
+			throw new Error('derived() expects stores as input, got a falsy value');
+		}
+		const auto = fn.length < 2;
+		return readable(initial_value, (set, update) => {
+			let started = false;
+			const values = [];
+			let pending = 0;
+			let cleanup = noop;
+			const sync = () => {
+				if (pending) {
+					return;
+				}
+				cleanup();
+				const result = fn(single ? values[0] : values, set, update);
+				if (auto) {
+					set(result);
+				} else {
+					cleanup = is_function(result) ? result : noop;
+				}
+			};
+			const unsubscribers = stores_array.map((store, i) =>
+				subscribe(
+					store,
+					(value) => {
+						values[i] = value;
+						pending &= ~(1 << i);
+						if (started) {
+							sync();
+						}
+					},
+					() => {
+						pending |= 1 << i;
+					}
+				)
+			);
+			started = true;
+			sync();
+			return function stop() {
+				run_all(unsubscribers);
+				cleanup();
+				// We need to set this to false because callbacks can still happen despite having unsubscribed:
+				// Callbacks might already be placed in the queue which doesn't know it should no longer
+				// invoke this derived store.
+				started = false;
+			};
+		});
+	}
+
+	/**
+	 * Centralized API client for consistent request/response handling
+	 * Handles authentication, error handling, and retry logic
+	 */
+	class ApiClient {
+	    constructor(baseUrl = 'http://localhost:3000') {
+	        Object.defineProperty(this, "baseUrl", {
+	            enumerable: true,
+	            configurable: true,
+	            writable: true,
+	            value: void 0
+	        });
+	        Object.defineProperty(this, "maxRetries", {
+	            enumerable: true,
+	            configurable: true,
+	            writable: true,
+	            value: 3
+	        });
+	        Object.defineProperty(this, "retryDelay", {
+	            enumerable: true,
+	            configurable: true,
+	            writable: true,
+	            value: 1000
+	        }); // Base delay in ms
+	        this.baseUrl = baseUrl;
+	    }
+	    /**
+	     * Get authentication token from localStorage
+	     */
+	    getAuthToken() {
+	        return localStorage.getItem('auth_token');
+	    }
+	    /**
+	     * Set authentication token in localStorage
+	     */
+	    setAuthToken(token) {
+	        localStorage.setItem('auth_token', token);
+	    }
+	    /**
+	     * Clear authentication token
+	     */
+	    clearAuthToken() {
+	        localStorage.removeItem('auth_token');
+	    }
+	    /**
+	     * Create request headers with authentication
+	     */
+	    createHeaders(includeAuth = true) {
+	        const headers = {
+	            'Content-Type': 'application/json',
+	        };
+	        if (includeAuth) {
+	            const token = this.getAuthToken();
+	            if (token) {
+	                headers['Authorization'] = `Bearer ${token}`;
+	            }
+	        }
+	        return headers;
+	    }
+	    /**
+	     * Handle API response and extract data
+	     */
+	    async handleResponse(response) {
+	        const contentType = response.headers.get('content-type');
+	        let data;
+	        if (contentType && contentType.includes('application/json')) {
+	            data = await response.json();
+	        }
+	        else {
+	            data = { message: await response.text() };
+	        }
+	        // If response has the expected format, return it
+	        if (typeof data === 'object' && data !== null && 'success' in data) {
+	            return data;
+	        }
+	        // Handle non-standard responses
+	        if (response.ok) {
+	            return {
+	                success: true,
+	                data: data,
+	                timestamp: new Date().toISOString(),
+	            };
+	        }
+	        else {
+	            return {
+	                success: false,
+	                message: data.message || `HTTP ${response.status}: ${response.statusText}`,
+	                error_code: `HTTP_${response.status}`,
+	                timestamp: new Date().toISOString(),
+	            };
+	        }
+	    }
+	    /**
+	     * Retry logic with exponential backoff
+	     */
+	    async withRetry(operation, retries = this.maxRetries) {
+	        let lastError = null;
+	        for (let attempt = 0; attempt <= retries; attempt++) {
+	            try {
+	                const response = await operation();
+	                // Don't retry on authentication errors or client errors (4xx)
+	                if (response.status === 401 || response.status === 403 ||
+	                    (response.status >= 400 && response.status < 500)) {
+	                    return this.handleResponse(response);
+	                }
+	                // Don't retry on success
+	                if (response.ok) {
+	                    return this.handleResponse(response);
+	                }
+	                // Retry on server errors (5xx) or network issues
+	                if (attempt < retries) {
+	                    const delay = this.retryDelay * Math.pow(2, attempt);
+	                    await new Promise(resolve => setTimeout(resolve, delay));
+	                    continue;
+	                }
+	                return this.handleResponse(response);
+	            }
+	            catch (error) {
+	                lastError = error;
+	                if (attempt < retries) {
+	                    const delay = this.retryDelay * Math.pow(2, attempt);
+	                    await new Promise(resolve => setTimeout(resolve, delay));
+	                    continue;
+	                }
+	            }
+	        }
+	        // If all retries failed, return error response
+	        return {
+	            success: false,
+	            message: lastError?.message || 'Network request failed after retries',
+	            error_code: 'NETWORK_ERROR',
+	            timestamp: new Date().toISOString(),
+	        };
+	    }
+	    /**
+	     * GET request
+	     */
+	    async get(endpoint, includeAuth = true) {
+	        const url = `${this.baseUrl}${endpoint}`;
+	        return this.withRetry(() => fetch(url, {
+	            method: 'GET',
+	            headers: this.createHeaders(includeAuth),
+	        }));
+	    }
+	    /**
+	     * POST request
+	     */
+	    async post(endpoint, data, includeAuth = true) {
+	        const url = `${this.baseUrl}${endpoint}`;
+	        return this.withRetry(() => fetch(url, {
+	            method: 'POST',
+	            headers: this.createHeaders(includeAuth),
+	            body: data ? JSON.stringify(data) : undefined,
+	        }));
+	    }
+	    /**
+	     * PUT request
+	     */
+	    async put(endpoint, data, includeAuth = true) {
+	        const url = `${this.baseUrl}${endpoint}`;
+	        return this.withRetry(() => fetch(url, {
+	            method: 'PUT',
+	            headers: this.createHeaders(includeAuth),
+	            body: data ? JSON.stringify(data) : undefined,
+	        }));
+	    }
+	    /**
+	     * DELETE request
+	     */
+	    async delete(endpoint, includeAuth = true) {
+	        const url = `${this.baseUrl}${endpoint}`;
+	        return this.withRetry(() => fetch(url, {
+	            method: 'DELETE',
+	            headers: this.createHeaders(includeAuth),
+	        }));
+	    }
+	    /**
+	     * Handle authentication errors by attempting token refresh
+	     */
+	    async handleAuthError() {
+	        try {
+	            const refreshToken = localStorage.getItem('refresh_token');
+	            if (!refreshToken) {
+	                return false;
+	            }
+	            const response = await this.post('/api/v1/auth/refresh', { refresh_token: refreshToken }, false // Don't include auth for refresh
+	            );
+	            if (response.success && response.data) {
+	                this.setAuthToken(response.data.access_token);
+	                localStorage.setItem('refresh_token', response.data.refresh_token);
+	                return true;
+	            }
+	            return false;
+	        }
+	        catch (error) {
+	            console.error('Token refresh failed:', error);
+	            return false;
+	        }
+	    }
+	    /**
+	     * Make authenticated request with automatic token refresh
+	     */
+	    async authenticatedRequest(method, endpoint, data) {
+	        let response;
+	        // Make initial request
+	        switch (method) {
+	            case 'GET':
+	                response = await this.get(endpoint);
+	                break;
+	            case 'POST':
+	                response = await this.post(endpoint, data);
+	                break;
+	            case 'PUT':
+	                response = await this.put(endpoint, data);
+	                break;
+	            case 'DELETE':
+	                response = await this.delete(endpoint);
+	                break;
+	        }
+	        // If unauthorized, try to refresh token and retry once
+	        if (!response.success && response.error_code === 'HTTP_401') {
+	            const refreshed = await this.handleAuthError();
+	            if (refreshed) {
+	                // Retry the original request
+	                switch (method) {
+	                    case 'GET':
+	                        response = await this.get(endpoint);
+	                        break;
+	                    case 'POST':
+	                        response = await this.post(endpoint, data);
+	                        break;
+	                    case 'PUT':
+	                        response = await this.put(endpoint, data);
+	                        break;
+	                    case 'DELETE':
+	                        response = await this.delete(endpoint);
+	                        break;
+	                }
+	            }
+	            else {
+	                // Clear tokens and redirect to login
+	                this.clearAuthToken();
+	                localStorage.removeItem('refresh_token');
+	                // Dispatch custom event for auth failure
+	                window.dispatchEvent(new CustomEvent('auth:logout', {
+	                    detail: { reason: 'token_refresh_failed' }
+	                }));
+	            }
+	        }
+	        return response;
+	    }
+	}
+	// Create singleton instance
+	const apiClient = new ApiClient();
+
+	const initialState = {
+	    user: null,
+	    token: localStorage.getItem('auth_token'),
+	    refreshToken: localStorage.getItem('refresh_token'),
+	    isAuthenticated: false,
+	    isLoading: false,
+	    justRegistered: false,
+	    oauthFlow: {
+	        provider: null,
+	        state: null,
+	        isInProgress: false,
+	    },
+	};
+	const authStore = writable(initialState);
+	const isAuthenticated = derived(authStore, ($auth) => $auth.isAuthenticated && $auth.token !== null);
+	const currentUser = derived(authStore, ($auth) => $auth.user);
+	derived(authStore, ($auth) => $auth.justRegistered);
+	// Auth actions
+	const authActions = {
+	    login: async (email, password, totpCode) => {
+	        authStore.update(state => ({ ...state, isLoading: true }));
+	        const result = await apiClient.post('/api/v1/auth/login', {
+	            email,
+	            password,
+	            totp_code: totpCode
+	        }, false // Don't include auth for login
+	        );
+	        if (result.success && result.data) {
+	            const { access_token, refresh_token } = result.data;
+	            apiClient.setAuthToken(access_token);
+	            localStorage.setItem('refresh_token', refresh_token);
+	            authStore.update(state => ({
+	                ...state,
+	                token: access_token,
+	                refreshToken: refresh_token,
+	                isAuthenticated: true,
+	                isLoading: false,
+	                justRegistered: false, // Reset on login
+	            }));
+	            // Fetch user profile
+	            await authActions.fetchProfile();
+	            return { success: true };
+	        }
+	        else {
+	            authStore.update(state => ({ ...state, isLoading: false }));
+	            return { success: false, message: result.message || 'Login failed' };
+	        }
+	    },
+	    register: async (email, password, confirmPassword, termsAccepted) => {
+	        authStore.update(state => ({ ...state, isLoading: true }));
+	        const result = await apiClient.post('/api/v1/auth/register', {
+	            email,
+	            password,
+	            confirm_password: confirmPassword,
+	            terms_accepted: termsAccepted
+	        }, false // Don't include auth for registration
+	        );
+	        if (result.success) {
+	            // Check if auto-login was successful (tokens returned)
+	            if (result.data?.access_token && result.data?.refresh_token) {
+	                const { access_token, refresh_token } = result.data;
+	                apiClient.setAuthToken(access_token);
+	                localStorage.setItem('refresh_token', refresh_token);
+	                authStore.update(state => ({
+	                    ...state,
+	                    token: access_token,
+	                    refreshToken: refresh_token,
+	                    isAuthenticated: true,
+	                    isLoading: false,
+	                    justRegistered: true, // Mark as just registered for better UX
+	                }));
+	                // Fetch user profile
+	                await authActions.fetchProfile();
+	                return { success: true, autoLogin: true };
+	            }
+	            else {
+	                authStore.update(state => ({ ...state, isLoading: false }));
+	                return { success: true, autoLogin: false, message: result.message };
+	            }
+	        }
+	        else {
+	            authStore.update(state => ({ ...state, isLoading: false }));
+	            return {
+	                success: false,
+	                message: result.message || 'Registration failed',
+	                errors: result.data?.errors || null
+	            };
+	        }
+	    },
+	    fetchProfile: async () => {
+	        const token = apiClient.getAuthToken();
+	        if (!token)
+	            return;
+	        const result = await apiClient.authenticatedRequest('GET', '/api/v1/users/profile');
+	        if (result.success && result.data) {
+	            authStore.update(state => ({
+	                ...state,
+	                user: result.data,
+	                isAuthenticated: true,
+	            }));
+	        }
+	        else {
+	            console.error('Failed to fetch profile:', result.message);
+	        }
+	    },
+	    logout: async () => {
+	        const token = apiClient.getAuthToken();
+	        if (token) {
+	            try {
+	                await apiClient.authenticatedRequest('POST', '/api/v1/auth/logout');
+	            }
+	            catch (error) {
+	                console.error('Logout request failed:', error);
+	            }
+	        }
+	        apiClient.clearAuthToken();
+	        localStorage.removeItem('refresh_token');
+	        authStore.set({
+	            user: null,
+	            token: null,
+	            refreshToken: null,
+	            isAuthenticated: false,
+	            isLoading: false,
+	            justRegistered: false,
+	            oauthFlow: {
+	                provider: null,
+	                state: null,
+	                isInProgress: false,
+	            },
+	        });
+	    },
+	    refreshToken: async () => {
+	        const refreshToken = localStorage.getItem('refresh_token');
+	        if (!refreshToken)
+	            return false;
+	        const result = await apiClient.post('/api/v1/auth/refresh', { refresh_token: refreshToken }, false // Don't include auth for refresh
+	        );
+	        if (result.success && result.data) {
+	            const { access_token, refresh_token: newRefreshToken } = result.data;
+	            apiClient.setAuthToken(access_token);
+	            localStorage.setItem('refresh_token', newRefreshToken);
+	            authStore.update(state => ({
+	                ...state,
+	                token: access_token,
+	                refreshToken: newRefreshToken,
+	                isAuthenticated: true,
+	            }));
+	            return true;
+	        }
+	        else {
+	            console.error('Token refresh failed:', result.message);
+	            return false;
+	        }
+	    },
+	    // 2FA Management
+	    setup2FA: async () => {
+	        try {
+	            const result = await api.post('/auth/2fa/setup');
+	            if (result.success) {
+	                return {
+	                    success: true,
+	                    qrCodeUrl: result.data.qr_code_url,
+	                    secret: result.data.secret
+	                };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Failed to setup 2FA' };
+	        }
+	    },
+	    verify2FA: async (code) => {
+	        try {
+	            const result = await api.post('/auth/2fa/verify', { totp_code: code });
+	            if (result.success) {
+	                // Update user profile to reflect 2FA is now enabled
+	                await authActions.fetchProfile();
+	                return { success: true };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Failed to verify 2FA code' };
+	        }
+	    },
+	    disable2FA: async (code) => {
+	        try {
+	            const result = await api.post('/auth/2fa/disable', { totp_code: code });
+	            if (result.success) {
+	                // Update user profile to reflect 2FA is now disabled
+	                await authActions.fetchProfile();
+	                return { success: true };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Failed to disable 2FA' };
+	        }
+	    },
+	    // Clear the just registered flag (useful for onboarding flows)
+	    clearJustRegistered: () => {
+	        authStore.update(state => ({
+	            ...state,
+	            justRegistered: false,
+	        }));
+	    },
+	    // OAuth-specific actions
+	    initiateOAuthFlow: async (provider) => {
+	        authStore.update(state => ({
+	            ...state,
+	            oauthFlow: {
+	                provider,
+	                state: null,
+	                isInProgress: true,
+	            },
+	        }));
+	        try {
+	            const result = await api.post(`/auth/oauth/${provider}/initiate`);
+	            if (result.success) {
+	                const { authorization_url, state } = result.data;
+	                // Store state for validation
+	                sessionStorage.setItem(`oauth_state_${provider}`, state);
+	                authStore.update(authState => ({
+	                    ...authState,
+	                    oauthFlow: {
+	                        ...authState.oauthFlow,
+	                        state,
+	                    },
+	                }));
+	                // Redirect to OAuth provider
+	                window.location.href = authorization_url;
+	                return { success: true };
+	            }
+	            else {
+	                authStore.update(state => ({
+	                    ...state,
+	                    oauthFlow: {
+	                        provider: null,
+	                        state: null,
+	                        isInProgress: false,
+	                    },
+	                }));
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            authStore.update(state => ({
+	                ...state,
+	                oauthFlow: {
+	                    provider: null,
+	                    state: null,
+	                    isInProgress: false,
+	                },
+	            }));
+	            return { success: false, message: error.message || 'Network error occurred' };
+	        }
+	    },
+	    completeOAuthFlow: async (provider, code, state) => {
+	        try {
+	            // Validate state parameter
+	            const storedState = sessionStorage.getItem(`oauth_state_${provider}`);
+	            if (!storedState || storedState !== state) {
+	                throw new Error('Invalid state parameter - possible CSRF attack');
+	            }
+	            const result = await api.post(`/auth/oauth/${provider}/callback`, {
+	                code,
+	                state,
+	                redirect_uri: window.location.origin + window.location.pathname,
+	            });
+	            if (result.success) {
+	                const { access_token, refresh_token } = result.data;
+	                // Store tokens
+	                localStorage.setItem('auth_token', access_token);
+	                localStorage.setItem('refresh_token', refresh_token);
+	                // Update auth store
+	                authStore.update(authState => ({
+	                    ...authState,
+	                    token: access_token,
+	                    refreshToken: refresh_token,
+	                    isAuthenticated: true,
+	                    oauthFlow: {
+	                        provider: null,
+	                        state: null,
+	                        isInProgress: false,
+	                    },
+	                }));
+	                // Clean up stored state
+	                sessionStorage.removeItem(`oauth_state_${provider}`);
+	                // Fetch user profile
+	                await authActions.fetchProfile();
+	                return { success: true };
+	            }
+	            else {
+	                throw new Error(result.message || 'OAuth authentication failed');
+	            }
+	        }
+	        catch (error) {
+	            // Clean up on error
+	            sessionStorage.removeItem(`oauth_state_${provider}`);
+	            authStore.update(state => ({
+	                ...state,
+	                oauthFlow: {
+	                    provider: null,
+	                    state: null,
+	                    isInProgress: false,
+	                },
+	            }));
+	            return { success: false, message: error.message || 'Authentication failed' };
+	        }
+	    },
+	    linkOAuthAccount: async (provider) => {
+	        try {
+	            const result = await api.post(`/auth/oauth/${provider}/link`);
+	            if (result.success) {
+	                const { authorization_url, state } = result.data;
+	                // Store state for validation
+	                sessionStorage.setItem(`oauth_link_state_${provider}`, state);
+	                return {
+	                    success: true,
+	                    authorization_url,
+	                    state
+	                };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Network error occurred' };
+	        }
+	    },
+	    unlinkOAuthAccount: async (provider) => {
+	        try {
+	            const result = await api.delete(`/auth/oauth/${provider}/unlink`);
+	            if (result.success) {
+	                // Refresh user profile to update linked accounts
+	                await authActions.fetchProfile();
+	                return { success: true };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Network error occurred' };
+	        }
+	    },
+	    getLinkedAccounts: async () => {
+	        try {
+	            const result = await api.get('/auth/oauth/accounts');
+	            if (result.success) {
+	                return { success: true, data: result.data };
+	            }
+	            else {
+	                return { success: false, message: result.message };
+	            }
+	        }
+	        catch (error) {
+	            return { success: false, message: error.message || 'Network error occurred' };
+	        }
+	    },
+	};
+	// Initialize auth state on app load
+	if (typeof window !== 'undefined') {
+	    const token = localStorage.getItem('auth_token');
+	    if (token) {
+	        apiClient.setAuthToken(token);
+	        authStore.update(state => ({
+	            ...state,
+	            token,
+	            isAuthenticated: true,
+	            justRegistered: false, // Reset on app load
+	        }));
+	        authActions.fetchProfile();
+	    }
+	    // Listen for auth logout events from API client
+	    window.addEventListener('auth:logout', () => {
+	        authActions.logout();
+	    });
+	}
+
+	// Path mappings
+	const pathToRoute = {
+	    '/': 'home',
+	    '/home': 'home',
+	    '/settings': 'settings',
+	};
+	const routeToPath = {
+	    'home': '/',
+	    'settings': '/settings',
+	    'oauth-callback': '/auth/callback',
+	    'oauth-error': '/auth/error',
+	};
+	// Route metadata
+	const routeMeta = {
+	    'home': { title: 'Home', description: 'Your music blocklist dashboard' },
+	    'settings': { title: 'Settings', description: 'Account and connection settings' },
+	    'oauth-callback': { title: 'Connecting...', description: 'Processing authentication' },
+	    'oauth-error': { title: 'Connection Error', description: 'There was a problem connecting' },
+	};
+	// Router store
+	const currentRoute = writable('home');
+	// Derived store for route metadata
+	derived(currentRoute, $route => routeMeta[$route]);
+	// Navigation function
+	function navigateTo(route) {
+	    currentRoute.set(route);
+	    if (typeof window !== 'undefined') {
+	        const path = routeToPath[route] || '/';
+	        const meta = routeMeta[route];
+	        window.history.pushState({ route }, meta.title, path);
+	        document.title = `${meta.title} - No Drake`;
+	    }
+	}
+	// Get route from path
+	function getRouteFromPath(path) {
+	    if (path.startsWith('/auth/callback'))
+	        return 'oauth-callback';
+	    if (path.startsWith('/auth/error'))
+	        return 'oauth-error';
+	    return pathToRoute[path] || 'home';
+	}
+	// Initialize router
+	function initRouter() {
+	    if (typeof window !== 'undefined') {
+	        window.addEventListener('popstate', (event) => {
+	            const route = event.state?.route || getRouteFromPath(window.location.pathname);
+	            currentRoute.set(route);
+	        });
+	        const initialRoute = getRouteFromPath(window.location.pathname);
+	        currentRoute.set(initialRoute);
+	        document.title = `${routeMeta[initialRoute].title} - No Drake`;
+	    }
+	}
+
+	/* src/lib/components/Login.svelte generated by Svelte v4.2.20 */
+	const file$4 = "src/lib/components/Login.svelte";
+
+	// (63:6) {#if error}
+	function create_if_block_3$3(ctx) {
+		let div;
+		let t;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				t = text(/*error*/ ctx[2]);
+				attr_dev(div, "class", "bg-red-900/50 border border-red-700 text-red-200 px-4 py-3 rounded-lg text-sm");
+				add_location(div, file$4, 65, 8, 1806);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, t);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*error*/ 4) set_data_dev(t, /*error*/ ctx[2]);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_3$3.name,
+			type: "if",
+			source: "(63:6) {#if error}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (69:6) {#if success}
+	function create_if_block_2$3(ctx) {
+		let div;
+		let t;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				t = text(/*success*/ ctx[3]);
+				attr_dev(div, "class", "bg-green-900/50 border border-green-700 text-green-200 px-4 py-3 rounded-lg text-sm");
+				add_location(div, file$4, 71, 8, 1972);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, t);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*success*/ 8) set_data_dev(t, /*success*/ ctx[3]);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_2$3.name,
+			type: "if",
+			source: "(69:6) {#if success}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (96:6) {#if mode === 'register'}
+	function create_if_block_1$4(ctx) {
+		let div;
+		let input;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				input = element("input");
+				attr_dev(input, "type", "password");
+				attr_dev(input, "placeholder", "Confirm password");
+				input.required = true;
+				attr_dev(input, "minlength", "8");
+				attr_dev(input, "class", "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent");
+				add_location(input, file$4, 99, 10, 2891);
+				add_location(div, file$4, 98, 8, 2875);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, input);
+				set_input_value(input, /*confirmPassword*/ ctx[6]);
+
+				if (!mounted) {
+					dispose = listen_dev(input, "input", /*input_input_handler*/ ctx[11]);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*confirmPassword*/ 64 && input.value !== /*confirmPassword*/ ctx[6]) {
+					set_input_value(input, /*confirmPassword*/ ctx[6]);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_1$4.name,
+			type: "if",
+			source: "(96:6) {#if mode === 'register'}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (114:8) {#if isLoading}
+	function create_if_block$4(ctx) {
+		let div;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				attr_dev(div, "class", "w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2");
+				add_location(div, file$4, 116, 10, 3585);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block$4.name,
+			type: "if",
+			source: "(114:8) {#if isLoading}",
+			ctx
+		});
+
+		return block;
+	}
+
+	function create_fragment$4(ctx) {
+		let div9;
+		let div8;
+		let div0;
+		let span0;
+		let t1;
+		let h1;
+		let t3;
+		let p;
+		let t5;
+		let form;
+		let t6;
+		let t7;
+		let div1;
+		let input0;
+		let t8;
+		let div2;
+		let input1;
+		let t9;
+		let t10;
+		let button0;
+		let t11;
+
+		let t12_value = (/*mode*/ ctx[0] === 'login'
+		? 'Sign in'
+		: 'Create account') + "";
+
+		let t12;
+		let t13;
+		let div3;
+		let button1;
+
+		let t14_value = (/*mode*/ ctx[0] === 'login'
+		? "Don't have an account? Sign up"
+		: 'Already have an account? Sign in') + "";
+
+		let t14;
+		let t15;
+		let div7;
+		let div4;
+		let svg0;
+		let path0;
+		let t16;
+		let span1;
+		let t18;
+		let div5;
+		let svg1;
+		let path1;
+		let t19;
+		let span2;
+		let t21;
+		let div6;
+		let svg2;
+		let path2;
+		let t22;
+		let span3;
+		let mounted;
+		let dispose;
+		let if_block0 = /*error*/ ctx[2] && create_if_block_3$3(ctx);
+		let if_block1 = /*success*/ ctx[3] && create_if_block_2$3(ctx);
+		let if_block2 = /*mode*/ ctx[0] === 'register' && create_if_block_1$4(ctx);
+		let if_block3 = /*isLoading*/ ctx[1] && create_if_block$4(ctx);
+
+		const block = {
+			c: function create() {
+				div9 = element("div");
+				div8 = element("div");
+				div0 = element("div");
+				span0 = element("span");
+				span0.textContent = "🚫";
+				t1 = space();
+				h1 = element("h1");
+				h1.textContent = "No Drake";
+				t3 = space();
+				p = element("p");
+				p.textContent = "Block problematic artists from your music";
+				t5 = space();
+				form = element("form");
+				if (if_block0) if_block0.c();
+				t6 = space();
+				if (if_block1) if_block1.c();
+				t7 = space();
+				div1 = element("div");
+				input0 = element("input");
+				t8 = space();
+				div2 = element("div");
+				input1 = element("input");
+				t9 = space();
+				if (if_block2) if_block2.c();
+				t10 = space();
+				button0 = element("button");
+				if (if_block3) if_block3.c();
+				t11 = space();
+				t12 = text(t12_value);
+				t13 = space();
+				div3 = element("div");
+				button1 = element("button");
+				t14 = text(t14_value);
+				t15 = space();
+				div7 = element("div");
+				div4 = element("div");
+				svg0 = svg_element("svg");
+				path0 = svg_element("path");
+				t16 = space();
+				span1 = element("span");
+				span1.textContent = "AI-curated blocklists by category";
+				t18 = space();
+				div5 = element("div");
+				svg1 = svg_element("svg");
+				path1 = svg_element("path");
+				t19 = space();
+				span2 = element("span");
+				span2.textContent = "Block artists on Spotify & Apple Music";
+				t21 = space();
+				div6 = element("div");
+				svg2 = svg_element("svg");
+				path2 = svg_element("path");
+				t22 = space();
+				span3 = element("span");
+				span3.textContent = "Blocks features & collaborations too";
+				attr_dev(span0, "class", "text-6xl");
+				add_location(span0, file$4, 57, 6, 1499);
+				attr_dev(h1, "class", "text-3xl font-bold text-white mt-4");
+				add_location(h1, file$4, 58, 6, 1538);
+				attr_dev(p, "class", "text-gray-400 mt-2");
+				add_location(p, file$4, 59, 6, 1605);
+				attr_dev(div0, "class", "text-center mb-8");
+				add_location(div0, file$4, 56, 4, 1462);
+				attr_dev(input0, "type", "email");
+				attr_dev(input0, "placeholder", "Email");
+				input0.required = true;
+				attr_dev(input0, "class", "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent");
+				add_location(input0, file$4, 77, 8, 2138);
+				add_location(div1, file$4, 76, 6, 2124);
+				attr_dev(input1, "type", "password");
+				attr_dev(input1, "placeholder", "Password");
+				input1.required = true;
+				attr_dev(input1, "minlength", "8");
+				attr_dev(input1, "class", "w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent");
+				add_location(input1, file$4, 87, 8, 2480);
+				add_location(div2, file$4, 86, 6, 2466);
+				attr_dev(button0, "type", "submit");
+				button0.disabled = /*isLoading*/ ctx[1];
+				attr_dev(button0, "class", "w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center");
+				add_location(button0, file$4, 110, 6, 3295);
+				attr_dev(form, "class", "space-y-4");
+				add_location(form, file$4, 63, 4, 1715);
+				attr_dev(button1, "type", "button");
+				attr_dev(button1, "class", "text-gray-400 hover:text-white transition-colors");
+				add_location(button1, file$4, 124, 6, 3854);
+				attr_dev(div3, "class", "mt-6 text-center");
+				add_location(div3, file$4, 123, 4, 3817);
+				attr_dev(path0, "fill-rule", "evenodd");
+				attr_dev(path0, "d", "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z");
+				attr_dev(path0, "clip-rule", "evenodd");
+				add_location(path0, file$4, 137, 10, 4333);
+				attr_dev(svg0, "class", "w-5 h-5 text-red-500");
+				attr_dev(svg0, "fill", "currentColor");
+				attr_dev(svg0, "viewBox", "0 0 20 20");
+				add_location(svg0, file$4, 136, 8, 4248);
+				attr_dev(span1, "class", "text-sm");
+				add_location(span1, file$4, 139, 8, 4543);
+				attr_dev(div4, "class", "flex items-center space-x-3 text-gray-500");
+				add_location(div4, file$4, 135, 6, 4184);
+				attr_dev(path1, "fill-rule", "evenodd");
+				attr_dev(path1, "d", "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z");
+				attr_dev(path1, "clip-rule", "evenodd");
+				add_location(path1, file$4, 143, 10, 4774);
+				attr_dev(svg1, "class", "w-5 h-5 text-red-500");
+				attr_dev(svg1, "fill", "currentColor");
+				attr_dev(svg1, "viewBox", "0 0 20 20");
+				add_location(svg1, file$4, 142, 8, 4689);
+				attr_dev(span2, "class", "text-sm");
+				add_location(span2, file$4, 145, 8, 4984);
+				attr_dev(div5, "class", "flex items-center space-x-3 text-gray-500");
+				add_location(div5, file$4, 141, 6, 4625);
+				attr_dev(path2, "fill-rule", "evenodd");
+				attr_dev(path2, "d", "M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z");
+				attr_dev(path2, "clip-rule", "evenodd");
+				add_location(path2, file$4, 149, 10, 5220);
+				attr_dev(svg2, "class", "w-5 h-5 text-red-500");
+				attr_dev(svg2, "fill", "currentColor");
+				attr_dev(svg2, "viewBox", "0 0 20 20");
+				add_location(svg2, file$4, 148, 8, 5135);
+				attr_dev(span3, "class", "text-sm");
+				add_location(span3, file$4, 151, 8, 5430);
+				attr_dev(div6, "class", "flex items-center space-x-3 text-gray-500");
+				add_location(div6, file$4, 147, 6, 5071);
+				attr_dev(div7, "class", "mt-12 space-y-3");
+				add_location(div7, file$4, 134, 4, 4148);
+				attr_dev(div8, "class", "w-full max-w-sm");
+				add_location(div8, file$4, 54, 2, 1410);
+				attr_dev(div9, "class", "min-h-screen flex flex-col items-center justify-center bg-gray-900 px-4");
+				add_location(div9, file$4, 53, 0, 1322);
+			},
+			l: function claim(nodes) {
+				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div9, anchor);
+				append_dev(div9, div8);
+				append_dev(div8, div0);
+				append_dev(div0, span0);
+				append_dev(div0, t1);
+				append_dev(div0, h1);
+				append_dev(div0, t3);
+				append_dev(div0, p);
+				append_dev(div8, t5);
+				append_dev(div8, form);
+				if (if_block0) if_block0.m(form, null);
+				append_dev(form, t6);
+				if (if_block1) if_block1.m(form, null);
+				append_dev(form, t7);
+				append_dev(form, div1);
+				append_dev(div1, input0);
+				set_input_value(input0, /*email*/ ctx[4]);
+				append_dev(form, t8);
+				append_dev(form, div2);
+				append_dev(div2, input1);
+				set_input_value(input1, /*password*/ ctx[5]);
+				append_dev(form, t9);
+				if (if_block2) if_block2.m(form, null);
+				append_dev(form, t10);
+				append_dev(form, button0);
+				if (if_block3) if_block3.m(button0, null);
+				append_dev(button0, t11);
+				append_dev(button0, t12);
+				append_dev(div8, t13);
+				append_dev(div8, div3);
+				append_dev(div3, button1);
+				append_dev(button1, t14);
+				append_dev(div8, t15);
+				append_dev(div8, div7);
+				append_dev(div7, div4);
+				append_dev(div4, svg0);
+				append_dev(svg0, path0);
+				append_dev(div4, t16);
+				append_dev(div4, span1);
+				append_dev(div7, t18);
+				append_dev(div7, div5);
+				append_dev(div5, svg1);
+				append_dev(svg1, path1);
+				append_dev(div5, t19);
+				append_dev(div5, span2);
+				append_dev(div7, t21);
+				append_dev(div7, div6);
+				append_dev(div6, svg2);
+				append_dev(svg2, path2);
+				append_dev(div6, t22);
+				append_dev(div6, span3);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(input0, "input", /*input0_input_handler*/ ctx[9]),
+						listen_dev(input1, "input", /*input1_input_handler*/ ctx[10]),
+						listen_dev(form, "submit", prevent_default(/*handleSubmit*/ ctx[7]), false, true, false, false),
+						listen_dev(button1, "click", /*switchMode*/ ctx[8], false, false, false, false)
+					];
+
+					mounted = true;
+				}
+			},
+			p: function update(ctx, [dirty]) {
+				if (/*error*/ ctx[2]) {
+					if (if_block0) {
+						if_block0.p(ctx, dirty);
+					} else {
+						if_block0 = create_if_block_3$3(ctx);
+						if_block0.c();
+						if_block0.m(form, t6);
+					}
+				} else if (if_block0) {
+					if_block0.d(1);
+					if_block0 = null;
+				}
+
+				if (/*success*/ ctx[3]) {
+					if (if_block1) {
+						if_block1.p(ctx, dirty);
+					} else {
+						if_block1 = create_if_block_2$3(ctx);
+						if_block1.c();
+						if_block1.m(form, t7);
+					}
+				} else if (if_block1) {
+					if_block1.d(1);
+					if_block1 = null;
+				}
+
+				if (dirty & /*email*/ 16 && input0.value !== /*email*/ ctx[4]) {
+					set_input_value(input0, /*email*/ ctx[4]);
+				}
+
+				if (dirty & /*password*/ 32 && input1.value !== /*password*/ ctx[5]) {
+					set_input_value(input1, /*password*/ ctx[5]);
+				}
+
+				if (/*mode*/ ctx[0] === 'register') {
+					if (if_block2) {
+						if_block2.p(ctx, dirty);
+					} else {
+						if_block2 = create_if_block_1$4(ctx);
+						if_block2.c();
+						if_block2.m(form, t10);
+					}
+				} else if (if_block2) {
+					if_block2.d(1);
+					if_block2 = null;
+				}
+
+				if (/*isLoading*/ ctx[1]) {
+					if (if_block3) ; else {
+						if_block3 = create_if_block$4(ctx);
+						if_block3.c();
+						if_block3.m(button0, t11);
+					}
+				} else if (if_block3) {
+					if_block3.d(1);
+					if_block3 = null;
+				}
+
+				if (dirty & /*mode*/ 1 && t12_value !== (t12_value = (/*mode*/ ctx[0] === 'login'
+				? 'Sign in'
+				: 'Create account') + "")) set_data_dev(t12, t12_value);
+
+				if (dirty & /*isLoading*/ 2) {
+					prop_dev(button0, "disabled", /*isLoading*/ ctx[1]);
+				}
+
+				if (dirty & /*mode*/ 1 && t14_value !== (t14_value = (/*mode*/ ctx[0] === 'login'
+				? "Don't have an account? Sign up"
+				: 'Already have an account? Sign in') + "")) set_data_dev(t14, t14_value);
+			},
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div9);
+				}
+
+				if (if_block0) if_block0.d();
+				if (if_block1) if_block1.d();
+				if (if_block2) if_block2.d();
+				if (if_block3) if_block3.d();
+				mounted = false;
+				run_all(dispose);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_fragment$4.name,
+			type: "component",
+			source: "",
+			ctx
+		});
+
+		return block;
+	}
+
+	function instance$4($$self, $$props, $$invalidate) {
+		let { $$slots: slots = {}, $$scope } = $$props;
+		validate_slots('Login', slots, []);
+		let mode = 'login';
+		let isLoading = false;
+		let error = '';
+		let success = '';
+
+		// Form fields
+		let email = '';
+
+		let password = '';
+		let confirmPassword = '';
+
+		async function handleSubmit() {
+			$$invalidate(2, error = '');
+			$$invalidate(3, success = '');
+			$$invalidate(1, isLoading = true);
+
+			try {
+				if (mode === 'login') {
+					const result = await authActions.login(email, password);
+
+					if (!result.success) {
+						$$invalidate(2, error = result.message || 'Login failed');
+					}
+				} else {
+					if (password !== confirmPassword) {
+						$$invalidate(2, error = 'Passwords do not match');
+						$$invalidate(1, isLoading = false);
+						return;
+					}
+
+					const result = await authActions.register(email, password, confirmPassword, true);
+
+					if (result.success) {
+						$$invalidate(3, success = 'Account created!');
+					} else {
+						$$invalidate(2, error = result.message || 'Registration failed');
+					}
+				}
+			} catch(err) {
+				$$invalidate(2, error = 'Something went wrong. Please try again.');
+			} finally {
+				$$invalidate(1, isLoading = false);
+			}
+		}
+
+		function switchMode() {
+			$$invalidate(0, mode = mode === 'login' ? 'register' : 'login');
+			$$invalidate(2, error = '');
+			$$invalidate(3, success = '');
+			$$invalidate(5, password = '');
+			$$invalidate(6, confirmPassword = '');
+		}
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<Login> was created with unknown prop '${key}'`);
+		});
+
+		function input0_input_handler() {
+			email = this.value;
+			$$invalidate(4, email);
+		}
+
+		function input1_input_handler() {
+			password = this.value;
+			$$invalidate(5, password);
+		}
+
+		function input_input_handler() {
+			confirmPassword = this.value;
+			$$invalidate(6, confirmPassword);
+		}
+
+		$$self.$capture_state = () => ({
+			authActions,
+			mode,
+			isLoading,
+			error,
+			success,
+			email,
+			password,
+			confirmPassword,
+			handleSubmit,
+			switchMode
+		});
+
+		$$self.$inject_state = $$props => {
+			if ('mode' in $$props) $$invalidate(0, mode = $$props.mode);
+			if ('isLoading' in $$props) $$invalidate(1, isLoading = $$props.isLoading);
+			if ('error' in $$props) $$invalidate(2, error = $$props.error);
+			if ('success' in $$props) $$invalidate(3, success = $$props.success);
+			if ('email' in $$props) $$invalidate(4, email = $$props.email);
+			if ('password' in $$props) $$invalidate(5, password = $$props.password);
+			if ('confirmPassword' in $$props) $$invalidate(6, confirmPassword = $$props.confirmPassword);
+		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [
+			mode,
+			isLoading,
+			error,
+			success,
+			email,
+			password,
+			confirmPassword,
+			handleSubmit,
+			switchMode,
+			input0_input_handler,
+			input1_input_handler,
+			input_input_handler
+		];
+	}
+
+	class Login extends SvelteComponentDev {
+		constructor(options) {
+			super(options);
+			init(this, options, instance$4, create_fragment$4, safe_not_equal, {});
+
+			dispatch_dev("SvelteRegisterComponent", {
+				component: this,
+				tagName: "Login",
+				options,
+				id: create_fragment$4.name
+			});
+		}
+	}
+
+	/* src/lib/components/Home.svelte generated by Svelte v4.2.20 */
+
+	const { console: console_1$2 } = globals;
+	const file$3 = "src/lib/components/Home.svelte";
+
+	function get_each_context(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[25] = list[i];
+		return child_ctx;
+	}
+
+	function get_each_context_2(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[31] = list[i];
+		return child_ctx;
+	}
+
+	function get_each_context_1(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[28] = list[i];
+		return child_ctx;
+	}
+
+	function get_each_context_4(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[36] = list[i];
+		return child_ctx;
+	}
+
+	function get_each_context_3(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[28] = list[i];
+		return child_ctx;
+	}
+
+	function get_each_context_5(ctx, list, i) {
+		const child_ctx = ctx.slice();
+		child_ctx[39] = list[i];
+		return child_ctx;
+	}
+
+	// (242:8) {#if isSearching}
+	function create_if_block_11(ctx) {
+		let div1;
+		let div0;
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				attr_dev(div0, "class", "w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin");
+				add_location(div0, file$3, 288, 12, 8420);
+				attr_dev(div1, "class", "absolute right-4 top-1/2 -translate-y-1/2");
+				add_location(div1, file$3, 287, 10, 8352);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_11.name,
+			type: "if",
+			source: "(242:8) {#if isSearching}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (250:6) {#if searchResults.length > 0}
+	function create_if_block_6$1(ctx) {
+		let div;
+		let each_value_5 = ensure_array_like_dev(/*searchResults*/ ctx[1]);
+		let each_blocks = [];
+
+		for (let i = 0; i < each_value_5.length; i += 1) {
+			each_blocks[i] = create_each_block_5(get_each_context_5(ctx, each_value_5, i));
+		}
+
+		const block = {
+			c: function create() {
+				div = element("div");
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				attr_dev(div, "class", "mt-3 bg-gray-800 rounded-xl border border-gray-600 overflow-hidden");
+				add_location(div, file$3, 295, 8, 8639);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div, null);
+					}
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*blockingArtistId, searchResults, unblockArtist, blockArtist*/ 12546) {
+					each_value_5 = ensure_array_like_dev(/*searchResults*/ ctx[1]);
+					let i;
+
+					for (i = 0; i < each_value_5.length; i += 1) {
+						const child_ctx = get_each_context_5(ctx, each_value_5, i);
+
+						if (each_blocks[i]) {
+							each_blocks[i].p(child_ctx, dirty);
+						} else {
+							each_blocks[i] = create_each_block_5(child_ctx);
+							each_blocks[i].c();
+							each_blocks[i].m(div, null);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].d(1);
+					}
+
+					each_blocks.length = each_value_5.length;
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				destroy_each(each_blocks, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_6$1.name,
+			type: "if",
+			source: "(250:6) {#if searchResults.length > 0}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (257:16) {:else}
+	function create_else_block_4$1(ctx) {
+		let div;
+		let span;
+		let t_value = /*artist*/ ctx[39].name.charAt(0) + "";
+		let t;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				span = element("span");
+				t = text(t_value);
+				attr_dev(span, "class", "text-xl");
+				add_location(span, file$3, 303, 20, 9233);
+				attr_dev(div, "class", "w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center");
+				add_location(div, file$3, 302, 18, 9131);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, span);
+				append_dev(span, t);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*searchResults*/ 2 && t_value !== (t_value = /*artist*/ ctx[39].name.charAt(0) + "")) set_data_dev(t, t_value);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_4$1.name,
+			type: "else",
+			source: "(257:16) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (255:16) {#if artist.image_url}
+	function create_if_block_10(ctx) {
+		let img;
+		let img_src_value;
+		let img_alt_value;
+
+		const block = {
+			c: function create() {
+				img = element("img");
+				if (!src_url_equal(img.src, img_src_value = /*artist*/ ctx[39].image_url)) attr_dev(img, "src", img_src_value);
+				attr_dev(img, "alt", img_alt_value = /*artist*/ ctx[39].name);
+				attr_dev(img, "class", "w-12 h-12 rounded-full object-cover");
+				add_location(img, file$3, 300, 18, 8996);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, img, anchor);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*searchResults*/ 2 && !src_url_equal(img.src, img_src_value = /*artist*/ ctx[39].image_url)) {
+					attr_dev(img, "src", img_src_value);
+				}
+
+				if (dirty[0] & /*searchResults*/ 2 && img_alt_value !== (img_alt_value = /*artist*/ ctx[39].name)) {
+					attr_dev(img, "alt", img_alt_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(img);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_10.name,
+			type: "if",
+			source: "(255:16) {#if artist.image_url}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (264:18) {#if artist.genres && artist.genres.length > 0}
+	function create_if_block_9(ctx) {
+		let p;
+		let t_value = /*artist*/ ctx[39].genres.slice(0, 2).join(', ') + "";
+		let t;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				t = text(t_value);
+				attr_dev(p, "class", "text-sm text-gray-300");
+				add_location(p, file$3, 309, 20, 9500);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+				append_dev(p, t);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*searchResults*/ 2 && t_value !== (t_value = /*artist*/ ctx[39].genres.slice(0, 2).join(', ') + "")) set_data_dev(t, t_value);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_9.name,
+			type: "if",
+			source: "(264:18) {#if artist.genres && artist.genres.length > 0}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (282:16) {:else}
+	function create_else_block_3$1(ctx) {
+		let t;
+
+		const block = {
+			c: function create() {
+				t = text("Block");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, t, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(t);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_3$1.name,
+			type: "else",
+			source: "(282:16) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (280:41) 
+	function create_if_block_8(ctx) {
+		let t;
+
+		const block = {
+			c: function create() {
+				t = text("Blocked");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, t, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(t);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_8.name,
+			type: "if",
+			source: "(280:41) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (278:16) {#if blockingArtistId === artist.id}
+	function create_if_block_7$1(ctx) {
+		let span;
+
+		const block = {
+			c: function create() {
+				span = element("span");
+				attr_dev(span, "class", "inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin");
+				add_location(span, file$3, 323, 18, 10183);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, span, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(span);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_7$1.name,
+			type: "if",
+			source: "(278:16) {#if blockingArtistId === artist.id}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (252:10) {#each searchResults as artist}
+	function create_each_block_5(ctx) {
+		let div2;
+		let div1;
+		let t0;
+		let div0;
+		let p;
+		let t1_value = /*artist*/ ctx[39].name + "";
+		let t1;
+		let t2;
+		let t3;
+		let button;
+		let button_disabled_value;
+		let button_class_value;
+		let t4;
+		let mounted;
+		let dispose;
+
+		function select_block_type(ctx, dirty) {
+			if (/*artist*/ ctx[39].image_url) return create_if_block_10;
+			return create_else_block_4$1;
+		}
+
+		let current_block_type = select_block_type(ctx);
+		let if_block0 = current_block_type(ctx);
+		let if_block1 = /*artist*/ ctx[39].genres && /*artist*/ ctx[39].genres.length > 0 && create_if_block_9(ctx);
+
+		function select_block_type_1(ctx, dirty) {
+			if (/*blockingArtistId*/ ctx[8] === /*artist*/ ctx[39].id) return create_if_block_7$1;
+			if (/*artist*/ ctx[39].blocked) return create_if_block_8;
+			return create_else_block_3$1;
+		}
+
+		let current_block_type_1 = select_block_type_1(ctx);
+		let if_block2 = current_block_type_1(ctx);
+
+		function click_handler_1() {
+			return /*click_handler_1*/ ctx[17](/*artist*/ ctx[39]);
+		}
+
+		const block = {
+			c: function create() {
+				div2 = element("div");
+				div1 = element("div");
+				if_block0.c();
+				t0 = space();
+				div0 = element("div");
+				p = element("p");
+				t1 = text(t1_value);
+				t2 = space();
+				if (if_block1) if_block1.c();
+				t3 = space();
+				button = element("button");
+				if_block2.c();
+				t4 = space();
+				attr_dev(p, "class", "font-medium");
+				add_location(p, file$3, 307, 18, 9373);
+				add_location(div0, file$3, 306, 16, 9349);
+				attr_dev(div1, "class", "flex items-center space-x-4");
+				add_location(div1, file$3, 298, 14, 8897);
+				button.disabled = button_disabled_value = /*blockingArtistId*/ ctx[8] === /*artist*/ ctx[39].id;
+
+				attr_dev(button, "class", button_class_value = "px-4 py-2 rounded-lg font-medium transition-all " + (/*artist*/ ctx[39].blocked
+				? 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+				: 'bg-rose-600 text-white hover:bg-rose-700') + " disabled:opacity-50");
+
+				add_location(button, file$3, 313, 14, 9658);
+				attr_dev(div2, "class", "flex items-center justify-between p-4 hover:bg-gray-700 border-b border-gray-600 last:border-0");
+				add_location(div2, file$3, 297, 12, 8774);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div2, anchor);
+				append_dev(div2, div1);
+				if_block0.m(div1, null);
+				append_dev(div1, t0);
+				append_dev(div1, div0);
+				append_dev(div0, p);
+				append_dev(p, t1);
+				append_dev(div0, t2);
+				if (if_block1) if_block1.m(div0, null);
+				append_dev(div2, t3);
+				append_dev(div2, button);
+				if_block2.m(button, null);
+				append_dev(div2, t4);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", click_handler_1, false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(new_ctx, dirty) {
+				ctx = new_ctx;
+
+				if (current_block_type === (current_block_type = select_block_type(ctx)) && if_block0) {
+					if_block0.p(ctx, dirty);
+				} else {
+					if_block0.d(1);
+					if_block0 = current_block_type(ctx);
+
+					if (if_block0) {
+						if_block0.c();
+						if_block0.m(div1, t0);
+					}
+				}
+
+				if (dirty[0] & /*searchResults*/ 2 && t1_value !== (t1_value = /*artist*/ ctx[39].name + "")) set_data_dev(t1, t1_value);
+
+				if (/*artist*/ ctx[39].genres && /*artist*/ ctx[39].genres.length > 0) {
+					if (if_block1) {
+						if_block1.p(ctx, dirty);
+					} else {
+						if_block1 = create_if_block_9(ctx);
+						if_block1.c();
+						if_block1.m(div0, null);
+					}
+				} else if (if_block1) {
+					if_block1.d(1);
+					if_block1 = null;
+				}
+
+				if (current_block_type_1 !== (current_block_type_1 = select_block_type_1(ctx))) {
+					if_block2.d(1);
+					if_block2 = current_block_type_1(ctx);
+
+					if (if_block2) {
+						if_block2.c();
+						if_block2.m(button, null);
+					}
+				}
+
+				if (dirty[0] & /*blockingArtistId, searchResults*/ 258 && button_disabled_value !== (button_disabled_value = /*blockingArtistId*/ ctx[8] === /*artist*/ ctx[39].id)) {
+					prop_dev(button, "disabled", button_disabled_value);
+				}
+
+				if (dirty[0] & /*searchResults*/ 2 && button_class_value !== (button_class_value = "px-4 py-2 rounded-lg font-medium transition-all " + (/*artist*/ ctx[39].blocked
+				? 'bg-gray-600 text-gray-200 hover:bg-gray-500'
+				: 'bg-rose-600 text-white hover:bg-rose-700') + " disabled:opacity-50")) {
+					attr_dev(button, "class", button_class_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div2);
+				}
+
+				if_block0.d();
+				if (if_block1) if_block1.d();
+				if_block2.d();
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block_5.name,
+			type: "each",
+			source: "(252:10) {#each searchResults as artist}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (310:8) {:else}
+	function create_else_block_2$1(ctx) {
+		let div;
+		let each_value_4 = ensure_array_like_dev(/*newsFeed*/ ctx[3]);
+		let each_blocks = [];
+
+		for (let i = 0; i < each_value_4.length; i += 1) {
+			each_blocks[i] = create_each_block_4(get_each_context_4(ctx, each_value_4, i));
+		}
+
+		const block = {
+			c: function create() {
+				div = element("div");
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				attr_dev(div, "class", "space-y-3");
+				add_location(div, file$3, 355, 10, 11253);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div, null);
+					}
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*newsFeed, categoryColors, categoryLabels*/ 1544) {
+					each_value_4 = ensure_array_like_dev(/*newsFeed*/ ctx[3]);
+					let i;
+
+					for (i = 0; i < each_value_4.length; i += 1) {
+						const child_ctx = get_each_context_4(ctx, each_value_4, i);
+
+						if (each_blocks[i]) {
+							each_blocks[i].p(child_ctx, dirty);
+						} else {
+							each_blocks[i] = create_each_block_4(child_ctx);
+							each_blocks[i].c();
+							each_blocks[i].m(div, null);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].d(1);
+					}
+
+					each_blocks.length = each_value_4.length;
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				destroy_each(each_blocks, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_2$1.name,
+			type: "else",
+			source: "(310:8) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (301:8) {#if isLoadingNews}
+	function create_if_block_5$1(ctx) {
+		let div;
+		let each_value_3 = ensure_array_like_dev([1, 2, 3]);
+		let each_blocks = [];
+
+		for (let i = 0; i < 3; i += 1) {
+			each_blocks[i] = create_each_block_3(get_each_context_3(ctx, each_value_3, i));
+		}
+
+		const block = {
+			c: function create() {
+				div = element("div");
+
+				for (let i = 0; i < 3; i += 1) {
+					each_blocks[i].c();
+				}
+
+				attr_dev(div, "class", "space-y-3");
+				add_location(div, file$3, 346, 10, 10904);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+
+				for (let i = 0; i < 3; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div, null);
+					}
+				}
+			},
+			p: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				destroy_each(each_blocks, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_5$1.name,
+			type: "if",
+			source: "(301:8) {#if isLoadingNews}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (312:12) {#each newsFeed as item}
+	function create_each_block_4(ctx) {
+		let div3;
+		let div2;
+		let div1;
+		let div0;
+		let span0;
+		let t0_value = (/*categoryLabels*/ ctx[10][/*item*/ ctx[36].category] || /*item*/ ctx[36].category) + "";
+		let t0;
+		let span0_class_value;
+		let t1;
+		let span1;
+		let t2_value = formatTimeAgo(/*item*/ ctx[36].timestamp) + "";
+		let t2;
+		let t3;
+		let p0;
+		let t4_value = /*item*/ ctx[36].artist_name + "";
+		let t4;
+		let t5;
+		let p1;
+		let t6_value = /*item*/ ctx[36].headline + "";
+		let t6;
+		let t7;
+		let a;
+		let t8_value = /*item*/ ctx[36].source + "";
+		let t8;
+		let a_href_value;
+		let t9;
+		let button;
+		let t11;
+
+		const block = {
+			c: function create() {
+				div3 = element("div");
+				div2 = element("div");
+				div1 = element("div");
+				div0 = element("div");
+				span0 = element("span");
+				t0 = text(t0_value);
+				t1 = space();
+				span1 = element("span");
+				t2 = text(t2_value);
+				t3 = space();
+				p0 = element("p");
+				t4 = text(t4_value);
+				t5 = space();
+				p1 = element("p");
+				t6 = text(t6_value);
+				t7 = space();
+				a = element("a");
+				t8 = text(t8_value);
+				t9 = space();
+				button = element("button");
+				button.textContent = "Block";
+				t11 = space();
+				attr_dev(span0, "class", span0_class_value = "px-2 py-0.5 rounded text-xs font-medium " + (/*categoryColors*/ ctx[9][/*item*/ ctx[36].category] || 'bg-gray-500'));
+				add_location(span0, file$3, 361, 22, 11623);
+				attr_dev(span1, "class", "text-xs text-gray-400");
+				add_location(span1, file$3, 364, 22, 11852);
+				attr_dev(div0, "class", "flex items-center space-x-2 mb-1");
+				add_location(div0, file$3, 360, 20, 11554);
+				attr_dev(p0, "class", "font-medium");
+				add_location(p0, file$3, 366, 20, 11974);
+				attr_dev(p1, "class", "text-sm text-gray-300 mt-1");
+				add_location(p1, file$3, 367, 20, 12040);
+				attr_dev(a, "href", a_href_value = /*item*/ ctx[36].source_url);
+				attr_dev(a, "target", "_blank");
+				attr_dev(a, "rel", "noopener");
+				attr_dev(a, "class", "text-xs text-blue-400 hover:underline mt-2 inline-block");
+				add_location(a, file$3, 368, 20, 12118);
+				attr_dev(div1, "class", "flex-1");
+				add_location(div1, file$3, 359, 18, 11513);
+				attr_dev(button, "class", "ml-4 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 rounded-lg text-sm font-medium transition-colors");
+				add_location(button, file$3, 372, 18, 12344);
+				attr_dev(div2, "class", "flex items-start justify-between");
+				add_location(div2, file$3, 358, 16, 11448);
+				attr_dev(div3, "class", "bg-gray-800 rounded-xl p-4 border border-gray-600 hover:border-gray-500 transition-colors");
+				add_location(div3, file$3, 357, 14, 11328);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div3, anchor);
+				append_dev(div3, div2);
+				append_dev(div2, div1);
+				append_dev(div1, div0);
+				append_dev(div0, span0);
+				append_dev(span0, t0);
+				append_dev(div0, t1);
+				append_dev(div0, span1);
+				append_dev(span1, t2);
+				append_dev(div1, t3);
+				append_dev(div1, p0);
+				append_dev(p0, t4);
+				append_dev(div1, t5);
+				append_dev(div1, p1);
+				append_dev(p1, t6);
+				append_dev(div1, t7);
+				append_dev(div1, a);
+				append_dev(a, t8);
+				append_dev(div2, t9);
+				append_dev(div2, button);
+				append_dev(div3, t11);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*newsFeed*/ 8 && t0_value !== (t0_value = (/*categoryLabels*/ ctx[10][/*item*/ ctx[36].category] || /*item*/ ctx[36].category) + "")) set_data_dev(t0, t0_value);
+
+				if (dirty[0] & /*newsFeed*/ 8 && span0_class_value !== (span0_class_value = "px-2 py-0.5 rounded text-xs font-medium " + (/*categoryColors*/ ctx[9][/*item*/ ctx[36].category] || 'bg-gray-500'))) {
+					attr_dev(span0, "class", span0_class_value);
+				}
+
+				if (dirty[0] & /*newsFeed*/ 8 && t2_value !== (t2_value = formatTimeAgo(/*item*/ ctx[36].timestamp) + "")) set_data_dev(t2, t2_value);
+				if (dirty[0] & /*newsFeed*/ 8 && t4_value !== (t4_value = /*item*/ ctx[36].artist_name + "")) set_data_dev(t4, t4_value);
+				if (dirty[0] & /*newsFeed*/ 8 && t6_value !== (t6_value = /*item*/ ctx[36].headline + "")) set_data_dev(t6, t6_value);
+				if (dirty[0] & /*newsFeed*/ 8 && t8_value !== (t8_value = /*item*/ ctx[36].source + "")) set_data_dev(t8, t8_value);
+
+				if (dirty[0] & /*newsFeed*/ 8 && a_href_value !== (a_href_value = /*item*/ ctx[36].source_url)) {
+					attr_dev(a, "href", a_href_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div3);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block_4.name,
+			type: "each",
+			source: "(312:12) {#each newsFeed as item}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (303:12) {#each [1, 2, 3] as _}
+	function create_each_block_3(ctx) {
+		let div2;
+		let div0;
+		let t0;
+		let div1;
+		let t1;
+
+		const block = {
+			c: function create() {
+				div2 = element("div");
+				div0 = element("div");
+				t0 = space();
+				div1 = element("div");
+				t1 = space();
+				attr_dev(div0, "class", "h-4 bg-gray-700 rounded w-3/4 mb-2");
+				add_location(div0, file$3, 349, 16, 11048);
+				attr_dev(div1, "class", "h-3 bg-gray-700 rounded w-1/2");
+				add_location(div1, file$3, 350, 16, 11119);
+				attr_dev(div2, "class", "bg-gray-800 rounded-xl p-4 animate-pulse");
+				add_location(div2, file$3, 348, 14, 10977);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div2, anchor);
+				append_dev(div2, div0);
+				append_dev(div2, t0);
+				append_dev(div2, div1);
+				append_dev(div2, t1);
+			},
+			p: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div2);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block_3.name,
+			type: "each",
+			source: "(303:12) {#each [1, 2, 3] as _}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (352:10) {:else}
+	function create_else_block_1$2(ctx) {
+		let div;
+		let each_value_2 = ensure_array_like_dev(/*categoryLists*/ ctx[5]);
+		let each_blocks = [];
+
+		for (let i = 0; i < each_value_2.length; i += 1) {
+			each_blocks[i] = create_each_block_2(get_each_context_2(ctx, each_value_2, i));
+		}
+
+		const block = {
+			c: function create() {
+				div = element("div");
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				attr_dev(div, "class", "space-y-2");
+				add_location(div, file$3, 397, 12, 13145);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div, null);
+					}
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*toggleCategory, categoryLists*/ 16416) {
+					each_value_2 = ensure_array_like_dev(/*categoryLists*/ ctx[5]);
+					let i;
+
+					for (i = 0; i < each_value_2.length; i += 1) {
+						const child_ctx = get_each_context_2(ctx, each_value_2, i);
+
+						if (each_blocks[i]) {
+							each_blocks[i].p(child_ctx, dirty);
+						} else {
+							each_blocks[i] = create_each_block_2(child_ctx);
+							each_blocks[i].c();
+							each_blocks[i].m(div, null);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].d(1);
+					}
+
+					each_blocks.length = each_value_2.length;
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				destroy_each(each_blocks, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_1$2.name,
+			type: "else",
+			source: "(352:10) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (344:10) {#if isLoadingCategories}
+	function create_if_block_3$2(ctx) {
+		let div;
+		let each_value_1 = ensure_array_like_dev([1, 2, 3, 4]);
+		let each_blocks = [];
+
+		for (let i = 0; i < 4; i += 1) {
+			each_blocks[i] = create_each_block_1(get_each_context_1(ctx, each_value_1, i));
+		}
+
+		const block = {
+			c: function create() {
+				div = element("div");
+
+				for (let i = 0; i < 4; i += 1) {
+					each_blocks[i].c();
+				}
+
+				attr_dev(div, "class", "space-y-2");
+				add_location(div, file$3, 389, 12, 12848);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+
+				for (let i = 0; i < 4; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div, null);
+					}
+				}
+			},
+			p: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+
+				destroy_each(each_blocks, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_3$2.name,
+			type: "if",
+			source: "(344:10) {#if isLoadingCategories}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (372:22) {#if category.subscribed}
+	function create_if_block_4$2(ctx) {
+		let svg;
+		let path;
+
+		const block = {
+			c: function create() {
+				svg = svg_element("svg");
+				path = svg_element("path");
+				attr_dev(path, "fill-rule", "evenodd");
+				attr_dev(path, "d", "M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z");
+				attr_dev(path, "clip-rule", "evenodd");
+				add_location(path, file$3, 418, 26, 14390);
+				attr_dev(svg, "class", "w-3 h-3 text-white");
+				attr_dev(svg, "fill", "currentColor");
+				attr_dev(svg, "viewBox", "0 0 20 20");
+				add_location(svg, file$3, 417, 24, 14291);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, svg, anchor);
+				append_dev(svg, path);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(svg);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_4$2.name,
+			type: "if",
+			source: "(372:22) {#if category.subscribed}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (354:14) {#each categoryLists as category}
+	function create_each_block_2(ctx) {
+		let button;
+		let div4;
+		let div2;
+		let div0;
+		let div0_class_value;
+		let t0;
+		let div1;
+		let p0;
+		let t1_value = /*category*/ ctx[31].name + "";
+		let t1;
+		let t2;
+		let p1;
+		let t3_value = /*category*/ ctx[31].artist_count + "";
+		let t3;
+		let t4;
+		let t5;
+		let div3;
+		let div3_class_value;
+		let t6;
+		let mounted;
+		let dispose;
+		let if_block = /*category*/ ctx[31].subscribed && create_if_block_4$2(ctx);
+
+		function click_handler_2() {
+			return /*click_handler_2*/ ctx[18](/*category*/ ctx[31]);
+		}
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				div4 = element("div");
+				div2 = element("div");
+				div0 = element("div");
+				t0 = space();
+				div1 = element("div");
+				p0 = element("p");
+				t1 = text(t1_value);
+				t2 = space();
+				p1 = element("p");
+				t3 = text(t3_value);
+				t4 = text(" artists");
+				t5 = space();
+				div3 = element("div");
+				if (if_block) if_block.c();
+				t6 = space();
+				attr_dev(div0, "class", div0_class_value = "w-3 h-3 rounded-full " + /*category*/ ctx[31].color);
+				add_location(div0, file$3, 405, 22, 13605);
+				attr_dev(p0, "class", "font-medium text-sm");
+				add_location(p0, file$3, 407, 24, 13715);
+				attr_dev(p1, "class", "text-xs text-gray-400");
+				add_location(p1, file$3, 408, 24, 13790);
+				add_location(div1, file$3, 406, 22, 13685);
+				attr_dev(div2, "class", "flex items-center space-x-3");
+				add_location(div2, file$3, 404, 20, 13541);
+
+				attr_dev(div3, "class", div3_class_value = "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors " + (/*category*/ ctx[31].subscribed
+				? 'bg-rose-500 border-rose-500'
+				: 'border-gray-500 group-hover:border-gray-400'));
+
+				add_location(div3, file$3, 411, 20, 13935);
+				attr_dev(div4, "class", "flex items-center justify-between");
+				add_location(div4, file$3, 403, 18, 13473);
+				attr_dev(button, "class", "w-full bg-gray-800 rounded-lg p-3 border border-gray-600 hover:border-gray-500 transition-all text-left group");
+				add_location(button, file$3, 399, 16, 13233);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+				append_dev(button, div4);
+				append_dev(div4, div2);
+				append_dev(div2, div0);
+				append_dev(div2, t0);
+				append_dev(div2, div1);
+				append_dev(div1, p0);
+				append_dev(p0, t1);
+				append_dev(div1, t2);
+				append_dev(div1, p1);
+				append_dev(p1, t3);
+				append_dev(p1, t4);
+				append_dev(div4, t5);
+				append_dev(div4, div3);
+				if (if_block) if_block.m(div3, null);
+				append_dev(button, t6);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", click_handler_2, false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(new_ctx, dirty) {
+				ctx = new_ctx;
+
+				if (dirty[0] & /*categoryLists*/ 32 && div0_class_value !== (div0_class_value = "w-3 h-3 rounded-full " + /*category*/ ctx[31].color)) {
+					attr_dev(div0, "class", div0_class_value);
+				}
+
+				if (dirty[0] & /*categoryLists*/ 32 && t1_value !== (t1_value = /*category*/ ctx[31].name + "")) set_data_dev(t1, t1_value);
+				if (dirty[0] & /*categoryLists*/ 32 && t3_value !== (t3_value = /*category*/ ctx[31].artist_count + "")) set_data_dev(t3, t3_value);
+
+				if (/*category*/ ctx[31].subscribed) {
+					if (if_block) ; else {
+						if_block = create_if_block_4$2(ctx);
+						if_block.c();
+						if_block.m(div3, null);
+					}
+				} else if (if_block) {
+					if_block.d(1);
+					if_block = null;
+				}
+
+				if (dirty[0] & /*categoryLists*/ 32 && div3_class_value !== (div3_class_value = "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors " + (/*category*/ ctx[31].subscribed
+				? 'bg-rose-500 border-rose-500'
+				: 'border-gray-500 group-hover:border-gray-400'))) {
+					attr_dev(div3, "class", div3_class_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				if (if_block) if_block.d();
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block_2.name,
+			type: "each",
+			source: "(354:14) {#each categoryLists as category}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (346:14) {#each [1, 2, 3, 4] as _}
+	function create_each_block_1(ctx) {
+		let div1;
+		let div0;
+		let t;
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				t = space();
+				attr_dev(div0, "class", "h-4 bg-gray-700 rounded w-2/3");
+				add_location(div0, file$3, 392, 18, 13001);
+				attr_dev(div1, "class", "bg-gray-800 rounded-lg p-3 animate-pulse");
+				add_location(div1, file$3, 391, 16, 12928);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+				append_dev(div1, t);
+			},
+			p: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block_1.name,
+			type: "each",
+			source: "(346:14) {#each [1, 2, 3, 4] as _}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (399:65) 
+	function create_if_block_2$2(ctx) {
+		let div;
+		let svg;
+		let path;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				svg = svg_element("svg");
+				path = svg_element("path");
+				attr_dev(path, "d", "M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.476-2.144-1.32-.238-.56-.223-1.136-.017-1.7.303-.825.96-1.277 1.743-1.49.294-.08.595-.13.893-.18.323-.054.65-.1.973-.157.274-.048.47-.202.53-.486a.707.707 0 00.017-.146c.002-1.633.002-3.265.002-4.898v-.07l-.06-.01c-2.097.4-4.194.8-6.29 1.202-.014.002-.032.014-.037.026-.006.016-.003.037-.003.056v7.36c0 .418-.052.832-.227 1.218-.282.622-.76 1.02-1.416 1.207-.313.09-.634.138-.96.166-.906.08-1.732-.4-2.134-1.203-.268-.534-.278-1.1-.096-1.66.267-.817.864-1.304 1.64-1.55.376-.12.763-.185 1.148-.25.278-.047.558-.088.832-.145.317-.065.522-.25.58-.574a.504.504 0 00.007-.115v-8.41c0-.25.042-.493.15-.72.183-.385.486-.62.882-.728.17-.047.346-.073.522-.11 2.55-.526 5.1-1.05 7.65-1.573.093-.02.19-.03.285-.03.316.004.528.2.613.5.032.113.044.233.044.35v5.9z");
+				add_location(path, file$3, 446, 26, 16444);
+				attr_dev(svg, "class", "w-5 h-5 text-white");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				attr_dev(svg, "fill", "currentColor");
+				add_location(svg, file$3, 445, 24, 16345);
+				attr_dev(div, "class", "w-8 h-8 rounded-full bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center");
+				add_location(div, file$3, 444, 22, 16210);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, svg);
+				append_dev(svg, path);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_2$2.name,
+			type: "if",
+			source: "(399:65) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (393:20) {#if service.provider === 'spotify'}
+	function create_if_block_1$3(ctx) {
+		let div;
+		let svg;
+		let path;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				svg = svg_element("svg");
+				path = svg_element("path");
+				attr_dev(path, "d", "M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z");
+				add_location(path, file$3, 440, 26, 15463);
+				attr_dev(svg, "class", "w-5 h-5 text-white");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				attr_dev(svg, "fill", "currentColor");
+				add_location(svg, file$3, 439, 24, 15364);
+				attr_dev(div, "class", "w-8 h-8 rounded-full bg-green-500 flex items-center justify-center");
+				add_location(div, file$3, 438, 22, 15259);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, svg);
+				append_dev(svg, path);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_1$3.name,
+			type: "if",
+			source: "(393:20) {#if service.provider === 'spotify'}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (410:18) {:else}
+	function create_else_block$3(ctx) {
+		let button;
+		let mounted;
+		let dispose;
+
+		function click_handler_3() {
+			return /*click_handler_3*/ ctx[19](/*service*/ ctx[25]);
+		}
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				button.textContent = "Connect";
+				attr_dev(button, "class", "text-xs text-blue-400 hover:text-blue-300");
+				add_location(button, file$3, 455, 20, 18333);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", click_handler_3, false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(new_ctx, dirty) {
+				ctx = new_ctx;
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block$3.name,
+			type: "else",
+			source: "(410:18) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (408:18) {#if service.connected}
+	function create_if_block$3(ctx) {
+		let span;
+
+		const block = {
+			c: function create() {
+				span = element("span");
+				span.textContent = "Connected";
+				attr_dev(span, "class", "text-xs text-green-400");
+				add_location(span, file$3, 453, 20, 18233);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, span, anchor);
+			},
+			p: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(span);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block$3.name,
+			type: "if",
+			source: "(408:18) {#if service.connected}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (389:12) {#each connectedServices as service}
+	function create_each_block(ctx) {
+		let div2;
+		let div1;
+		let div0;
+		let t0;
+		let span;
+		let t1_value = /*service*/ ctx[25].provider.replace('_', ' ') + "";
+		let t1;
+		let t2;
+		let t3;
+
+		function select_block_type_4(ctx, dirty) {
+			if (/*service*/ ctx[25].provider === 'spotify') return create_if_block_1$3;
+			if (/*service*/ ctx[25].provider === 'apple_music') return create_if_block_2$2;
+		}
+
+		let current_block_type = select_block_type_4(ctx);
+		let if_block0 = current_block_type && current_block_type(ctx);
+
+		function select_block_type_5(ctx, dirty) {
+			if (/*service*/ ctx[25].connected) return create_if_block$3;
+			return create_else_block$3;
+		}
+
+		let current_block_type_1 = select_block_type_5(ctx);
+		let if_block1 = current_block_type_1(ctx);
+
+		const block = {
+			c: function create() {
+				div2 = element("div");
+				div1 = element("div");
+				div0 = element("div");
+				if (if_block0) if_block0.c();
+				t0 = space();
+				span = element("span");
+				t1 = text(t1_value);
+				t2 = space();
+				if_block1.c();
+				t3 = space();
+				attr_dev(span, "class", "font-medium text-sm capitalize");
+				add_location(span, file$3, 450, 20, 18057);
+				attr_dev(div0, "class", "flex items-center space-x-3");
+				add_location(div0, file$3, 436, 18, 15138);
+				attr_dev(div1, "class", "flex items-center justify-between");
+				add_location(div1, file$3, 435, 16, 15072);
+				attr_dev(div2, "class", "bg-gray-800 rounded-lg p-3 border border-gray-600");
+				add_location(div2, file$3, 434, 14, 14992);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div2, anchor);
+				append_dev(div2, div1);
+				append_dev(div1, div0);
+				if (if_block0) if_block0.m(div0, null);
+				append_dev(div0, t0);
+				append_dev(div0, span);
+				append_dev(span, t1);
+				append_dev(div1, t2);
+				if_block1.m(div1, null);
+				append_dev(div2, t3);
+			},
+			p: function update(ctx, dirty) {
+				if (current_block_type !== (current_block_type = select_block_type_4(ctx))) {
+					if (if_block0) if_block0.d(1);
+					if_block0 = current_block_type && current_block_type(ctx);
+
+					if (if_block0) {
+						if_block0.c();
+						if_block0.m(div0, t0);
+					}
+				}
+
+				if (dirty[0] & /*connectedServices*/ 128 && t1_value !== (t1_value = /*service*/ ctx[25].provider.replace('_', ' ') + "")) set_data_dev(t1, t1_value);
+
+				if (current_block_type_1 === (current_block_type_1 = select_block_type_5(ctx)) && if_block1) {
+					if_block1.p(ctx, dirty);
+				} else {
+					if_block1.d(1);
+					if_block1 = current_block_type_1(ctx);
+
+					if (if_block1) {
+						if_block1.c();
+						if_block1.m(div1, null);
+					}
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div2);
+				}
+
+				if (if_block0) {
+					if_block0.d();
+				}
+
+				if_block1.d();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_each_block.name,
+			type: "each",
+			source: "(389:12) {#each connectedServices as service}",
+			ctx
+		});
+
+		return block;
+	}
+
+	function create_fragment$3(ctx) {
+		let div7;
+		let header;
+		let div2;
+		let div1;
+		let div0;
+		let span0;
+		let t1;
+		let h1;
+		let t3;
+		let button;
+		let svg;
+		let path0;
+		let path1;
+		let t4;
+		let main;
+		let section0;
+		let div3;
+		let input;
+		let t5;
+		let t6;
+		let t7;
+		let div6;
+		let section1;
+		let h20;
+		let span1;
+		let t8;
+		let t9;
+		let t10;
+		let aside;
+		let section2;
+		let h21;
+		let t12;
+		let t13;
+		let section3;
+		let h22;
+		let t15;
+		let div4;
+		let t16;
+		let section4;
+		let h3;
+		let t18;
+		let div5;
+		let t19_value = /*categoryLists*/ ctx[5].filter(func).reduce(func_1, 0) + "";
+		let t19;
+		let t20;
+		let p;
+		let mounted;
+		let dispose;
+		let if_block0 = /*isSearching*/ ctx[2] && create_if_block_11(ctx);
+		let if_block1 = /*searchResults*/ ctx[1].length > 0 && create_if_block_6$1(ctx);
+
+		function select_block_type_2(ctx, dirty) {
+			if (/*isLoadingNews*/ ctx[4]) return create_if_block_5$1;
+			return create_else_block_2$1;
+		}
+
+		let current_block_type = select_block_type_2(ctx);
+		let if_block2 = current_block_type(ctx);
+
+		function select_block_type_3(ctx, dirty) {
+			if (/*isLoadingCategories*/ ctx[6]) return create_if_block_3$2;
+			return create_else_block_1$2;
+		}
+
+		let current_block_type_1 = select_block_type_3(ctx);
+		let if_block3 = current_block_type_1(ctx);
+		let each_value = ensure_array_like_dev(/*connectedServices*/ ctx[7]);
+		let each_blocks = [];
+
+		for (let i = 0; i < each_value.length; i += 1) {
+			each_blocks[i] = create_each_block(get_each_context(ctx, each_value, i));
+		}
+
+		const block = {
+			c: function create() {
+				div7 = element("div");
+				header = element("header");
+				div2 = element("div");
+				div1 = element("div");
+				div0 = element("div");
+				span0 = element("span");
+				span0.textContent = "🚫";
+				t1 = space();
+				h1 = element("h1");
+				h1.textContent = "No Drake";
+				t3 = space();
+				button = element("button");
+				svg = svg_element("svg");
+				path0 = svg_element("path");
+				path1 = svg_element("path");
+				t4 = space();
+				main = element("main");
+				section0 = element("section");
+				div3 = element("div");
+				input = element("input");
+				t5 = space();
+				if (if_block0) if_block0.c();
+				t6 = space();
+				if (if_block1) if_block1.c();
+				t7 = space();
+				div6 = element("div");
+				section1 = element("section");
+				h20 = element("h2");
+				span1 = element("span");
+				t8 = text("\n          Recent Additions");
+				t9 = space();
+				if_block2.c();
+				t10 = space();
+				aside = element("aside");
+				section2 = element("section");
+				h21 = element("h2");
+				h21.textContent = "Blocklists";
+				t12 = space();
+				if_block3.c();
+				t13 = space();
+				section3 = element("section");
+				h22 = element("h2");
+				h22.textContent = "Music Services";
+				t15 = space();
+				div4 = element("div");
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					each_blocks[i].c();
+				}
+
+				t16 = space();
+				section4 = element("section");
+				h3 = element("h3");
+				h3.textContent = "Your Blocks";
+				t18 = space();
+				div5 = element("div");
+				t19 = text(t19_value);
+				t20 = space();
+				p = element("p");
+				p.textContent = "artists blocked";
+				attr_dev(span0, "class", "text-3xl");
+				add_location(span0, file$3, 259, 10, 6719);
+				attr_dev(h1, "class", "text-xl font-bold");
+				add_location(h1, file$3, 260, 10, 6762);
+				attr_dev(div0, "class", "flex items-center space-x-3");
+				add_location(div0, file$3, 258, 8, 6667);
+				attr_dev(path0, "stroke-linecap", "round");
+				attr_dev(path0, "stroke-linejoin", "round");
+				attr_dev(path0, "stroke-width", "2");
+				attr_dev(path0, "d", "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z");
+				add_location(path0, file$3, 267, 12, 7076);
+				attr_dev(path1, "stroke-linecap", "round");
+				attr_dev(path1, "stroke-linejoin", "round");
+				attr_dev(path1, "stroke-width", "2");
+				attr_dev(path1, "d", "M15 12a3 3 0 11-6 0 3 3 0 016 0z");
+				add_location(path1, file$3, 268, 12, 7649);
+				attr_dev(svg, "class", "w-6 h-6");
+				attr_dev(svg, "fill", "none");
+				attr_dev(svg, "stroke", "currentColor");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				add_location(svg, file$3, 266, 10, 6988);
+				attr_dev(button, "class", "p-2 rounded-lg hover:bg-gray-700 transition-colors");
+				add_location(button, file$3, 262, 8, 6829);
+				attr_dev(div1, "class", "flex items-center justify-between");
+				add_location(div1, file$3, 257, 6, 6611);
+				attr_dev(div2, "class", "max-w-6xl mx-auto px-4 py-4");
+				add_location(div2, file$3, 256, 4, 6563);
+				attr_dev(header, "class", "bg-gray-800 border-b border-gray-600 sticky top-0 z-50");
+				add_location(header, file$3, 255, 2, 6487);
+				attr_dev(input, "type", "text");
+				attr_dev(input, "placeholder", "Search artist to block...");
+				attr_dev(input, "class", "w-full bg-gray-800 border border-gray-600 rounded-xl px-5 py-4 text-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent");
+				add_location(input, file$3, 279, 8, 7965);
+				attr_dev(div3, "class", "relative");
+				add_location(div3, file$3, 278, 6, 7934);
+				add_location(section0, file$3, 277, 4, 7918);
+				attr_dev(span1, "class", "w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse");
+				add_location(span1, file$3, 341, 10, 10751);
+				attr_dev(h20, "class", "text-lg font-semibold mb-4 flex items-center");
+				add_location(h20, file$3, 340, 8, 10683);
+				attr_dev(section1, "class", "lg:col-span-2");
+				add_location(section1, file$3, 339, 6, 10643);
+				attr_dev(h21, "class", "text-lg font-semibold mb-4");
+				add_location(h21, file$3, 386, 10, 12744);
+				add_location(section2, file$3, 385, 8, 12724);
+				attr_dev(h22, "class", "text-lg font-semibold mb-4");
+				add_location(h22, file$3, 431, 10, 14836);
+				attr_dev(div4, "class", "space-y-2");
+				add_location(div4, file$3, 432, 10, 14905);
+				add_location(section3, file$3, 430, 8, 14816);
+				attr_dev(h3, "class", "text-sm font-medium text-gray-300 mb-3");
+				add_location(h3, file$3, 470, 10, 18801);
+				attr_dev(div5, "class", "text-3xl font-bold");
+				add_location(div5, file$3, 471, 10, 18879);
+				attr_dev(p, "class", "text-sm text-gray-400 mt-1");
+				add_location(p, file$3, 474, 10, 19037);
+				attr_dev(section4, "class", "bg-gray-800 rounded-xl p-4 border border-gray-600");
+				add_location(section4, file$3, 469, 8, 18723);
+				attr_dev(aside, "class", "space-y-6");
+				add_location(aside, file$3, 383, 6, 12653);
+				attr_dev(div6, "class", "grid lg:grid-cols-3 gap-6");
+				add_location(div6, file$3, 337, 4, 10572);
+				attr_dev(main, "class", "max-w-6xl mx-auto px-4 py-6 space-y-8");
+				add_location(main, file$3, 275, 2, 7833);
+				attr_dev(div7, "class", "min-h-screen bg-gray-900 text-white");
+				add_location(div7, file$3, 253, 0, 6417);
+			},
+			l: function claim(nodes) {
+				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div7, anchor);
+				append_dev(div7, header);
+				append_dev(header, div2);
+				append_dev(div2, div1);
+				append_dev(div1, div0);
+				append_dev(div0, span0);
+				append_dev(div0, t1);
+				append_dev(div0, h1);
+				append_dev(div1, t3);
+				append_dev(div1, button);
+				append_dev(button, svg);
+				append_dev(svg, path0);
+				append_dev(svg, path1);
+				append_dev(div7, t4);
+				append_dev(div7, main);
+				append_dev(main, section0);
+				append_dev(section0, div3);
+				append_dev(div3, input);
+				set_input_value(input, /*searchQuery*/ ctx[0]);
+				append_dev(div3, t5);
+				if (if_block0) if_block0.m(div3, null);
+				append_dev(section0, t6);
+				if (if_block1) if_block1.m(section0, null);
+				append_dev(main, t7);
+				append_dev(main, div6);
+				append_dev(div6, section1);
+				append_dev(section1, h20);
+				append_dev(h20, span1);
+				append_dev(h20, t8);
+				append_dev(section1, t9);
+				if_block2.m(section1, null);
+				append_dev(div6, t10);
+				append_dev(div6, aside);
+				append_dev(aside, section2);
+				append_dev(section2, h21);
+				append_dev(section2, t12);
+				if_block3.m(section2, null);
+				append_dev(aside, t13);
+				append_dev(aside, section3);
+				append_dev(section3, h22);
+				append_dev(section3, t15);
+				append_dev(section3, div4);
+
+				for (let i = 0; i < each_blocks.length; i += 1) {
+					if (each_blocks[i]) {
+						each_blocks[i].m(div4, null);
+					}
+				}
+
+				append_dev(aside, t16);
+				append_dev(aside, section4);
+				append_dev(section4, h3);
+				append_dev(section4, t18);
+				append_dev(section4, div5);
+				append_dev(div5, t19);
+				append_dev(section4, t20);
+				append_dev(section4, p);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(button, "click", /*click_handler*/ ctx[15], false, false, false, false),
+						listen_dev(input, "input", /*input_input_handler*/ ctx[16]),
+						listen_dev(input, "input", /*handleSearchInput*/ ctx[11], false, false, false, false)
+					];
+
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty[0] & /*searchQuery*/ 1 && input.value !== /*searchQuery*/ ctx[0]) {
+					set_input_value(input, /*searchQuery*/ ctx[0]);
+				}
+
+				if (/*isSearching*/ ctx[2]) {
+					if (if_block0) ; else {
+						if_block0 = create_if_block_11(ctx);
+						if_block0.c();
+						if_block0.m(div3, null);
+					}
+				} else if (if_block0) {
+					if_block0.d(1);
+					if_block0 = null;
+				}
+
+				if (/*searchResults*/ ctx[1].length > 0) {
+					if (if_block1) {
+						if_block1.p(ctx, dirty);
+					} else {
+						if_block1 = create_if_block_6$1(ctx);
+						if_block1.c();
+						if_block1.m(section0, null);
+					}
+				} else if (if_block1) {
+					if_block1.d(1);
+					if_block1 = null;
+				}
+
+				if (current_block_type === (current_block_type = select_block_type_2(ctx)) && if_block2) {
+					if_block2.p(ctx, dirty);
+				} else {
+					if_block2.d(1);
+					if_block2 = current_block_type(ctx);
+
+					if (if_block2) {
+						if_block2.c();
+						if_block2.m(section1, null);
+					}
+				}
+
+				if (current_block_type_1 === (current_block_type_1 = select_block_type_3(ctx)) && if_block3) {
+					if_block3.p(ctx, dirty);
+				} else {
+					if_block3.d(1);
+					if_block3 = current_block_type_1(ctx);
+
+					if (if_block3) {
+						if_block3.c();
+						if_block3.m(section2, null);
+					}
+				}
+
+				if (dirty[0] & /*connectedServices*/ 128) {
+					each_value = ensure_array_like_dev(/*connectedServices*/ ctx[7]);
+					let i;
+
+					for (i = 0; i < each_value.length; i += 1) {
+						const child_ctx = get_each_context(ctx, each_value, i);
+
+						if (each_blocks[i]) {
+							each_blocks[i].p(child_ctx, dirty);
+						} else {
+							each_blocks[i] = create_each_block(child_ctx);
+							each_blocks[i].c();
+							each_blocks[i].m(div4, null);
+						}
+					}
+
+					for (; i < each_blocks.length; i += 1) {
+						each_blocks[i].d(1);
+					}
+
+					each_blocks.length = each_value.length;
+				}
+
+				if (dirty[0] & /*categoryLists*/ 32 && t19_value !== (t19_value = /*categoryLists*/ ctx[5].filter(func).reduce(func_1, 0) + "")) set_data_dev(t19, t19_value);
+			},
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div7);
+				}
+
+				if (if_block0) if_block0.d();
+				if (if_block1) if_block1.d();
+				if_block2.d();
+				if_block3.d();
+				destroy_each(each_blocks, detaching);
+				mounted = false;
+				run_all(dispose);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_fragment$3.name,
+			type: "component",
+			source: "",
+			ctx
+		});
+
+		return block;
+	}
+
+	function formatTimeAgo(timestamp) {
+		const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+		if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+		if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+		return `${Math.floor(seconds / 86400)}d ago`;
+	}
+
+	function connectService(provider) {
+		// Will trigger OAuth flow
+		window.location.href = `/api/v1/auth/oauth/${provider}/initiate`;
+	}
+
+	const func = c => c.subscribed;
+	const func_1 = (sum, c) => sum + c.artist_count;
+
+	function instance$3($$self, $$props, $$invalidate) {
+		let { $$slots: slots = {}, $$scope } = $$props;
+		validate_slots('Home', slots, []);
+		let searchQuery = '';
+		let searchResults = [];
+		let isSearching = false;
+		let searchTimeout;
+		let newsFeed = [];
+		let isLoadingNews = true;
+		let categoryLists = [];
+		let isLoadingCategories = true;
+		let connectedServices = [];
+		let blockingArtistId = null;
+
+		// Category colors - improved contrast and reduced red overuse
+		const categoryColors = {
+			'sexual_misconduct': 'bg-rose-600',
+			'sexual_assault': 'bg-rose-700',
+			'domestic_violence': 'bg-red-600',
+			'child_abuse': 'bg-red-800',
+			'violent_crime': 'bg-red-500',
+			'drug_trafficking': 'bg-purple-600',
+			'hate_speech': 'bg-orange-600',
+			'racism': 'bg-orange-700',
+			'homophobia': 'bg-amber-600',
+			'antisemitism': 'bg-amber-700',
+			'fraud': 'bg-blue-600',
+			'animal_abuse': 'bg-emerald-600',
+			'other': 'bg-slate-500'
+		};
+
+		const categoryLabels = {
+			'sexual_misconduct': 'Sexual Misconduct',
+			'violence': 'Violence',
+			'domestic_abuse': 'Domestic Abuse',
+			'drug_trafficking': 'Drug Trafficking',
+			'hate_speech': 'Hate Speech',
+			'fraud': 'Fraud',
+			'child_abuse': 'Child Abuse',
+			'other': 'Other'
+		};
+
+		onMount(async () => {
+			await Promise.all([loadNewsFeed(), loadCategories(), loadConnectedServices()]);
+		});
+
+		async function loadNewsFeed() {
+			$$invalidate(4, isLoadingNews = true);
+
+			try {
+				// Mock data for now - will be replaced with AI-curated news API
+				$$invalidate(3, newsFeed = [
+					{
+						id: '1',
+						artist_name: 'Example Artist',
+						category: 'violence',
+						headline: 'Artist convicted on federal charges',
+						source: 'AP News',
+						source_url: 'https://apnews.com',
+						timestamp: new Date(Date.now() - 3600000).toISOString()
+					},
+					{
+						id: '2',
+						artist_name: 'Another Artist',
+						category: 'domestic_abuse',
+						headline: 'Multiple victims come forward with allegations',
+						source: 'Rolling Stone',
+						source_url: 'https://rollingstone.com',
+						timestamp: new Date(Date.now() - 86400000).toISOString()
+					},
+					{
+						id: '3',
+						artist_name: 'Third Artist',
+						category: 'fraud',
+						headline: 'Charged with wire fraud and money laundering',
+						source: 'Billboard',
+						source_url: 'https://billboard.com',
+						timestamp: new Date(Date.now() - 172800000).toISOString()
+					}
+				]);
+			} catch(e) {
+				console.error('Failed to load news feed:', e);
+			} finally {
+				$$invalidate(4, isLoadingNews = false);
+			}
+		}
+
+		async function loadCategories() {
+			$$invalidate(6, isLoadingCategories = true);
+
+			try {
+				const result = await apiClient.get('/api/v1/categories');
+
+				if (result.success && result.data) {
+					$$invalidate(5, categoryLists = result.data.map(cat => ({
+						...cat,
+						color: categoryColors[cat.id] || 'bg-gray-500'
+					})));
+				}
+			} catch(e) {
+				console.error('Failed to load categories:', e);
+			} finally {
+				$$invalidate(6, isLoadingCategories = false);
+			}
+		}
+
+		async function loadConnectedServices() {
+			try {
+				$$invalidate(7, connectedServices = [
+					{ provider: 'spotify', connected: false },
+					{
+						provider: 'apple_music',
+						connected: false
+					}
+				]);
+			} catch(e) {
+				console.error(
+					'Failed to load services:',
+					e
+				);
+			}
+		}
+
+		function handleSearchInput() {
+			clearTimeout(searchTimeout);
+
+			if (searchQuery.length < 2) {
+				$$invalidate(1, searchResults = []);
+				return;
+			}
+
+			searchTimeout = setTimeout(() => searchArtists(), 300);
+		}
+
+		async function searchArtists() {
+			if (searchQuery.length < 2) return;
+			$$invalidate(2, isSearching = true);
+
+			try {
+				const result = await apiClient.get(`/api/v1/dnp/search?q=${encodeURIComponent(searchQuery)}`);
+
+				if (result.success && result.data) {
+					$$invalidate(1, searchResults = result.data);
+				}
+			} catch(e) {
+				console.error('Search failed:', e);
+			} finally {
+				$$invalidate(2, isSearching = false);
+			}
+		}
+
+		async function blockArtist(artist) {
+			$$invalidate(8, blockingArtistId = artist.id);
+
+			try {
+				const result = await apiClient.post('/api/v1/dnp/list', {
+					artist_id: artist.id,
+					reason: 'User blocked'
+				});
+
+				if (result.success) {
+					// Update local state
+					$$invalidate(1, searchResults = searchResults.map(a => a.id === artist.id ? { ...a, blocked: true } : a));
+				}
+			} catch(e) {
+				console.error('Failed to block artist:', e);
+			} finally {
+				$$invalidate(8, blockingArtistId = null);
+			}
+		}
+
+		async function unblockArtist(artist) {
+			$$invalidate(8, blockingArtistId = artist.id);
+
+			try {
+				const result = await apiClient.delete(`/api/v1/dnp/list/${artist.id}`);
+
+				if (result.success) {
+					$$invalidate(1, searchResults = searchResults.map(a => a.id === artist.id ? { ...a, blocked: false } : a));
+				}
+			} catch(e) {
+				console.error('Failed to unblock artist:', e);
+			} finally {
+				$$invalidate(8, blockingArtistId = null);
+			}
+		}
+
+		async function toggleCategory(category) {
+			const wasSubscribed = category.subscribed;
+
+			// Optimistic update
+			$$invalidate(5, categoryLists = categoryLists.map(c => c.id === category.id
+			? { ...c, subscribed: !wasSubscribed }
+			: c));
+
+			try {
+				if (wasSubscribed) {
+					await apiClient.delete(`/api/v1/categories/${category.id}/subscribe`);
+				} else {
+					await apiClient.post(`/api/v1/categories/${category.id}/subscribe`);
+				}
+			} catch(e) {
+				// Revert on error
+				$$invalidate(5, categoryLists = categoryLists.map(c => c.id === category.id
+				? { ...c, subscribed: wasSubscribed }
+				: c));
+
+				console.error('Failed to toggle category:', e);
+			}
+		}
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$2.warn(`<Home> was created with unknown prop '${key}'`);
+		});
+
+		const click_handler = () => window.location.href = '/settings';
+
+		function input_input_handler() {
+			searchQuery = this.value;
+			$$invalidate(0, searchQuery);
+		}
+
+		const click_handler_1 = artist => artist.blocked
+		? unblockArtist(artist)
+		: blockArtist(artist);
+
+		const click_handler_2 = category => toggleCategory(category);
+		const click_handler_3 = service => connectService(service.provider);
+
+		$$self.$capture_state = () => ({
+			onMount,
+			apiClient,
+			searchQuery,
+			searchResults,
+			isSearching,
+			searchTimeout,
+			newsFeed,
+			isLoadingNews,
+			categoryLists,
+			isLoadingCategories,
+			connectedServices,
+			blockingArtistId,
+			categoryColors,
+			categoryLabels,
+			loadNewsFeed,
+			loadCategories,
+			loadConnectedServices,
+			handleSearchInput,
+			searchArtists,
+			blockArtist,
+			unblockArtist,
+			toggleCategory,
+			formatTimeAgo,
+			connectService
+		});
+
+		$$self.$inject_state = $$props => {
+			if ('searchQuery' in $$props) $$invalidate(0, searchQuery = $$props.searchQuery);
+			if ('searchResults' in $$props) $$invalidate(1, searchResults = $$props.searchResults);
+			if ('isSearching' in $$props) $$invalidate(2, isSearching = $$props.isSearching);
+			if ('searchTimeout' in $$props) searchTimeout = $$props.searchTimeout;
+			if ('newsFeed' in $$props) $$invalidate(3, newsFeed = $$props.newsFeed);
+			if ('isLoadingNews' in $$props) $$invalidate(4, isLoadingNews = $$props.isLoadingNews);
+			if ('categoryLists' in $$props) $$invalidate(5, categoryLists = $$props.categoryLists);
+			if ('isLoadingCategories' in $$props) $$invalidate(6, isLoadingCategories = $$props.isLoadingCategories);
+			if ('connectedServices' in $$props) $$invalidate(7, connectedServices = $$props.connectedServices);
+			if ('blockingArtistId' in $$props) $$invalidate(8, blockingArtistId = $$props.blockingArtistId);
+		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [
+			searchQuery,
+			searchResults,
+			isSearching,
+			newsFeed,
+			isLoadingNews,
+			categoryLists,
+			isLoadingCategories,
+			connectedServices,
+			blockingArtistId,
+			categoryColors,
+			categoryLabels,
+			handleSearchInput,
+			blockArtist,
+			unblockArtist,
+			toggleCategory,
+			click_handler,
+			input_input_handler,
+			click_handler_1,
+			click_handler_2,
+			click_handler_3
+		];
+	}
+
+	class Home extends SvelteComponentDev {
+		constructor(options) {
+			super(options);
+			init(this, options, instance$3, create_fragment$3, safe_not_equal, {}, null, [-1, -1]);
+
+			dispatch_dev("SvelteRegisterComponent", {
+				component: this,
+				tagName: "Home",
+				options,
+				id: create_fragment$3.name
+			});
+		}
+	}
+
+	/* src/lib/components/Settings.svelte generated by Svelte v4.2.20 */
+
+	const { console: console_1$1 } = globals;
+	const file$2 = "src/lib/components/Settings.svelte";
+
+	// (121:6) {#if connectionError}
+	function create_if_block_7(ctx) {
+		let div;
+		let t;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				t = text(/*connectionError*/ ctx[3]);
+				attr_dev(div, "class", "mx-4 mt-4 p-3 bg-red-900/30 border border-red-700 rounded-lg text-sm text-red-300");
+				add_location(div, file$2, 130, 8, 3856);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				append_dev(div, t);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*connectionError*/ 8) set_data_dev(t, /*connectionError*/ ctx[3]);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_7.name,
+			type: "if",
+			source: "(121:6) {#if connectionError}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (142:14) {:else}
+	function create_else_block_4(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Not connected";
+				attr_dev(p, "class", "text-sm text-gray-300");
+				add_location(p, file$2, 151, 16, 5349);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_4.name,
+			type: "else",
+			source: "(142:14) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (140:47) 
+	function create_if_block_6(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Connected";
+				attr_dev(p, "class", "text-sm text-green-400");
+				add_location(p, file$2, 149, 16, 5263);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_6.name,
+			type: "if",
+			source: "(140:47) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (138:14) {#if isLoadingConnections}
+	function create_if_block_5(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Loading...";
+				attr_dev(p, "class", "text-sm text-gray-400");
+				add_location(p, file$2, 147, 16, 5151);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_5.name,
+			type: "if",
+			source: "(138:14) {#if isLoadingConnections}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (155:10) {:else}
+	function create_else_block_3(ctx) {
+		let button;
+
+		let t_value = (/*connectingProvider*/ ctx[2] === 'spotify'
+		? 'Connecting...'
+		: 'Connect') + "";
+
+		let t;
+		let button_disabled_value;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				t = text(t_value);
+				button.disabled = button_disabled_value = /*connectingProvider*/ ctx[2] === 'spotify';
+				attr_dev(button, "class", "px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50");
+				add_location(button, file$2, 164, 12, 5915);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+				append_dev(button, t);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*click_handler_2*/ ctx[11], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*connectingProvider*/ 4 && t_value !== (t_value = (/*connectingProvider*/ ctx[2] === 'spotify'
+				? 'Connecting...'
+				: 'Connect') + "")) set_data_dev(t, t_value);
+
+				if (dirty & /*connectingProvider*/ 4 && button_disabled_value !== (button_disabled_value = /*connectingProvider*/ ctx[2] === 'spotify')) {
+					prop_dev(button, "disabled", button_disabled_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_3.name,
+			type: "else",
+			source: "(155:10) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (147:10) {#if isConnected('spotify')}
+	function create_if_block_4$1(ctx) {
+		let button;
+
+		let t_value = (/*connectingProvider*/ ctx[2] === 'spotify'
+		? 'Disconnecting...'
+		: 'Disconnect') + "";
+
+		let t;
+		let button_disabled_value;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				t = text(t_value);
+				button.disabled = button_disabled_value = /*connectingProvider*/ ctx[2] === 'spotify';
+				attr_dev(button, "class", "px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-medium transition-colors disabled:opacity-50");
+				add_location(button, file$2, 156, 12, 5507);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+				append_dev(button, t);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*click_handler_1*/ ctx[10], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*connectingProvider*/ 4 && t_value !== (t_value = (/*connectingProvider*/ ctx[2] === 'spotify'
+				? 'Disconnecting...'
+				: 'Disconnect') + "")) set_data_dev(t, t_value);
+
+				if (dirty & /*connectingProvider*/ 4 && button_disabled_value !== (button_disabled_value = /*connectingProvider*/ ctx[2] === 'spotify')) {
+					prop_dev(button, "disabled", button_disabled_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_4$1.name,
+			type: "if",
+			source: "(147:10) {#if isConnected('spotify')}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (180:14) {:else}
+	function create_else_block_2(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Not connected";
+				attr_dev(p, "class", "text-sm text-gray-300");
+				add_location(p, file$2, 189, 16, 8557);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_2.name,
+			type: "else",
+			source: "(180:14) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (178:45) 
+	function create_if_block_3$1(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Connected";
+				attr_dev(p, "class", "text-sm text-green-400");
+				add_location(p, file$2, 187, 16, 8471);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_3$1.name,
+			type: "if",
+			source: "(178:45) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (176:14) {#if isLoadingConnections}
+	function create_if_block_2$1(ctx) {
+		let p;
+
+		const block = {
+			c: function create() {
+				p = element("p");
+				p.textContent = "Loading...";
+				attr_dev(p, "class", "text-sm text-gray-400");
+				add_location(p, file$2, 185, 16, 8361);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, p, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_2$1.name,
+			type: "if",
+			source: "(176:14) {#if isLoadingConnections}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (193:10) {:else}
+	function create_else_block_1$1(ctx) {
+		let button;
+
+		let t_value = (/*connectingProvider*/ ctx[2] === 'apple'
+		? 'Connecting...'
+		: 'Connect') + "";
+
+		let t;
+		let button_disabled_value;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				t = text(t_value);
+				button.disabled = button_disabled_value = /*connectingProvider*/ ctx[2] === 'apple';
+				attr_dev(button, "class", "px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50");
+				add_location(button, file$2, 202, 12, 9115);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+				append_dev(button, t);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*click_handler_4*/ ctx[13], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*connectingProvider*/ 4 && t_value !== (t_value = (/*connectingProvider*/ ctx[2] === 'apple'
+				? 'Connecting...'
+				: 'Connect') + "")) set_data_dev(t, t_value);
+
+				if (dirty & /*connectingProvider*/ 4 && button_disabled_value !== (button_disabled_value = /*connectingProvider*/ ctx[2] === 'apple')) {
+					prop_dev(button, "disabled", button_disabled_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_1$1.name,
+			type: "else",
+			source: "(193:10) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (185:10) {#if isConnected('apple')}
+	function create_if_block_1$2(ctx) {
+		let button;
+
+		let t_value = (/*connectingProvider*/ ctx[2] === 'apple'
+		? 'Disconnecting...'
+		: 'Disconnect') + "";
+
+		let t;
+		let button_disabled_value;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				button = element("button");
+				t = text(t_value);
+				button.disabled = button_disabled_value = /*connectingProvider*/ ctx[2] === 'apple';
+				attr_dev(button, "class", "px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg text-sm font-medium transition-colors disabled:opacity-50");
+				add_location(button, file$2, 194, 12, 8713);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, button, anchor);
+				append_dev(button, t);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*click_handler_3*/ ctx[12], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*connectingProvider*/ 4 && t_value !== (t_value = (/*connectingProvider*/ ctx[2] === 'apple'
+				? 'Disconnecting...'
+				: 'Disconnect') + "")) set_data_dev(t, t_value);
+
+				if (dirty & /*connectingProvider*/ 4 && button_disabled_value !== (button_disabled_value = /*connectingProvider*/ ctx[2] === 'apple')) {
+					prop_dev(button, "disabled", button_disabled_value);
+				}
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_1$2.name,
+			type: "if",
+			source: "(185:10) {#if isConnected('apple')}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (259:10) {:else}
+	function create_else_block$2(ctx) {
+		let svg;
+		let path;
+		let t0;
+		let span;
+
+		const block = {
+			c: function create() {
+				svg = svg_element("svg");
+				path = svg_element("path");
+				t0 = space();
+				span = element("span");
+				span.textContent = "Sign out";
+				attr_dev(path, "stroke-linecap", "round");
+				attr_dev(path, "stroke-linejoin", "round");
+				attr_dev(path, "stroke-width", "2");
+				attr_dev(path, "d", "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1");
+				add_location(path, file$2, 269, 14, 12919);
+				attr_dev(svg, "class", "w-5 h-5");
+				attr_dev(svg, "fill", "none");
+				attr_dev(svg, "stroke", "currentColor");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				add_location(svg, file$2, 268, 12, 12829);
+				add_location(span, file$2, 271, 12, 13117);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, svg, anchor);
+				append_dev(svg, path);
+				insert_dev(target, t0, anchor);
+				insert_dev(target, span, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(svg);
+					detach_dev(t0);
+					detach_dev(span);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block$2.name,
+			type: "else",
+			source: "(259:10) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (256:10) {#if isLoggingOut}
+	function create_if_block$2(ctx) {
+		let div;
+		let t0;
+		let span;
+
+		const block = {
+			c: function create() {
+				div = element("div");
+				t0 = space();
+				span = element("span");
+				span.textContent = "Signing out...";
+				attr_dev(div, "class", "w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin");
+				add_location(div, file$2, 265, 12, 12662);
+				add_location(span, file$2, 266, 12, 12771);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div, anchor);
+				insert_dev(target, t0, anchor);
+				insert_dev(target, span, anchor);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div);
+					detach_dev(t0);
+					detach_dev(span);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block$2.name,
+			type: "if",
+			source: "(256:10) {#if isLoggingOut}",
+			ctx
+		});
+
+		return block;
+	}
+
+	function create_fragment$2(ctx) {
+		let div28;
+		let header;
+		let div1;
+		let div0;
+		let button0;
+		let svg0;
+		let path0;
+		let t0;
+		let h1;
+		let t2;
+		let main;
+		let section0;
+		let div2;
+		let h20;
+		let t4;
+		let div4;
+		let div3;
+		let label0;
+		let t6;
+		let p0;
+		let t7_value = (/*$currentUser*/ ctx[4]?.email || 'Not signed in') + "";
+		let t7;
+		let t8;
+		let section1;
+		let div5;
+		let h21;
+		let t10;
+		let t11;
+		let div14;
+		let div9;
+		let div8;
+		let div6;
+		let svg1;
+		let path1;
+		let t12;
+		let div7;
+		let p1;
+		let t14;
+		let show_if_3;
+		let t15;
+		let t16;
+		let div13;
+		let div12;
+		let div10;
+		let svg2;
+		let path2;
+		let t17;
+		let div11;
+		let p2;
+		let t19;
+		let show_if_1;
+		let t20;
+		let t21;
+		let section2;
+		let div15;
+		let h22;
+		let t23;
+		let div25;
+		let div18;
+		let div16;
+		let p3;
+		let t25;
+		let p4;
+		let t27;
+		let label1;
+		let input0;
+		let t28;
+		let div17;
+		let t29;
+		let div21;
+		let div19;
+		let p5;
+		let t31;
+		let p6;
+		let t33;
+		let label2;
+		let input1;
+		let t34;
+		let div20;
+		let t35;
+		let div24;
+		let div22;
+		let p7;
+		let t37;
+		let p8;
+		let t39;
+		let label3;
+		let input2;
+		let t40;
+		let div23;
+		let t41;
+		let section3;
+		let div26;
+		let h23;
+		let t43;
+		let div27;
+		let button1;
+		let t44;
+		let button2;
+		let t46;
+		let p9;
+		let mounted;
+		let dispose;
+		let if_block0 = /*connectionError*/ ctx[3] && create_if_block_7(ctx);
+
+		function select_block_type(ctx, dirty) {
+			if (/*isLoadingConnections*/ ctx[1]) return create_if_block_5;
+			if (show_if_3 == null) show_if_3 = !!/*isConnected*/ ctx[5]('spotify');
+			if (show_if_3) return create_if_block_6;
+			return create_else_block_4;
+		}
+
+		let current_block_type = select_block_type(ctx);
+		let if_block1 = current_block_type(ctx);
+
+		function select_block_type_1(ctx, dirty) {
+			if (/*isConnected*/ ctx[5]('spotify')) return create_if_block_4$1;
+			return create_else_block_3;
+		}
+
+		let current_block_type_1 = select_block_type_1(ctx);
+		let if_block2 = current_block_type_1(ctx);
+
+		function select_block_type_2(ctx, dirty) {
+			if (/*isLoadingConnections*/ ctx[1]) return create_if_block_2$1;
+			if (show_if_1 == null) show_if_1 = !!/*isConnected*/ ctx[5]('apple');
+			if (show_if_1) return create_if_block_3$1;
+			return create_else_block_2;
+		}
+
+		let current_block_type_2 = select_block_type_2(ctx);
+		let if_block3 = current_block_type_2(ctx);
+
+		function select_block_type_3(ctx, dirty) {
+			if (/*isConnected*/ ctx[5]('apple')) return create_if_block_1$2;
+			return create_else_block_1$1;
+		}
+
+		let current_block_type_3 = select_block_type_3(ctx);
+		let if_block4 = current_block_type_3(ctx);
+
+		function select_block_type_4(ctx, dirty) {
+			if (/*isLoggingOut*/ ctx[0]) return create_if_block$2;
+			return create_else_block$2;
+		}
+
+		let current_block_type_4 = select_block_type_4(ctx);
+		let if_block5 = current_block_type_4(ctx);
+
+		const block = {
+			c: function create() {
+				div28 = element("div");
+				header = element("header");
+				div1 = element("div");
+				div0 = element("div");
+				button0 = element("button");
+				svg0 = svg_element("svg");
+				path0 = svg_element("path");
+				t0 = space();
+				h1 = element("h1");
+				h1.textContent = "Settings";
+				t2 = space();
+				main = element("main");
+				section0 = element("section");
+				div2 = element("div");
+				h20 = element("h2");
+				h20.textContent = "Account";
+				t4 = space();
+				div4 = element("div");
+				div3 = element("div");
+				label0 = element("label");
+				label0.textContent = "Email";
+				t6 = space();
+				p0 = element("p");
+				t7 = text(t7_value);
+				t8 = space();
+				section1 = element("section");
+				div5 = element("div");
+				h21 = element("h2");
+				h21.textContent = "Music Services";
+				t10 = space();
+				if (if_block0) if_block0.c();
+				t11 = space();
+				div14 = element("div");
+				div9 = element("div");
+				div8 = element("div");
+				div6 = element("div");
+				svg1 = svg_element("svg");
+				path1 = svg_element("path");
+				t12 = space();
+				div7 = element("div");
+				p1 = element("p");
+				p1.textContent = "Spotify";
+				t14 = space();
+				if_block1.c();
+				t15 = space();
+				if_block2.c();
+				t16 = space();
+				div13 = element("div");
+				div12 = element("div");
+				div10 = element("div");
+				svg2 = svg_element("svg");
+				path2 = svg_element("path");
+				t17 = space();
+				div11 = element("div");
+				p2 = element("p");
+				p2.textContent = "Apple Music";
+				t19 = space();
+				if_block3.c();
+				t20 = space();
+				if_block4.c();
+				t21 = space();
+				section2 = element("section");
+				div15 = element("div");
+				h22 = element("h2");
+				h22.textContent = "Preferences";
+				t23 = space();
+				div25 = element("div");
+				div18 = element("div");
+				div16 = element("div");
+				p3 = element("p");
+				p3.textContent = "Block featured artists";
+				t25 = space();
+				p4 = element("p");
+				p4.textContent = "Also block songs where artist is featured";
+				t27 = space();
+				label1 = element("label");
+				input0 = element("input");
+				t28 = space();
+				div17 = element("div");
+				t29 = space();
+				div21 = element("div");
+				div19 = element("div");
+				p5 = element("p");
+				p5.textContent = "Block producer credits";
+				t31 = space();
+				p6 = element("p");
+				p6.textContent = "Block songs produced by blocked artists";
+				t33 = space();
+				label2 = element("label");
+				input1 = element("input");
+				t34 = space();
+				div20 = element("div");
+				t35 = space();
+				div24 = element("div");
+				div22 = element("div");
+				p7 = element("p");
+				p7.textContent = "News notifications";
+				t37 = space();
+				p8 = element("p");
+				p8.textContent = "Get notified when new artists are added";
+				t39 = space();
+				label3 = element("label");
+				input2 = element("input");
+				t40 = space();
+				div23 = element("div");
+				t41 = space();
+				section3 = element("section");
+				div26 = element("div");
+				h23 = element("h2");
+				h23.textContent = "Account Actions";
+				t43 = space();
+				div27 = element("div");
+				button1 = element("button");
+				if_block5.c();
+				t44 = space();
+				button2 = element("button");
+				button2.textContent = "Delete account";
+				t46 = space();
+				p9 = element("p");
+				p9.textContent = "No Drake v1.0.0";
+				attr_dev(path0, "stroke-linecap", "round");
+				attr_dev(path0, "stroke-linejoin", "round");
+				attr_dev(path0, "stroke-width", "2");
+				attr_dev(path0, "d", "M15 19l-7-7 7-7");
+				add_location(path0, file$2, 101, 12, 2857);
+				attr_dev(svg0, "class", "w-6 h-6");
+				attr_dev(svg0, "fill", "none");
+				attr_dev(svg0, "stroke", "currentColor");
+				attr_dev(svg0, "viewBox", "0 0 24 24");
+				add_location(svg0, file$2, 100, 10, 2769);
+				attr_dev(button0, "class", "p-2 rounded-lg hover:bg-gray-700 transition-colors");
+				add_location(button0, file$2, 96, 8, 2626);
+				attr_dev(h1, "class", "text-xl font-bold");
+				add_location(h1, file$2, 104, 8, 2993);
+				attr_dev(div0, "class", "flex items-center space-x-4");
+				add_location(div0, file$2, 95, 6, 2576);
+				attr_dev(div1, "class", "max-w-2xl mx-auto px-4 py-4");
+				add_location(div1, file$2, 94, 4, 2528);
+				attr_dev(header, "class", "bg-gray-800 border-b border-gray-600 sticky top-0 z-50");
+				add_location(header, file$2, 93, 2, 2452);
+				attr_dev(h20, "class", "font-semibold");
+				add_location(h20, file$2, 113, 8, 3305);
+				attr_dev(div2, "class", "px-4 py-3 border-b border-gray-600");
+				add_location(div2, file$2, 112, 6, 3248);
+				attr_dev(label0, "class", "text-sm text-gray-300");
+				add_location(label0, file$2, 117, 10, 3415);
+				attr_dev(p0, "class", "mt-1");
+				add_location(p0, file$2, 118, 10, 3476);
+				add_location(div3, file$2, 116, 8, 3399);
+				attr_dev(div4, "class", "p-4 space-y-4");
+				add_location(div4, file$2, 115, 6, 3363);
+				attr_dev(section0, "class", "bg-gray-800 rounded-xl border border-gray-600 overflow-hidden");
+				add_location(section0, file$2, 111, 4, 3162);
+				attr_dev(h21, "class", "font-semibold");
+				add_location(h21, file$2, 126, 8, 3760);
+				attr_dev(div5, "class", "px-4 py-3 border-b border-gray-600");
+				add_location(div5, file$2, 125, 6, 3703);
+				attr_dev(path1, "d", "M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z");
+				add_location(path1, file$2, 141, 16, 4388);
+				attr_dev(svg1, "class", "w-6 h-6 text-white");
+				attr_dev(svg1, "viewBox", "0 0 24 24");
+				attr_dev(svg1, "fill", "currentColor");
+				add_location(svg1, file$2, 140, 14, 4299);
+				attr_dev(div6, "class", "w-10 h-10 rounded-full bg-green-500 flex items-center justify-center");
+				add_location(div6, file$2, 139, 12, 4202);
+				attr_dev(p1, "class", "font-medium");
+				add_location(p1, file$2, 145, 14, 5059);
+				add_location(div7, file$2, 144, 12, 5039);
+				attr_dev(div8, "class", "flex items-center space-x-3");
+				add_location(div8, file$2, 138, 10, 4148);
+				attr_dev(div9, "class", "p-4 flex items-center justify-between");
+				add_location(div9, file$2, 137, 8, 4086);
+				attr_dev(path2, "d", "M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.476-2.144-1.32-.238-.56-.223-1.136-.017-1.7.303-.825.96-1.277 1.743-1.49.294-.08.595-.13.893-.18.323-.054.65-.1.973-.157.274-.048.47-.202.53-.486a.707.707 0 00.017-.146c.002-1.633.002-3.265.002-4.898v-.07l-.06-.01c-2.097.4-4.194.8-6.29 1.202-.014.002-.032.014-.037.026-.006.016-.003.037-.003.056v7.36c0 .418-.052.832-.227 1.218-.282.622-.76 1.02-1.416 1.207-.313.09-.634.138-.96.166-.906.08-1.732-.4-2.134-1.203-.268-.534-.278-1.1-.096-1.66.267-.817.864-1.304 1.64-1.55.376-.12.763-.185 1.148-.25.278-.047.558-.088.832-.145.317-.065.522-.25.58-.574a.504.504 0 00.007-.115v-8.41c0-.25.042-.493.15-.72.183-.385.486-.62.882-.728.17-.047.346-.073.522-.11 2.55-.526 5.1-1.05 7.65-1.573.093-.02.19-.03.285-.03.316.004.528.2.613.5.032.113.044.233.044.35v5.9z");
+				add_location(path2, file$2, 179, 16, 6686);
+				attr_dev(svg2, "class", "w-6 h-6 text-white");
+				attr_dev(svg2, "viewBox", "0 0 24 24");
+				attr_dev(svg2, "fill", "currentColor");
+				add_location(svg2, file$2, 178, 14, 6597);
+				attr_dev(div10, "class", "w-10 h-10 rounded-full bg-gradient-to-br from-red-500 to-pink-500 flex items-center justify-center");
+				add_location(div10, file$2, 177, 12, 6470);
+				attr_dev(p2, "class", "font-medium");
+				add_location(p2, file$2, 183, 14, 8265);
+				add_location(div11, file$2, 182, 12, 8245);
+				attr_dev(div12, "class", "flex items-center space-x-3");
+				add_location(div12, file$2, 176, 10, 6416);
+				attr_dev(div13, "class", "p-4 flex items-center justify-between");
+				add_location(div13, file$2, 175, 8, 6354);
+				attr_dev(div14, "class", "divide-y divide-gray-600");
+				add_location(div14, file$2, 135, 6, 4014);
+				attr_dev(section1, "class", "bg-gray-800 rounded-xl border border-gray-600 overflow-hidden");
+				add_location(section1, file$2, 124, 4, 3617);
+				attr_dev(h22, "class", "font-semibold");
+				add_location(h22, file$2, 217, 8, 9709);
+				attr_dev(div15, "class", "px-4 py-3 border-b border-gray-600");
+				add_location(div15, file$2, 216, 6, 9652);
+				attr_dev(p3, "class", "font-medium");
+				add_location(p3, file$2, 222, 12, 9898);
+				attr_dev(p4, "class", "text-sm text-gray-300");
+				add_location(p4, file$2, 223, 12, 9960);
+				add_location(div16, file$2, 221, 10, 9880);
+				attr_dev(input0, "type", "checkbox");
+				input0.checked = true;
+				attr_dev(input0, "class", "sr-only peer");
+				add_location(input0, file$2, 226, 12, 10143);
+				attr_dev(div17, "class", "w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600");
+				add_location(div17, file$2, 227, 12, 10208);
+				attr_dev(label1, "class", "relative inline-flex items-center cursor-pointer");
+				add_location(label1, file$2, 225, 10, 10066);
+				attr_dev(div18, "class", "p-4 flex items-center justify-between");
+				add_location(div18, file$2, 220, 8, 9818);
+				attr_dev(p5, "class", "font-medium");
+				add_location(p5, file$2, 232, 12, 10648);
+				attr_dev(p6, "class", "text-sm text-gray-300");
+				add_location(p6, file$2, 233, 12, 10710);
+				add_location(div19, file$2, 231, 10, 10630);
+				attr_dev(input1, "type", "checkbox");
+				attr_dev(input1, "class", "sr-only peer");
+				add_location(input1, file$2, 236, 12, 10891);
+				attr_dev(div20, "class", "w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600");
+				add_location(div20, file$2, 237, 12, 10948);
+				attr_dev(label2, "class", "relative inline-flex items-center cursor-pointer");
+				add_location(label2, file$2, 235, 10, 10814);
+				attr_dev(div21, "class", "p-4 flex items-center justify-between");
+				add_location(div21, file$2, 230, 8, 10568);
+				attr_dev(p7, "class", "font-medium");
+				add_location(p7, file$2, 242, 12, 11388);
+				attr_dev(p8, "class", "text-sm text-gray-300");
+				add_location(p8, file$2, 243, 12, 11446);
+				add_location(div22, file$2, 241, 10, 11370);
+				attr_dev(input2, "type", "checkbox");
+				input2.checked = true;
+				attr_dev(input2, "class", "sr-only peer");
+				add_location(input2, file$2, 246, 12, 11627);
+				attr_dev(div23, "class", "w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600");
+				add_location(div23, file$2, 247, 12, 11692);
+				attr_dev(label3, "class", "relative inline-flex items-center cursor-pointer");
+				add_location(label3, file$2, 245, 10, 11550);
+				attr_dev(div24, "class", "p-4 flex items-center justify-between");
+				add_location(div24, file$2, 240, 8, 11308);
+				attr_dev(div25, "class", "divide-y divide-gray-600");
+				add_location(div25, file$2, 219, 6, 9771);
+				attr_dev(section2, "class", "bg-gray-800 rounded-xl border border-gray-600 overflow-hidden");
+				add_location(section2, file$2, 215, 4, 9566);
+				attr_dev(h23, "class", "font-semibold text-red-400");
+				add_location(h23, file$2, 256, 8, 12243);
+				attr_dev(div26, "class", "px-4 py-3 border-b border-red-900");
+				add_location(div26, file$2, 255, 6, 12187);
+				button1.disabled = /*isLoggingOut*/ ctx[0];
+				attr_dev(button1, "class", "w-full px-4 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2 disabled:opacity-50");
+				add_location(button1, file$2, 259, 8, 12358);
+				attr_dev(button2, "class", "w-full px-4 py-3 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg text-sm font-medium transition-colors");
+				add_location(button2, file$2, 274, 8, 13181);
+				attr_dev(div27, "class", "p-4 space-y-3");
+				add_location(div27, file$2, 258, 6, 12322);
+				attr_dev(section3, "class", "bg-gray-800 rounded-xl border border-red-900 overflow-hidden");
+				add_location(section3, file$2, 254, 4, 12102);
+				attr_dev(p9, "class", "text-center text-sm text-gray-400");
+				add_location(p9, file$2, 281, 4, 13408);
+				attr_dev(main, "class", "max-w-2xl mx-auto px-4 py-6 space-y-6");
+				add_location(main, file$2, 109, 2, 3076);
+				attr_dev(div28, "class", "min-h-screen bg-gray-900 text-white");
+				add_location(div28, file$2, 91, 0, 2382);
+			},
+			l: function claim(nodes) {
+				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div28, anchor);
+				append_dev(div28, header);
+				append_dev(header, div1);
+				append_dev(div1, div0);
+				append_dev(div0, button0);
+				append_dev(button0, svg0);
+				append_dev(svg0, path0);
+				append_dev(div0, t0);
+				append_dev(div0, h1);
+				append_dev(div28, t2);
+				append_dev(div28, main);
+				append_dev(main, section0);
+				append_dev(section0, div2);
+				append_dev(div2, h20);
+				append_dev(section0, t4);
+				append_dev(section0, div4);
+				append_dev(div4, div3);
+				append_dev(div3, label0);
+				append_dev(div3, t6);
+				append_dev(div3, p0);
+				append_dev(p0, t7);
+				append_dev(main, t8);
+				append_dev(main, section1);
+				append_dev(section1, div5);
+				append_dev(div5, h21);
+				append_dev(section1, t10);
+				if (if_block0) if_block0.m(section1, null);
+				append_dev(section1, t11);
+				append_dev(section1, div14);
+				append_dev(div14, div9);
+				append_dev(div9, div8);
+				append_dev(div8, div6);
+				append_dev(div6, svg1);
+				append_dev(svg1, path1);
+				append_dev(div8, t12);
+				append_dev(div8, div7);
+				append_dev(div7, p1);
+				append_dev(div7, t14);
+				if_block1.m(div7, null);
+				append_dev(div9, t15);
+				if_block2.m(div9, null);
+				append_dev(div14, t16);
+				append_dev(div14, div13);
+				append_dev(div13, div12);
+				append_dev(div12, div10);
+				append_dev(div10, svg2);
+				append_dev(svg2, path2);
+				append_dev(div12, t17);
+				append_dev(div12, div11);
+				append_dev(div11, p2);
+				append_dev(div11, t19);
+				if_block3.m(div11, null);
+				append_dev(div13, t20);
+				if_block4.m(div13, null);
+				append_dev(main, t21);
+				append_dev(main, section2);
+				append_dev(section2, div15);
+				append_dev(div15, h22);
+				append_dev(section2, t23);
+				append_dev(section2, div25);
+				append_dev(div25, div18);
+				append_dev(div18, div16);
+				append_dev(div16, p3);
+				append_dev(div16, t25);
+				append_dev(div16, p4);
+				append_dev(div18, t27);
+				append_dev(div18, label1);
+				append_dev(label1, input0);
+				append_dev(label1, t28);
+				append_dev(label1, div17);
+				append_dev(div25, t29);
+				append_dev(div25, div21);
+				append_dev(div21, div19);
+				append_dev(div19, p5);
+				append_dev(div19, t31);
+				append_dev(div19, p6);
+				append_dev(div21, t33);
+				append_dev(div21, label2);
+				append_dev(label2, input1);
+				append_dev(label2, t34);
+				append_dev(label2, div20);
+				append_dev(div25, t35);
+				append_dev(div25, div24);
+				append_dev(div24, div22);
+				append_dev(div22, p7);
+				append_dev(div22, t37);
+				append_dev(div22, p8);
+				append_dev(div24, t39);
+				append_dev(div24, label3);
+				append_dev(label3, input2);
+				append_dev(label3, t40);
+				append_dev(label3, div23);
+				append_dev(main, t41);
+				append_dev(main, section3);
+				append_dev(section3, div26);
+				append_dev(div26, h23);
+				append_dev(section3, t43);
+				append_dev(section3, div27);
+				append_dev(div27, button1);
+				if_block5.m(button1, null);
+				append_dev(div27, t44);
+				append_dev(div27, button2);
+				append_dev(main, t46);
+				append_dev(main, p9);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(button0, "click", /*click_handler*/ ctx[9], false, false, false, false),
+						listen_dev(button1, "click", /*handleLogout*/ ctx[8], false, false, false, false)
+					];
+
+					mounted = true;
+				}
+			},
+			p: function update(ctx, [dirty]) {
+				if (dirty & /*$currentUser*/ 16 && t7_value !== (t7_value = (/*$currentUser*/ ctx[4]?.email || 'Not signed in') + "")) set_data_dev(t7, t7_value);
+
+				if (/*connectionError*/ ctx[3]) {
+					if (if_block0) {
+						if_block0.p(ctx, dirty);
+					} else {
+						if_block0 = create_if_block_7(ctx);
+						if_block0.c();
+						if_block0.m(section1, t11);
+					}
+				} else if (if_block0) {
+					if_block0.d(1);
+					if_block0 = null;
+				}
+
+				if (current_block_type !== (current_block_type = select_block_type(ctx))) {
+					if_block1.d(1);
+					if_block1 = current_block_type(ctx);
+
+					if (if_block1) {
+						if_block1.c();
+						if_block1.m(div7, null);
+					}
+				}
+
+				if_block2.p(ctx, dirty);
+
+				if (current_block_type_2 !== (current_block_type_2 = select_block_type_2(ctx))) {
+					if_block3.d(1);
+					if_block3 = current_block_type_2(ctx);
+
+					if (if_block3) {
+						if_block3.c();
+						if_block3.m(div11, null);
+					}
+				}
+
+				if_block4.p(ctx, dirty);
+
+				if (current_block_type_4 !== (current_block_type_4 = select_block_type_4(ctx))) {
+					if_block5.d(1);
+					if_block5 = current_block_type_4(ctx);
+
+					if (if_block5) {
+						if_block5.c();
+						if_block5.m(button1, null);
+					}
+				}
+
+				if (dirty & /*isLoggingOut*/ 1) {
+					prop_dev(button1, "disabled", /*isLoggingOut*/ ctx[0]);
+				}
+			},
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div28);
+				}
+
+				if (if_block0) if_block0.d();
+				if_block1.d();
+				if_block2.d();
+				if_block3.d();
+				if_block4.d();
+				if_block5.d();
+				mounted = false;
+				run_all(dispose);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_fragment$2.name,
+			type: "component",
+			source: "",
+			ctx
+		});
+
+		return block;
+	}
+
+	function instance$2($$self, $$props, $$invalidate) {
+		let $currentUser;
+		validate_store(currentUser, 'currentUser');
+		component_subscribe($$self, currentUser, $$value => $$invalidate(4, $currentUser = $$value));
+		let { $$slots: slots = {}, $$scope } = $$props;
+		validate_slots('Settings', slots, []);
+		let isLoggingOut = false;
+		let connectedAccounts = [];
+		let isLoadingConnections = true;
+		let connectingProvider = null;
+		let connectionError = null;
+
+		onMount(async () => {
+			await loadConnections();
+		});
+
+		async function loadConnections() {
+			$$invalidate(1, isLoadingConnections = true);
+
+			try {
+				const result = await apiClient.get('/api/v1/auth/oauth/accounts');
+
+				if (result.success && result.data) {
+					connectedAccounts = result.data;
+				}
+			} catch(e) {
+				console.error('Failed to load connections:', e);
+			} finally {
+				$$invalidate(1, isLoadingConnections = false);
+			}
+		}
+
+		function isConnected(provider) {
+			return connectedAccounts.some(a => a.provider === provider);
+		}
+
+		function getConnectionInfo(provider) {
+			return connectedAccounts.find(a => a.provider === provider);
+		}
+
+		async function initiateOAuth(provider) {
+			$$invalidate(2, connectingProvider = provider);
+			$$invalidate(3, connectionError = null);
+
+			try {
+				const result = await apiClient.post(`/api/v1/auth/oauth/${provider}/link`);
+
+				if (result.success && result.data?.auth_url) {
+					// Redirect to OAuth provider
+					window.location.href = result.data.auth_url;
+				} else {
+					$$invalidate(3, connectionError = result.error || 'Failed to initiate connection');
+				}
+			} catch(e) {
+				console.error('OAuth initiation failed:', e);
+				$$invalidate(3, connectionError = 'Failed to connect. Please try again.');
+			} finally {
+				$$invalidate(2, connectingProvider = null);
+			}
+		}
+
+		async function disconnectService(provider) {
+			$$invalidate(2, connectingProvider = provider);
+
+			try {
+				const result = await apiClient.delete(`/api/v1/auth/oauth/${provider}/unlink`);
+
+				if (result.success) {
+					connectedAccounts = connectedAccounts.filter(a => a.provider !== provider);
+				}
+			} catch(e) {
+				console.error('Disconnect failed:', e);
+			} finally {
+				$$invalidate(2, connectingProvider = null);
+			}
+		}
+
+		async function handleLogout() {
+			$$invalidate(0, isLoggingOut = true);
+
+			try {
+				await authActions.logout();
+				window.location.href = '/';
+			} catch(e) {
+				console.error('Logout failed:', e);
+				$$invalidate(0, isLoggingOut = false);
+			}
+		}
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1$1.warn(`<Settings> was created with unknown prop '${key}'`);
+		});
+
+		const click_handler = () => navigateTo('home');
+		const click_handler_1 = () => disconnectService('spotify');
+		const click_handler_2 = () => initiateOAuth('spotify');
+		const click_handler_3 = () => disconnectService('apple');
+		const click_handler_4 = () => initiateOAuth('apple');
+
+		$$self.$capture_state = () => ({
+			onMount,
+			currentUser,
+			authActions,
+			navigateTo,
+			apiClient,
+			isLoggingOut,
+			connectedAccounts,
+			isLoadingConnections,
+			connectingProvider,
+			connectionError,
+			loadConnections,
+			isConnected,
+			getConnectionInfo,
+			initiateOAuth,
+			disconnectService,
+			handleLogout,
+			$currentUser
+		});
+
+		$$self.$inject_state = $$props => {
+			if ('isLoggingOut' in $$props) $$invalidate(0, isLoggingOut = $$props.isLoggingOut);
+			if ('connectedAccounts' in $$props) connectedAccounts = $$props.connectedAccounts;
+			if ('isLoadingConnections' in $$props) $$invalidate(1, isLoadingConnections = $$props.isLoadingConnections);
+			if ('connectingProvider' in $$props) $$invalidate(2, connectingProvider = $$props.connectingProvider);
+			if ('connectionError' in $$props) $$invalidate(3, connectionError = $$props.connectionError);
+		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [
+			isLoggingOut,
+			isLoadingConnections,
+			connectingProvider,
+			connectionError,
+			$currentUser,
+			isConnected,
+			initiateOAuth,
+			disconnectService,
+			handleLogout,
+			click_handler,
+			click_handler_1,
+			click_handler_2,
+			click_handler_3,
+			click_handler_4
+		];
+	}
+
+	class Settings extends SvelteComponentDev {
+		constructor(options) {
+			super(options);
+			init(this, options, instance$2, create_fragment$2, safe_not_equal, {});
+
+			dispatch_dev("SvelteRegisterComponent", {
+				component: this,
+				tagName: "Settings",
+				options,
+				id: create_fragment$2.name
+			});
+		}
+	}
+
+	/* src/lib/components/OAuthCallback.svelte generated by Svelte v4.2.20 */
+
+	const { Error: Error_1 } = globals;
+	const file$1 = "src/lib/components/OAuthCallback.svelte";
+
+	// (92:4) {:else}
+	function create_else_block$1(ctx) {
+		let div1;
+		let div0;
+		let svg;
+		let path;
+		let t0;
+		let h1;
+		let t2;
+		let p;
+		let t3;
+		let t4;
+		let div2;
+		let button0;
+		let t6;
+		let button1;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				svg = svg_element("svg");
+				path = svg_element("path");
+				t0 = space();
+				h1 = element("h1");
+				h1.textContent = "Connection Failed";
+				t2 = space();
+				p = element("p");
+				t3 = text(/*errorMessage*/ ctx[1]);
+				t4 = space();
+				div2 = element("div");
+				button0 = element("button");
+				button0.textContent = "Try Again";
+				t6 = space();
+				button1 = element("button");
+				button1.textContent = "Go Home";
+				attr_dev(path, "stroke-linecap", "round");
+				attr_dev(path, "stroke-linejoin", "round");
+				attr_dev(path, "stroke-width", "2");
+				attr_dev(path, "d", "M6 18L18 6M6 6l12 12");
+				add_location(path, file$1, 104, 12, 3624);
+				attr_dev(svg, "class", "w-10 h-10 text-white");
+				attr_dev(svg, "fill", "none");
+				attr_dev(svg, "stroke", "currentColor");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				add_location(svg, file$1, 103, 10, 3523);
+				attr_dev(div0, "class", "w-16 h-16 bg-red-500 rounded-full flex items-center justify-center mx-auto");
+				add_location(div0, file$1, 102, 8, 3424);
+				attr_dev(div1, "class", "mb-6");
+				add_location(div1, file$1, 101, 6, 3397);
+				attr_dev(h1, "class", "text-xl font-bold mb-2 text-red-400");
+				add_location(h1, file$1, 108, 6, 3773);
+				attr_dev(p, "class", "text-gray-400 mb-6");
+				add_location(p, file$1, 109, 6, 3850);
+				attr_dev(button0, "class", "px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors");
+				add_location(button0, file$1, 111, 8, 3953);
+				attr_dev(button1, "class", "px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors");
+				add_location(button1, file$1, 117, 8, 4150);
+				attr_dev(div2, "class", "flex gap-3 justify-center");
+				add_location(div2, file$1, 110, 6, 3905);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+				append_dev(div0, svg);
+				append_dev(svg, path);
+				insert_dev(target, t0, anchor);
+				insert_dev(target, h1, anchor);
+				insert_dev(target, t2, anchor);
+				insert_dev(target, p, anchor);
+				append_dev(p, t3);
+				insert_dev(target, t4, anchor);
+				insert_dev(target, div2, anchor);
+				append_dev(div2, button0);
+				append_dev(div2, t6);
+				append_dev(div2, button1);
+
+				if (!mounted) {
+					dispose = [
+						listen_dev(button0, "click", /*goToSettings*/ ctx[3], false, false, false, false),
+						listen_dev(button1, "click", /*goHome*/ ctx[4], false, false, false, false)
+					];
+
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*errorMessage*/ 2) set_data_dev(t3, /*errorMessage*/ ctx[1]);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+					detach_dev(t0);
+					detach_dev(h1);
+					detach_dev(t2);
+					detach_dev(p);
+					detach_dev(t4);
+					detach_dev(div2);
+				}
+
+				mounted = false;
+				run_all(dispose);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block$1.name,
+			type: "else",
+			source: "(92:4) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (76:35) 
+	function create_if_block_1$1(ctx) {
+		let div1;
+		let div0;
+		let svg;
+		let path;
+		let t0;
+		let h1;
+		let t2;
+		let p;
+		let t3;
+		let t4_value = getProviderName(/*provider*/ ctx[2]) + "";
+		let t4;
+		let t5;
+		let t6;
+		let button;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				svg = svg_element("svg");
+				path = svg_element("path");
+				t0 = space();
+				h1 = element("h1");
+				h1.textContent = "Connected!";
+				t2 = space();
+				p = element("p");
+				t3 = text("Your ");
+				t4 = text(t4_value);
+				t5 = text(" account has been linked successfully.");
+				t6 = space();
+				button = element("button");
+				button.textContent = "Go to Settings";
+				attr_dev(path, "stroke-linecap", "round");
+				attr_dev(path, "stroke-linejoin", "round");
+				attr_dev(path, "stroke-width", "2");
+				attr_dev(path, "d", "M5 13l4 4L19 7");
+				add_location(path, file$1, 88, 12, 2869);
+				attr_dev(svg, "class", "w-10 h-10 text-white");
+				attr_dev(svg, "fill", "none");
+				attr_dev(svg, "stroke", "currentColor");
+				attr_dev(svg, "viewBox", "0 0 24 24");
+				add_location(svg, file$1, 87, 10, 2768);
+				attr_dev(div0, "class", "w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto");
+				add_location(div0, file$1, 86, 8, 2667);
+				attr_dev(div1, "class", "mb-6");
+				add_location(div1, file$1, 85, 6, 2640);
+				attr_dev(h1, "class", "text-xl font-bold mb-2 text-green-400");
+				add_location(h1, file$1, 92, 6, 3012);
+				attr_dev(p, "class", "text-gray-400 mb-6");
+				add_location(p, file$1, 93, 6, 3084);
+				attr_dev(button, "class", "px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors");
+				add_location(button, file$1, 94, 6, 3195);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+				append_dev(div0, svg);
+				append_dev(svg, path);
+				insert_dev(target, t0, anchor);
+				insert_dev(target, h1, anchor);
+				insert_dev(target, t2, anchor);
+				insert_dev(target, p, anchor);
+				append_dev(p, t3);
+				append_dev(p, t4);
+				append_dev(p, t5);
+				insert_dev(target, t6, anchor);
+				insert_dev(target, button, anchor);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*goToSettings*/ ctx[3], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*provider*/ 4 && t4_value !== (t4_value = getProviderName(/*provider*/ ctx[2]) + "")) set_data_dev(t4, t4_value);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+					detach_dev(t0);
+					detach_dev(h1);
+					detach_dev(t2);
+					detach_dev(p);
+					detach_dev(t6);
+					detach_dev(button);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_1$1.name,
+			type: "if",
+			source: "(76:35) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (70:4) {#if status === 'loading'}
+	function create_if_block$1(ctx) {
+		let div1;
+		let div0;
+		let t0;
+		let h1;
+		let t1;
+		let t2_value = getProviderName(/*provider*/ ctx[2]) + "";
+		let t2;
+		let t3;
+		let p;
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				t0 = space();
+				h1 = element("h1");
+				t1 = text("Connecting ");
+				t2 = text(t2_value);
+				t3 = space();
+				p = element("p");
+				p.textContent = "Please wait while we complete the connection...";
+				attr_dev(div0, "class", "w-16 h-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto");
+				add_location(div0, file$1, 80, 8, 2307);
+				attr_dev(div1, "class", "mb-6");
+				add_location(div1, file$1, 79, 6, 2280);
+				attr_dev(h1, "class", "text-xl font-bold mb-2");
+				add_location(h1, file$1, 82, 6, 2436);
+				attr_dev(p, "class", "text-gray-400");
+				add_location(p, file$1, 83, 6, 2521);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+				insert_dev(target, t0, anchor);
+				insert_dev(target, h1, anchor);
+				append_dev(h1, t1);
+				append_dev(h1, t2);
+				insert_dev(target, t3, anchor);
+				insert_dev(target, p, anchor);
+			},
+			p: function update(ctx, dirty) {
+				if (dirty & /*provider*/ 4 && t2_value !== (t2_value = getProviderName(/*provider*/ ctx[2]) + "")) set_data_dev(t2, t2_value);
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+					detach_dev(t0);
+					detach_dev(h1);
+					detach_dev(t3);
+					detach_dev(p);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block$1.name,
+			type: "if",
+			source: "(70:4) {#if status === 'loading'}",
+			ctx
+		});
+
+		return block;
+	}
+
+	function create_fragment$1(ctx) {
+		let div1;
+		let div0;
+
+		function select_block_type(ctx, dirty) {
+			if (/*status*/ ctx[0] === 'loading') return create_if_block$1;
+			if (/*status*/ ctx[0] === 'success') return create_if_block_1$1;
+			return create_else_block$1;
+		}
+
+		let current_block_type = select_block_type(ctx);
+		let if_block = current_block_type(ctx);
+
+		const block = {
+			c: function create() {
+				div1 = element("div");
+				div0 = element("div");
+				if_block.c();
+				attr_dev(div0, "class", "bg-gray-800 rounded-xl border border-gray-600 p-8 max-w-md w-full text-center");
+				add_location(div0, file$1, 77, 2, 2151);
+				attr_dev(div1, "class", "min-h-screen bg-gray-900 text-white flex items-center justify-center p-4");
+				add_location(div1, file$1, 76, 0, 2062);
+			},
+			l: function claim(nodes) {
+				throw new Error_1("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div1, anchor);
+				append_dev(div1, div0);
+				if_block.m(div0, null);
+			},
+			p: function update(ctx, [dirty]) {
+				if (current_block_type === (current_block_type = select_block_type(ctx)) && if_block) {
+					if_block.p(ctx, dirty);
+				} else {
+					if_block.d(1);
+					if_block = current_block_type(ctx);
+
+					if (if_block) {
+						if_block.c();
+						if_block.m(div0, null);
+					}
+				}
+			},
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div1);
+				}
+
+				if_block.d();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_fragment$1.name,
+			type: "component",
+			source: "",
+			ctx
+		});
+
+		return block;
+	}
+
+	function getProviderName(p) {
+		switch (p) {
+			case 'spotify':
+				return 'Spotify';
+			case 'apple':
+				return 'Apple Music';
+			case 'google':
+				return 'Google';
+			case 'github':
+				return 'GitHub';
+			default:
+				return p;
+		}
+	}
+
+	function instance$1($$self, $$props, $$invalidate) {
+		let { $$slots: slots = {}, $$scope } = $$props;
+		validate_slots('OAuthCallback', slots, []);
+		let status = 'loading';
+		let errorMessage = '';
+		let provider = '';
+
+		onMount(async () => {
+			// Parse URL parameters
+			const params = new URLSearchParams(window.location.search);
+
+			const code = params.get('code');
+			const state = params.get('state');
+			const error = params.get('error');
+			const errorDescription = params.get('error_description');
+
+			// Extract provider from path (e.g., /auth/callback/spotify)
+			const pathParts = window.location.pathname.split('/');
+
+			$$invalidate(2, provider = pathParts[pathParts.length - 1] || 'unknown');
+
+			// Handle OAuth errors
+			if (error) {
+				$$invalidate(0, status = 'error');
+				$$invalidate(1, errorMessage = errorDescription || error || 'Authentication was cancelled or denied');
+				return;
+			}
+
+			if (!code || !state) {
+				$$invalidate(0, status = 'error');
+				$$invalidate(1, errorMessage = 'Missing authentication parameters');
+				return;
+			}
+
+			try {
+				// Complete the OAuth link flow
+				const result = await apiClient.post(`/api/v1/auth/oauth/${provider}/link-callback`, { code, state });
+
+				if (result.success) {
+					$$invalidate(0, status = 'success');
+
+					// Redirect to settings after a brief moment
+					setTimeout(
+						() => {
+							navigateTo('settings');
+						},
+						1500
+					);
+				} else {
+					$$invalidate(0, status = 'error');
+					$$invalidate(1, errorMessage = result.error || 'Failed to link account');
+				}
+			} catch(e) {
+				$$invalidate(0, status = 'error');
+
+				$$invalidate(1, errorMessage = e instanceof Error
+				? e.message
+				: 'An unexpected error occurred');
+			}
+		});
+
+		function goToSettings() {
+			navigateTo('settings');
+		}
+
+		function goHome() {
+			navigateTo('home');
+		}
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console.warn(`<OAuthCallback> was created with unknown prop '${key}'`);
+		});
+
+		$$self.$capture_state = () => ({
+			onMount,
+			apiClient,
+			navigateTo,
+			status,
+			errorMessage,
+			provider,
+			goToSettings,
+			goHome,
+			getProviderName
+		});
+
+		$$self.$inject_state = $$props => {
+			if ('status' in $$props) $$invalidate(0, status = $$props.status);
+			if ('errorMessage' in $$props) $$invalidate(1, errorMessage = $$props.errorMessage);
+			if ('provider' in $$props) $$invalidate(2, provider = $$props.provider);
+		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [status, errorMessage, provider, goToSettings, goHome];
+	}
+
+	class OAuthCallback extends SvelteComponentDev {
+		constructor(options) {
+			super(options);
+			init(this, options, instance$1, create_fragment$1, safe_not_equal, {});
+
+			dispatch_dev("SvelteRegisterComponent", {
+				component: this,
+				tagName: "OAuthCallback",
+				options,
+				id: create_fragment$1.name
+			});
+		}
+	}
+
+	/* src/App.svelte generated by Svelte v4.2.20 */
+
+	const { console: console_1 } = globals;
+	const file = "src/App.svelte";
+
+	// (52:0) {:else}
+	function create_else_block_1(ctx) {
+		let login;
+		let current;
+		login = new Login({ $$inline: true });
+
+		const block = {
+			c: function create() {
+				create_component(login.$$.fragment);
+			},
+			m: function mount(target, anchor) {
+				mount_component(login, target, anchor);
+				current = true;
+			},
+			p: noop,
+			i: function intro(local) {
+				if (current) return;
+				transition_in(login.$$.fragment, local);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(login.$$.fragment, local);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				destroy_component(login, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block_1.name,
+			type: "else",
+			source: "(52:0) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (46:27) 
+	function create_if_block_3(ctx) {
+		let current_block_type_index;
+		let if_block;
+		let if_block_anchor;
+		let current;
+		const if_block_creators = [create_if_block_4, create_else_block];
+		const if_blocks = [];
+
+		function select_block_type_1(ctx, dirty) {
+			if (/*$currentRoute*/ ctx[1] === 'settings') return 0;
+			return 1;
+		}
+
+		current_block_type_index = select_block_type_1(ctx);
+		if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+
+		const block = {
+			c: function create() {
+				if_block.c();
+				if_block_anchor = empty();
+			},
+			m: function mount(target, anchor) {
+				if_blocks[current_block_type_index].m(target, anchor);
+				insert_dev(target, if_block_anchor, anchor);
+				current = true;
+			},
+			p: function update(ctx, dirty) {
+				let previous_block_index = current_block_type_index;
+				current_block_type_index = select_block_type_1(ctx);
+
+				if (current_block_type_index !== previous_block_index) {
+					group_outros();
+
+					transition_out(if_blocks[previous_block_index], 1, 1, () => {
+						if_blocks[previous_block_index] = null;
+					});
+
+					check_outros();
+					if_block = if_blocks[current_block_type_index];
+
+					if (!if_block) {
+						if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+						if_block.c();
+					}
+
+					transition_in(if_block, 1);
+					if_block.m(if_block_anchor.parentNode, if_block_anchor);
+				}
+			},
+			i: function intro(local) {
+				if (current) return;
+				transition_in(if_block);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(if_block);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(if_block_anchor);
+				}
+
+				if_blocks[current_block_type_index].d(detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_3.name,
+			type: "if",
+			source: "(46:27) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (32:42) 
+	function create_if_block_2(ctx) {
+		let div2;
+		let div1;
+		let div0;
+		let t1;
+		let h2;
+		let t3;
+		let p;
+		let t5;
+		let button;
+		let mounted;
+		let dispose;
+
+		const block = {
+			c: function create() {
+				div2 = element("div");
+				div1 = element("div");
+				div0 = element("div");
+				div0.textContent = "!";
+				t1 = space();
+				h2 = element("h2");
+				h2.textContent = "Connection Failed";
+				t3 = space();
+				p = element("p");
+				p.textContent = "There was a problem connecting your account. Please try again.";
+				t5 = space();
+				button = element("button");
+				button.textContent = "Go Back";
+				attr_dev(div0, "class", "text-red-500 text-6xl mb-4");
+				add_location(div0, file, 35, 3, 1213);
+				attr_dev(h2, "class", "text-2xl font-bold text-white mb-2");
+				add_location(h2, file, 36, 3, 1264);
+				attr_dev(p, "class", "text-gray-400 mb-6");
+				add_location(p, file, 37, 3, 1337);
+				attr_dev(button, "class", "px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors");
+				add_location(button, file, 38, 3, 1437);
+				attr_dev(div1, "class", "max-w-md w-full text-center");
+				add_location(div1, file, 34, 2, 1168);
+				attr_dev(div2, "class", "min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4");
+				add_location(div2, file, 33, 1, 1083);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div2, anchor);
+				append_dev(div2, div1);
+				append_dev(div1, div0);
+				append_dev(div1, t1);
+				append_dev(div1, h2);
+				append_dev(div1, t3);
+				append_dev(div1, p);
+				append_dev(div1, t5);
+				append_dev(div1, button);
+
+				if (!mounted) {
+					dispose = listen_dev(button, "click", /*click_handler*/ ctx[3], false, false, false, false);
+					mounted = true;
+				}
+			},
+			p: noop,
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div2);
+				}
+
+				mounted = false;
+				dispose();
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_2.name,
+			type: "if",
+			source: "(32:42) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (30:45) 
+	function create_if_block_1(ctx) {
+		let oauthcallback;
+		let current;
+		oauthcallback = new OAuthCallback({ $$inline: true });
+
+		const block = {
+			c: function create() {
+				create_component(oauthcallback.$$.fragment);
+			},
+			m: function mount(target, anchor) {
+				mount_component(oauthcallback, target, anchor);
+				current = true;
+			},
+			p: noop,
+			i: function intro(local) {
+				if (current) return;
+				transition_in(oauthcallback.$$.fragment, local);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(oauthcallback.$$.fragment, local);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				destroy_component(oauthcallback, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_1.name,
+			type: "if",
+			source: "(30:45) ",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (23:0) {#if !isInitialized}
+	function create_if_block(ctx) {
+		let div2;
+		let div1;
+		let div0;
+		let t0;
+		let p;
+
+		const block = {
+			c: function create() {
+				div2 = element("div");
+				div1 = element("div");
+				div0 = element("div");
+				t0 = space();
+				p = element("p");
+				p.textContent = "Loading...";
+				attr_dev(div0, "class", "w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto");
+				add_location(div0, file, 26, 3, 802);
+				attr_dev(p, "class", "mt-4 text-gray-400");
+				add_location(p, file, 27, 3, 912);
+				attr_dev(div1, "class", "text-center");
+				add_location(div1, file, 25, 2, 773);
+				attr_dev(div2, "class", "min-h-screen flex items-center justify-center bg-gray-900");
+				add_location(div2, file, 24, 1, 699);
+			},
+			m: function mount(target, anchor) {
+				insert_dev(target, div2, anchor);
+				append_dev(div2, div1);
+				append_dev(div1, div0);
+				append_dev(div1, t0);
+				append_dev(div1, p);
+			},
+			p: noop,
+			i: noop,
+			o: noop,
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(div2);
+				}
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block.name,
+			type: "if",
+			source: "(23:0) {#if !isInitialized}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (49:1) {:else}
+	function create_else_block(ctx) {
+		let home;
+		let current;
+		home = new Home({ $$inline: true });
+
+		const block = {
+			c: function create() {
+				create_component(home.$$.fragment);
+			},
+			m: function mount(target, anchor) {
+				mount_component(home, target, anchor);
+				current = true;
+			},
+			i: function intro(local) {
+				if (current) return;
+				transition_in(home.$$.fragment, local);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(home.$$.fragment, local);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				destroy_component(home, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_else_block.name,
+			type: "else",
+			source: "(49:1) {:else}",
+			ctx
+		});
+
+		return block;
+	}
+
+	// (47:1) {#if $currentRoute === 'settings'}
+	function create_if_block_4(ctx) {
+		let settings;
+		let current;
+		settings = new Settings({ $$inline: true });
+
+		const block = {
+			c: function create() {
+				create_component(settings.$$.fragment);
+			},
+			m: function mount(target, anchor) {
+				mount_component(settings, target, anchor);
+				current = true;
+			},
+			i: function intro(local) {
+				if (current) return;
+				transition_in(settings.$$.fragment, local);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(settings.$$.fragment, local);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				destroy_component(settings, detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_if_block_4.name,
+			type: "if",
+			source: "(47:1) {#if $currentRoute === 'settings'}",
+			ctx
+		});
+
+		return block;
+	}
+
+	function create_fragment(ctx) {
+		let current_block_type_index;
+		let if_block;
+		let if_block_anchor;
+		let current;
+
+		const if_block_creators = [
+			create_if_block,
+			create_if_block_1,
+			create_if_block_2,
+			create_if_block_3,
+			create_else_block_1
+		];
+
+		const if_blocks = [];
+
+		function select_block_type(ctx, dirty) {
+			if (!/*isInitialized*/ ctx[0]) return 0;
+			if (/*$currentRoute*/ ctx[1] === 'oauth-callback') return 1;
+			if (/*$currentRoute*/ ctx[1] === 'oauth-error') return 2;
+			if (/*$isAuthenticated*/ ctx[2]) return 3;
+			return 4;
+		}
+
+		current_block_type_index = select_block_type(ctx);
+		if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+
+		const block = {
+			c: function create() {
+				if_block.c();
+				if_block_anchor = empty();
+			},
+			l: function claim(nodes) {
+				throw new Error("options.hydrate only works if the component was compiled with the `hydratable: true` option");
+			},
+			m: function mount(target, anchor) {
+				if_blocks[current_block_type_index].m(target, anchor);
+				insert_dev(target, if_block_anchor, anchor);
+				current = true;
+			},
+			p: function update(ctx, [dirty]) {
+				let previous_block_index = current_block_type_index;
+				current_block_type_index = select_block_type(ctx);
+
+				if (current_block_type_index === previous_block_index) {
+					if_blocks[current_block_type_index].p(ctx, dirty);
+				} else {
+					group_outros();
+
+					transition_out(if_blocks[previous_block_index], 1, 1, () => {
+						if_blocks[previous_block_index] = null;
+					});
+
+					check_outros();
+					if_block = if_blocks[current_block_type_index];
+
+					if (!if_block) {
+						if_block = if_blocks[current_block_type_index] = if_block_creators[current_block_type_index](ctx);
+						if_block.c();
+					} else {
+						if_block.p(ctx, dirty);
+					}
+
+					transition_in(if_block, 1);
+					if_block.m(if_block_anchor.parentNode, if_block_anchor);
+				}
+			},
+			i: function intro(local) {
+				if (current) return;
+				transition_in(if_block);
+				current = true;
+			},
+			o: function outro(local) {
+				transition_out(if_block);
+				current = false;
+			},
+			d: function destroy(detaching) {
+				if (detaching) {
+					detach_dev(if_block_anchor);
+				}
+
+				if_blocks[current_block_type_index].d(detaching);
+			}
+		};
+
+		dispatch_dev("SvelteRegisterBlock", {
+			block,
+			id: create_fragment.name,
+			type: "component",
+			source: "",
+			ctx
+		});
+
+		return block;
+	}
+
+	function instance($$self, $$props, $$invalidate) {
+		let $currentRoute;
+		let $isAuthenticated;
+		validate_store(currentRoute, 'currentRoute');
+		component_subscribe($$self, currentRoute, $$value => $$invalidate(1, $currentRoute = $$value));
+		validate_store(isAuthenticated, 'isAuthenticated');
+		component_subscribe($$self, isAuthenticated, $$value => $$invalidate(2, $isAuthenticated = $$value));
+		let { $$slots: slots = {}, $$scope } = $$props;
+		validate_slots('App', slots, []);
+		let isInitialized = false;
+
+		onMount(async () => {
+			try {
+				initRouter();
+				await authActions.fetchProfile();
+			} catch(error) {
+				console.error("Init error:", error);
+			} finally {
+				$$invalidate(0, isInitialized = true);
+			}
+		});
+
+		const writable_props = [];
+
+		Object.keys($$props).forEach(key => {
+			if (!~writable_props.indexOf(key) && key.slice(0, 2) !== '$$' && key !== 'slot') console_1.warn(`<App> was created with unknown prop '${key}'`);
+		});
+
+		const click_handler = () => window.location.href = '/';
+
+		$$self.$capture_state = () => ({
+			onMount,
+			isAuthenticated,
+			authActions,
+			initRouter,
+			currentRoute,
+			Login,
+			Home,
+			Settings,
+			OAuthCallback,
+			isInitialized,
+			$currentRoute,
+			$isAuthenticated
+		});
+
+		$$self.$inject_state = $$props => {
+			if ('isInitialized' in $$props) $$invalidate(0, isInitialized = $$props.isInitialized);
+		};
+
+		if ($$props && "$$inject" in $$props) {
+			$$self.$inject_state($$props.$$inject);
+		}
+
+		return [isInitialized, $currentRoute, $isAuthenticated, click_handler];
+	}
+
+	class App extends SvelteComponentDev {
+		constructor(options) {
+			super(options);
+			init(this, options, instance, create_fragment, safe_not_equal, {});
+
+			dispatch_dev("SvelteRegisterComponent", {
+				component: this,
+				tagName: "App",
+				options,
+				id: create_fragment.name
+			});
+		}
+	}
+
+	const app = new App({
+	    target: document.body,
+	});
+
+	return app;
+
+})();
 //# sourceMappingURL=bundle.js.map

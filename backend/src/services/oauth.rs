@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde_json::Value;
 
 use crate::models::oauth::{

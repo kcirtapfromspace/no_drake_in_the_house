@@ -173,6 +173,7 @@ impl OAuthHealthMonitor {
             OAuthProviderType::Google => Self::check_google_health(client).await,
             OAuthProviderType::Apple => Self::check_apple_health(client).await,
             OAuthProviderType::GitHub => Self::check_github_health(client).await,
+            OAuthProviderType::Spotify => Self::check_spotify_health(client).await,
         };
         
         let response_time = start_time.elapsed();
@@ -286,6 +287,44 @@ impl OAuthHealthMonitor {
         } else {
             None
         };
+
+        Ok(rate_limit_info)
+    }
+
+    /// Check Spotify OAuth provider health
+    async fn check_spotify_health(client: &reqwest::Client) -> Result<Option<RateLimitInfo>> {
+        // Check Spotify accounts service
+        let response = client
+            .get("https://accounts.spotify.com/")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| AppError::ExternalServiceError(format!("Spotify health check failed: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(AppError::ExternalServiceError(format!(
+                "Spotify accounts service returned status: {}",
+                response.status()
+            )));
+        }
+
+        let rate_limit_info = Self::parse_rate_limit_headers(&response);
+
+        // Check Spotify API service
+        let api_response = client
+            .get("https://api.spotify.com/")
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+            .map_err(|e| AppError::ExternalServiceError(format!("Spotify API health check failed: {}", e)))?;
+
+        // Spotify API returns 404 for root endpoint, which is expected
+        if api_response.status() != reqwest::StatusCode::NOT_FOUND && !api_response.status().is_success() {
+            return Err(AppError::ExternalServiceError(format!(
+                "Spotify API service returned unexpected status: {}",
+                api_response.status()
+            )));
+        }
 
         Ok(rate_limit_info)
     }

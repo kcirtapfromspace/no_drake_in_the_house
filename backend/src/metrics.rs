@@ -4,8 +4,8 @@
 //! including HTTP request metrics, database operation metrics, and custom business metrics.
 
 use prometheus::{
-    Counter, Histogram, Gauge, Registry, Encoder, TextEncoder,
-    HistogramOpts, Opts, CounterVec, HistogramVec, GaugeVec,
+    Counter, Gauge, Registry, Encoder, TextEncoder,
+    HistogramOpts, Opts, CounterVec, HistogramVec,
 };
 use std::sync::Arc;
 use std::time::Instant;

@@ -151,30 +151,30 @@
   - Include proper security logging for OAuth-related security events
   - _Requirements: 5.2, 5.5, 5.6, 5.7_
 
-- [ ] 8. Add Account Management Features
-- [ ] 8.1 Implement account merging functionality
+- [x] 8. Add Account Management Features
+- [x] 8.1 Implement account merging functionality
   - Replace "temporarily disabled" merge_accounts method with real implementation
   - Add guided workflow for merging duplicate accounts
   - Include proper data migration and audit trail
   - Add validation to prevent data loss during account merges
   - _Requirements: 6.4, 6.6_
 
-- [ ] 8.2 Implement OAuth account status monitoring
+- [x] 8.2 Implement OAuth account status monitoring
   - Add monitoring for OAuth token expiry and refresh status
   - Include user notifications for authentication issues
   - Add dashboard display of OAuth account connection health
   - Include proactive token refresh scheduling
   - _Requirements: 6.1, 6.7_
 
-- [ ] 9. Add Comprehensive Testing
-- [ ] 9.1 Create unit tests for OAuth service methods
+- [x] 9. Add Comprehensive Testing
+- [x] 9.1 Create unit tests for OAuth service methods
   - Write tests for all re-enabled OAuth service methods
   - Add mock OAuth provider responses for testing
   - Include edge case testing for error scenarios
   - Add performance testing for token encryption/decryption
   - _Requirements: All requirements - comprehensive testing_
 
-- [ ] 9.2 Create integration tests for OAuth flows
+- [x] 9.2 Create integration tests for OAuth flows
   - Write end-to-end tests for complete OAuth authentication flows
   - Add tests for account linking and unlinking scenarios
   - Include tests for token refresh and expiry handling

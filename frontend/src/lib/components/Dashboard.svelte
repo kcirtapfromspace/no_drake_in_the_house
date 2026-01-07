@@ -1,294 +1,359 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { connectionActions, connectedServices, hasActiveSpotifyConnection } from '../stores/connections';
-  import { dnpActions, dnpCount } from '../stores/dnp';
-  import { currentRoute, navigateTo } from '../utils/simple-router';
-  import { justRegistered, authActions } from '../stores/auth';
-  import Navigation from './Navigation.svelte';
-  import ServiceConnections from './ServiceConnections.svelte';
-  import DnpManager from './DnpManager.svelte';
-  import EnforcementPlanning from './EnforcementPlanning.svelte';
-  import CommunityLists from './CommunityLists.svelte';
-  import UserProfile from './UserProfile.svelte';
-  import SimpleTest from './SimpleTest.svelte';
-  
-  let showWelcomeMessage = false;
-  
+  import { dnpActions, dnpStore, dnpCount } from '../stores/dnp';
+  import { connectionActions, hasActiveSpotifyConnection } from '../stores/connections';
+  import { navigateTo } from '../utils/simple-router';
+  import { currentUser } from '../stores/auth';
+
+  let searchQuery = '';
+  let searchResults: any[] = [];
+  let isSearching = false;
+  let showBlockModal = false;
+  let selectedArtist: any = null;
+  let blockReason = '';
+  let blockEvidence = '';
+  let isBlocking = false;
+
+  // Common reasons for blocking
+  const commonReasons = [
+    { label: 'Domestic violence', icon: '🚫' },
+    { label: 'Sexual misconduct', icon: '⚠️' },
+    { label: 'Hate speech', icon: '🗣️' },
+    { label: 'Criminal behavior', icon: '⚖️' },
+    { label: 'Harmful to children', icon: '👶' },
+    { label: 'Other', icon: '📝' },
+  ];
+
   onMount(async () => {
-    try {
-      await connectionActions.fetchConnections();
-    } catch (error) {
-      console.log('Connection fetch failed (backend not running):', error);
-    }
-    
-    try {
-      await dnpActions.fetchDnpList();
-    } catch (error) {
-      console.log('DNP list fetch failed (backend not running):', error);
-    }
-    
-    // Show welcome message for newly registered users
-    if ($justRegistered) {
-      showWelcomeMessage = true;
-      // Auto-hide welcome message after 5 seconds
-      setTimeout(() => {
-        showWelcomeMessage = false;
-        authActions.clearJustRegistered();
-      }, 5000);
-    }
+    await dnpActions.fetchDnpList();
+    await connectionActions.fetchConnections();
   });
 
-  function setActiveTab(tab: string) {
-    console.log('Dashboard: Navigating to:', tab);
-    navigateTo(tab);
+  async function handleSearch() {
+    if (!searchQuery.trim()) {
+      searchResults = [];
+      return;
+    }
+
+    isSearching = true;
+    try {
+      const result = await dnpActions.searchArtists(searchQuery);
+      searchResults = result.artists || [];
+    } catch (e) {
+      console.error('Search failed:', e);
+      searchResults = [];
+    }
+    isSearching = false;
   }
-  
-  // Debug: Log route changes
-  $: {
-    console.log('Dashboard: Current route changed to:', $currentRoute);
+
+  function openBlockModal(artist: any) {
+    selectedArtist = artist;
+    blockReason = '';
+    blockEvidence = '';
+    showBlockModal = true;
   }
-  
-  function dismissWelcome() {
-    showWelcomeMessage = false;
-    authActions.clearJustRegistered();
+
+  function closeBlockModal() {
+    showBlockModal = false;
+    selectedArtist = null;
+    blockReason = '';
+    blockEvidence = '';
   }
+
+  function selectReason(reason: string) {
+    blockReason = reason;
+  }
+
+  async function confirmBlock() {
+    if (!selectedArtist || !blockReason) return;
+
+    isBlocking = true;
+    try {
+      const note = blockEvidence
+        ? `${blockReason}\n\nEvidence: ${blockEvidence}`
+        : blockReason;
+
+      await dnpActions.addArtist(selectedArtist.id, [blockReason.toLowerCase().replace(/\s+/g, '-')], note);
+      closeBlockModal();
+      searchQuery = '';
+      searchResults = [];
+    } catch (e) {
+      console.error('Failed to block artist:', e);
+    }
+    isBlocking = false;
+  }
+
+  // Get first name for greeting
+  $: firstName = $currentUser?.email?.split('@')[0] || 'there';
+  $: blockedArtists = $dnpStore.entries || [];
 </script>
 
-
-
-<div class="min-h-screen bg-uswds-base-lightest">
-  <Navigation />
-
-  <!-- Welcome Message for New Users -->
-  {#if showWelcomeMessage}
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-      <div class="rounded-uswds-md bg-green-50 p-uswds-4 border border-green-200">
-        <div class="flex">
-          <div class="">
-            <svg class="icon-uswds icon-uswds--lg icon-uswds--success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <div class="ml-3 flex-1">
-            <h3 class="text-uswds-sm font-medium text-uswds-green-50">
-              Welcome to No Drake in the House! 🎵
-            </h3>
-            <div class="mt-2 text-uswds-sm text-uswds-green-50">
-              <p>Your account has been created successfully. Get started by connecting your music streaming services and building your first DNP list.</p>
-            </div>
-            <div class="mt-4">
-              <div class="-mx-2 -my-1.5 flex">
-                <button
-                  type="button"
-                  on:click|preventDefault={() => setActiveTab('connections')}
-                  class="bg-green-50 px-2 py-1.5 rounded-uswds-md text-uswds-sm font-medium text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
-                >
-                  Connect Services
-                </button>
-                <button
-                  type="button"
-                  on:click|preventDefault={() => dismissWelcome()}
-                  class="ml-3 bg-green-50 px-2 py-1.5 rounded-uswds-md text-uswds-sm font-medium text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="ml-auto pl-3">
-            <div class="-mx-1.5 -my-1.5">
-              <button
-                type="button"
-                on:click|preventDefault={() => dismissWelcome()}
-                class="flex bg-green-50 rounded-uswds-md p-uswds-1.5 text-uswds-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-green-50 focus:ring-green-600"
-              >
-                <span class="sr-only">Dismiss</span>
-                <svg class="icon-uswds icon-uswds--lg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+<div class="min-h-screen bg-gradient-to-b from-indigo-50 to-white">
+  <!-- Warm welcome header -->
+  <div class="bg-white border-b border-gray-100">
+    <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <h1 class="text-3xl font-bold text-gray-900 mb-2">
+        Hey {firstName}! 👋
+      </h1>
+      <p class="text-lg text-gray-600">
+        Keep your family's music safe and aligned with your values.
+      </p>
     </div>
-  {/if}
+  </div>
 
-  <!-- Main Content -->
-  <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-    <!-- Debug Test Component -->
-    <SimpleTest />
-    
-    {#if $currentRoute === 'overview'}
-      <!-- Overview Tab -->
-      <div class="px-4 py-6 sm:px-0">
-        <div class="grid grid-cols-1 gap-uswds-6 sm:grid-cols-2 lg:grid-cols-3">
-          <!-- Connected Services Card -->
-          <div class="bg-white overflow-hidden shadow rounded-uswds-lg">
-            <div class="p-uswds-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="icon-uswds icon-uswds--lg icon-uswds--neutral" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-uswds-sm font-medium text-uswds-base-darker truncate">
-                      Connected Services
-                    </dt>
-                    <dd class="text-uswds-lg font-medium text-uswds-base-darker">
-                      {$connectedServices.length}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-uswds-base-lightest px-5 py-3">
-              <div class="text-uswds-sm">
-                <button
-                  type="button"
-                  on:click|preventDefault={() => setActiveTab('connections')}
-                  class="font-medium text-indigo-700 hover:text-indigo-900"
-                >
-                  Manage connections
-                </button>
-              </div>
-            </div>
+  <div class="max-w-4xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+    <!-- Main search card - the primary action -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+      <div class="text-center mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">
+          Block an Artist
+        </h2>
+        <p class="text-gray-600">
+          Saw something in the news? Search for the artist and add them to your blocklist.
+        </p>
+      </div>
+
+      <!-- Search input -->
+      <div class="relative max-w-xl mx-auto">
+        <input
+          type="text"
+          bind:value={searchQuery}
+          on:input={handleSearch}
+          placeholder="Search for an artist (e.g., Chris Brown, R. Kelly...)"
+          class="w-full px-5 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
+        />
+        {#if isSearching}
+          <div class="absolute right-4 top-1/2 -translate-y-1/2">
+            <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
+        {/if}
+      </div>
 
-          <!-- DNP List Card -->
-          <div class="bg-white overflow-hidden shadow rounded-uswds-lg">
-            <div class="p-uswds-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="icon-uswds icon-uswds--lg icon-uswds--neutral" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-uswds-sm font-medium text-uswds-base-darker truncate">
-                      Blocked Artists
-                    </dt>
-                    <dd class="text-uswds-lg font-medium text-uswds-base-darker">
-                      {$dnpCount}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-uswds-base-lightest px-5 py-3">
-              <div class="text-uswds-sm">
-                <button
-                  type="button"
-                  on:click|preventDefault={() => setActiveTab('dnp')}
-                  class="font-medium text-indigo-700 hover:text-indigo-900"
-                >
-                  Manage DNP list
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Status Card -->
-          <div class="bg-white overflow-hidden shadow rounded-uswds-lg">
-            <div class="p-uswds-5">
-              <div class="flex items-center">
-                <div class="flex-shrink-0">
-                  <svg class="icon-uswds icon-uswds--lg {$hasActiveSpotifyConnection ? 'icon-uswds--success' : 'icon-uswds--neutral'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div class="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt class="text-uswds-sm font-medium text-uswds-base-darker truncate">
-                      System Status
-                    </dt>
-                    <dd class="text-uswds-lg font-medium text-uswds-base-darker">
-                      {$hasActiveSpotifyConnection ? 'Active' : 'Setup Required'}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-            </div>
-            <div class="bg-uswds-base-lightest px-5 py-3">
-              <div class="text-uswds-sm">
-                {#if !$hasActiveSpotifyConnection}
-                  <button
-                    type="button"
-                    on:click|preventDefault={() => setActiveTab('connections')}
-                    class="font-medium text-indigo-700 hover:text-indigo-900"
-                  >
-                    Connect Spotify
-                  </button>
-                {:else}
-                  <span class="text-uswds-green-50">Ready to use</span>
-                {/if}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="mt-8">
-          <h3 class="text-uswds-lg leading-6 font-medium text-uswds-base-darker mb-4">
-            Quick Actions
-          </h3>
-          <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-2">
+      <!-- Search results -->
+      {#if searchResults.length > 0}
+        <div class="mt-4 max-w-xl mx-auto space-y-2">
+          {#each searchResults as artist}
             <button
               type="button"
-              on:click|preventDefault={() => setActiveTab('dnp')}
-              class="relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              on:click={() => openBlockModal(artist)}
+              class="w-full flex items-center p-4 bg-gray-50 hover:bg-indigo-50 rounded-xl transition-colors text-left group"
             >
-              <svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">
-                Add Artist to DNP List
-              </span>
+              <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-xl mr-4">
+                🎤
+              </div>
+              <div class="flex-1">
+                <div class="font-medium text-gray-900 group-hover:text-indigo-700">
+                  {artist.canonical_name}
+                </div>
+                {#if artist.genres?.length}
+                  <div class="text-sm text-gray-500">
+                    {artist.genres.slice(0, 3).join(', ')}
+                  </div>
+                {/if}
+              </div>
+              <div class="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                Block →
+              </div>
             </button>
-            
-            {#if $hasActiveSpotifyConnection && $dnpCount > 0}
-              <button
-                type="button"
-                on:click|preventDefault={() => setActiveTab('enforcement')}
-                class="relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">
-                  Plan Enforcement
-                </span>
-              </button>
-            {:else}
-              <button
-                type="button"
-                on:click|preventDefault={() => setActiveTab('connections')}
-                class="relative block w-full border-2 border-gray-300 border-dashed rounded-uswds-lg p-uswds-6 text-center hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              >
-                <svg class="icon-uswds icon-uswds--xl icon-uswds--neutral mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                </svg>
-                <span class="mt-2 block text-uswds-sm font-medium text-uswds-base-darker">
-                  Connect Spotify
-                </span>
-              </button>
-            {/if}
+          {/each}
+        </div>
+      {/if}
+
+      {#if searchQuery && !isSearching && searchResults.length === 0}
+        <p class="text-center text-gray-500 mt-4">
+          No artists found. Try a different name.
+        </p>
+      {/if}
+    </div>
+
+    <!-- Stats row -->
+    <div class="grid grid-cols-2 gap-4 mb-8">
+      <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+        <div class="flex items-center">
+          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-2xl mr-4">
+            🚫
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-gray-900">{$dnpCount}</div>
+            <div class="text-sm text-gray-500">Artists blocked</div>
           </div>
         </div>
       </div>
-    {:else if $currentRoute === 'connections'}
-      <ServiceConnections />
-    {:else if $currentRoute === 'dnp'}
-      <DnpManager />
-    {:else if $currentRoute === 'enforcement'}
-      <EnforcementPlanning />
-    {:else if $currentRoute === 'community'}
-      <CommunityLists />
-    {:else if $currentRoute === 'profile'}
-      <UserProfile />
+
+      <button
+        type="button"
+        on:click={() => navigateTo('connections')}
+        class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-indigo-200 transition-colors text-left"
+      >
+        <div class="flex items-center">
+          <div class="w-12 h-12 {$hasActiveSpotifyConnection ? 'bg-green-100' : 'bg-yellow-100'} rounded-full flex items-center justify-center text-2xl mr-4">
+            {$hasActiveSpotifyConnection ? '✅' : '🔗'}
+          </div>
+          <div>
+            <div class="text-lg font-semibold text-gray-900">
+              {$hasActiveSpotifyConnection ? 'Connected' : 'Connect'}
+            </div>
+            <div class="text-sm text-gray-500">
+              {$hasActiveSpotifyConnection ? 'Spotify linked' : 'Link Spotify'}
+            </div>
+          </div>
+        </div>
+      </button>
+    </div>
+
+    <!-- Recent blocks -->
+    {#if blockedArtists.length > 0}
+      <div class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-semibold text-gray-900">Your Blocklist</h3>
+          <button
+            type="button"
+            on:click={() => navigateTo('blocklist')}
+            class="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+          >
+            View all →
+          </button>
+        </div>
+
+        <div class="space-y-3">
+          {#each blockedArtists.slice(0, 5) as entry}
+            <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+              <div class="flex items-start">
+                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-lg mr-3 flex-shrink-0">
+                  🚫
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium text-gray-900">{entry.artist.canonical_name}</div>
+                  {#if entry.note}
+                    <p class="text-sm text-gray-600 mt-1 line-clamp-2">{entry.note}</p>
+                  {/if}
+                  {#if entry.tags?.length}
+                    <div class="flex flex-wrap gap-1 mt-2">
+                      {#each entry.tags.slice(0, 3) as tag}
+                        <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                          {tag}
+                        </span>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    {:else}
+      <!-- Empty state with guidance -->
+      <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8 text-center mb-8">
+        <div class="text-5xl mb-4">🎵</div>
+        <h3 class="text-xl font-semibold text-gray-900 mb-2">
+          Your blocklist is empty
+        </h3>
+        <p class="text-gray-600 max-w-md mx-auto">
+          Use the search above to find and block artists whose behavior doesn't align with your values.
+        </p>
+      </div>
     {/if}
-  </main>
+
+    <!-- Community lists teaser -->
+    <button
+      type="button"
+      on:click={() => navigateTo('community')}
+      class="w-full bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:border-indigo-200 transition-colors text-left"
+    >
+      <div class="flex items-center">
+        <div class="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center text-2xl mr-4">
+          👥
+        </div>
+        <div class="flex-1">
+          <h3 class="font-semibold text-gray-900 mb-1">Community Lists</h3>
+          <p class="text-sm text-gray-600">
+            Browse lists curated by other parents and advocates. Subscribe to stay updated.
+          </p>
+        </div>
+        <div class="text-gray-400 ml-4">→</div>
+      </div>
+    </button>
+  </div>
 </div>
+
+<!-- Block Modal -->
+{#if showBlockModal && selectedArtist}
+  <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" on:click={closeBlockModal} role="dialog" aria-modal="true">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl" on:click|stopPropagation role="document">
+      <div class="flex items-center mb-6">
+        <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-2xl mr-4">
+          🚫
+        </div>
+        <div>
+          <h3 class="text-xl font-bold text-gray-900">Block {selectedArtist.canonical_name}</h3>
+          <p class="text-gray-600">Why are you blocking this artist?</p>
+        </div>
+      </div>
+
+      <!-- Reason selection -->
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        {#each commonReasons as reason}
+          <button
+            type="button"
+            on:click={() => selectReason(reason.label)}
+            class="p-3 rounded-xl border-2 transition-all text-left {
+              blockReason === reason.label
+                ? 'border-indigo-500 bg-indigo-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }"
+          >
+            <span class="text-lg mr-2">{reason.icon}</span>
+            <span class="text-sm font-medium">{reason.label}</span>
+          </button>
+        {/each}
+      </div>
+
+      <!-- Evidence/link input -->
+      <div class="mb-6">
+        <label for="evidence" class="block text-sm font-medium text-gray-700 mb-2">
+          Add evidence or news link (optional)
+        </label>
+        <textarea
+          id="evidence"
+          bind:value={blockEvidence}
+          placeholder="Paste a news article link or describe what happened..."
+          rows="3"
+          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-none"
+        ></textarea>
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3">
+        <button
+          type="button"
+          on:click={closeBlockModal}
+          class="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          on:click={confirmBlock}
+          disabled={!blockReason || isBlocking}
+          class="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {#if isBlocking}
+            Blocking...
+          {:else}
+            Block Artist
+          {/if}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<style>
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

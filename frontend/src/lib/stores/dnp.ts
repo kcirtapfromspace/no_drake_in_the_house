@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store';
+import { apiClient, type ApiResponse } from '../utils/api-client';
 
 export interface Artist {
   id: string;
@@ -66,33 +67,24 @@ export const dnpActions = {
   fetchDnpList: async () => {
     dnpStore.update(state => ({ ...state, isLoading: true, error: null }));
     
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/dnp/list', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        dnpStore.update(state => ({
-          ...state,
-          entries: result.data,
-          isLoading: false,
-        }));
-      } else {
-        dnpStore.update(state => ({
-          ...state,
-          error: result.message,
-          isLoading: false,
-        }));
-      }
-    } catch (error) {
+    const response = await apiClient.authenticatedRequest<DnpEntry[]>(
+      'GET',
+      '/api/v1/dnp/list'
+    );
+    
+    if (response.success && response.data) {
+      // Ensure data is an array
+      const entries = Array.isArray(response.data) ? response.data : [];
       dnpStore.update(state => ({
         ...state,
-        error: 'Failed to fetch DNP list',
+        entries,
+        isLoading: false,
+      }));
+    } else {
+      dnpStore.update(state => ({
+        ...state,
+        entries: [], // Reset to empty array on error
+        error: response.message || 'Failed to fetch DNP list',
         isLoading: false,
       }));
     }
@@ -106,162 +98,103 @@ export const dnpActions = {
 
     dnpStore.update(state => ({ ...state, isSearching: true }));
     
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/dnp/search?q=${encodeURIComponent(query)}&limit=${limit}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        dnpStore.update(state => ({
-          ...state,
-          searchResults: result.data,
-          isSearching: false,
-        }));
-      } else {
-        dnpStore.update(state => ({
-          ...state,
-          error: result.message,
-          isSearching: false,
-        }));
-      }
-    } catch (error) {
+    const response = await apiClient.authenticatedRequest<Artist[]>(
+      'GET',
+      `/api/v1/dnp/search?q=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    
+    if (response.success && response.data) {
       dnpStore.update(state => ({
         ...state,
-        error: 'Artist search failed',
+        searchResults: response.data || [],
+        isSearching: false,
+      }));
+    } else {
+      dnpStore.update(state => ({
+        ...state,
+        error: response.message || 'Artist search failed',
         isSearching: false,
       }));
     }
   },
 
   addArtist: async (artistQuery: string, tags: string[] = [], note?: string) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/dnp/artists', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: artistQuery,
-          tags,
-          note,
-        }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Refresh the DNP list
-        await dnpActions.fetchDnpList();
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.message };
+    const response = await apiClient.authenticatedRequest<DnpEntry>(
+      'POST',
+      '/api/v1/dnp/list',
+      {
+        query: artistQuery,
+        tags,
+        note,
       }
-    } catch (error) {
-      return { success: false, message: 'Failed to add artist to DNP list' };
+    );
+    
+    if (response.success) {
+      // Refresh the DNP list
+      await dnpActions.fetchDnpList();
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, message: response.message || 'Failed to add artist to DNP list' };
     }
   },
 
   removeArtist: async (artistId: string) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/dnp/artists/${artistId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Refresh the DNP list
-        await dnpActions.fetchDnpList();
-        return { success: true };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      return { success: false, message: 'Failed to remove artist from DNP list' };
+    const response = await apiClient.authenticatedRequest<any>(
+      'DELETE',
+      `/api/v1/dnp/list/${artistId}`
+    );
+    
+    if (response.success) {
+      // Refresh the DNP list
+      await dnpActions.fetchDnpList();
+      return { success: true };
+    } else {
+      return { success: false, message: response.message || 'Failed to remove artist from DNP list' };
     }
   },
 
   updateEntry: async (artistId: string, tags: string[], note?: string) => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/dnp/artists/${artistId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ tags, note }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Refresh the DNP list
-        await dnpActions.fetchDnpList();
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      return { success: false, message: 'Failed to update DNP entry' };
+    const response = await apiClient.authenticatedRequest<DnpEntry>(
+      'PUT',
+      `/api/v1/dnp/list/${artistId}`,
+      { tags, note }
+    );
+    
+    if (response.success) {
+      // Refresh the DNP list
+      await dnpActions.fetchDnpList();
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, message: response.message || 'Failed to update DNP entry' };
     }
   },
 
   bulkImport: async (data: string, format: 'csv' | 'json') => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/dnp/import', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ data, format }),
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Refresh the DNP list
-        await dnpActions.fetchDnpList();
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      return { success: false, message: 'Bulk import failed' };
+    const response = await apiClient.authenticatedRequest<any>(
+      'POST',
+      '/api/v1/dnp/import',
+      { data, format }
+    );
+    
+    if (response.success) {
+      // Refresh the DNP list
+      await dnpActions.fetchDnpList();
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, message: response.message || 'Bulk import failed' };
     }
   },
 
   exportList: async (format: 'csv' | 'json' = 'json') => {
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/dnp/export?format=${format}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        return { success: true, data: result.data };
-      } else {
-        return { success: false, message: result.message };
-      }
-    } catch (error) {
-      return { success: false, message: 'Export failed' };
+    const response = await apiClient.authenticatedRequest<any>(
+      'GET',
+      `/api/v1/dnp/export?format=${format}`
+    );
+    
+    if (response.success) {
+      return { success: true, data: response.data };
+    } else {
+      return { success: false, message: response.message || 'Export failed' };
     }
   },
 

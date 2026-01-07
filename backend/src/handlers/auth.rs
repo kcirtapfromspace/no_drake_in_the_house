@@ -3,12 +3,11 @@ use axum::{
     response::Json,
     http::StatusCode,
 };
-use std::sync::Arc;
 use std::time::Instant;
 use serde_json;
 use crate::{
-    AppState, AuthService, Result, AppError,
-    models::{RegisterRequest, LoginRequest, AuthResponse, RefreshTokenRequest, TotpSetupRequest, TotpVerifyRequest},
+    AppState, Result, AppError,
+    models::{RegisterRequest, LoginRequest, AuthResponse, RefreshTokenRequest, TotpVerifyRequest},
     services::registration_monitoring::RegistrationMonitoringService,
 };
 

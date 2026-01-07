@@ -6,6 +6,7 @@ pub mod oauth_encryption;
 pub mod oauth_google;
 pub mod oauth_apple;
 pub mod oauth_github;
+pub mod oauth_spotify;
 pub mod oauth_token_manager;
 pub mod oauth_config_validator;
 pub mod oauth_health_monitor;
@@ -19,11 +20,15 @@ pub mod registration_performance;
 pub mod registration_monitoring;
 pub mod login_performance;
 pub mod user;
+pub mod offense;
 
 pub mod stubs;
 
-// Temporarily disabled services due to SQLx compilation issues
-// These need to be fixed to use the correct SQLx syntax
+// Disabled services - require significant fixes before re-enabling:
+// - Missing model types (ArtistAlias, ArtistResolutionResult, MatchType)
+// - Trait method mismatches (JobHandler::max_execution_time)
+// - Constructor/struct issues
+// - Lifetime bounds problems
 // pub mod entity_resolution;
 // pub mod external_apis;
 // pub mod token_vault;
@@ -48,6 +53,7 @@ pub use oauth_encryption::OAuthTokenEncryption;
 pub use oauth_google::{GoogleOAuthProvider, GoogleOAuthService};
 pub use oauth_apple::{AppleOAuthProvider, AppleOAuthService, AppleOAuthConfig};
 pub use oauth_github::{GitHubOAuthProvider, GitHubOAuthService, GitHubEmail};
+pub use oauth_spotify::SpotifyOAuthProvider;
 pub use oauth_config_validator::{OAuthConfigValidator, OAuthProviderValidation};
 pub use oauth_health_monitor::{OAuthHealthMonitor, OAuthProviderHealth, OAuthProviderHealthStatus, OAuthHealthConfig, RateLimitInfo};
 pub use monitoring::*;
@@ -55,6 +61,7 @@ pub use rate_limiting_middleware::{RateLimitService, registration_rate_limit_mid
 pub use audit_logging::*;
 pub use dnp_list::DnpListService;
 pub use user::UserService;
+pub use offense::OffenseService;
 
 // Export stub services for tests
 pub use stubs::*;

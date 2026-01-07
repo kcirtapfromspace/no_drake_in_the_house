@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use tracing::{info, warn, error};
 
-use crate::error::oauth::{OAuthError, SecurityViolationType, RateLimitType, ClientInfo};
+use crate::error::oauth::OAuthError;
 use crate::models::oauth::OAuthProviderType;
 use crate::{AppError, Result};
 
@@ -177,7 +177,11 @@ impl OAuthErrorRecoveryService {
                 }
                 Err(error) => {
                     attempt += 1;
-                    last_error = Some(error.clone());
+                    // Store error without cloning (since AppError doesn't implement Clone)
+                    // We'll create a new error for storage
+                    last_error = Some(AppError::Internal {
+                        message: Some(format!("OAuth operation failed: {}", error)),
+                    });
 
                     // Check if this is an OAuth error that we can handle
                     if let AppError::OAuth(oauth_error) = &error {
@@ -238,7 +242,7 @@ impl OAuthErrorRecoveryService {
     async fn can_execute_operation(&self, provider: &OAuthProviderType) -> bool {
         let mut circuit_breakers = self.circuit_breakers.write().await;
         let circuit_breaker = circuit_breakers
-            .entry(*provider)
+            .entry(provider.clone())
             .or_insert_with(|| CircuitBreaker::new(self.config.clone()));
         
         circuit_breaker.can_execute()
@@ -256,7 +260,7 @@ impl OAuthErrorRecoveryService {
     async fn record_failure(&self, provider: &OAuthProviderType) {
         let mut circuit_breakers = self.circuit_breakers.write().await;
         let circuit_breaker = circuit_breakers
-            .entry(*provider)
+            .entry(provider.clone())
             .or_insert_with(|| CircuitBreaker::new(self.config.clone()));
         
         circuit_breaker.record_failure();
@@ -308,7 +312,7 @@ impl OAuthErrorRecoveryService {
     /// Provide user guidance for resolving OAuth issues
     pub fn get_user_guidance(&self, oauth_error: &OAuthError) -> UserGuidance {
         match oauth_error {
-            OAuthError::ProviderNotConfigured { provider, missing_variables, .. } => {
+            OAuthError::ProviderNotConfigured { provider,  .. } => {
                 UserGuidance {
                     title: format!("{} Authentication Not Available", provider),
                     message: format!("{} authentication is not configured on this server.", provider),
@@ -492,7 +496,7 @@ impl OAuthSecurityMonitor {
                 OAuthError::SecurityViolation { .. } |
                 OAuthError::CsrfAttackDetected { .. } => {
                     let mut violation_counts = self.violation_counts.write().await;
-                    let count = violation_counts.entry(*provider).or_insert(0);
+                    let count = violation_counts.entry(provider.clone()).or_insert(0);
                     *count += 1;
 
                     warn!(

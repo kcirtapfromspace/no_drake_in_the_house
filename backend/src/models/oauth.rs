@@ -4,11 +4,12 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 /// OAuth provider types supported by the system
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum OAuthProviderType {
     Google,
     Apple,
     GitHub,
+    Spotify,
 }
 
 impl std::fmt::Display for OAuthProviderType {
@@ -17,6 +18,7 @@ impl std::fmt::Display for OAuthProviderType {
             OAuthProviderType::Google => write!(f, "google"),
             OAuthProviderType::Apple => write!(f, "apple"),
             OAuthProviderType::GitHub => write!(f, "github"),
+            OAuthProviderType::Spotify => write!(f, "spotify"),
         }
     }
 }
@@ -29,6 +31,7 @@ impl std::str::FromStr for OAuthProviderType {
             "google" => Ok(OAuthProviderType::Google),
             "apple" => Ok(OAuthProviderType::Apple),
             "github" => Ok(OAuthProviderType::GitHub),
+            "spotify" => Ok(OAuthProviderType::Spotify),
             _ => Err(format!("Unknown OAuth provider: {}", s)),
         }
     }
@@ -80,6 +83,7 @@ pub struct OAuthAccount {
     pub access_token_encrypted: Vec<u8>, // AES-GCM encrypted
     pub refresh_token_encrypted: Option<Vec<u8>>, // AES-GCM encrypted
     pub token_expires_at: Option<DateTime<Utc>>,
+    pub last_used_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -148,6 +152,7 @@ impl OAuthAccount {
             access_token_encrypted,
             refresh_token_encrypted,
             token_expires_at,
+            last_used_at: None,
             created_at: now,
             updated_at: now,
         }
@@ -220,4 +225,70 @@ pub struct TokenRefreshSchedule {
 pub enum RefreshPriority {
     High,   // Expires within 6 hours
     Normal, // Expires within 24 hours
+}
+
+/// OAuth account health information for dashboard display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OAuthAccountHealth {
+    pub provider: OAuthProviderType,
+    pub email: Option<String>,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub connection_status: OAuthConnectionStatus,
+    pub last_used: Option<DateTime<Utc>>,
+    pub token_expires_at: Option<DateTime<Utc>>,
+    pub has_refresh_token: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// OAuth connection status for health monitoring
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum OAuthConnectionStatus {
+    Healthy,
+    ExpiringSoon {
+        expires_at: DateTime<Utc>,
+        hours_remaining: u32,
+    },
+    TokenExpired {
+        expired_at: DateTime<Utc>,
+        has_refresh_token: bool,
+    },
+    Stale {
+        last_used: DateTime<Utc>,
+        days_since_use: u32,
+    },
+    ProviderDegraded {
+        reason: String,
+    },
+    ProviderUnavailable {
+        reason: String,
+    },
+}
+
+/// Target for token expiration notifications
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenNotificationTarget {
+    pub user_id: Uuid,
+    pub email: String,
+    pub provider: OAuthProviderType,
+    pub expires_at: DateTime<Utc>,
+    pub urgency: NotificationUrgency,
+}
+
+/// Notification urgency level
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum NotificationUrgency {
+    High,   // Expires within 24 hours
+    Medium, // Expires within 3 days
+    Low,    // Expires within 7 days
+}
+
+/// Summary of token refresh operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TokenRefreshSummary {
+    pub total_attempted: u32,
+    pub successful_refreshes: u32,
+    pub failed_refreshes: u32,
+    pub errors: Vec<String>,
 }

@@ -1,4 +1,4 @@
-use crate::models::{User, CreateUserRequest, LoginRequest, TokenPair, Claims, TokenType, UserSettings};
+use crate::models::{User, CreateUserRequest, LoginRequest, TokenPair, Claims, UserSettings};
 use anyhow::{Result, anyhow};
 use bcrypt::{hash, verify, DEFAULT_COST};
 use chrono::Utc;

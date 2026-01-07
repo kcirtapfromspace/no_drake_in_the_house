@@ -2,7 +2,6 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::collections::HashMap;
 use std::net::IpAddr;
 use std::str::FromStr;
 use tracing::{debug, error, info, warn};

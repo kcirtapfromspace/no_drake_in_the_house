@@ -4,11 +4,10 @@ use axum::{
     http::StatusCode,
 };
 use serde_json;
-use std::sync::Arc;
 
 use crate::{
     AppState, Result,
-    services::registration_monitoring::{RegistrationMonitoringService, RegistrationHealthStatus},
+    services::registration_monitoring::RegistrationMonitoringService,
     services::registration_performance::RegistrationPerformanceService,
 };
 

@@ -11,6 +11,7 @@ pub mod community_list;
 pub mod rate_limit;
 pub mod audit;
 pub mod notification;
+pub mod offense;
 
 
 use serde::Serialize;

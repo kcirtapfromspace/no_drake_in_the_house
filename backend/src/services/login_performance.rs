@@ -5,12 +5,10 @@ use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use bcrypt::{hash, verify};
 
-use crate::models::{LoginRequest, TokenPair, Claims};
 use crate::{AppError, Result as AppResult};
 
 /// Cached user login data for performance optimization

@@ -5,7 +5,7 @@ use std::env;
 use tracing::{info, warn, error};
 
 /// OAuth provider configuration validation results
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OAuthProviderValidation {
     pub provider: OAuthProviderType,
     pub is_configured: bool,
@@ -36,6 +36,7 @@ impl OAuthConfigValidator {
         self.validate_google_config();
         self.validate_apple_config();
         self.validate_github_config();
+        self.validate_spotify_config();
 
         // Log summary
         self.log_validation_summary();
@@ -331,6 +332,66 @@ impl OAuthConfigValidator {
         self.validation_results.insert(OAuthProviderType::GitHub, validation);
     }
 
+    /// Validate Spotify OAuth configuration
+    fn validate_spotify_config(&mut self) {
+        let mut validation = OAuthProviderValidation {
+            provider: OAuthProviderType::Spotify,
+            is_configured: false,
+            is_valid: false,
+            missing_variables: Vec::new(),
+            validation_errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        // Check required environment variables
+        let client_id = env::var("SPOTIFY_CLIENT_ID");
+        let client_secret = env::var("SPOTIFY_CLIENT_SECRET");
+
+        // Check if all required variables are present
+        if client_id.is_err() {
+            validation.missing_variables.push("SPOTIFY_CLIENT_ID".to_string());
+        }
+        if client_secret.is_err() {
+            validation.missing_variables.push("SPOTIFY_CLIENT_SECRET".to_string());
+        }
+
+        // If any required variables are missing, mark as not configured
+        if !validation.missing_variables.is_empty() {
+            self.validation_results.insert(OAuthProviderType::Spotify, validation);
+            return;
+        }
+
+        // Mark as configured since all required variables are present
+        validation.is_configured = true;
+
+        // Validate configuration values
+        if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
+            // Validate client ID format (Spotify client IDs are typically 32 characters)
+            if client_id.len() != 32 && !client_id.starts_with("demo-") {
+                validation.validation_errors.push(
+                    "SPOTIFY_CLIENT_ID should be exactly 32 characters".to_string()
+                );
+            }
+
+            // Validate client secret format (Spotify client secrets are typically 32 characters)
+            if client_secret.len() != 32 && !client_secret.starts_with("demo-") {
+                validation.validation_errors.push(
+                    "SPOTIFY_CLIENT_SECRET should be exactly 32 characters".to_string()
+                );
+            }
+
+            // Check for development/demo configuration
+            if client_id.starts_with("demo-") || client_secret.starts_with("demo-") {
+                validation.warnings.push("Using demo Spotify OAuth configuration - not suitable for production".to_string());
+            }
+
+            // Configuration is valid if no validation errors
+            validation.is_valid = validation.validation_errors.is_empty();
+        }
+
+        self.validation_results.insert(OAuthProviderType::Spotify, validation);
+    }
+
     /// Log validation summary
     fn log_validation_summary(&self) {
         info!("📋 OAuth Configuration Validation Summary:");
@@ -391,6 +452,16 @@ impl OAuthConfigValidator {
                    - GITHUB_CLIENT_ID=your_client_id\n\
                    - GITHUB_CLIENT_SECRET=your_client_secret\n\
                    - GITHUB_REDIRECT_URI=https://yourdomain.com/auth/callback/github".to_string()
+            }
+            OAuthProviderType::Spotify => {
+                "To configure Spotify OAuth:\n\
+                1. Go to Spotify Developer Dashboard (https://developer.spotify.com/dashboard)\n\
+                2. Create a new application\n\
+                3. Set the redirect URI\n\
+                4. Set environment variables:\n\
+                   - SPOTIFY_CLIENT_ID=your_client_id\n\
+                   - SPOTIFY_CLIENT_SECRET=your_client_secret\n\
+                   - SPOTIFY_REDIRECT_URI=https://yourdomain.com/auth/callback/spotify".to_string()
             }
         }
     }

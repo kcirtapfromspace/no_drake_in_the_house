@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { api } from '../utils/api';
+import { apiClient, type ApiResponse } from '../utils/api-client';
 
 export interface LinkedAccount {
   provider: string;
@@ -70,16 +70,58 @@ export const authActions = {
   login: async (email: string, password: string, totpCode?: string) => {
     authStore.update(state => ({ ...state, isLoading: true }));
     
-    try {
-      const result = await api.post('/auth/login', { 
+    const result = await apiClient.post<{access_token: string, refresh_token: string}>(
+      '/api/v1/auth/login', 
+      { 
         email, 
         password, 
         totp_code: totpCode 
-      });
+      },
+      false // Don't include auth for login
+    );
+    
+    if (result.success && result.data) {
+      const { access_token, refresh_token } = result.data;
+      apiClient.setAuthToken(access_token);
+      localStorage.setItem('refresh_token', refresh_token);
       
-      if (result.success) {
+      authStore.update(state => ({
+        ...state,
+        token: access_token,
+        refreshToken: refresh_token,
+        isAuthenticated: true,
+        isLoading: false,
+        justRegistered: false, // Reset on login
+      }));
+      
+      // Fetch user profile
+      await authActions.fetchProfile();
+      return { success: true };
+    } else {
+      authStore.update(state => ({ ...state, isLoading: false }));
+      return { success: false, message: result.message || 'Login failed' };
+    }
+  },
+
+  register: async (email: string, password: string, confirmPassword: string, termsAccepted: boolean) => {
+    authStore.update(state => ({ ...state, isLoading: true }));
+    
+    const result = await apiClient.post<{access_token?: string, refresh_token?: string, errors?: any}>(
+      '/api/v1/auth/register', 
+      { 
+        email, 
+        password, 
+        confirm_password: confirmPassword,
+        terms_accepted: termsAccepted
+      },
+      false // Don't include auth for registration
+    );
+    
+    if (result.success) {
+      // Check if auto-login was successful (tokens returned)
+      if (result.data?.access_token && result.data?.refresh_token) {
         const { access_token, refresh_token } = result.data;
-        localStorage.setItem('auth_token', access_token);
+        apiClient.setAuthToken(access_token);
         localStorage.setItem('refresh_token', refresh_token);
         
         authStore.update(state => ({
@@ -88,118 +130,58 @@ export const authActions = {
           refreshToken: refresh_token,
           isAuthenticated: true,
           isLoading: false,
-          justRegistered: false, // Reset on login
+          justRegistered: true, // Mark as just registered for better UX
         }));
         
         // Fetch user profile
         await authActions.fetchProfile();
-        return { success: true };
+        return { success: true, autoLogin: true };
       } else {
         authStore.update(state => ({ ...state, isLoading: false }));
-        return { success: false, message: result.message };
+        return { success: true, autoLogin: false, message: result.message };
       }
-    } catch (error: any) {
+    } else {
       authStore.update(state => ({ ...state, isLoading: false }));
-      return { success: false, message: error.message || 'Network error occurred' };
-    }
-  },
-
-  register: async (email: string, password: string, confirmPassword: string, termsAccepted: boolean) => {
-    authStore.update(state => ({ ...state, isLoading: true }));
-    
-    try {
-      const result = await api.post('/auth/register', { 
-        email, 
-        password, 
-        confirm_password: confirmPassword,
-        terms_accepted: termsAccepted
-      });
-      
-      if (result.success) {
-        // Check if auto-login was successful (tokens returned)
-        if (result.data?.access_token && result.data?.refresh_token) {
-          const { access_token, refresh_token } = result.data;
-          localStorage.setItem('auth_token', access_token);
-          localStorage.setItem('refresh_token', refresh_token);
-          
-          authStore.update(state => ({
-            ...state,
-            token: access_token,
-            refreshToken: refresh_token,
-            isAuthenticated: true,
-            isLoading: false,
-            justRegistered: true, // Mark as just registered for better UX
-          }));
-          
-          // Fetch user profile
-          await authActions.fetchProfile();
-          return { success: true, autoLogin: true };
-        } else {
-          authStore.update(state => ({ ...state, isLoading: false }));
-          return { success: true, autoLogin: false, message: result.message };
-        }
-      } else {
-        authStore.update(state => ({ ...state, isLoading: false }));
-        return { 
-          success: false, 
-          message: result.message,
-          errors: result.data?.errors || null
-        };
-      }
-    } catch (error: any) {
-      authStore.update(state => ({ ...state, isLoading: false }));
-      
-      // Handle structured error responses
-      if (error.status === 400 && error.message) {
-        try {
-          const errorData = JSON.parse(error.message);
-          if (errorData.errors) {
-            return { 
-              success: false, 
-              message: errorData.message || 'Registration validation failed',
-              errors: errorData.errors
-            };
-          }
-        } catch (parseError) {
-          // Fall through to generic error handling
-        }
-      }
-      
-      return { success: false, message: error.message || 'Network error occurred' };
+      return { 
+        success: false, 
+        message: result.message || 'Registration failed',
+        errors: result.data?.errors || null
+      };
     }
   },
 
   fetchProfile: async () => {
-    const token = localStorage.getItem('auth_token');
+    const token = apiClient.getAuthToken();
     if (!token) return;
 
-    try {
-      const result = await api.get('/users/profile');
-      
-      if (result.success) {
-        authStore.update(state => ({
-          ...state,
-          user: result.data,
-          isAuthenticated: true,
-        }));
-      }
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
+    const result = await apiClient.authenticatedRequest<User>(
+      'GET',
+      '/api/v1/users/profile'
+    );
+    
+    if (result.success && result.data) {
+      authStore.update(state => ({
+        ...state,
+        user: result.data!,
+        isAuthenticated: true,
+      }));
+    } else {
+      console.error('Failed to fetch profile:', result.message);
     }
   },
 
   logout: async () => {
-    const token = localStorage.getItem('auth_token');
+    const token = apiClient.getAuthToken();
     
     if (token) {
       try {
-        await api.post('/auth/logout');
+        await apiClient.authenticatedRequest('POST', '/api/v1/auth/logout');
       } catch (error) {
         console.error('Logout request failed:', error);
       }
     }
 
-    localStorage.removeItem('auth_token');
+    apiClient.clearAuthToken();
     localStorage.removeItem('refresh_token');
     
     authStore.set({
@@ -209,6 +191,11 @@ export const authActions = {
       isAuthenticated: false,
       isLoading: false,
       justRegistered: false,
+      oauthFlow: {
+        provider: null,
+        state: null,
+        isInProgress: false,
+      },
     });
   },
 
@@ -216,28 +203,29 @@ export const authActions = {
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) return false;
 
-    try {
-      const result = await api.post('/auth/refresh', { refresh_token: refreshToken });
-      
-      if (result.success) {
-        const { access_token, refresh_token: newRefreshToken } = result.data;
-        localStorage.setItem('auth_token', access_token);
-        localStorage.setItem('refresh_token', newRefreshToken);
-        
-        authStore.update(state => ({
-          ...state,
-          token: access_token,
-          refreshToken: newRefreshToken,
-          isAuthenticated: true,
-        }));
-        
-        return true;
-      }
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-    }
+    const result = await apiClient.post<{access_token: string, refresh_token: string}>(
+      '/api/v1/auth/refresh', 
+      { refresh_token: refreshToken },
+      false // Don't include auth for refresh
+    );
     
-    return false;
+    if (result.success && result.data) {
+      const { access_token, refresh_token: newRefreshToken } = result.data;
+      apiClient.setAuthToken(access_token);
+      localStorage.setItem('refresh_token', newRefreshToken);
+      
+      authStore.update(state => ({
+        ...state,
+        token: access_token,
+        refreshToken: newRefreshToken,
+        isAuthenticated: true,
+      }));
+      
+      return true;
+    } else {
+      console.error('Token refresh failed:', result.message);
+      return false;
+    }
   },
 
   // 2FA Management
@@ -474,6 +462,7 @@ export const authActions = {
 if (typeof window !== 'undefined') {
   const token = localStorage.getItem('auth_token');
   if (token) {
+    apiClient.setAuthToken(token);
     authStore.update(state => ({
       ...state,
       token,
@@ -482,4 +471,9 @@ if (typeof window !== 'undefined') {
     }));
     authActions.fetchProfile();
   }
+  
+  // Listen for auth logout events from API client
+  window.addEventListener('auth:logout', () => {
+    authActions.logout();
+  });
 }

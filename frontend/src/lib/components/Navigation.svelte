@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentRoute, navigateTo } from '../utils/simple-router';
+  import { currentRoute, navigateTo, type Route } from '../utils/simple-router';
   import { authActions, currentUser } from '../stores/auth';
   import { dnpCount } from '../stores/dnp';
 
@@ -7,7 +7,7 @@
     authActions.logout();
   }
 
-  function navigate(route: string) {
+  function navigate(route: Route) {
     navigateTo(route);
   }
 </script>

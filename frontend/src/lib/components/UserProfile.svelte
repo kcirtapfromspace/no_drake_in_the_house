@@ -11,6 +11,13 @@
     privacy_mode: boolean;
   }
 
+  interface OAuthAccount {
+    provider: string;
+    display_name?: string;
+    email?: string;
+    linked_at: string;
+  }
+
   interface UserProfile {
     id: string;
     email: string;
@@ -20,6 +27,7 @@
     updated_at: string;
     last_login?: string;
     settings: UserSettings;
+    oauth_accounts?: OAuthAccount[];
   }
 
   let profile: UserProfile | null = null;

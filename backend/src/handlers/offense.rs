@@ -136,3 +136,47 @@ pub async fn get_library(
 pub struct LibraryQuery {
     pub provider: Option<String>,
 }
+
+/// Query parameters for getting artists by category
+#[derive(Debug, Deserialize)]
+pub struct CategoryArtistsQuery {
+    pub category: Option<String>,
+    pub artist_id: Option<Uuid>,
+}
+
+/// Get artists by category or get artist details
+pub async fn get_category_artists(
+    State(state): State<AppState>,
+    Query(query): Query<CategoryArtistsQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let offense_service = OffenseService::new(&state.db_pool);
+
+    // If artist_id is provided, return artist details
+    if let Some(artist_id) = query.artist_id {
+        let details = offense_service.get_artist_details(artist_id).await?;
+        return Ok(Json(serde_json::json!({
+            "success": true,
+            "data": details
+        })));
+    }
+
+    // If category is provided, return artists in that category
+    if let Some(category) = &query.category {
+        let artists = offense_service.get_artists_by_category(category).await?;
+        return Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artists": artists
+            }
+        })));
+    }
+
+    // Neither provided - return all flagged artists
+    let artists = offense_service.get_flagged_artists(None, 100, 0).await?;
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "artists": artists
+        }
+    })))
+}

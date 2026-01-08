@@ -402,4 +402,105 @@ impl<'a> OffenseService<'a> {
 
         Ok(tracks)
     }
+
+    /// Get artists by offense category
+    pub async fn get_artists_by_category(
+        &self,
+        category: &str,
+    ) -> Result<Vec<crate::models::offense::CategoryArtist>> {
+        let artists = sqlx::query_as::<_, crate::models::offense::CategoryArtist>(
+            r#"
+            SELECT DISTINCT ON (a.id)
+                a.id,
+                a.canonical_name as name,
+                ao.category::text as category,
+                ao.severity::text as severity
+            FROM artists a
+            JOIN artist_offenses ao ON a.id = ao.artist_id
+            WHERE ao.category::text = $1
+            AND ao.status IN ('pending', 'verified')
+            ORDER BY a.id, ao.severity DESC
+            "#,
+        )
+        .bind(category)
+        .fetch_all(self.db)
+        .await
+        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+
+        Ok(artists)
+    }
+
+    /// Get full artist details with all offenses and evidence
+    pub async fn get_artist_details(
+        &self,
+        artist_id: Uuid,
+    ) -> Result<crate::models::offense::ArtistDetails> {
+        // Get artist info
+        let artist = sqlx::query_as::<_, (String, Option<serde_json::Value>)>(
+            r#"
+            SELECT canonical_name, metadata
+            FROM artists
+            WHERE id = $1
+            "#,
+        )
+        .bind(artist_id)
+        .fetch_optional(self.db)
+        .await
+        .map_err(|e| AppError::DatabaseQueryFailed(e))?
+        .ok_or_else(|| AppError::NotFound { resource: "Artist".to_string() })?;
+
+        let genres: Vec<String> = artist.1
+            .and_then(|m| m.get("genres").cloned())
+            .and_then(|g| serde_json::from_value(g).ok())
+            .unwrap_or_default();
+
+        // Get all offenses with evidence
+        let offenses = self.get_artist_offenses(artist_id).await?;
+
+        let mut offense_details = Vec::new();
+        for offense in offenses {
+            let evidence = sqlx::query_as::<_, OffenseEvidence>(
+                r#"
+                SELECT id, offense_id, url, source_name, source_type, title, excerpt,
+                       published_date, archived_url, is_primary_source, credibility_score,
+                       submitted_by, created_at
+                FROM offense_evidence
+                WHERE offense_id = $1
+                ORDER BY is_primary_source DESC, credibility_score DESC NULLS LAST
+                "#,
+            )
+            .bind(offense.id)
+            .fetch_all(self.db)
+            .await
+            .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+
+            offense_details.push(crate::models::offense::OffenseDetail {
+                id: offense.id,
+                category: offense.category.to_string(),
+                severity: offense.severity.to_string(),
+                title: offense.title,
+                description: offense.description,
+                incident_date: offense.incident_date,
+                status: offense.status.to_string(),
+                evidence: evidence.into_iter().map(|e| crate::models::offense::EvidenceDetail {
+                    id: e.id,
+                    source_url: e.url,
+                    source_name: e.source_name,
+                    source_type: e.source_type,
+                    title: e.title,
+                    excerpt: e.excerpt,
+                    published_date: e.published_date,
+                    credibility_score: e.credibility_score,
+                }).collect(),
+            });
+        }
+
+        Ok(crate::models::offense::ArtistDetails {
+            id: artist_id,
+            canonical_name: artist.0,
+            genres: if genres.is_empty() { None } else { Some(genres) },
+            image_url: None,
+            offenses: offense_details,
+        })
+    }
 }

@@ -13,6 +13,7 @@ export type Route =
   | 'community'
   | 'sync'
   | 'analytics'
+  | 'revenue-impact'
   | 'graph'
   | 'oauth-callback'
   | 'oauth-error'
@@ -34,6 +35,7 @@ const pathToRoute: Record<string, Route> = {
   '/community': 'community',
   '/sync': 'sync',
   '/analytics': 'analytics',
+  '/revenue-impact': 'revenue-impact',
   '/graph': 'graph',
   '/overview': 'overview',
   '/dnp': 'dnp',
@@ -52,6 +54,7 @@ const routeToPath: Record<Route, string> = {
   'community': '/community',
   'sync': '/sync',
   'analytics': '/analytics',
+  'revenue-impact': '/revenue-impact',
   'graph': '/graph',
   'oauth-callback': '/auth/callback',
   'oauth-error': '/auth/error',
@@ -73,6 +76,7 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'community': { title: 'Community', description: 'Community lists' },
   'sync': { title: 'Catalog Sync', description: 'Synchronize artist catalogs across platforms' },
   'analytics': { title: 'Analytics', description: 'View system metrics and trends' },
+  'revenue-impact': { title: 'Revenue Impact', description: 'See where your streaming revenue goes' },
   'graph': { title: 'Graph Explorer', description: 'Explore artist collaboration networks' },
   'oauth-callback': { title: 'Connecting...', description: 'Processing authentication' },
   'oauth-error': { title: 'Connection Error', description: 'There was a problem connecting' },

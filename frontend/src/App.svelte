@@ -8,6 +8,7 @@
 	import OAuthCallback from "./lib/components/OAuthCallback.svelte";
 	import SyncDashboard from "./lib/components/SyncDashboard.svelte";
 	import AnalyticsDashboard from "./lib/components/AnalyticsDashboard.svelte";
+	import RevenueImpact from "./lib/components/RevenueImpact.svelte";
 	import GraphExplorer from "./lib/components/GraphExplorer.svelte";
 
 	let isInitialized = false;
@@ -54,6 +55,8 @@
 		<SyncDashboard />
 	{:else if $currentRoute === 'analytics'}
 		<AnalyticsDashboard />
+	{:else if $currentRoute === 'revenue-impact'}
+		<RevenueImpact />
 	{:else if $currentRoute === 'graph'}
 		<GraphExplorer />
 	{:else}

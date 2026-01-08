@@ -147,16 +147,35 @@ pub use graph_service::{
 
 // Export analytics service components
 pub use analytics_service::{
-    DashboardMetrics,
     // Dashboard
+    DashboardMetrics,
     DashboardService,
+    // Reporting
     Report,
     ReportType,
-    // Reporting
     ReportingService,
-    TimeRange,
+    // Revenue tracking
+    ArtistRevenueBreakdown,
+    GlobalArtistRevenue,
+    PayoutRate,
+    PlatformRevenue,
+    RevenuePlatform,
+    RevenueService,
+    UserPlaycount,
+    UserRevenueDistribution,
     // Trends
+    TimeRange,
     TrendAnalysisService,
     TrendData,
     TrendDirection,
+    // Trouble scores
+    ArtistTroubleScore,
+    RecalculationSummary,
+    ScoreHistoryEntry,
+    ScoreWeights,
+    TierDistribution,
+    TroubleLeaderboardEntry,
+    TroubleScoreComponents,
+    TroubleScoreService,
+    TroubleTier,
 };

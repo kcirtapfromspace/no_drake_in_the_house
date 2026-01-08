@@ -56,7 +56,10 @@ base64 = "0.21"
 # Let Cargo resolve dependencies naturally with latest Rust
 
 # Database dependencies
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "sqlite", "uuid", "chrono", "json", "ipnetwork"] }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "sqlite", "uuid", "chrono", "json", "ipnetwork", "rust_decimal"] }
+
+# Decimal handling for currency
+rust_decimal = { version = "1.36", features = ["serde", "serde-with-str"] }
 
 # Redis dependencies for job queues and rate limiting
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }

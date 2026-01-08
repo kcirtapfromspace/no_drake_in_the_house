@@ -542,6 +542,398 @@ pub struct ExportQuery {
 // Metrics Endpoints (Prometheus-compatible)
 // ============================================================================
 
+// ============================================================================
+// Trouble Score Endpoints
+// ============================================================================
+
+/// Query parameters for trouble score requests
+#[derive(Debug, Deserialize)]
+pub struct TroubleScoreQuery {
+    #[serde(default = "default_limit")]
+    pub limit: i32,
+    #[serde(default)]
+    pub offset: i32,
+    /// Filter by tier: low, moderate, high, critical
+    pub min_tier: Option<String>,
+}
+
+/// Get trouble score for a specific artist
+pub async fn get_artist_trouble_score_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(artist_id = %artist_id, "Get artist trouble score request");
+
+    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+
+    match service.get_artist_score(artist_id).await {
+        Ok(Some(score)) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": score
+        }))),
+        Ok(None) => Ok(Json(serde_json::json!({
+            "success": false,
+            "error": "No trouble score found for this artist"
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get trouble score: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get trouble score leaderboard
+pub async fn get_trouble_leaderboard_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Query(query): Query<TroubleScoreQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        limit = query.limit,
+        offset = query.offset,
+        min_tier = ?query.min_tier,
+        "Get trouble leaderboard request"
+    );
+
+    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+
+    let min_tier = query.min_tier.as_ref().map(|t| {
+        match t.to_lowercase().as_str() {
+            "critical" => crate::services::TroubleTier::Critical,
+            "high" => crate::services::TroubleTier::High,
+            "moderate" => crate::services::TroubleTier::Moderate,
+            _ => crate::services::TroubleTier::Low,
+        }
+    });
+
+    match service.get_leaderboard(min_tier, query.limit, query.offset).await {
+        Ok(leaderboard) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "entries": leaderboard,
+                "limit": query.limit,
+                "offset": query.offset
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get leaderboard: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get trouble tier distribution
+pub async fn get_tier_distribution_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Get tier distribution request");
+
+    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+
+    match service.get_tier_distribution().await {
+        Ok(distribution) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": distribution
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get tier distribution: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Recalculate trouble scores (admin endpoint)
+pub async fn recalculate_trouble_scores_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    tracing::info!("Recalculate trouble scores request");
+
+    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+
+    match service.recalculate_all().await {
+        Ok(summary) => Ok((
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "data": summary
+            })),
+        )),
+        Err(e) => {
+            tracing::error!("Failed to recalculate scores: {}", e);
+            Ok((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": e.to_string()
+                })),
+            ))
+        }
+    }
+}
+
+/// Get artist score history
+pub async fn get_artist_score_history_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    _user: AuthenticatedUser,
+    Query(query): Query<TroubleScoreQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(artist_id = %artist_id, "Get artist score history request");
+
+    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+
+    match service.get_score_history(artist_id, query.limit).await {
+        Ok(history) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artist_id": artist_id,
+                "history": history
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get score history: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+// ============================================================================
+// Revenue Tracking Endpoints
+// ============================================================================
+
+/// Query parameters for revenue requests
+#[derive(Debug, Deserialize)]
+pub struct RevenueQuery {
+    #[serde(default = "default_days")]
+    pub days: i32,
+    #[serde(default = "default_limit")]
+    pub limit: i32,
+    pub platform: Option<String>,
+    /// Filter by trouble tier: low, moderate, high, critical
+    pub min_tier: Option<String>,
+}
+
+fn default_days() -> i32 {
+    30
+}
+
+/// Get user's revenue distribution
+pub async fn get_user_revenue_distribution_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(user_id = %user.id, days = query.days, "Get user revenue distribution request");
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    let platform = query.platform.as_ref().and_then(|p| {
+        crate::services::RevenuePlatform::from_str(p)
+    });
+
+    match service.get_user_revenue_distribution(user.id, platform, query.days).await {
+        Ok(distribution) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": distribution
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get revenue distribution: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get user's top artists by revenue
+pub async fn get_user_top_artists_revenue_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        user_id = %user.id,
+        days = query.days,
+        limit = query.limit,
+        "Get user top artists by revenue"
+    );
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    match service.get_user_top_artists(user.id, query.days, query.limit).await {
+        Ok(artists) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artists": artists,
+                "period_days": query.days
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get top artists: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get user's revenue to problematic artists
+pub async fn get_user_problematic_revenue_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        user_id = %user.id,
+        days = query.days,
+        min_tier = ?query.min_tier,
+        "Get user problematic artist revenue"
+    );
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    let min_tier = match query.min_tier.as_ref().map(|t| t.to_lowercase()).as_deref() {
+        Some("critical") => crate::services::TroubleTier::Critical,
+        Some("high") => crate::services::TroubleTier::High,
+        _ => crate::services::TroubleTier::Moderate,
+    };
+
+    match service.get_user_problematic_artists(user.id, min_tier, query.days, query.limit).await {
+        Ok(artists) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artists": artists,
+                "min_tier": format!("{:?}", min_tier),
+                "period_days": query.days
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get problematic revenue: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get revenue breakdown for a specific artist
+pub async fn get_artist_revenue_breakdown_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        artist_id = %artist_id,
+        user_id = %user.id,
+        "Get artist revenue breakdown"
+    );
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    match service.get_artist_revenue(user.id, artist_id, query.days).await {
+        Ok(breakdown) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": breakdown
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get artist revenue: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get all platform payout rates
+pub async fn get_payout_rates_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Get payout rates request");
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    match service.get_all_payout_rates().await {
+        Ok(rates) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "rates": rates,
+                "note": "Rates are estimates based on industry reports and may vary"
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get payout rates: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get global problematic artist revenue leaderboard
+pub async fn get_global_problematic_revenue_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        days = query.days,
+        min_tier = ?query.min_tier,
+        "Get global problematic revenue leaderboard"
+    );
+
+    let service = crate::services::RevenueService::new(state.db_pool.clone());
+
+    let min_tier = match query.min_tier.as_ref().map(|t| t.to_lowercase()).as_deref() {
+        Some("critical") => crate::services::TroubleTier::Critical,
+        Some("high") => crate::services::TroubleTier::High,
+        _ => crate::services::TroubleTier::Moderate,
+    };
+
+    match service.get_problematic_revenue_leaderboard(min_tier, query.days, query.limit).await {
+        Ok(leaderboard) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "leaderboard": leaderboard,
+                "min_tier": format!("{:?}", min_tier),
+                "period_days": query.days
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get revenue leaderboard: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+// ============================================================================
+// Metrics Endpoints (Prometheus-compatible)
+// ============================================================================
+
 /// Get metrics in Prometheus format
 pub async fn get_metrics_handler(State(_state): State<AppState>) -> Result<String> {
     tracing::debug!("Get metrics request");

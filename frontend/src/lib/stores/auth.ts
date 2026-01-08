@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { apiClient, type ApiResponse } from '../utils/api-client';
+import { apiClient } from '../utils/api-client';
 
 export interface LinkedAccount {
   provider: string;
@@ -231,13 +231,13 @@ export const authActions = {
   // 2FA Management
   setup2FA: async () => {
     try {
-      const result = await api.post('/auth/2fa/setup');
-      
-      if (result.success) {
-        return { 
-          success: true, 
+      const result = await apiClient.authenticatedRequest<{qr_code_url: string, secret: string}>('POST', '/api/v1/auth/2fa/setup');
+
+      if (result.success && result.data) {
+        return {
+          success: true,
           qrCodeUrl: result.data.qr_code_url,
-          secret: result.data.secret 
+          secret: result.data.secret
         };
       } else {
         return { success: false, message: result.message };
@@ -249,8 +249,8 @@ export const authActions = {
 
   verify2FA: async (code: string) => {
     try {
-      const result = await api.post('/auth/2fa/verify', { totp_code: code });
-      
+      const result = await apiClient.authenticatedRequest('POST', '/api/v1/auth/2fa/verify', { totp_code: code });
+
       if (result.success) {
         // Update user profile to reflect 2FA is now enabled
         await authActions.fetchProfile();
@@ -265,8 +265,8 @@ export const authActions = {
 
   disable2FA: async (code: string) => {
     try {
-      const result = await api.post('/auth/2fa/disable', { totp_code: code });
-      
+      const result = await apiClient.authenticatedRequest('POST', '/api/v1/auth/2fa/disable', { totp_code: code });
+
       if (result.success) {
         // Update user profile to reflect 2FA is now disabled
         await authActions.fetchProfile();
@@ -299,14 +299,14 @@ export const authActions = {
     }));
 
     try {
-      const result = await api.post(`/auth/oauth/${provider}/initiate`);
-      
-      if (result.success) {
+      const result = await apiClient.post<{authorization_url: string, state: string}>(`/api/v1/auth/oauth/${provider}/initiate`, undefined, false);
+
+      if (result.success && result.data) {
         const { authorization_url, state } = result.data;
-        
+
         // Store state for validation
         sessionStorage.setItem(`oauth_state_${provider}`, state);
-        
+
         authStore.update(authState => ({
           ...authState,
           oauthFlow: {
@@ -314,10 +314,10 @@ export const authActions = {
             state,
           },
         }));
-        
+
         // Redirect to OAuth provider
         window.location.href = authorization_url;
-        
+
         return { success: true };
       } else {
         authStore.update(state => ({
@@ -351,19 +351,19 @@ export const authActions = {
         throw new Error('Invalid state parameter - possible CSRF attack');
       }
 
-      const result = await api.post(`/auth/oauth/${provider}/callback`, {
+      const result = await apiClient.post<{access_token: string, refresh_token: string}>(`/api/v1/auth/oauth/${provider}/callback`, {
         code,
         state,
         redirect_uri: window.location.origin + window.location.pathname,
-      });
+      }, false);
 
-      if (result.success) {
+      if (result.success && result.data) {
         const { access_token, refresh_token } = result.data;
-        
+
         // Store tokens
         localStorage.setItem('auth_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
-        
+
         // Update auth store
         authStore.update(authState => ({
           ...authState,
@@ -376,13 +376,13 @@ export const authActions = {
             isInProgress: false,
           },
         }));
-        
+
         // Clean up stored state
         sessionStorage.removeItem(`oauth_state_${provider}`);
-        
+
         // Fetch user profile
         await authActions.fetchProfile();
-        
+
         return { success: true };
       } else {
         throw new Error(result.message || 'OAuth authentication failed');
@@ -390,7 +390,7 @@ export const authActions = {
     } catch (error: any) {
       // Clean up on error
       sessionStorage.removeItem(`oauth_state_${provider}`);
-      
+
       authStore.update(state => ({
         ...state,
         oauthFlow: {
@@ -399,25 +399,25 @@ export const authActions = {
           isInProgress: false,
         },
       }));
-      
+
       return { success: false, message: error.message || 'Authentication failed' };
     }
   },
 
   linkOAuthAccount: async (provider: string) => {
     try {
-      const result = await api.post(`/auth/oauth/${provider}/link`);
-      
-      if (result.success) {
+      const result = await apiClient.authenticatedRequest<{authorization_url: string, state: string}>('POST', `/api/v1/auth/oauth/${provider}/link`);
+
+      if (result.success && result.data) {
         const { authorization_url, state } = result.data;
-        
+
         // Store state for validation
         sessionStorage.setItem(`oauth_link_state_${provider}`, state);
-        
-        return { 
-          success: true, 
+
+        return {
+          success: true,
           authorization_url,
-          state 
+          state
         };
       } else {
         return { success: false, message: result.message };
@@ -429,8 +429,8 @@ export const authActions = {
 
   unlinkOAuthAccount: async (provider: string) => {
     try {
-      const result = await api.delete(`/auth/oauth/${provider}/unlink`);
-      
+      const result = await apiClient.authenticatedRequest('DELETE', `/api/v1/auth/oauth/${provider}/unlink`);
+
       if (result.success) {
         // Refresh user profile to update linked accounts
         await authActions.fetchProfile();
@@ -445,8 +445,8 @@ export const authActions = {
 
   getLinkedAccounts: async () => {
     try {
-      const result = await api.get('/auth/oauth/accounts');
-      
+      const result = await apiClient.authenticatedRequest<LinkedAccount[]>('GET', '/api/v1/auth/oauth/accounts');
+
       if (result.success) {
         return { success: true, data: result.data };
       } else {

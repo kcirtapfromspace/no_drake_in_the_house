@@ -6,6 +6,9 @@
 	import Home from "./lib/components/Home.svelte";
 	import Settings from "./lib/components/Settings.svelte";
 	import OAuthCallback from "./lib/components/OAuthCallback.svelte";
+	import SyncDashboard from "./lib/components/SyncDashboard.svelte";
+	import AnalyticsDashboard from "./lib/components/AnalyticsDashboard.svelte";
+	import GraphExplorer from "./lib/components/GraphExplorer.svelte";
 
 	let isInitialized = false;
 
@@ -47,6 +50,12 @@
 {:else if $isAuthenticated}
 	{#if $currentRoute === 'settings'}
 		<Settings />
+	{:else if $currentRoute === 'sync'}
+		<SyncDashboard />
+	{:else if $currentRoute === 'analytics'}
+		<AnalyticsDashboard />
+	{:else if $currentRoute === 'graph'}
+		<GraphExplorer />
 	{:else}
 		<Home />
 	{/if}

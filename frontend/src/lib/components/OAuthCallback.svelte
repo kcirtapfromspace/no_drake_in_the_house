@@ -47,7 +47,7 @@
         }, 1500);
       } else {
         status = 'error';
-        errorMessage = result.error || 'Failed to link account';
+        errorMessage = result.message || 'Failed to link account';
       }
     } catch (e) {
       status = 'error';

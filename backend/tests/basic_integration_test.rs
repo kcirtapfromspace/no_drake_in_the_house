@@ -1,8 +1,3 @@
-use music_streaming_blocklist_backend::{
-    services::AuthService,
-    initialize_database,
-    DatabaseConfig,
-};
 use axum::{
     body::Body,
     http::{Request, StatusCode},
@@ -10,8 +5,11 @@ use axum::{
     routing::get,
     Router,
 };
-use tower::ServiceExt;
+use music_streaming_blocklist_backend::{
+    initialize_database, services::AuthService, DatabaseConfig,
+};
 use serde_json::{json, Value};
+use tower::ServiceExt;
 
 // Simple health check test without database dependency
 #[tokio::test]
@@ -52,12 +50,12 @@ async fn simple_health_check() -> axum::Json<Value> {
 // async fn test_database_connection() {
 //     // Test that we can connect to the database
 //     let pool = test_config::create_test_pool().await;
-//     
+//
 //     // Simple query to verify connection
 //     let result = sqlx::query!("SELECT 1 as test_value")
 //         .fetch_one(&pool)
 //         .await;
-//     
+//
 //     assert!(result.is_ok());
 //     assert_eq!(result.unwrap().test_value, Some(1));
 // }
@@ -66,13 +64,15 @@ async fn simple_health_check() -> axum::Json<Value> {
 async fn test_auth_service_creation() {
     // Test that we can create an auth service
     let config = DatabaseConfig::default();
-    let pool = initialize_database(config).await.expect("Failed to initialize database");
+    let pool = initialize_database(config)
+        .await
+        .expect("Failed to initialize database");
     let auth_service = AuthService::new(pool);
-    
+
     // Test basic functionality
     let test_token = "test_token";
     let result = auth_service.verify_token(test_token);
-    
+
     // Should fail with invalid token (which is expected)
     assert!(result.is_err());
 }
@@ -80,16 +80,10 @@ async fn test_auth_service_creation() {
 #[tokio::test]
 async fn test_basic_routing() {
     // Create a simple router
-    let app = Router::new()
-        .route("/test", get(|| async { "Hello, World!" }));
+    let app = Router::new().route("/test", get(|| async { "Hello, World!" }));
 
     let response = app
-        .oneshot(
-            Request::builder()
-                .uri("/test")
-                .body(Body::empty())
-                .unwrap(),
-        )
+        .oneshot(Request::builder().uri("/test").body(Body::empty()).unwrap())
         .await
         .unwrap();
 

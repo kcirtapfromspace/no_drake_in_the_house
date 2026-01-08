@@ -23,8 +23,7 @@ pub struct DuckDbClient {
 impl DuckDbClient {
     /// Create a new DuckDB client with persistent storage
     pub fn new(db_path: &str) -> Result<Self> {
-        let conn = Connection::open(db_path)
-            .context("Failed to open DuckDB database")?;
+        let conn = Connection::open(db_path).context("Failed to open DuckDB database")?;
 
         let client = Self {
             conn: Arc::new(RwLock::new(conn)),
@@ -36,8 +35,7 @@ impl DuckDbClient {
 
     /// Create an in-memory DuckDB client (for testing)
     pub fn in_memory() -> Result<Self> {
-        let conn = Connection::open_in_memory()
-            .context("Failed to open in-memory DuckDB")?;
+        let conn = Connection::open_in_memory().context("Failed to open in-memory DuckDB")?;
 
         let client = Self {
             conn: Arc::new(RwLock::new(conn)),
@@ -367,7 +365,12 @@ impl DuckDbClient {
     }
 
     /// Run a custom analytics query
-    pub async fn query<T, F>(&self, sql: &str, params: &[&dyn duckdb::ToSql], mapper: F) -> Result<Vec<T>>
+    pub async fn query<T, F>(
+        &self,
+        sql: &str,
+        params: &[&dyn duckdb::ToSql],
+        mapper: F,
+    ) -> Result<Vec<T>>
     where
         F: Fn(&duckdb::Row) -> Result<T, duckdb::Error>,
     {

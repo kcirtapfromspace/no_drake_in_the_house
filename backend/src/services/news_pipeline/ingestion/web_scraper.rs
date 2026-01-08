@@ -87,10 +87,13 @@ impl Default for WebScraperConfig {
             "default".to_string(),
             SiteSelectors {
                 title: "h1, article h1, .article-title, .post-title".to_string(),
-                content: "article, .article-content, .post-content, .entry-content, main".to_string(),
+                content: "article, .article-content, .post-content, .entry-content, main"
+                    .to_string(),
                 author: Some(".author, .byline, [rel='author']".to_string()),
                 date: Some("time[datetime], .date, .published".to_string()),
-                image: Some("article img, .featured-image img, meta[property='og:image']".to_string()),
+                image: Some(
+                    "article img, .featured-image img, meta[property='og:image']".to_string(),
+                ),
             },
         );
 
@@ -173,8 +176,8 @@ impl WebScraper {
 
     /// Scrape a URL
     pub async fn scrape(&self, url: &str) -> Result<ScrapedContent> {
-        let domain = Self::extract_domain(url)
-            .ok_or_else(|| anyhow::anyhow!("Invalid URL: {}", url))?;
+        let domain =
+            Self::extract_domain(url).ok_or_else(|| anyhow::anyhow!("Invalid URL: {}", url))?;
 
         self.respect_crawl_delay(&domain).await;
 

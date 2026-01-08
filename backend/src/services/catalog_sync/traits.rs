@@ -415,9 +415,6 @@ mod tests {
             CollaborationType::from_title("Song Title (Remix)"),
             Some(CollaborationType::Remix)
         );
-        assert_eq!(
-            CollaborationType::from_title("Regular Song"),
-            None
-        );
+        assert_eq!(CollaborationType::from_title("Regular Song"), None);
     }
 }

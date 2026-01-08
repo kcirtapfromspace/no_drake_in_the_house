@@ -1,16 +1,15 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
-use uuid::Uuid;
+use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use base64::{Engine as _, engine::general_purpose};
+use std::collections::HashMap;
+use uuid::Uuid;
 
+use crate::error::{AppError, Result};
 use crate::models::oauth::{
-    OAuthProviderType, OAuthTokens, OAuthUserInfo, OAuthFlowResponse, 
-    OAuthConfig
+    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 use crate::services::oauth::OAuthProvider;
-use crate::error::{AppError, Result};
 
 /// Spotify OAuth provider implementation
 pub struct SpotifyOAuthProvider {
@@ -56,12 +55,12 @@ impl SpotifyOAuthProvider {
 
     /// Create a Spotify OAuth provider with environment variables
     pub fn new() -> Result<Self> {
-        let client_id = std::env::var("SPOTIFY_CLIENT_ID")
-            .map_err(|_| AppError::ConfigurationError {
+        let client_id =
+            std::env::var("SPOTIFY_CLIENT_ID").map_err(|_| AppError::ConfigurationError {
                 message: "SPOTIFY_CLIENT_ID environment variable is required".to_string(),
             })?;
-        let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET")
-            .map_err(|_| AppError::ConfigurationError {
+        let client_secret =
+            std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
                 message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
             })?;
         let redirect_uri = std::env::var("SPOTIFY_REDIRECT_URI")
@@ -132,9 +131,14 @@ impl OAuthProvider for SpotifyOAuthProvider {
         })
     }
 
-    async fn exchange_code(&self, code: &str, state: &str, redirect_uri: &str) -> Result<OAuthTokens> {
+    async fn exchange_code(
+        &self,
+        code: &str,
+        state: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens> {
         let token_url = "https://accounts.spotify.com/api/token";
-        
+
         // Prepare the request body
         let params = [
             ("grant_type", "authorization_code"),
@@ -146,26 +150,29 @@ impl OAuthProvider for SpotifyOAuthProvider {
         let auth_string = format!("{}:{}", self.config.client_id, self.config.client_secret);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let response = self.client
+        let response = self
+            .client
             .post(token_url)
             .header("Authorization", auth_header)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to exchange code: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to exchange code: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(AppError::ExternalServiceError(format!(
-                "Spotify token exchange failed: {}", error_text
+                "Spotify token exchange failed: {}",
+                error_text
             )));
         }
 
-        let token_response: SpotifyTokenResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse token response: {}", e)))?;
+        let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse token response: {}", e))
+        })?;
 
         Ok(OAuthTokens {
             access_token: token_response.access_token,
@@ -180,27 +187,31 @@ impl OAuthProvider for SpotifyOAuthProvider {
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
         let user_url = "https://api.spotify.com/v1/me";
 
-        let response = self.client
+        let response = self
+            .client
             .get(user_url)
             .header("Authorization", format!("Bearer {}", access_token))
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to get user info: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to get user info: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(AppError::ExternalServiceError(format!(
-                "Spotify user info request failed: {}", error_text
+                "Spotify user info request failed: {}",
+                error_text
             )));
         }
 
-        let user_profile: SpotifyUserProfile = response
-            .json()
-            .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse user profile: {}", e)))?;
+        let user_profile: SpotifyUserProfile = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse user profile: {}", e))
+        })?;
 
         // Get avatar URL from images
-        let avatar_url = user_profile.images
+        let avatar_url = user_profile
+            .images
             .as_ref()
             .and_then(|images| images.first())
             .map(|image| image.url.clone());
@@ -225,7 +236,7 @@ impl OAuthProvider for SpotifyOAuthProvider {
 
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens> {
         let token_url = "https://accounts.spotify.com/api/token";
-        
+
         let params = [
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),
@@ -235,30 +246,35 @@ impl OAuthProvider for SpotifyOAuthProvider {
         let auth_string = format!("{}:{}", self.config.client_id, self.config.client_secret);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let response = self.client
+        let response = self
+            .client
             .post(token_url)
             .header("Authorization", auth_header)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to refresh token: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to refresh token: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let error_text = response.text().await.unwrap_or_default();
             return Err(AppError::ExternalServiceError(format!(
-                "Spotify token refresh failed: {}", error_text
+                "Spotify token refresh failed: {}",
+                error_text
             )));
         }
 
-        let token_response: SpotifyTokenResponse = response
-            .json()
-            .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e)))?;
+        let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e))
+        })?;
 
         Ok(OAuthTokens {
             access_token: token_response.access_token,
-            refresh_token: token_response.refresh_token.or_else(|| Some(refresh_token.to_string())), // Keep old refresh token if new one not provided
+            refresh_token: token_response
+                .refresh_token
+                .or_else(|| Some(refresh_token.to_string())), // Keep old refresh token if new one not provided
             expires_in: Some(token_response.expires_in),
             token_type: token_response.token_type,
             scope: Some(token_response.scope),
@@ -294,14 +310,14 @@ impl OAuthProvider for SpotifyOAuthProvider {
 
 /// Create a Spotify OAuth provider with default configuration
 pub fn create_spotify_oauth_provider() -> Result<SpotifyOAuthProvider> {
-    let client_id = std::env::var("SPOTIFY_CLIENT_ID")
-        .map_err(|_| AppError::InvalidFieldValue {
+    let client_id =
+        std::env::var("SPOTIFY_CLIENT_ID").map_err(|_| AppError::InvalidFieldValue {
             field: "SPOTIFY_CLIENT_ID".to_string(),
             message: "SPOTIFY_CLIENT_ID environment variable is required".to_string(),
         })?;
 
-    let client_secret = std::env::var("SPOTIFY_CLIENT_SECRET")
-        .map_err(|_| AppError::InvalidFieldValue {
+    let client_secret =
+        std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::InvalidFieldValue {
             field: "SPOTIFY_CLIENT_SECRET".to_string(),
             message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
         })?;

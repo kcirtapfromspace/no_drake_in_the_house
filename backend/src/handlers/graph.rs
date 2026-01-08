@@ -10,8 +10,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, AppState, Result};
 use crate::models::AuthenticatedUser;
+use crate::{AppError, AppState, Result};
 
 /// Query parameters for network requests
 #[derive(Debug, Deserialize)]

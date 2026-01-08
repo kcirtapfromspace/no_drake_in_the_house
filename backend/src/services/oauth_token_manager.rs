@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::interval;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
-use crate::services::auth::AuthService;
 use crate::error::Result;
+use crate::services::auth::AuthService;
 
 /// Background service for managing OAuth token lifecycle
 pub struct OAuthTokenManager {
@@ -80,10 +80,10 @@ impl OAuthTokenManager {
     /// Run the token refresh task
     async fn run_refresh_task(auth_service: Arc<AuthService>, refresh_interval: Duration) {
         let mut interval = interval(refresh_interval);
-        
+
         loop {
             interval.tick().await;
-            
+
             match auth_service.refresh_all_expired_tokens().await {
                 Ok(refreshed_count) => {
                     if refreshed_count > 0 {
@@ -106,10 +106,10 @@ impl OAuthTokenManager {
     /// Run the token cleanup task
     async fn run_cleanup_task(auth_service: Arc<AuthService>, cleanup_interval: Duration) {
         let mut interval = interval(cleanup_interval);
-        
+
         loop {
             interval.tick().await;
-            
+
             match auth_service.cleanup_expired_tokens().await {
                 Ok(cleaned_count) => {
                     if cleaned_count > 0 {
@@ -132,10 +132,10 @@ impl OAuthTokenManager {
     /// Run the token monitoring and proactive refresh task
     async fn run_monitoring_task(auth_service: Arc<AuthService>, monitoring_interval: Duration) {
         let mut interval = interval(monitoring_interval);
-        
+
         loop {
             interval.tick().await;
-            
+
             // Execute proactive token refresh for high-priority tokens
             match auth_service.execute_proactive_token_refresh().await {
                 Ok(summary) => {
@@ -146,7 +146,7 @@ impl OAuthTokenManager {
                             failed = summary.failed_refreshes,
                             "OAuth token monitoring cycle completed"
                         );
-                        
+
                         // Log any errors for debugging
                         if !summary.errors.is_empty() {
                             warn!(
@@ -179,12 +179,17 @@ impl OAuthTokenManager {
     }
 
     /// Get token refresh schedule for monitoring
-    pub async fn get_refresh_schedule(&self) -> Result<Vec<crate::models::oauth::TokenRefreshSchedule>> {
+    pub async fn get_refresh_schedule(
+        &self,
+    ) -> Result<Vec<crate::models::oauth::TokenRefreshSchedule>> {
         self.auth_service.schedule_token_refresh().await
     }
 
     /// Start with graceful shutdown support
-    pub async fn start_with_shutdown(&self, mut shutdown_rx: tokio::sync::oneshot::Receiver<()>) -> Result<()> {
+    pub async fn start_with_shutdown(
+        &self,
+        mut shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    ) -> Result<()> {
         info!("Starting OAuth token management service with shutdown support");
 
         // Start refresh task

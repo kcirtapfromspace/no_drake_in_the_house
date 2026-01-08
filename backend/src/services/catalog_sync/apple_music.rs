@@ -126,10 +126,7 @@ impl AppleMusicSyncWorker {
     }
 
     /// Make an authenticated API request
-    async fn api_request<T: for<'de> Deserialize<'de>>(
-        &self,
-        endpoint: &str,
-    ) -> Result<T> {
+    async fn api_request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
         self.wait_for_rate_limit().await;
         let token = self.ensure_token().await?;
 
@@ -251,9 +248,10 @@ impl From<AppleMusicArtist> for PlatformArtist {
             name: artist.attributes.name,
             genres: artist.attributes.genre_names,
             popularity: None, // Apple Music doesn't expose this
-            image_url: artist.attributes.artwork.map(|a| {
-                a.url.replace("{w}", "300").replace("{h}", "300")
-            }),
+            image_url: artist
+                .attributes
+                .artwork
+                .map(|a| a.url.replace("{w}", "300").replace("{h}", "300")),
             external_urls,
             metadata: HashMap::new(),
         }
@@ -261,7 +259,11 @@ impl From<AppleMusicArtist> for PlatformArtist {
 }
 
 impl AppleMusicSong {
-    fn into_platform_track(self, artist_ids: Vec<String>, album_id: Option<String>) -> PlatformTrack {
+    fn into_platform_track(
+        self,
+        artist_ids: Vec<String>,
+        album_id: Option<String>,
+    ) -> PlatformTrack {
         PlatformTrack {
             platform_id: self.id,
             platform: Platform::AppleMusic,
@@ -288,9 +290,10 @@ impl AppleMusicAlbum {
             release_date: self.attributes.release_date,
             album_type: "album".to_string(), // Apple Music doesn't distinguish types the same way
             total_tracks: self.attributes.track_count,
-            image_url: self.attributes.artwork.map(|a| {
-                a.url.replace("{w}", "300").replace("{h}", "300")
-            }),
+            image_url: self
+                .attributes
+                .artwork
+                .map(|a| a.url.replace("{w}", "300").replace("{h}", "300")),
         }
     }
 }
@@ -334,12 +337,12 @@ impl PlatformCatalogWorker for AppleMusicSyncWorker {
     }
 
     async fn get_artist(&self, platform_id: &str) -> Result<Option<PlatformArtist>> {
-        let endpoint = format!(
-            "/catalog/{}/artists/{}",
-            self.storefront, platform_id
-        );
+        let endpoint = format!("/catalog/{}/artists/{}", self.storefront, platform_id);
 
-        match self.api_request::<AppleMusicResponse<AppleMusicArtist>>(&endpoint).await {
+        match self
+            .api_request::<AppleMusicResponse<AppleMusicArtist>>(&endpoint)
+            .await
+        {
             Ok(response) => Ok(response.data.into_iter().next().map(Into::into)),
             Err(e) if e.to_string().contains("404") => Ok(None),
             Err(e) => Err(e),
@@ -391,10 +394,7 @@ impl PlatformCatalogWorker for AppleMusicSyncWorker {
     }
 
     async fn get_album_tracks(&self, album_id: &str) -> Result<Vec<PlatformTrack>> {
-        let endpoint = format!(
-            "/catalog/{}/albums/{}/tracks",
-            self.storefront, album_id
-        );
+        let endpoint = format!("/catalog/{}/albums/{}/tracks", self.storefront, album_id);
 
         let response: AppleMusicResponse<AppleMusicSong> = self.api_request(&endpoint).await?;
 

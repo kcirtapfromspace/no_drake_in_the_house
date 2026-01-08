@@ -1,6 +1,6 @@
 use music_streaming_blocklist_backend::{
-    services::{OAuthHealthMonitor, OAuthHealthConfig, OAuthProviderHealthStatus},
     models::oauth::OAuthProviderType,
+    services::{OAuthHealthConfig, OAuthHealthMonitor, OAuthProviderHealthStatus},
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,9 +10,9 @@ use std::time::Duration;
 async fn test_oauth_health_monitor_creation() {
     let providers = Arc::new(HashMap::new());
     let config = OAuthHealthConfig::default();
-    
+
     let monitor = OAuthHealthMonitor::new(providers, config);
-    
+
     // Test that we can get health status (should be empty initially)
     let health_status = monitor.get_health_status().await;
     assert!(health_status.is_empty());
@@ -21,7 +21,7 @@ async fn test_oauth_health_monitor_creation() {
 #[tokio::test]
 async fn test_oauth_health_config_defaults() {
     let config = OAuthHealthConfig::default();
-    
+
     assert_eq!(config.check_interval, Duration::from_secs(300));
     assert_eq!(config.timeout, Duration::from_secs(10));
     assert_eq!(config.max_consecutive_failures, 3);
@@ -33,20 +33,20 @@ async fn test_oauth_health_config_defaults() {
 #[tokio::test]
 async fn test_oauth_provider_health_status_serialization() {
     use serde_json;
-    
+
     let status = OAuthProviderHealthStatus::Healthy;
     let json = serde_json::to_string(&status).unwrap();
     assert_eq!(json, "\"Healthy\"");
-    
-    let status = OAuthProviderHealthStatus::Degraded { 
-        reason: "Rate limited".to_string() 
+
+    let status = OAuthProviderHealthStatus::Degraded {
+        reason: "Rate limited".to_string(),
     };
     let json = serde_json::to_string(&status).unwrap();
     assert!(json.contains("Degraded"));
     assert!(json.contains("Rate limited"));
-    
-    let status = OAuthProviderHealthStatus::Unhealthy { 
-        reason: "Service unavailable".to_string() 
+
+    let status = OAuthProviderHealthStatus::Unhealthy {
+        reason: "Service unavailable".to_string(),
     };
     let json = serde_json::to_string(&status).unwrap();
     assert!(json.contains("Unhealthy"));
@@ -57,14 +57,18 @@ async fn test_oauth_provider_health_status_serialization() {
 async fn test_oauth_health_monitor_provider_availability() {
     let providers = Arc::new(HashMap::new());
     let config = OAuthHealthConfig::default();
-    
+
     let monitor = OAuthHealthMonitor::new(providers, config);
-    
+
     // Test with non-existent provider
-    let is_healthy = monitor.is_provider_healthy(&OAuthProviderType::Google).await;
+    let is_healthy = monitor
+        .is_provider_healthy(&OAuthProviderType::Google)
+        .await;
     assert!(!is_healthy);
-    
-    let health = monitor.get_provider_health(&OAuthProviderType::Google).await;
+
+    let health = monitor
+        .get_provider_health(&OAuthProviderType::Google)
+        .await;
     assert!(health.is_none());
 }
 
@@ -76,9 +80,9 @@ async fn test_oauth_health_monitor_backoff_calculation() {
         max_backoff: Duration::from_secs(300),
         ..Default::default()
     };
-    
+
     let monitor = OAuthHealthMonitor::new(providers, config);
-    
+
     // Test backoff for non-existent provider (should return base delay)
     let delay = monitor.get_backoff_delay(&OAuthProviderType::Google).await;
     assert_eq!(delay, Duration::from_secs(10));
@@ -88,9 +92,9 @@ async fn test_oauth_health_monitor_backoff_calculation() {
 async fn test_oauth_health_monitor_healthy_providers() {
     let providers = Arc::new(HashMap::new());
     let config = OAuthHealthConfig::default();
-    
+
     let monitor = OAuthHealthMonitor::new(providers, config);
-    
+
     // Test with no providers
     let healthy_providers = monitor.get_healthy_providers().await;
     assert!(healthy_providers.is_empty());
@@ -102,23 +106,23 @@ async fn test_oauth_health_monitor_healthy_providers() {
 async fn test_oauth_health_check_integration() {
     use reqwest::Client;
     use std::time::Instant;
-    
+
     let client = Client::new();
     let start = Instant::now();
-    
+
     // Test Google OAuth discovery endpoint
     let response = client
         .get("https://accounts.google.com/.well-known/openid_configuration")
         .send()
         .await;
-    
+
     let elapsed = start.elapsed();
-    
+
     match response {
         Ok(resp) => {
             assert!(resp.status().is_success());
             assert!(elapsed < Duration::from_secs(5)); // Should be fast
-            
+
             let discovery_doc: serde_json::Value = resp.json().await.unwrap();
             assert!(discovery_doc.get("authorization_endpoint").is_some());
             assert!(discovery_doc.get("token_endpoint").is_some());
@@ -134,22 +138,19 @@ async fn test_oauth_health_check_integration() {
 #[ignore] // Ignore by default since it requires network access
 async fn test_github_api_health_check() {
     use reqwest::Client;
-    
+
     let client = Client::builder()
         .timeout(Duration::from_secs(10))
         .user_agent("oauth-health-test/1.0")
         .build()
         .unwrap();
-    
-    let response = client
-        .get("https://api.github.com/rate_limit")
-        .send()
-        .await;
-    
+
+    let response = client.get("https://api.github.com/rate_limit").send().await;
+
     match response {
         Ok(resp) => {
             assert!(resp.status().is_success());
-            
+
             let rate_limit_data: serde_json::Value = resp.json().await.unwrap();
             assert!(rate_limit_data.get("rate").is_some());
         }

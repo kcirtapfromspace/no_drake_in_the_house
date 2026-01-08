@@ -10,26 +10,21 @@
 //! - Vector embeddings for semantic search
 
 pub mod ingestion;
-pub mod processing;
 pub mod orchestrator;
+pub mod processing;
 
 // Re-export main types
 pub use ingestion::{
-    RssFetcher, RssFetcherConfig, FetchedArticle,
-    NewsApiClient, NewsApiConfig,
-    TwitterMonitor, TwitterConfig,
-    RedditMonitor, RedditConfig,
-    WebScraper, WebScraperConfig,
+    FetchedArticle, NewsApiClient, NewsApiConfig, RedditConfig, RedditMonitor, RssFetcher,
+    RssFetcherConfig, TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig,
 };
 
 pub use processing::{
-    EntityExtractor, ExtractedEntity, EntityType,
-    OffenseClassifier, OffenseClassification,
-    EmbeddingGenerator, ArticleEmbedding,
+    ArticleEmbedding, EmbeddingGenerator, EntityExtractor, EntityType, ExtractedEntity,
+    OffenseClassification, OffenseClassifier,
 };
 
 pub use orchestrator::{
-    NewsPipelineOrchestrator, NewsPipelineConfig,
-    ProcessedArticle, PipelineStats,
-    ScheduledPipelineRunner, ScheduledPipelineHandle,
+    NewsPipelineConfig, NewsPipelineOrchestrator, PipelineStats, ProcessedArticle,
+    ScheduledPipelineHandle, ScheduledPipelineRunner,
 };

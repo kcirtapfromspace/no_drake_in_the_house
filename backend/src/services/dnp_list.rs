@@ -12,9 +12,7 @@ pub struct DnpListService {
 
 impl DnpListService {
     pub fn new(db_pool: PgPool) -> Self {
-        Self {
-            db_pool,
-        }
+        Self { db_pool }
     }
 
     /// Add an artist to user's DNP list by artist ID
@@ -26,12 +24,9 @@ impl DnpListService {
         note: Option<String>,
     ) -> Result<DnpListEntry> {
         // Check if artist exists
-        let artist_exists = sqlx::query!(
-            "SELECT id FROM artists WHERE id = $1",
-            artist_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await?;
+        let artist_exists = sqlx::query!("SELECT id FROM artists WHERE id = $1", artist_id)
+            .fetch_optional(&self.db_pool)
+            .await?;
 
         if artist_exists.is_none() {
             return Err(anyhow!("Artist not found"));
@@ -159,7 +154,10 @@ impl DnpListService {
             let metadata: serde_json::Value = row.metadata.unwrap_or_else(|| json!({}));
             let external_ids: serde_json::Value = row.external_ids.unwrap_or_else(|| json!({}));
 
-            let image_url = metadata.get("image_url").and_then(|v| v.as_str()).map(String::from);
+            let image_url = metadata
+                .get("image_url")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let provider_badges = self.create_provider_badges(&external_ids, &metadata);
 
             // Collect tags
@@ -187,9 +185,13 @@ impl DnpListService {
     }
 
     /// Search for artists with fuzzy matching
-    pub async fn search_artists(&self, query: &str, limit: Option<usize>) -> Result<ArtistSearchResponse> {
+    pub async fn search_artists(
+        &self,
+        query: &str,
+        limit: Option<usize>,
+    ) -> Result<ArtistSearchResponse> {
         let limit = limit.unwrap_or(10) as i64;
-        
+
         // Use fuzzy matching with ILIKE and similarity scoring
         let artists = sqlx::query!(
             r#"
@@ -224,11 +226,22 @@ impl DnpListService {
             let metadata: serde_json::Value = row.metadata.unwrap_or_else(|| json!({}));
             let external_ids: serde_json::Value = row.external_ids.unwrap_or_else(|| json!({}));
 
-            let image_url = metadata.get("image_url").and_then(|v| v.as_str()).map(String::from);
-            let popularity = metadata.get("popularity").and_then(|v| v.as_u64()).map(|v| v as u32);
-            let genres = metadata.get("genres")
+            let image_url = metadata
+                .get("image_url")
+                .and_then(|v| v.as_str())
+                .map(String::from);
+            let popularity = metadata
+                .get("popularity")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+            let genres = metadata
+                .get("genres")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
                 .unwrap_or_default();
 
             search_results.push(ArtistSearchResult {
@@ -262,7 +275,10 @@ impl DnpListService {
         let mut errors = Vec::new();
 
         for (index, entry) in entries.iter().enumerate() {
-            match self.import_single_entry(user_id, entry, request.overwrite_existing.unwrap_or(false)).await {
+            match self
+                .import_single_entry(user_id, entry, request.overwrite_existing.unwrap_or(false))
+                .await
+            {
                 Ok(_) => successful += 1,
                 Err(e) => {
                     errors.push(BulkOperationError {
@@ -305,17 +321,20 @@ impl DnpListService {
         .fetch_all(&self.db_pool)
         .await?;
 
-        let export_entries: Vec<DnpExportEntry> = entries.into_iter().map(|row| {
-            let external_ids = row.external_ids.unwrap_or_else(|| json!({}));
+        let export_entries: Vec<DnpExportEntry> = entries
+            .into_iter()
+            .map(|row| {
+                let external_ids = row.external_ids.unwrap_or_else(|| json!({}));
 
-            DnpExportEntry {
-                artist_name: row.canonical_name,
-                external_ids,
-                tags: row.tags.unwrap_or_default(),
-                note: row.note,
-                added_at: row.created_at.unwrap_or_else(|| Utc::now()),
-            }
-        }).collect();
+                DnpExportEntry {
+                    artist_name: row.canonical_name,
+                    external_ids,
+                    tags: row.tags.unwrap_or_default(),
+                    note: row.note,
+                    added_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                }
+            })
+            .collect();
 
         let export = DnpListExport {
             exported_at: Utc::now(),
@@ -332,14 +351,19 @@ impl DnpListService {
     // Private helper methods
 
     /// Create or find an artist by name
-    pub async fn create_or_find_artist(&self, name: &str, external_ids: Option<serde_json::Value>) -> Result<Uuid> {
+    pub async fn create_or_find_artist(
+        &self,
+        name: &str,
+        external_ids: Option<serde_json::Value>,
+    ) -> Result<Uuid> {
         // First try to find existing artist by name
         if let Some(existing) = sqlx::query!(
             "SELECT id FROM artists WHERE canonical_name ILIKE $1 LIMIT 1",
             name
         )
         .fetch_optional(&self.db_pool)
-        .await? {
+        .await?
+        {
             return Ok(existing.id);
         }
 
@@ -389,7 +413,10 @@ impl DnpListService {
         let metadata: serde_json::Value = row.metadata.unwrap_or_else(|| json!({}));
         let external_ids: serde_json::Value = row.external_ids.unwrap_or_else(|| json!({}));
 
-        let image_url = metadata.get("image_url").and_then(|v| v.as_str()).map(String::from);
+        let image_url = metadata
+            .get("image_url")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         let provider_badges = self.create_provider_badges(&external_ids, &metadata);
 
         Ok(DnpListEntry {
@@ -403,13 +430,20 @@ impl DnpListService {
         })
     }
 
-    fn create_provider_badges(&self, external_ids: &serde_json::Value, metadata: &serde_json::Value) -> Vec<ProviderBadge> {
+    fn create_provider_badges(
+        &self,
+        external_ids: &serde_json::Value,
+        metadata: &serde_json::Value,
+    ) -> Vec<ProviderBadge> {
         let mut badges = Vec::new();
 
         if let Some(_) = external_ids.get("spotify").and_then(|v| v.as_str()) {
             badges.push(ProviderBadge {
                 provider: "spotify".to_string(),
-                verified: metadata.get("verified").and_then(|v| v.as_bool()).unwrap_or(false),
+                verified: metadata
+                    .get("verified")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
                 follower_count: metadata.get("follower_count").and_then(|v| v.as_u64()),
             });
         }
@@ -425,7 +459,10 @@ impl DnpListService {
         if let Some(_) = external_ids.get("youtube").and_then(|v| v.as_str()) {
             badges.push(ProviderBadge {
                 provider: "youtube".to_string(),
-                verified: metadata.get("verified").and_then(|v| v.as_bool()).unwrap_or(false),
+                verified: metadata
+                    .get("verified")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
                 follower_count: metadata.get("follower_count").and_then(|v| v.as_u64()),
             });
         }
@@ -450,7 +487,9 @@ impl DnpListService {
             entries.push(ImportEntry {
                 artist_name: entry.artist_name,
                 provider_url: entry.provider_url,
-                tags: entry.tags.map(|t| t.split(';').map(|s| s.trim().to_string()).collect()),
+                tags: entry
+                    .tags
+                    .map(|t| t.split(';').map(|s| s.trim().to_string()).collect()),
                 note: entry.note,
             });
         }
@@ -463,7 +502,12 @@ impl DnpListService {
         Ok(entries)
     }
 
-    async fn import_single_entry(&self, user_id: Uuid, entry: &ImportEntry, overwrite: bool) -> Result<()> {
+    async fn import_single_entry(
+        &self,
+        user_id: Uuid,
+        entry: &ImportEntry,
+        overwrite: bool,
+    ) -> Result<()> {
         // Create or find artist
         let artist_id = self.create_or_find_artist(&entry.artist_name, None).await?;
 
@@ -509,21 +553,32 @@ impl DnpListService {
 
     fn export_to_csv(&self, export: &DnpListExport) -> Result<String> {
         let mut writer = csv::Writer::from_writer(Vec::new());
-        
+
         // Write header
-        writer.write_record(&["artist_name", "spotify_id", "apple_id", "tags", "note", "added_at"])?;
-        
+        writer.write_record(&[
+            "artist_name",
+            "spotify_id",
+            "apple_id",
+            "tags",
+            "note",
+            "added_at",
+        ])?;
+
         // Write data
         for entry in &export.entries {
-            let spotify_id = entry.external_ids.get("spotify")
+            let spotify_id = entry
+                .external_ids
+                .get("spotify")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let apple_id = entry.external_ids.get("apple")
+            let apple_id = entry
+                .external_ids
+                .get("apple")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let tags = entry.tags.join(";");
             let note = entry.note.as_deref().unwrap_or("");
-            
+
             writer.write_record(&[
                 &entry.artist_name,
                 spotify_id,
@@ -533,16 +588,17 @@ impl DnpListService {
                 &entry.added_at.to_rfc3339(),
             ])?;
         }
-        
+
         let data = writer.into_inner()?;
         Ok(String::from_utf8(data)?)
     }
 
-
-
-    pub async fn get_dnp_list(&self, user_id: Uuid) -> Result<Vec<crate::models::DnpEntryWithArtist>> {
+    pub async fn get_dnp_list(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<crate::models::DnpEntryWithArtist>> {
         use crate::models::DnpEntryWithArtist;
-        
+
         let entries = sqlx::query!(
             r#"
             SELECT 
@@ -589,7 +645,7 @@ impl DnpListService {
         note: Option<String>,
     ) -> Result<crate::models::DnpEntry> {
         use crate::models::DnpEntry;
-        
+
         // Check for duplicates
         let existing = sqlx::query!(
             "SELECT 1 as exists FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
@@ -642,6 +698,4 @@ impl DnpListService {
 
         Ok(())
     }
-
-
 }

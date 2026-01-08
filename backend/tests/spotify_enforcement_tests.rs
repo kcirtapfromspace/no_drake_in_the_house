@@ -1,8 +1,8 @@
+use chrono::Utc;
 use music_streaming_blocklist_backend::*;
 use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
-use chrono::Utc;
 
 #[tokio::test]
 async fn test_enforcement_batch_creation() {
@@ -65,7 +65,7 @@ async fn test_action_item_lifecycle() {
 #[tokio::test]
 async fn test_batch_summary_calculation() {
     let mut summary = BatchSummary::default();
-    
+
     summary.total_actions = 100;
     summary.completed_actions = 85;
     summary.failed_actions = 10;
@@ -74,7 +74,10 @@ async fn test_batch_summary_calculation() {
     summary.api_calls_made = 25;
 
     assert_eq!(summary.total_actions, 100);
-    assert_eq!(summary.completed_actions + summary.failed_actions + summary.skipped_actions, 100);
+    assert_eq!(
+        summary.completed_actions + summary.failed_actions + summary.skipped_actions,
+        100
+    );
 }
 
 #[tokio::test]
@@ -205,7 +208,7 @@ async fn test_rollback_info_structure() {
 #[tokio::test]
 async fn test_enforcement_options_defaults() {
     let options = EnforcementOptions::default();
-    
+
     assert_eq!(options.aggressiveness, AggressivenessLevel::Moderate);
     assert!(options.block_collaborations);
     assert!(options.block_featuring);
@@ -234,11 +237,11 @@ async fn test_batch_progress_calculation() {
     assert_eq!(progress.total_actions, 100);
     assert_eq!(progress.completed_actions, 75);
     assert_eq!(progress.failed_actions, 5);
-    
+
     // Calculate remaining actions
     let remaining = progress.total_actions - progress.completed_actions - progress.failed_actions;
     assert_eq!(remaining, 20);
-    
+
     assert!(progress.current_action.is_some());
     assert_eq!(progress.rate_limit_status.requests_remaining, 50);
 }
@@ -246,9 +249,15 @@ async fn test_batch_progress_calculation() {
 #[tokio::test]
 async fn test_action_type_display() {
     assert_eq!(ActionType::RemoveLikedSong.to_string(), "remove_liked_song");
-    assert_eq!(ActionType::RemovePlaylistTrack.to_string(), "remove_playlist_track");
+    assert_eq!(
+        ActionType::RemovePlaylistTrack.to_string(),
+        "remove_playlist_track"
+    );
     assert_eq!(ActionType::UnfollowArtist.to_string(), "unfollow_artist");
-    assert_eq!(ActionType::RemoveSavedAlbum.to_string(), "remove_saved_album");
+    assert_eq!(
+        ActionType::RemoveSavedAlbum.to_string(),
+        "remove_saved_album"
+    );
     assert_eq!(ActionType::SkipTrack.to_string(), "skip_track");
 }
 
@@ -339,7 +348,7 @@ async fn test_execute_batch_request_validation() {
 async fn test_rollback_request_validation() {
     let batch_id = Uuid::new_v4();
     let action_ids = vec![Uuid::new_v4(), Uuid::new_v4()];
-    
+
     let request = RollbackBatchRequest {
         batch_id,
         action_ids: Some(action_ids.clone()),
@@ -365,10 +374,10 @@ async fn test_rollback_request_validation() {
 async fn test_enforcement_flow_integration() {
     // This test would require a database connection and mock Spotify service
     // For now, we'll test the data structures and logic flow
-    
+
     let user_id = Uuid::new_v4();
     let dnp_artist_id = Uuid::new_v4();
-    
+
     // Create enforcement plan
     let mut plan = EnforcementPlan::new(
         user_id,
@@ -420,11 +429,11 @@ async fn test_enforcement_flow_integration() {
     assert_eq!(plan.actions.len(), 2);
     assert_eq!(plan.dnp_artists.len(), 1);
     assert!(!plan.options.dry_run);
-    
+
     // Test action grouping
     let liked_song_actions = plan.get_actions_by_type(ActionType::RemoveLikedSong);
     let unfollow_actions = plan.get_actions_by_type(ActionType::UnfollowArtist);
-    
+
     assert_eq!(liked_song_actions.len(), 1);
     assert_eq!(unfollow_actions.len(), 1);
 
@@ -455,11 +464,11 @@ async fn test_enforcement_flow_integration() {
     }
 
     assert_eq!(action_items.len(), 2);
-    
+
     // Simulate execution results
     let mut completed_actions = Vec::new();
     let mut failed_actions = Vec::new();
-    
+
     for mut action in action_items {
         // Simulate successful execution
         action.mark_completed(json!({

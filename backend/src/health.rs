@@ -142,7 +142,7 @@ impl HealthChecker {
         match database_health_check_with_recovery(db_pool).await {
             Ok(()) => {
                 let response_time = start.elapsed().as_millis() as u64;
-                
+
                 // Additional detailed checks if enabled
                 let details = if self.config.detailed_checks {
                     self.get_database_details(db_pool).await
@@ -160,7 +160,7 @@ impl HealthChecker {
             }
             Err(err) => {
                 let response_time = start.elapsed().as_millis() as u64;
-                
+
                 tracing::error!(
                     correlation_id = %Uuid::new_v4(),
                     error = %err,
@@ -190,7 +190,7 @@ impl HealthChecker {
         match redis_health_check_with_recovery(redis_pool).await {
             Ok(()) => {
                 let response_time = start.elapsed().as_millis() as u64;
-                
+
                 // Additional detailed checks if enabled
                 let details = if self.config.detailed_checks {
                     self.get_redis_details(redis_pool).await
@@ -208,7 +208,7 @@ impl HealthChecker {
             }
             Err(err) => {
                 let response_time = start.elapsed().as_millis() as u64;
-                
+
                 tracing::error!(
                     correlation_id = %Uuid::new_v4(),
                     error = %err,
@@ -261,9 +261,12 @@ impl HealthChecker {
     }
 
     /// Get detailed Redis information
-    async fn get_redis_details(&self, redis_pool: &deadpool_redis::Pool) -> Option<serde_json::Value> {
+    async fn get_redis_details(
+        &self,
+        redis_pool: &deadpool_redis::Pool,
+    ) -> Option<serde_json::Value> {
         let mut conn = redis_pool.get().await.ok()?;
-        
+
         // Try to get Redis info
         let info_result: std::result::Result<String, redis::RedisError> = redis::cmd("INFO")
             .arg("memory")
@@ -294,7 +297,10 @@ impl HealthChecker {
     }
 
     /// Determine overall health status based on service statuses
-    fn determine_overall_status(&self, services: &HashMap<String, ServiceHealthInfo>) -> HealthStatus {
+    fn determine_overall_status(
+        &self,
+        services: &HashMap<String, ServiceHealthInfo>,
+    ) -> HealthStatus {
         let mut _healthy_count = 0;
         let mut degraded_count = 0;
         let mut unhealthy_count = 0;
@@ -321,13 +327,13 @@ impl HealthChecker {
     async fn get_system_info(&self) -> SystemInfo {
         // Use sysinfo crate to get system information
         use sysinfo::System;
-        
+
         let mut sys = System::new_all();
         sys.refresh_all();
 
         let memory_usage_mb = (sys.used_memory() / 1024 / 1024) as u64;
         let cpu_usage_percent = sys.global_cpu_info().cpu_usage();
-        
+
         // Calculate disk usage - simplified for compatibility
         let disk_usage_percent = 0.0; // Placeholder - would need platform-specific implementation
 
@@ -368,40 +374,61 @@ mod tests {
         let mut services = HashMap::new();
 
         // All healthy
-        services.insert("db".to_string(), ServiceHealthInfo {
-            status: HealthStatus::Healthy,
-            response_time_ms: 10,
-            last_check: chrono::Utc::now(),
-            error_message: None,
-            details: None,
-        });
-        services.insert("redis".to_string(), ServiceHealthInfo {
-            status: HealthStatus::Healthy,
-            response_time_ms: 5,
-            last_check: chrono::Utc::now(),
-            error_message: None,
-            details: None,
-        });
-        assert_eq!(checker.determine_overall_status(&services), HealthStatus::Healthy);
+        services.insert(
+            "db".to_string(),
+            ServiceHealthInfo {
+                status: HealthStatus::Healthy,
+                response_time_ms: 10,
+                last_check: chrono::Utc::now(),
+                error_message: None,
+                details: None,
+            },
+        );
+        services.insert(
+            "redis".to_string(),
+            ServiceHealthInfo {
+                status: HealthStatus::Healthy,
+                response_time_ms: 5,
+                last_check: chrono::Utc::now(),
+                error_message: None,
+                details: None,
+            },
+        );
+        assert_eq!(
+            checker.determine_overall_status(&services),
+            HealthStatus::Healthy
+        );
 
         // One degraded
-        services.insert("redis".to_string(), ServiceHealthInfo {
-            status: HealthStatus::Degraded,
-            response_time_ms: 100,
-            last_check: chrono::Utc::now(),
-            error_message: Some("Slow response".to_string()),
-            details: None,
-        });
-        assert_eq!(checker.determine_overall_status(&services), HealthStatus::Degraded);
+        services.insert(
+            "redis".to_string(),
+            ServiceHealthInfo {
+                status: HealthStatus::Degraded,
+                response_time_ms: 100,
+                last_check: chrono::Utc::now(),
+                error_message: Some("Slow response".to_string()),
+                details: None,
+            },
+        );
+        assert_eq!(
+            checker.determine_overall_status(&services),
+            HealthStatus::Degraded
+        );
 
         // One unhealthy
-        services.insert("db".to_string(), ServiceHealthInfo {
-            status: HealthStatus::Unhealthy,
-            response_time_ms: 5000,
-            last_check: chrono::Utc::now(),
-            error_message: Some("Connection failed".to_string()),
-            details: None,
-        });
-        assert_eq!(checker.determine_overall_status(&services), HealthStatus::Unhealthy);
+        services.insert(
+            "db".to_string(),
+            ServiceHealthInfo {
+                status: HealthStatus::Unhealthy,
+                response_time_ms: 5000,
+                last_check: chrono::Utc::now(),
+                error_message: Some("Connection failed".to_string()),
+                details: None,
+            },
+        );
+        assert_eq!(
+            checker.determine_overall_status(&services),
+            HealthStatus::Unhealthy
+        );
     }
 }

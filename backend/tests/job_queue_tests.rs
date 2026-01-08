@@ -1,8 +1,8 @@
+use chrono::Utc;
 use music_streaming_blocklist_backend::*;
 use std::sync::Arc;
 use tokio_test;
 use uuid::Uuid;
-use chrono::Utc;
 
 #[tokio::test]
 async fn test_job_creation_and_status() {
@@ -51,7 +51,7 @@ async fn test_job_progress_tracking() {
 #[tokio::test]
 async fn test_worker_config_defaults() {
     let config = WorkerConfig::default();
-    
+
     assert!(!config.worker_id.is_empty());
     assert_eq!(config.concurrency, 2);
     assert_eq!(config.job_types, vec![JobType::EnforcementExecution]);
@@ -62,8 +62,9 @@ async fn test_worker_config_defaults() {
 
 #[tokio::test]
 async fn test_job_queue_service_creation() {
-    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
     // Create a mock rate limiter
     let rate_limiter = match RateLimitingService::new(&redis_url) {
         Ok(service) => Arc::new(service),
@@ -74,7 +75,10 @@ async fn test_job_queue_service_creation() {
     };
 
     let job_queue = JobQueueService::new(&redis_url, rate_limiter);
-    assert!(job_queue.is_ok(), "Should be able to create job queue service");
+    assert!(
+        job_queue.is_ok(),
+        "Should be able to create job queue service"
+    );
 }
 
 #[tokio::test]
@@ -135,7 +139,8 @@ async fn test_job_priority_ordering() {
 
     // Sort by priority (highest first) then by created_at
     jobs.sort_by(|a, b| {
-        b.priority.cmp(&a.priority)
+        b.priority
+            .cmp(&a.priority)
             .then_with(|| a.created_at.cmp(&b.created_at))
     });
 
@@ -190,7 +195,10 @@ struct MockJobHandler {
 
 impl MockJobHandler {
     fn new(job_type: JobType, should_fail: bool) -> Self {
-        Self { job_type, should_fail }
+        Self {
+            job_type,
+            should_fail,
+        }
     }
 }
 
@@ -200,7 +208,7 @@ impl JobHandler for MockJobHandler {
         if self.should_fail {
             anyhow::bail!("Mock job handler failure");
         }
-        
+
         Ok(serde_json::json!({
             "job_id": job.id,
             "processed_at": Utc::now(),
@@ -220,7 +228,7 @@ impl JobHandler for MockJobHandler {
 #[tokio::test]
 async fn test_mock_job_handler() {
     let handler = MockJobHandler::new(JobType::HealthCheck, false);
-    
+
     let job = Job {
         id: Uuid::new_v4(),
         job_type: JobType::HealthCheck,
@@ -241,7 +249,7 @@ async fn test_mock_job_handler() {
 
     let result = handler.handle(&job).await;
     assert!(result.is_ok());
-    
+
     let result_value = result.unwrap();
     assert!(result_value.get("job_id").is_some());
     assert_eq!(result_value.get("result").unwrap(), "success");
@@ -250,7 +258,7 @@ async fn test_mock_job_handler() {
 #[tokio::test]
 async fn test_mock_job_handler_failure() {
     let handler = MockJobHandler::new(JobType::HealthCheck, true);
-    
+
     let job = Job {
         id: Uuid::new_v4(),
         job_type: JobType::HealthCheck,
@@ -271,5 +279,8 @@ async fn test_mock_job_handler_failure() {
 
     let result = handler.handle(&job).await;
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Mock job handler failure"));
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Mock job handler failure"));
 }

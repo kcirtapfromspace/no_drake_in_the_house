@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::services::databases::DuckDbClient;
-use super::dashboard::{DashboardService, DashboardMetrics, TimeRange};
+use super::dashboard::{DashboardMetrics, DashboardService, TimeRange};
 use super::trends::{TrendAnalysisService, TrendSummary};
+use crate::services::databases::DuckDbClient;
 
 /// Report types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -220,8 +220,14 @@ impl ReportingService {
         let metrics = self.dashboard.get_dashboard(request.time_range).await?;
 
         let highlights = vec![
-            format!("{} new articles processed", metrics.content_metrics.total_articles),
-            format!("{} offenses detected", metrics.content_metrics.offenses_detected),
+            format!(
+                "{} new articles processed",
+                metrics.content_metrics.total_articles
+            ),
+            format!(
+                "{} offenses detected",
+                metrics.content_metrics.offenses_detected
+            ),
             format!("{} new users joined", metrics.user_metrics.new_users),
             format!("System health: {}", metrics.system_health.overall_status),
         ];
@@ -256,11 +262,13 @@ impl ReportingService {
         };
 
         // Generate file based on format
-        let file_info = self.write_report_file(
-            &request.report_type.to_string(),
-            request.format,
-            &serde_json::to_string_pretty(&metrics)?,
-        ).await?;
+        let file_info = self
+            .write_report_file(
+                &request.report_type.to_string(),
+                request.format,
+                &serde_json::to_string_pretty(&metrics)?,
+            )
+            .await?;
 
         Ok((summary, file_info.0, file_info.1))
     }
@@ -277,25 +285,29 @@ impl ReportingService {
             format!("{} falling artists", trends.top_falling_artists.len()),
         ];
 
-        let key_metrics = vec![
-            KeyMetric {
-                name: "Content Volume Change".to_string(),
-                value: format!("{:+.1}%", trends.content_volume_trend.change_percentage * 100.0),
-                change: Some(trends.content_volume_trend.change_percentage),
-            },
-        ];
+        let key_metrics = vec![KeyMetric {
+            name: "Content Volume Change".to_string(),
+            value: format!(
+                "{:+.1}%",
+                trends.content_volume_trend.change_percentage * 100.0
+            ),
+            change: Some(trends.content_volume_trend.change_percentage),
+        }];
 
         let summary = ReportSummary {
-            total_records: (trends.top_rising_artists.len() + trends.top_falling_artists.len()) as i64,
+            total_records: (trends.top_rising_artists.len() + trends.top_falling_artists.len())
+                as i64,
             key_metrics,
             highlights,
         };
 
-        let file_info = self.write_report_file(
-            &request.report_type.to_string(),
-            request.format,
-            &serde_json::to_string_pretty(&trends)?,
-        ).await?;
+        let file_info = self
+            .write_report_file(
+                &request.report_type.to_string(),
+                request.format,
+                &serde_json::to_string_pretty(&trends)?,
+            )
+            .await?;
 
         Ok((summary, file_info.0, file_info.1))
     }
@@ -305,11 +317,20 @@ impl ReportingService {
         &self,
         request: &ReportRequest,
     ) -> Result<(ReportSummary, Option<String>, Option<i64>)> {
-        let health = self.duckdb.get_platform_health(request.time_range.days()).await?;
+        let health = self
+            .duckdb
+            .get_platform_health(request.time_range.days())
+            .await?;
 
         let highlights: Vec<String> = health
             .iter()
-            .map(|p| format!("{}: {:.1}% success rate", p.platform, p.success_rate * 100.0))
+            .map(|p| {
+                format!(
+                    "{}: {:.1}% success rate",
+                    p.platform,
+                    p.success_rate * 100.0
+                )
+            })
             .collect();
 
         let key_metrics = health
@@ -327,11 +348,13 @@ impl ReportingService {
             highlights,
         };
 
-        let file_info = self.write_report_file(
-            &request.report_type.to_string(),
-            request.format,
-            &serde_json::to_string_pretty(&health)?,
-        ).await?;
+        let file_info = self
+            .write_report_file(
+                &request.report_type.to_string(),
+                request.format,
+                &serde_json::to_string_pretty(&health)?,
+            )
+            .await?;
 
         Ok((summary, file_info.0, file_info.1))
     }
@@ -388,11 +411,13 @@ impl ReportingService {
             highlights,
         };
 
-        let file_info = self.write_report_file(
-            &request.report_type.to_string(),
-            request.format,
-            &serde_json::to_string_pretty(&metrics.user_metrics)?,
-        ).await?;
+        let file_info = self
+            .write_report_file(
+                &request.report_type.to_string(),
+                request.format,
+                &serde_json::to_string_pretty(&metrics.user_metrics)?,
+            )
+            .await?;
 
         Ok((summary, file_info.0, file_info.1))
     }

@@ -2,22 +2,25 @@ use std::time::Duration;
 use tokio_test;
 
 use music_streaming_blocklist_backend::services::registration_monitoring::{
-    RegistrationMonitoringService, RegistrationHealthStatus,
+    RegistrationHealthStatus, RegistrationMonitoringService,
 };
 use music_streaming_blocklist_backend::services::registration_performance::{
-    RegistrationPerformanceService, RegistrationMetrics,
+    RegistrationMetrics, RegistrationPerformanceService,
 };
 
 #[tokio::test]
 async fn test_registration_monitoring_service_creation() {
     let service = RegistrationMonitoringService::new();
-    assert!(service.is_ok(), "Should be able to create monitoring service");
+    assert!(
+        service.is_ok(),
+        "Should be able to create monitoring service"
+    );
 }
 
 #[tokio::test]
 async fn test_registration_metrics_recording() {
     let service = RegistrationMonitoringService::new().unwrap();
-    
+
     // Record some events
     service.record_registration_attempt();
     service.record_registration_success(Duration::from_millis(500));
@@ -25,7 +28,7 @@ async fn test_registration_metrics_recording() {
     service.record_registration_failure("validation_error");
     service.record_validation_failure(Duration::from_millis(100));
     service.record_email_duplicate();
-    
+
     // Verify metrics are recorded (this would check Prometheus metrics in real implementation)
     // For now, just verify the service doesn't panic
     assert!(true);
@@ -34,7 +37,7 @@ async fn test_registration_metrics_recording() {
 #[tokio::test]
 async fn test_health_status_creation() {
     let health = RegistrationHealthStatus::default();
-    
+
     assert_eq!(health.status, "healthy");
     assert!(health.database_healthy);
     assert!(health.redis_healthy);
@@ -55,9 +58,9 @@ async fn test_dashboard_generation() {
         avg_registration_time_ms: 250.0,
         last_updated: chrono::Utc::now(),
     };
-    
+
     let dashboard = service.generate_dashboard(metrics).await;
-    
+
     assert_eq!(dashboard.success_rate_percent, 85.0);
     assert_eq!(dashboard.avg_validation_time_ms, 50.0);
     assert_eq!(dashboard.avg_registration_time_ms, 250.0);
@@ -67,7 +70,7 @@ async fn test_dashboard_generation() {
 #[tokio::test]
 async fn test_structured_logging() {
     let service = RegistrationMonitoringService::new().unwrap();
-    
+
     // Test logging different event types
     service.log_registration_event(
         "registration_attempt",
@@ -77,7 +80,7 @@ async fn test_structured_logging() {
         None,
         Some(serde_json::json!({"terms_accepted": true})),
     );
-    
+
     service.log_registration_event(
         "registration_success",
         Some(uuid::Uuid::new_v4()),
@@ -86,7 +89,7 @@ async fn test_structured_logging() {
         None,
         Some(serde_json::json!({"auto_login": true})),
     );
-    
+
     service.log_registration_event(
         "registration_failure",
         None,
@@ -95,7 +98,7 @@ async fn test_structured_logging() {
         Some("validation_error"),
         Some(serde_json::json!({"error_type": "validation_error"})),
     );
-    
+
     // Verify no panics occur during logging
     assert!(true);
 }
@@ -105,7 +108,7 @@ async fn test_performance_service_integration() {
     // This test would require Redis for full functionality
     // For now, test that the service can be created
     let redis_url = "redis://localhost:6379";
-    
+
     // This might fail if Redis is not available, which is expected in CI
     match RegistrationPerformanceService::new(redis_url) {
         Ok(service) => {
@@ -123,15 +126,15 @@ async fn test_performance_service_integration() {
 #[test]
 fn test_error_rate_calculation() {
     let service = RegistrationMonitoringService::new().unwrap();
-    
+
     // Test initial state
     assert_eq!(service.calculate_error_rate(), 0.0);
-    
+
     // Record some attempts and failures
     service.record_registration_attempt();
     service.record_registration_attempt();
     service.record_registration_failure("test_error");
-    
+
     // Should be 50% error rate
     let error_rate = service.calculate_error_rate();
     assert!((error_rate - 50.0).abs() < 0.1);
@@ -140,14 +143,14 @@ fn test_error_rate_calculation() {
 #[test]
 fn test_response_time_calculation() {
     let service = RegistrationMonitoringService::new().unwrap();
-    
+
     // Test initial state
     assert_eq!(service.calculate_avg_response_time(), 0.0);
-    
+
     // Record some successful registrations with timing
     service.record_registration_success(Duration::from_millis(100));
     service.record_registration_success(Duration::from_millis(200));
-    
+
     // Average should be around 150ms
     let avg_time = service.calculate_avg_response_time();
     assert!(avg_time > 0.0);
@@ -158,7 +161,7 @@ async fn test_monitoring_middleware() {
     // This would test the middleware in a real HTTP context
     // For now, just verify it compiles
     use music_streaming_blocklist_backend::services::registration_monitoring::registration_monitoring_middleware;
-    
+
     // The middleware function exists and compiles
     assert!(true);
 }

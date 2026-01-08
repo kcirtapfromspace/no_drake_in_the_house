@@ -1,34 +1,34 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
-use serde_json::Value;
-use jsonwebtoken::{encode, Header, Algorithm, EncodingKey};
-use serde::{Deserialize, Serialize};
-use chrono::{Utc, Duration};
 use base64::Engine as _;
+use chrono::{Duration, Utc};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 
-use crate::models::oauth::{
-    OAuthProviderType, OAuthTokens, OAuthUserInfo, OAuthFlowResponse, OAuthConfig
-};
-use crate::services::oauth::{OAuthProvider, BaseOAuthProvider};
 use crate::error::{AppError, Result};
+use crate::models::oauth::{
+    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
+};
+use crate::services::oauth::{BaseOAuthProvider, OAuthProvider};
 
 /// Apple Sign In JWT claims for client secret generation
 #[derive(Debug, Serialize, Deserialize)]
 struct AppleJWTClaims {
-    iss: String,      // Team ID
-    iat: i64,         // Issued at
-    exp: i64,         // Expiration
-    aud: String,      // Audience (always "https://appleid.apple.com")
-    sub: String,      // Service ID (Client ID)
+    iss: String, // Team ID
+    iat: i64,    // Issued at
+    exp: i64,    // Expiration
+    aud: String, // Audience (always "https://appleid.apple.com")
+    sub: String, // Service ID (Client ID)
 }
 
 /// Apple Sign In configuration
 #[derive(Debug, Clone)]
 pub struct AppleOAuthConfig {
-    pub client_id: String,        // Service ID
-    pub team_id: String,          // Apple Developer Team ID
-    pub key_id: String,           // Private key ID
-    pub private_key: String,      // P8 private key content
+    pub client_id: String,   // Service ID
+    pub team_id: String,     // Apple Developer Team ID
+    pub key_id: String,      // Private key ID
+    pub private_key: String, // P8 private key content
     pub redirect_uri: String,
     pub scopes: Vec<String>,
 }
@@ -43,29 +43,30 @@ impl AppleOAuthProvider {
     /// Create a new Apple OAuth provider with environment variables
     pub fn new() -> Result<Self> {
         let apple_config = AppleOAuthConfig {
-            client_id: std::env::var("APPLE_CLIENT_ID")
-                .map_err(|_| AppError::ConfigurationError {
+            client_id: std::env::var("APPLE_CLIENT_ID").map_err(|_| {
+                AppError::ConfigurationError {
                     message: "APPLE_CLIENT_ID environment variable is required".to_string(),
-                })?,
-            team_id: std::env::var("APPLE_TEAM_ID")
-                .map_err(|_| AppError::ConfigurationError {
-                    message: "APPLE_TEAM_ID environment variable is required".to_string(),
-                })?,
-            key_id: std::env::var("APPLE_KEY_ID")
-                .map_err(|_| AppError::ConfigurationError {
-                    message: "APPLE_KEY_ID environment variable is required".to_string(),
-                })?,
-            private_key: std::env::var("APPLE_PRIVATE_KEY")
-                .map_err(|_| AppError::ConfigurationError {
+                }
+            })?,
+            team_id: std::env::var("APPLE_TEAM_ID").map_err(|_| AppError::ConfigurationError {
+                message: "APPLE_TEAM_ID environment variable is required".to_string(),
+            })?,
+            key_id: std::env::var("APPLE_KEY_ID").map_err(|_| AppError::ConfigurationError {
+                message: "APPLE_KEY_ID environment variable is required".to_string(),
+            })?,
+            private_key: std::env::var("APPLE_PRIVATE_KEY").map_err(|_| {
+                AppError::ConfigurationError {
                     message: "APPLE_PRIVATE_KEY environment variable is required".to_string(),
-                })?,
-            redirect_uri: std::env::var("APPLE_REDIRECT_URI")
-                .map_err(|_| AppError::ConfigurationError {
+                }
+            })?,
+            redirect_uri: std::env::var("APPLE_REDIRECT_URI").map_err(|_| {
+                AppError::ConfigurationError {
                     message: "APPLE_REDIRECT_URI environment variable is required".to_string(),
-                })?,
+                }
+            })?,
             scopes: vec!["name".to_string(), "email".to_string()],
         };
-        
+
         Self::with_config(apple_config)
     }
 
@@ -73,7 +74,7 @@ impl AppleOAuthProvider {
     pub fn with_config(apple_config: AppleOAuthConfig) -> Result<Self> {
         // Generate client secret JWT for Apple
         let client_secret = Self::generate_client_secret(&apple_config)?;
-        
+
         let oauth_config = OAuthConfig {
             client_id: apple_config.client_id.clone(),
             client_secret,
@@ -88,14 +89,14 @@ impl AppleOAuthProvider {
             "https://appleid.apple.com/auth/token".to_string(),
             "https://appleid.apple.com/auth/authorize".to_string(),
             "".to_string(), // Apple doesn't have a separate user info endpoint
-            None, // Apple doesn't support token revocation
+            None,           // Apple doesn't support token revocation
         );
 
         let provider = Self { base, apple_config };
-        
+
         // Validate configuration on creation
         provider.validate_config()?;
-        
+
         Ok(provider)
     }
 
@@ -123,29 +124,49 @@ impl AppleOAuthProvider {
     pub async fn test_configuration(&self) -> Result<()> {
         // Test client secret generation
         let _client_secret = Self::generate_client_secret(&self.apple_config)?;
-        
+
         // Test connection to Apple's discovery endpoint
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .get("https://appleid.apple.com/.well-known/openid_configuration")
             .header("Accept", "application/json")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to connect to Apple OAuth API: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Failed to connect to Apple OAuth API: {}",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(
-                "Apple OAuth API is not accessible".to_string()
+                "Apple OAuth API is not accessible".to_string(),
             ));
         }
 
-        let discovery_doc: serde_json::Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse Apple discovery document: {}", e)))?;
+        let discovery_doc: serde_json::Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Failed to parse Apple discovery document: {}",
+                e
+            ))
+        })?;
 
         // Verify that the endpoints we're using match Apple's current endpoints
-        let expected_auth_endpoint = discovery_doc["authorization_endpoint"].as_str()
-            .ok_or_else(|| AppError::ExternalServiceError("Missing authorization_endpoint in Apple discovery document".to_string()))?;
-        let expected_token_endpoint = discovery_doc["token_endpoint"].as_str()
-            .ok_or_else(|| AppError::ExternalServiceError("Missing token_endpoint in Apple discovery document".to_string()))?;
+        let expected_auth_endpoint = discovery_doc["authorization_endpoint"]
+            .as_str()
+            .ok_or_else(|| {
+                AppError::ExternalServiceError(
+                    "Missing authorization_endpoint in Apple discovery document".to_string(),
+                )
+            })?;
+        let expected_token_endpoint =
+            discovery_doc["token_endpoint"].as_str().ok_or_else(|| {
+                AppError::ExternalServiceError(
+                    "Missing token_endpoint in Apple discovery document".to_string(),
+                )
+            })?;
 
         if self.base.auth_endpoint != expected_auth_endpoint {
             tracing::warn!(
@@ -183,13 +204,15 @@ impl AppleOAuthProvider {
         header.kid = Some(config.key_id.clone());
 
         // Parse the P8 private key
-        let encoding_key = EncodingKey::from_ec_pem(config.private_key.as_bytes())
-            .map_err(|e| AppError::ConfigurationError {
-                message: format!("Invalid Apple private key: {}", e),
+        let encoding_key =
+            EncodingKey::from_ec_pem(config.private_key.as_bytes()).map_err(|e| {
+                AppError::ConfigurationError {
+                    message: format!("Invalid Apple private key: {}", e),
+                }
             })?;
 
-        let token = encode(&header, &claims, &encoding_key)
-            .map_err(|e| AppError::ConfigurationError {
+        let token =
+            encode(&header, &claims, &encoding_key).map_err(|e| AppError::ConfigurationError {
                 message: format!("Failed to generate Apple client secret: {}", e),
             })?;
 
@@ -208,19 +231,21 @@ impl AppleOAuthProvider {
         }
 
         // Decode header to get key ID
-        let header_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[0])
+        let header_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(parts[0])
             .map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to decode ID token header: {}", e),
             })?;
 
-        let header: Value = serde_json::from_slice(&header_payload)
-            .map_err(|e| AppError::OAuthProviderError {
+        let header: Value =
+            serde_json::from_slice(&header_payload).map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to parse ID token header: {}", e),
             })?;
 
-        let _key_id = header["kid"].as_str()
+        let _key_id = header["kid"]
+            .as_str()
             .ok_or_else(|| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: "Missing key ID in Apple ID token header".to_string(),
@@ -232,22 +257,23 @@ impl AppleOAuthProvider {
         // 2. Find the key matching the kid from the header
         // 3. Verify the JWT signature using that public key
         // 4. Verify the token hasn't expired and other claims
-        
-        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[1])
+
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(parts[1])
             .map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to decode ID token payload: {}", e),
             })?;
 
-        let claims: Value = serde_json::from_slice(&payload)
-            .map_err(|e| AppError::OAuthProviderError {
+        let claims: Value =
+            serde_json::from_slice(&payload).map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to parse ID token claims: {}", e),
             })?;
 
         // Verify basic claims
         let now = chrono::Utc::now().timestamp();
-        
+
         // Check expiration
         if let Some(exp) = claims["exp"].as_i64() {
             if now > exp {
@@ -260,7 +286,8 @@ impl AppleOAuthProvider {
 
         // Check issued at time (not too far in the future)
         if let Some(iat) = claims["iat"].as_i64() {
-            if now < iat - 300 { // Allow 5 minutes clock skew
+            if now < iat - 300 {
+                // Allow 5 minutes clock skew
                 return Err(AppError::OAuthProviderError {
                     provider: "Apple".to_string(),
                     message: "Apple ID token issued in the future".to_string(),
@@ -303,16 +330,25 @@ impl AppleOAuthProvider {
         // Name is only provided on first authorization and in the authorization response
         let mut provider_data = HashMap::new();
         if let Some(is_private_email) = claims["is_private_email"].as_bool() {
-            provider_data.insert("is_private_email".to_string(), serde_json::Value::Bool(is_private_email));
+            provider_data.insert(
+                "is_private_email".to_string(),
+                serde_json::Value::Bool(is_private_email),
+            );
         }
-        
+
         // Store additional Apple-specific claims
         if let Some(auth_time) = claims["auth_time"].as_i64() {
-            provider_data.insert("auth_time".to_string(), serde_json::Value::Number(auth_time.into()));
+            provider_data.insert(
+                "auth_time".to_string(),
+                serde_json::Value::Number(auth_time.into()),
+            );
         }
-        
+
         if let Some(nonce_supported) = claims["nonce_supported"].as_bool() {
-            provider_data.insert("nonce_supported".to_string(), serde_json::Value::Bool(nonce_supported));
+            provider_data.insert(
+                "nonce_supported".to_string(),
+                serde_json::Value::Bool(nonce_supported),
+            );
         }
 
         Ok(OAuthUserInfo {
@@ -332,34 +368,43 @@ impl AppleOAuthProvider {
     /// This would be used in a full production implementation
     #[allow(dead_code)]
     async fn fetch_apple_public_keys(&self) -> Result<Value> {
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .get("https://appleid.apple.com/auth/keys")
             .header("Accept", "application/json")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to fetch Apple public keys: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to fetch Apple public keys: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(
-                "Failed to fetch Apple public keys".to_string()
+                "Failed to fetch Apple public keys".to_string(),
             ));
         }
 
-        response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e)))
+        response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e))
+        })
     }
 
     /// Parse user data from Apple's authorization response
     /// Apple sends user data only on first authorization
     pub fn parse_user_data(&self, user_json: &str) -> Result<(Option<String>, Option<String>)> {
-        let user_data: Value = serde_json::from_str(user_json)
-            .map_err(|e| AppError::OAuthProviderError {
+        let user_data: Value =
+            serde_json::from_str(user_json).map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to parse Apple user data: {}", e),
             })?;
 
-        let first_name = user_data["name"]["firstName"].as_str().map(|s| s.to_string());
-        let last_name = user_data["name"]["lastName"].as_str().map(|s| s.to_string());
+        let first_name = user_data["name"]["firstName"]
+            .as_str()
+            .map(|s| s.to_string());
+        let last_name = user_data["name"]["lastName"]
+            .as_str()
+            .map(|s| s.to_string());
 
         Ok((first_name, last_name))
     }
@@ -373,12 +418,14 @@ impl OAuthProvider for AppleOAuthProvider {
 
     async fn initiate_flow(&self, redirect_uri: &str) -> Result<OAuthFlowResponse> {
         let state = self.base.generate_state();
-        
+
         // Apple-specific parameters
         let mut additional_params = HashMap::new();
         additional_params.insert("response_mode".to_string(), "form_post".to_string());
 
-        let authorization_url = self.base.build_auth_url(redirect_uri, &state, Some(additional_params));
+        let authorization_url =
+            self.base
+                .build_auth_url(redirect_uri, &state, Some(additional_params));
 
         Ok(OAuthFlowResponse {
             authorization_url,
@@ -387,10 +434,15 @@ impl OAuthProvider for AppleOAuthProvider {
         })
     }
 
-    async fn exchange_code(&self, code: &str, _state: &str, redirect_uri: &str) -> Result<OAuthTokens> {
+    async fn exchange_code(
+        &self,
+        code: &str,
+        _state: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens> {
         // Regenerate client secret for token exchange (Apple requires fresh JWTs)
         let fresh_client_secret = Self::generate_client_secret(&self.apple_config)?;
-        
+
         let params = [
             ("grant_type", "authorization_code"),
             ("client_id", &self.apple_config.client_id),
@@ -399,23 +451,35 @@ impl OAuthProvider for AppleOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .post(&self.base.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Apple token exchange request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Apple token exchange request failed: {}",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Parse Apple-specific error response
             if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                 let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
-                let error_description = error_json["error_description"].as_str().unwrap_or(&error_text);
-                
+                let error_description = error_json["error_description"]
+                    .as_str()
+                    .unwrap_or(&error_text);
+
                 // Handle specific Apple errors
                 match error_code {
                     "invalid_grant" => {
@@ -432,21 +496,24 @@ impl OAuthProvider for AppleOAuthProvider {
                     _ => {
                         return Err(AppError::OAuthProviderError {
                             provider: "Apple".to_string(),
-                            message: format!("Token exchange failed ({}): {}", error_code, error_description),
+                            message: format!(
+                                "Token exchange failed ({}): {}",
+                                error_code, error_description
+                            ),
                         });
                     }
                 }
             }
-            
+
             return Err(AppError::ExternalServiceError(format!(
-                "Apple token exchange failed with status {}: {}", 
-                status, 
-                error_text
+                "Apple token exchange failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let token_response: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse Apple token response: {}", e)))?;
+        let token_response: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse Apple token response: {}", e))
+        })?;
 
         let access_token = token_response["access_token"]
             .as_str()
@@ -460,17 +527,14 @@ impl OAuthProvider for AppleOAuthProvider {
             .as_str()
             .map(|s| s.to_string());
 
-        let expires_in = token_response["expires_in"]
-            .as_i64();
+        let expires_in = token_response["expires_in"].as_i64();
 
         let token_type = token_response["token_type"]
             .as_str()
             .unwrap_or("Bearer")
             .to_string();
 
-        let id_token = token_response["id_token"]
-            .as_str()
-            .map(|s| s.to_string());
+        let id_token = token_response["id_token"].as_str().map(|s| s.to_string());
 
         // Validate that we received the expected token type
         if token_type.to_lowercase() != "bearer" {
@@ -503,14 +567,15 @@ impl OAuthProvider for AppleOAuthProvider {
         // User information comes from the ID token
         Err(AppError::OAuthProviderError {
             provider: "Apple".to_string(),
-            message: "Apple doesn't provide a user info endpoint. Use ID token instead.".to_string(),
+            message: "Apple doesn't provide a user info endpoint. Use ID token instead."
+                .to_string(),
         })
     }
 
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens> {
         // Generate fresh client secret for refresh
         let fresh_client_secret = Self::generate_client_secret(&self.apple_config)?;
-        
+
         let params = [
             ("grant_type", "refresh_token"),
             ("client_id", &self.apple_config.client_id),
@@ -518,24 +583,33 @@ impl OAuthProvider for AppleOAuthProvider {
             ("refresh_token", refresh_token),
         ];
 
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .post(&self.base.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json")
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Apple token refresh request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Apple token refresh request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Parse Apple-specific error response
             if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                 let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
-                let error_description = error_json["error_description"].as_str().unwrap_or(&error_text);
-                
+                let error_description = error_json["error_description"]
+                    .as_str()
+                    .unwrap_or(&error_text);
+
                 // Handle specific Apple refresh token errors
                 match error_code {
                     "invalid_grant" => {
@@ -552,21 +626,24 @@ impl OAuthProvider for AppleOAuthProvider {
                     _ => {
                         return Err(AppError::OAuthProviderError {
                             provider: "Apple".to_string(),
-                            message: format!("Token refresh failed ({}): {}", error_code, error_description),
+                            message: format!(
+                                "Token refresh failed ({}): {}",
+                                error_code, error_description
+                            ),
                         });
                     }
                 }
             }
-            
+
             return Err(AppError::ExternalServiceError(format!(
-                "Apple token refresh failed with status {}: {}", 
-                status, 
-                error_text
+                "Apple token refresh failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let token_response: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse Apple refresh response: {}", e)))?;
+        let token_response: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse Apple refresh response: {}", e))
+        })?;
 
         let access_token = token_response["access_token"]
             .as_str()
@@ -580,8 +657,7 @@ impl OAuthProvider for AppleOAuthProvider {
             .as_str()
             .map(|s| s.to_string());
 
-        let expires_in = token_response["expires_in"]
-            .as_i64();
+        let expires_in = token_response["expires_in"].as_i64();
 
         let token_type = token_response["token_type"]
             .as_str()
@@ -656,7 +732,11 @@ impl OAuthProvider for AppleOAuthProvider {
         }
 
         // Validate private key format
-        if !self.apple_config.private_key.contains("-----BEGIN PRIVATE KEY-----") {
+        if !self
+            .apple_config
+            .private_key
+            .contains("-----BEGIN PRIVATE KEY-----")
+        {
             return Err(AppError::ConfigurationError {
                 message: "Apple OAuth private_key must be in PEM format".to_string(),
             });
@@ -692,7 +772,10 @@ impl AppleOAuthService {
 
     /// Parse user data from Apple's authorization response
     /// This is only available on first authorization
-    pub fn parse_authorization_user_data(&self, user_json: &str) -> Result<(Option<String>, Option<String>)> {
+    pub fn parse_authorization_user_data(
+        &self,
+        user_json: &str,
+    ) -> Result<(Option<String>, Option<String>)> {
         self.provider.parse_user_data(user_json)
     }
 
@@ -703,12 +786,17 @@ impl AppleOAuthService {
         response_mode: Option<&str>,
     ) -> Result<OAuthFlowResponse> {
         let state = self.provider.base.generate_state();
-        
-        let mut additional_params = HashMap::new();
-        additional_params.insert("response_mode".to_string(), 
-            response_mode.unwrap_or("form_post").to_string());
 
-        let authorization_url = self.provider.base.build_auth_url(redirect_uri, &state, Some(additional_params));
+        let mut additional_params = HashMap::new();
+        additional_params.insert(
+            "response_mode".to_string(),
+            response_mode.unwrap_or("form_post").to_string(),
+        );
+
+        let authorization_url =
+            self.provider
+                .base
+                .build_auth_url(redirect_uri, &state, Some(additional_params));
 
         Ok(OAuthFlowResponse {
             authorization_url,
@@ -737,7 +825,7 @@ mod tests {
     fn test_apple_jwt_claims_creation() {
         let config = create_test_apple_config();
         let now = Utc::now();
-        
+
         let claims = AppleJWTClaims {
             iss: config.team_id.clone(),
             iat: now.timestamp(),
@@ -755,7 +843,7 @@ mod tests {
     #[test]
     fn test_apple_config_validation() {
         let config = create_test_apple_config();
-        
+
         // This will fail because we don't have a real private key
         // but it tests the validation logic structure
         assert!(config.client_id == "com.example.app");
@@ -769,13 +857,13 @@ mod tests {
         let config = create_test_apple_config();
         // We can't create a real provider without a valid private key
         // but we can test the parsing logic
-        
+
         let user_json = r#"{"name":{"firstName":"John","lastName":"Doe"}}"#;
-        
+
         // This would be called on a real provider instance
         let expected_first_name = "John";
         let expected_last_name = "Doe";
-        
+
         assert_eq!(expected_first_name, "John");
         assert_eq!(expected_last_name, "Doe");
     }
@@ -784,7 +872,7 @@ mod tests {
     async fn test_apple_initiate_flow_structure() {
         // Test the flow structure without creating a real provider
         let redirect_uri = "https://example.com/auth/apple/callback";
-        
+
         // Verify expected URL components
         assert!(redirect_uri.contains("example.com"));
         assert!(redirect_uri.contains("apple"));

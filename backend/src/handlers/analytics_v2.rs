@@ -11,13 +11,13 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, AppState, Result};
 use crate::models::AuthenticatedUser;
 use crate::services::analytics_service::{
-    dashboard::{TimeRange, DashboardMetrics, UserQuickStats},
-    trends::{TrendSummary, ArtistTrend, PlatformTrend},
-    reporting::{ReportRequest, ReportType, ReportFormat, Report, ReportTypeInfo},
+    dashboard::{DashboardMetrics, TimeRange, UserQuickStats},
+    reporting::{Report, ReportFormat, ReportRequest, ReportType, ReportTypeInfo},
+    trends::{ArtistTrend, PlatformTrend, TrendSummary},
 };
+use crate::{AppError, AppState, Result};
 
 /// Query parameters for dashboard requests
 #[derive(Debug, Deserialize)]
@@ -503,7 +503,11 @@ pub async fn export_to_parquet_handler(
     tracing::info!(table = %query.table, "Export to Parquet request");
 
     // Validate table name
-    let valid_tables = ["sync_metrics", "news_volume_hourly", "artist_mention_trends"];
+    let valid_tables = [
+        "sync_metrics",
+        "news_volume_hourly",
+        "artist_mention_trends",
+    ];
     if !valid_tables.contains(&query.table.as_str()) {
         return Err(AppError::InvalidFieldValue {
             field: "table".to_string(),
@@ -539,9 +543,7 @@ pub struct ExportQuery {
 // ============================================================================
 
 /// Get metrics in Prometheus format
-pub async fn get_metrics_handler(
-    State(_state): State<AppState>,
-) -> Result<String> {
+pub async fn get_metrics_handler(State(_state): State<AppState>) -> Result<String> {
     tracing::debug!("Get metrics request");
 
     // Return Prometheus-format metrics

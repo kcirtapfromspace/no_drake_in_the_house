@@ -10,8 +10,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, AppState, Result};
 use crate::models::AuthenticatedUser;
+use crate::{AppError, AppState, Result};
 
 /// Query parameters for listing articles
 #[derive(Debug, Deserialize)]
@@ -340,10 +340,20 @@ pub async fn verify_offense_handler(
     // Validate corrected category if provided
     if let Some(ref category) = request.corrected_category {
         let valid_categories = [
-            "sexual_misconduct", "domestic_violence", "hate_speech", "racism",
-            "antisemitism", "homophobia", "child_abuse", "animal_cruelty",
-            "financial_crimes", "drug_offenses", "violent_crimes", "harassment",
-            "plagiarism", "other"
+            "sexual_misconduct",
+            "domestic_violence",
+            "hate_speech",
+            "racism",
+            "antisemitism",
+            "homophobia",
+            "child_abuse",
+            "animal_cruelty",
+            "financial_crimes",
+            "drug_offenses",
+            "violent_crimes",
+            "harassment",
+            "plagiarism",
+            "other",
         ];
         if !valid_categories.contains(&category.as_str()) {
             return Err(AppError::InvalidFieldValue {

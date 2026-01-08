@@ -1,8 +1,8 @@
-use music_streaming_blocklist_backend::models::*;
+use chrono::{DateTime, Utc};
 use fake::{Fake, Faker};
+use music_streaming_blocklist_backend::models::*;
 use serde_json::json;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Test data factory for creating consistent test fixtures
 pub struct TestFixtures;
@@ -22,7 +22,7 @@ impl TestFixtures {
             settings: None,
         }
     }
-    
+
     /// Create a test user with specific email
     pub fn create_user_with_email(email: &str) -> User {
         User {
@@ -37,7 +37,7 @@ impl TestFixtures {
             settings: None,
         }
     }
-    
+
     /// Create a test user with 2FA enabled
     pub fn create_user_with_2fa() -> User {
         User {
@@ -52,11 +52,11 @@ impl TestFixtures {
             settings: None,
         }
     }
-    
+
     /// Create a test artist with realistic data
     pub fn create_artist() -> Artist {
         let artist_name: String = fake::faker::name::en::Name().fake();
-        
+
         Artist {
             id: Uuid::new_v4(),
             canonical_name: artist_name,
@@ -74,7 +74,7 @@ impl TestFixtures {
             created_at: Utc::now(),
         }
     }
-    
+
     /// Create a test artist with specific name
     pub fn create_artist_with_name(name: &str) -> Artist {
         Artist {
@@ -91,7 +91,7 @@ impl TestFixtures {
             created_at: Utc::now(),
         }
     }
-    
+
     /// Create a DNP entry
     pub fn create_dnp_entry(user_id: Uuid, artist_id: Uuid) -> DnpEntry {
         DnpEntry {
@@ -102,13 +102,13 @@ impl TestFixtures {
             created_at: Utc::now(),
         }
     }
-    
+
     /// Create a DNP entry with specific tags and note
     pub fn create_dnp_entry_with_details(
-        user_id: Uuid, 
-        artist_id: Uuid, 
-        tags: Vec<String>, 
-        note: Option<String>
+        user_id: Uuid,
+        artist_id: Uuid,
+        tags: Vec<String>,
+        note: Option<String>,
     ) -> DnpEntry {
         DnpEntry {
             user_id,
@@ -118,7 +118,7 @@ impl TestFixtures {
             created_at: Utc::now(),
         }
     }
-    
+
     /// Create a user registration request
     pub fn create_register_request() -> CreateUserRequest {
         CreateUserRequest {
@@ -126,7 +126,7 @@ impl TestFixtures {
             password: "SecureTestPassword123!".to_string(),
         }
     }
-    
+
     /// Create a login request
     pub fn create_login_request(email: &str) -> LoginRequest {
         LoginRequest {
@@ -135,7 +135,7 @@ impl TestFixtures {
             totp_code: None,
         }
     }
-    
+
     /// Create a login request with 2FA code
     pub fn create_login_request_with_2fa(email: &str, totp_code: &str) -> LoginRequest {
         LoginRequest {
@@ -144,7 +144,7 @@ impl TestFixtures {
             totp_code: Some(totp_code.to_string()),
         }
     }
-    
+
     /// Create an add to DNP request
     pub fn create_add_to_dnp_request(artist_id: Uuid) -> AddToDnpRequest {
         AddToDnpRequest {
@@ -153,7 +153,7 @@ impl TestFixtures {
             note: Some("Test note for DNP entry".to_string()),
         }
     }
-    
+
     /// Create user settings
     pub fn create_user_settings() -> UserSettings {
         UserSettings {
@@ -168,7 +168,7 @@ impl TestFixtures {
             })),
         }
     }
-    
+
     /// Create an audit log entry
     pub fn create_audit_entry(user_id: Uuid, action: &str) -> AuditLogEntry {
         AuditLogEntry {
@@ -192,24 +192,28 @@ impl BatchFixtures {
     pub fn create_users(count: usize) -> Vec<User> {
         (0..count).map(|_| TestFixtures::create_user()).collect()
     }
-    
+
     /// Create multiple artists for testing
     pub fn create_artists(count: usize) -> Vec<Artist> {
-        (0..count).map(|i| {
-            TestFixtures::create_artist_with_name(&format!("Test Artist {}", i))
-        }).collect()
+        (0..count)
+            .map(|i| TestFixtures::create_artist_with_name(&format!("Test Artist {}", i)))
+            .collect()
     }
-    
+
     /// Create multiple DNP entries for a user
     pub fn create_dnp_entries(user_id: Uuid, artist_ids: &[Uuid]) -> Vec<DnpEntry> {
-        artist_ids.iter().enumerate().map(|(i, &artist_id)| {
-            TestFixtures::create_dnp_entry_with_details(
-                user_id,
-                artist_id,
-                vec![format!("tag{}", i)],
-                Some(format!("Note for entry {}", i))
-            )
-        }).collect()
+        artist_ids
+            .iter()
+            .enumerate()
+            .map(|(i, &artist_id)| {
+                TestFixtures::create_dnp_entry_with_details(
+                    user_id,
+                    artist_id,
+                    vec![format!("tag{}", i)],
+                    Some(format!("Note for entry {}", i)),
+                )
+            })
+            .collect()
     }
 }
 
@@ -220,7 +224,7 @@ impl ScenarioFixtures {
     /// Create a complete user scenario with DNP list
     pub async fn create_user_with_dnp_list(
         db: &sqlx::PgPool,
-        artist_count: usize
+        artist_count: usize,
     ) -> Result<(User, Vec<Artist>, Vec<DnpEntry>), sqlx::Error> {
         // Create user
         let user = TestFixtures::create_user();
@@ -235,7 +239,7 @@ impl ScenarioFixtures {
         )
         .execute(db)
         .await?;
-        
+
         // Create artists
         let mut artists = Vec::new();
         for i in 0..artist_count {
@@ -252,7 +256,7 @@ impl ScenarioFixtures {
             .await?;
             artists.push(artist);
         }
-        
+
         // Create DNP entries
         let mut dnp_entries = Vec::new();
         for (i, artist) in artists.iter().enumerate() {
@@ -260,9 +264,9 @@ impl ScenarioFixtures {
                 user.id,
                 artist.id,
                 vec![format!("scenario_tag_{}", i)],
-                Some(format!("Scenario note {}", i))
+                Some(format!("Scenario note {}", i)),
             );
-            
+
             sqlx::query!(
                 "INSERT INTO user_artist_blocks (user_id, artist_id, tags, note, created_at) VALUES ($1, $2, $3, $4, $5)",
                 entry.user_id,
@@ -273,20 +277,20 @@ impl ScenarioFixtures {
             )
             .execute(db)
             .await?;
-            
+
             dnp_entries.push(entry);
         }
-        
+
         Ok((user, artists, dnp_entries))
     }
-    
+
     /// Create a user with 2FA setup scenario
     pub async fn create_2fa_user_scenario(
-        db: &sqlx::PgPool
+        db: &sqlx::PgPool,
     ) -> Result<(User, String), sqlx::Error> {
         let user = TestFixtures::create_user_with_2fa();
         let totp_secret = user.totp_secret.clone().unwrap();
-        
+
         sqlx::query!(
             "INSERT INTO users (id, email, password_hash, totp_secret, totp_enabled, email_verified, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             user.id,
@@ -300,18 +304,18 @@ impl ScenarioFixtures {
         )
         .execute(db)
         .await?;
-        
+
         Ok((user, totp_secret))
     }
-    
+
     /// Create multiple users with varying DNP list sizes
     pub async fn create_performance_test_scenario(
         db: &sqlx::PgPool,
         user_count: usize,
-        max_dnp_entries: usize
+        max_dnp_entries: usize,
     ) -> Result<Vec<(User, Vec<DnpEntry>)>, sqlx::Error> {
         let mut results = Vec::new();
-        
+
         // Create a pool of artists to use
         let artists = BatchFixtures::create_artists(max_dnp_entries * 2);
         for artist in &artists {
@@ -326,7 +330,7 @@ impl ScenarioFixtures {
             .execute(db)
             .await?;
         }
-        
+
         // Create users with varying DNP list sizes
         for i in 0..user_count {
             let user = TestFixtures::create_user();
@@ -341,20 +345,20 @@ impl ScenarioFixtures {
             )
             .execute(db)
             .await?;
-            
+
             // Create varying number of DNP entries (0 to max_dnp_entries)
             let entry_count = (i * max_dnp_entries) / user_count;
             let mut user_entries = Vec::new();
-            
+
             for j in 0..entry_count {
                 let artist = &artists[j % artists.len()];
                 let entry = TestFixtures::create_dnp_entry_with_details(
                     user.id,
                     artist.id,
                     vec![format!("perf_tag_{}", j)],
-                    Some(format!("Performance test entry {}", j))
+                    Some(format!("Performance test entry {}", j)),
                 );
-                
+
                 sqlx::query!(
                     "INSERT INTO user_artist_blocks (user_id, artist_id, tags, note, created_at) VALUES ($1, $2, $3, $4, $5)",
                     entry.user_id,
@@ -365,13 +369,13 @@ impl ScenarioFixtures {
                 )
                 .execute(db)
                 .await?;
-                
+
                 user_entries.push(entry);
             }
-            
+
             results.push((user, user_entries));
         }
-        
+
         Ok(results)
     }
 }

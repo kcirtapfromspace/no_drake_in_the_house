@@ -2,7 +2,10 @@ use axum::{
     body::Body,
     http::{Method, Request, StatusCode},
 };
-use music_streaming_blocklist_backend::{create_router, AppState, AuthService, RateLimitService, AuditLoggingService, DnpListService, UserService};
+use music_streaming_blocklist_backend::{
+    create_router, AppState, AuditLoggingService, AuthService, DnpListService, RateLimitService,
+    UserService,
+};
 use serde_json::json;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -11,7 +14,7 @@ use uuid::Uuid;
 
 async fn create_test_app(pool: PgPool) -> axum::Router {
     let redis_url = "redis://localhost:6379";
-    
+
     let auth_service = Arc::new(AuthService::new(pool.clone()));
     let rate_limiter = Arc::new(RateLimitService::new(redis_url).unwrap());
     let audit_logger = Arc::new(AuditLoggingService::new(pool.clone()));
@@ -37,7 +40,7 @@ async fn test_dnp_search_artists_endpoint(pool: PgPool) {
     // Create test artists
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO artists (id, canonical_name, external_ids, metadata) 
@@ -70,9 +73,11 @@ async fn test_dnp_search_artists_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let search_response: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(search_response["total"], 2);
     assert!(search_response["artists"].is_array());
     assert_eq!(search_response["artists"].as_array().unwrap().len(), 2);
@@ -116,9 +121,11 @@ async fn test_dnp_add_artist_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let dnp_entry: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(dnp_entry["artist_name"], "New Test Artist");
     assert_eq!(dnp_entry["tags"], json!(["test", "api"]));
     assert_eq!(dnp_entry["note"], "Added via API test");
@@ -131,7 +138,7 @@ async fn test_dnp_get_list_endpoint(pool: PgPool) {
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -182,9 +189,11 @@ async fn test_dnp_get_list_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let dnp_list: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(dnp_list["total"], 1);
     assert_eq!(dnp_list["entries"][0]["artist_name"], "List Test Artist");
     assert_eq!(dnp_list["entries"][0]["tags"], json!(["list", "test"]));
@@ -197,7 +206,7 @@ async fn test_dnp_remove_artist_endpoint(pool: PgPool) {
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -238,7 +247,10 @@ async fn test_dnp_remove_artist_endpoint(pool: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri(&format!("/api/v1/dnp/remove/{}?user_id={}", artist_id, user_id))
+                .uri(&format!(
+                    "/api/v1/dnp/remove/{}?user_id={}",
+                    artist_id, user_id
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -247,9 +259,11 @@ async fn test_dnp_remove_artist_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let response_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(response_json["message"], "Artist removed from DNP list");
 
     // Verify artist is removed from database
@@ -261,7 +275,7 @@ async fn test_dnp_remove_artist_endpoint(pool: PgPool) {
     .fetch_one(&pool)
     .await
     .unwrap();
-    
+
     assert_eq!(count, Some(0));
 }
 
@@ -272,7 +286,7 @@ async fn test_dnp_update_entry_endpoint(pool: PgPool) {
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -330,9 +344,11 @@ async fn test_dnp_update_entry_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let dnp_entry: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(dnp_entry["artist_name"], "Update Test Artist");
     assert_eq!(dnp_entry["tags"], json!(["updated", "new"]));
     assert_eq!(dnp_entry["note"], "Updated note via API");
@@ -345,7 +361,7 @@ async fn test_dnp_export_endpoint(pool: PgPool) {
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -386,7 +402,10 @@ async fn test_dnp_export_endpoint(pool: PgPool) {
         .oneshot(
             Request::builder()
                 .method(Method::GET)
-                .uri(&format!("/api/v1/dnp/export?user_id={}&format=json", user_id))
+                .uri(&format!(
+                    "/api/v1/dnp/export?user_id={}&format=json",
+                    user_id
+                ))
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -399,11 +418,16 @@ async fn test_dnp_export_endpoint(pool: PgPool) {
         "application/json"
     );
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let export_data: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(export_data["total_entries"], 1);
-    assert_eq!(export_data["entries"][0]["artist_name"], "Export Test Artist");
+    assert_eq!(
+        export_data["entries"][0]["artist_name"],
+        "Export Test Artist"
+    );
 }
 
 #[sqlx::test]
@@ -457,9 +481,11 @@ async fn test_dnp_import_endpoint(pool: PgPool) {
 
     assert_eq!(response.status(), StatusCode::OK);
 
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let import_result: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(import_result["total_processed"], 2);
     assert_eq!(import_result["successful"], 2);
     assert_eq!(import_result["failed"], 0);

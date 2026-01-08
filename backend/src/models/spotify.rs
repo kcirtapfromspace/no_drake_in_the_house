@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Spotify track information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,8 +135,8 @@ pub struct SpotifyLibrary {
 pub struct FeaturedArtistDetection {
     pub track_id: String,
     pub track_name: String,
-    pub primary_artists: Vec<String>, // Artist IDs
-    pub featured_artists: Vec<String>, // Artist IDs detected as featured
+    pub primary_artists: Vec<String>,       // Artist IDs
+    pub featured_artists: Vec<String>,      // Artist IDs detected as featured
     pub collaboration_artists: Vec<String>, // Artist IDs detected as collaborators
     pub detection_method: DetectionMethod,
     pub confidence: f64,
@@ -145,10 +145,10 @@ pub struct FeaturedArtistDetection {
 /// Method used to detect featured/collaboration artists
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum DetectionMethod {
-    TrackTitle, // Detected from track title (feat., ft., with, etc.)
+    TrackTitle,  // Detected from track title (feat., ft., with, etc.)
     ArtistArray, // Multiple artists in the artists array
     AlbumArtist, // Different from track artists
-    Metadata, // From additional metadata
+    Metadata,    // From additional metadata
 }
 
 /// Enforcement planning options
@@ -276,11 +276,11 @@ pub struct AffectedTrack {
 /// Reason why a track is blocked
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum BlockReason {
-    DirectBlock,     // Direct block from user's DNP list
-    ExactMatch,      // Artist is directly in DNP list
-    Collaboration,   // Artist collaborates with DNP artist
-    Featuring,       // Artist features DNP artist
-    SongwriterOnly,  // DNP artist is songwriter/producer only
+    DirectBlock,    // Direct block from user's DNP list
+    ExactMatch,     // Artist is directly in DNP list
+    Collaboration,  // Artist collaborates with DNP artist
+    Featuring,      // Artist features DNP artist
+    SongwriterOnly, // DNP artist is songwriter/producer only
 }
 
 /// Planned action for enforcement
@@ -306,7 +306,7 @@ pub enum ActionType {
     UnfollowArtist,
     RemoveSavedAlbum,
     RemoveFromLibrary, // Remove from user's library
-    SkipTrack, // For browser extension
+    SkipTrack,         // For browser extension
 }
 
 impl ActionType {
@@ -364,10 +364,9 @@ impl EnforcementPlan {
         options: EnforcementOptions,
         actions: Vec<PlannedAction>,
     ) -> Self {
-        let estimated_duration_seconds = actions.iter()
-            .map(|a| a.estimated_duration_ms / 1000)
-            .sum();
-            
+        let estimated_duration_seconds =
+            actions.iter().map(|a| a.estimated_duration_ms / 1000).sum();
+
         Self {
             id,
             user_id,
@@ -390,7 +389,9 @@ impl EnforcementPlan {
     pub fn get_actions_by_type(&self, action_type: ActionType) -> Vec<&PlannedAction> {
         self.actions
             .iter()
-            .filter(|action| std::mem::discriminant(&action.action_type) == std::mem::discriminant(&action_type))
+            .filter(|action| {
+                std::mem::discriminant(&action.action_type) == std::mem::discriminant(&action_type)
+            })
             .collect()
     }
 
@@ -398,11 +399,11 @@ impl EnforcementPlan {
         if self.actions.is_empty() {
             return Err("Enforcement plan must have at least one action".to_string());
         }
-        
+
         if self.dnp_artists.is_empty() {
             return Err("Enforcement plan must have at least one DNP artist".to_string());
         }
-        
+
         Ok(())
     }
 

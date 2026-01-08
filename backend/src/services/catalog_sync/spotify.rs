@@ -134,10 +134,7 @@ impl SpotifySyncWorker {
     }
 
     /// Make an authenticated API request
-    async fn api_request<T: for<'de> Deserialize<'de>>(
-        &self,
-        endpoint: &str,
-    ) -> Result<T> {
+    async fn api_request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
         self.wait_for_rate_limit().await;
         let token = self.ensure_token().await?;
 
@@ -176,13 +173,19 @@ impl SpotifySyncWorker {
                 return Err(anyhow::anyhow!("Spotify API error: {} - {}", status, body));
             }
 
-            response.json().await.context("Failed to parse Spotify response")
+            response
+                .json()
+                .await
+                .context("Failed to parse Spotify response")
         } else if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
             Err(anyhow::anyhow!("Spotify API error: {} - {}", status, body))
         } else {
-            response.json().await.context("Failed to parse Spotify response")
+            response
+                .json()
+                .await
+                .context("Failed to parse Spotify response")
         }
     }
 }

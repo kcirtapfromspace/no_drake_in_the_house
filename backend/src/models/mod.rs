@@ -1,18 +1,17 @@
-pub mod artist;
-pub mod user;
-pub mod auth;
-pub mod oauth;
-pub mod token_vault;
-pub mod spotify;
-pub mod apple_music;
 pub mod action;
-pub mod dnp_list;
-pub mod community_list;
-pub mod rate_limit;
+pub mod apple_music;
+pub mod artist;
 pub mod audit;
+pub mod auth;
+pub mod community_list;
+pub mod dnp_list;
 pub mod notification;
+pub mod oauth;
 pub mod offense;
-
+pub mod rate_limit;
+pub mod spotify;
+pub mod token_vault;
+pub mod user;
 
 use serde::Serialize;
 
@@ -27,41 +26,39 @@ pub struct ProviderBadge {
 // Explicit imports to avoid ambiguity
 pub use artist::{Artist, ArtistMetadata, ExternalIds};
 pub use user::{
-    User, UserSettings, CreateUserRequest, 
-    LoginRequest, OAuthLoginRequest, TokenPair, RefreshTokenRequest, 
-    TotpSetupRequest, TotpSetupResponse, TotpEnableRequest, TotpDisableRequest,
-    RegisterRequest, AuthResponse, TotpVerifyRequest, AuthenticatedUser,
-    TotpStatusResponse, RegistrationValidationError, RegistrationErrorResponse,
-    OAuthAccountInfo, LinkOAuthAccountRequest, UnlinkOAuthAccountRequest,
-    MergeAccountsRequest, MergeAccountsResponse
+    AuthResponse, AuthenticatedUser, CreateUserRequest, LinkOAuthAccountRequest, LoginRequest,
+    MergeAccountsRequest, MergeAccountsResponse, OAuthAccountInfo, OAuthLoginRequest,
+    RefreshTokenRequest, RegisterRequest, RegistrationErrorResponse, RegistrationValidationError,
+    TokenPair, TotpDisableRequest, TotpEnableRequest, TotpSetupRequest, TotpSetupResponse,
+    TotpStatusResponse, TotpVerifyRequest, UnlinkOAuthAccountRequest, User, UserSettings,
 };
 // Use qualified name for UserProfile to avoid conflict with audit::UserProfile
 pub use user::UserProfile as UserUserProfile;
 // Main UserProfile type alias for backward compatibility
 pub type UserProfile = user::UserProfile;
-pub use auth::*;
-pub use token_vault::*;
-pub use spotify::*;
-pub use apple_music::*;
 pub use action::*;
-pub use dnp_list::*;
-pub use community_list::*;
-pub use rate_limit::*;
-pub use oauth::*;
+pub use apple_music::*;
 pub use audit::{
-    AuditLogEntry, CreateAuditLogRequest, AuditLogQuery, AuditLogResponse,
-    SecurityEventType, SecurityEvent, SecuritySeverity, AccessReviewEntry,
-    AccessStatus, DataExportRequest, DataRequestType, DataRequestStatus,
-    UserDataExport, AuditDnpListExport, CommunitySubscriptionExport,
-    ActionHistoryExport, ConnectionExport, ExportMetadata
+    AccessReviewEntry, AccessStatus, ActionHistoryExport, AuditDnpListExport, AuditLogEntry,
+    AuditLogQuery, AuditLogResponse, CommunitySubscriptionExport, ConnectionExport,
+    CreateAuditLogRequest, DataExportRequest, DataRequestStatus, DataRequestType, ExportMetadata,
+    SecurityEvent, SecurityEventType, SecuritySeverity, UserDataExport,
 };
+pub use auth::*;
+pub use community_list::*;
+pub use dnp_list::*;
+pub use oauth::*;
+pub use rate_limit::*;
+pub use spotify::*;
+pub use token_vault::*;
 // Use qualified name for audit UserProfile
 pub use audit::UserProfile as AuditUserProfile;
 pub use notification::*;
 
-
 // Re-export stub types for tests
-pub use crate::services::stubs::{Job, JobType, JobPriority, JobStatus, JobProgress, WorkerConfig, JobHandler};
+pub use crate::services::stubs::{
+    Job, JobHandler, JobPriority, JobProgress, JobStatus, JobType, WorkerConfig,
+};
 
 // Additional types needed by tests
 use serde::Deserialize;
@@ -132,12 +129,12 @@ impl ArtistSearchQuery {
             provider: None,
         }
     }
-    
+
     pub fn with_limit(mut self, limit: u32) -> Self {
         self.limit = Some(limit);
         self
     }
-    
+
     pub fn with_provider(mut self, provider: StreamingProvider) -> Self {
         self.provider = Some(provider);
         self

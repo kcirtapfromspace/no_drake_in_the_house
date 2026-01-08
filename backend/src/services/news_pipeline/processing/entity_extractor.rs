@@ -102,19 +102,16 @@ impl EntityExtractor {
             Regex::new(r#"(?i)(?:featuring|feat\.?|ft\.?|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"#).unwrap(),
         ];
 
-        let title_prefixes: HashSet<String> = [
-            "The", "DJ", "MC", "Lil", "Young", "Big", "King", "Queen",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+        let title_prefixes: HashSet<String> =
+            ["The", "DJ", "MC", "Lil", "Young", "Big", "King", "Queen"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
 
-        let title_suffixes: HashSet<String> = [
-            "Jr", "Jr.", "Sr", "Sr.", "III", "II", "IV",
-        ]
-        .iter()
-        .map(|s| s.to_string())
-        .collect();
+        let title_suffixes: HashSet<String> = ["Jr", "Jr.", "Sr", "Sr.", "III", "II", "IV"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
 
         Self {
             config,
@@ -301,9 +298,10 @@ impl EntityExtractor {
 
         // Proper capitalization pattern
         let words: Vec<&str> = name.split_whitespace().collect();
-        if words.iter().all(|w| {
-            w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
-        }) {
+        if words
+            .iter()
+            .all(|w| w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false))
+        {
             confidence += 0.1;
         }
 
@@ -314,9 +312,13 @@ impl EntityExtractor {
     fn guess_entity_type(&self, name: &str) -> EntityType {
         let lower = name.to_lowercase();
 
-        if lower.contains("records") || lower.contains("entertainment") || lower.contains("music group") {
+        if lower.contains("records")
+            || lower.contains("entertainment")
+            || lower.contains("music group")
+        {
             EntityType::Label
-        } else if lower.contains("arena") || lower.contains("stadium") || lower.contains("theater") {
+        } else if lower.contains("arena") || lower.contains("stadium") || lower.contains("theater")
+        {
             EntityType::Venue
         } else if lower.contains("festival") || lower.contains("tour") {
             EntityType::Event
@@ -330,10 +332,32 @@ impl EntityExtractor {
     /// Check if a word is a common word (not an entity)
     fn is_common_word(&self, word: &str) -> bool {
         let common_words: HashSet<&str> = [
-            "The", "This", "That", "These", "Those", "Their", "There",
-            "When", "Where", "What", "Which", "While", "After", "Before",
-            "Music", "Album", "Song", "Track", "Video", "News", "Report",
-            "According", "Sources", "Statement", "Today", "Yesterday",
+            "The",
+            "This",
+            "That",
+            "These",
+            "Those",
+            "Their",
+            "There",
+            "When",
+            "Where",
+            "What",
+            "Which",
+            "While",
+            "After",
+            "Before",
+            "Music",
+            "Album",
+            "Song",
+            "Track",
+            "Video",
+            "News",
+            "Report",
+            "According",
+            "Sources",
+            "Statement",
+            "Today",
+            "Yesterday",
         ]
         .iter()
         .copied()

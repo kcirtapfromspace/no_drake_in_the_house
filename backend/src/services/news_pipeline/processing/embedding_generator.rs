@@ -91,8 +91,8 @@ impl EmbeddingGenerator {
         options.model_name = EmbeddingModel::BGESmallENV15;
         options.show_download_progress = true;
 
-        let model = TextEmbedding::try_new(options)
-            .context("Failed to initialize embedding model")?;
+        let model =
+            TextEmbedding::try_new(options).context("Failed to initialize embedding model")?;
 
         let mut model_lock = self.model.write().await;
         *model_lock = Some(model);
@@ -119,7 +119,9 @@ impl EmbeddingGenerator {
 
         // Generate embedding
         let model = self.model.read().await;
-        let model = model.as_ref().ok_or_else(|| anyhow::anyhow!("Model not initialized"))?;
+        let model = model
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Model not initialized"))?;
 
         let embeddings = model
             .embed(vec![truncated.clone()], None)
@@ -139,10 +141,13 @@ impl EmbeddingGenerator {
                 self.clean_cache(&mut cache);
             }
 
-            cache.insert(text.to_string(), CacheEntry {
-                embedding: embedding.clone(),
-                created_at: std::time::Instant::now(),
-            });
+            cache.insert(
+                text.to_string(),
+                CacheEntry {
+                    embedding: embedding.clone(),
+                    created_at: std::time::Instant::now(),
+                },
+            );
         }
 
         Ok(embedding)
@@ -153,16 +158,15 @@ impl EmbeddingGenerator {
         self.initialize().await?;
 
         let model = self.model.read().await;
-        let model = model.as_ref().ok_or_else(|| anyhow::anyhow!("Model not initialized"))?;
+        let model = model
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Model not initialized"))?;
 
         let mut all_embeddings = Vec::with_capacity(texts.len());
 
         // Process in batches
         for batch in texts.chunks(self.config.batch_size) {
-            let truncated: Vec<String> = batch
-                .iter()
-                .map(|t| self.truncate_text(t))
-                .collect();
+            let truncated: Vec<String> = batch.iter().map(|t| self.truncate_text(t)).collect();
 
             let embeddings = model
                 .embed(truncated, None)
@@ -309,13 +313,15 @@ impl EmbeddingGenerator {
 
         // If still too large, remove oldest entries
         if cache.len() >= self.config.max_cache_size {
-            let mut entries: Vec<_> = cache.iter()
+            let mut entries: Vec<_> = cache
+                .iter()
                 .map(|(k, e)| (k.clone(), e.created_at))
                 .collect();
             entries.sort_by_key(|(_, created_at)| *created_at);
 
             let to_remove = cache.len() - (self.config.max_cache_size / 2);
-            let keys_to_remove: Vec<String> = entries.into_iter()
+            let keys_to_remove: Vec<String> = entries
+                .into_iter()
                 .take(to_remove)
                 .map(|(k, _)| k)
                 .collect();

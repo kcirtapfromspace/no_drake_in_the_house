@@ -1,39 +1,43 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
-use uuid::Uuid;
 use chrono::Utc;
 use serde_json::Value;
+use std::collections::HashMap;
+use uuid::Uuid;
 
-use crate::models::oauth::{
-    OAuthProviderType, OAuthTokens, OAuthUserInfo, OAuthFlowResponse, 
-    OAuthConfig, OAuthState
-};
 use crate::error::{AppError, Result};
+use crate::models::oauth::{
+    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthState, OAuthTokens, OAuthUserInfo,
+};
 
 /// Trait defining the interface for OAuth providers
 #[async_trait]
 pub trait OAuthProvider: Send + Sync {
     /// Get the provider type
     fn provider_type(&self) -> OAuthProviderType;
-    
+
     /// Initiate OAuth flow and return authorization URL with state
     async fn initiate_flow(&self, redirect_uri: &str) -> Result<OAuthFlowResponse>;
-    
+
     /// Exchange authorization code for tokens
-    async fn exchange_code(&self, code: &str, state: &str, redirect_uri: &str) -> Result<OAuthTokens>;
-    
+    async fn exchange_code(
+        &self,
+        code: &str,
+        state: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens>;
+
     /// Get user information using access token
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo>;
-    
+
     /// Refresh access token using refresh token
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens>;
-    
+
     /// Revoke tokens (optional, not all providers support this)
     async fn revoke_token(&self, token: &str) -> Result<()> {
         // Default implementation - providers can override if they support revocation
         Ok(())
     }
-    
+
     /// Validate provider-specific configuration
     fn validate_config(&self) -> Result<()>;
 }
@@ -80,7 +84,12 @@ impl BaseOAuthProvider {
     }
 
     /// Build authorization URL with parameters
-    pub fn build_auth_url(&self, redirect_uri: &str, state: &str, additional_params: Option<HashMap<String, String>>) -> String {
+    pub fn build_auth_url(
+        &self,
+        redirect_uri: &str,
+        state: &str,
+        additional_params: Option<HashMap<String, String>>,
+    ) -> String {
         let scope_string = self.config.scopes.join(" ");
         let mut params = vec![
             ("client_id", self.config.client_id.as_str()),
@@ -97,7 +106,7 @@ impl BaseOAuthProvider {
                 additional_param_pairs.push((key, value));
             }
         }
-        
+
         // Add configured additional parameters
         for (key, value) in &self.config.additional_params {
             additional_param_pairs.push((key.clone(), value.clone()));
@@ -121,7 +130,11 @@ impl BaseOAuthProvider {
     }
 
     /// Exchange authorization code for tokens using standard OAuth2 flow
-    pub async fn exchange_code_standard(&self, code: &str, redirect_uri: &str) -> Result<OAuthTokens> {
+    pub async fn exchange_code_standard(
+        &self,
+        code: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens> {
         let params = [
             ("grant_type", "authorization_code"),
             ("client_id", &self.config.client_id),
@@ -130,53 +143,56 @@ impl BaseOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json")
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Token exchange request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Token exchange request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(AppError::ExternalServiceError(format!(
-                "Token exchange failed with status {}: {}", 
-                status, 
-                error_text
+                "Token exchange failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let token_response: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse token response: {}", e)))?;
+        let token_response: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse token response: {}", e))
+        })?;
 
         // Parse the standard OAuth2 token response
         let access_token = token_response["access_token"]
             .as_str()
-            .ok_or_else(|| AppError::ExternalServiceError("Missing access_token in response".to_string()))?
+            .ok_or_else(|| {
+                AppError::ExternalServiceError("Missing access_token in response".to_string())
+            })?
             .to_string();
 
         let refresh_token = token_response["refresh_token"]
             .as_str()
             .map(|s| s.to_string());
 
-        let expires_in = token_response["expires_in"]
-            .as_i64();
+        let expires_in = token_response["expires_in"].as_i64();
 
         let token_type = token_response["token_type"]
             .as_str()
             .unwrap_or("Bearer")
             .to_string();
 
-        let scope = token_response["scope"]
-            .as_str()
-            .map(|s| s.to_string());
+        let scope = token_response["scope"].as_str().map(|s| s.to_string());
 
-        let id_token = token_response["id_token"]
-            .as_str()
-            .map(|s| s.to_string());
+        let id_token = token_response["id_token"].as_str().map(|s| s.to_string());
 
         Ok(OAuthTokens {
             access_token,
@@ -190,26 +206,32 @@ impl BaseOAuthProvider {
 
     /// Get user info using access token with standard Bearer authentication
     pub async fn get_user_info_standard(&self, access_token: &str) -> Result<Value> {
-        let response = self.client
+        let response = self
+            .client
             .get(&self.user_info_endpoint)
             .header("Authorization", format!("Bearer {}", access_token))
             .header("Accept", "application/json")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("User info request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("User info request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(AppError::ExternalServiceError(format!(
-                "User info request failed with status {}: {}", 
-                status, 
-                error_text
+                "User info request failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse user info response: {}", e)))
+        response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse user info response: {}", e))
+        })
     }
 
     /// Refresh access token using refresh token
@@ -221,49 +243,56 @@ impl BaseOAuthProvider {
             ("refresh_token", refresh_token),
         ];
 
-        let response = self.client
+        let response = self
+            .client
             .post(&self.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json")
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Token refresh request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Token refresh request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(AppError::ExternalServiceError(format!(
-                "Token refresh failed with status {}: {}", 
-                status, 
-                error_text
+                "Token refresh failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let token_response: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e)))?;
+        let token_response: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e))
+        })?;
 
         // Parse the token response
         let access_token = token_response["access_token"]
             .as_str()
-            .ok_or_else(|| AppError::ExternalServiceError("Missing access_token in refresh response".to_string()))?
+            .ok_or_else(|| {
+                AppError::ExternalServiceError(
+                    "Missing access_token in refresh response".to_string(),
+                )
+            })?
             .to_string();
 
         let refresh_token = token_response["refresh_token"]
             .as_str()
             .map(|s| s.to_string());
 
-        let expires_in = token_response["expires_in"]
-            .as_i64();
+        let expires_in = token_response["expires_in"].as_i64();
 
         let token_type = token_response["token_type"]
             .as_str()
             .unwrap_or("Bearer")
             .to_string();
 
-        let scope = token_response["scope"]
-            .as_str()
-            .map(|s| s.to_string());
+        let scope = token_response["scope"].as_str().map(|s| s.to_string());
 
         Ok(OAuthTokens {
             access_token,
@@ -284,21 +313,29 @@ impl BaseOAuthProvider {
                 ("client_secret", &self.config.client_secret),
             ];
 
-            let response = self.client
+            let response = self
+                .client
                 .post(revoke_endpoint)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .form(&params)
                 .send()
                 .await
-                .map_err(|e| AppError::ExternalServiceError(format!("Token revocation request failed: {}", e)))?;
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Token revocation request failed: {}",
+                        e
+                    ))
+                })?;
 
             if !response.status().is_success() {
                 let status = response.status();
-                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
                 return Err(AppError::ExternalServiceError(format!(
-                    "Token revocation failed with status {}: {}", 
-                    status, 
-                    error_text
+                    "Token revocation failed with status {}: {}",
+                    status, error_text
                 )));
             }
         }
@@ -328,8 +365,14 @@ impl OAuthStateManager {
     }
 
     /// Validate and consume OAuth state
-    pub fn validate_and_consume_state(&self, state_token: &str, provider: &OAuthProviderType) -> Result<OAuthState> {
-        let state = self.states.remove(state_token)
+    pub fn validate_and_consume_state(
+        &self,
+        state_token: &str,
+        provider: &OAuthProviderType,
+    ) -> Result<OAuthState> {
+        let state = self
+            .states
+            .remove(state_token)
             .ok_or_else(|| AppError::OAuthStateValidationFailed)?
             .1;
 
@@ -363,7 +406,11 @@ mod tests {
             client_id: "test_client_id".to_string(),
             client_secret: "test_client_secret".to_string(),
             redirect_uri: "http://localhost:3000/auth/callback".to_string(),
-            scopes: vec!["openid".to_string(), "email".to_string(), "profile".to_string()],
+            scopes: vec![
+                "openid".to_string(),
+                "email".to_string(),
+                "profile".to_string(),
+            ],
             additional_params: HashMap::new(),
         }
     }
@@ -377,9 +424,18 @@ mod tests {
 
     #[test]
     fn test_oauth_provider_type_from_str() {
-        assert_eq!("google".parse::<OAuthProviderType>().unwrap(), OAuthProviderType::Google);
-        assert_eq!("apple".parse::<OAuthProviderType>().unwrap(), OAuthProviderType::Apple);
-        assert_eq!("github".parse::<OAuthProviderType>().unwrap(), OAuthProviderType::GitHub);
+        assert_eq!(
+            "google".parse::<OAuthProviderType>().unwrap(),
+            OAuthProviderType::Google
+        );
+        assert_eq!(
+            "apple".parse::<OAuthProviderType>().unwrap(),
+            OAuthProviderType::Apple
+        );
+        assert_eq!(
+            "github".parse::<OAuthProviderType>().unwrap(),
+            OAuthProviderType::GitHub
+        );
         assert!("invalid".parse::<OAuthProviderType>().is_err());
     }
 
@@ -416,13 +472,13 @@ mod tests {
         );
 
         let state_token = state.state_token.clone();
-        
+
         // Valid state
         assert!(state.is_valid(&state_token, &OAuthProviderType::Google));
-        
+
         // Invalid token
         assert!(!state.is_valid("invalid_token", &OAuthProviderType::Google));
-        
+
         // Invalid provider
         assert!(!state.is_valid(&state_token, &OAuthProviderType::Apple));
     }
@@ -430,22 +486,24 @@ mod tests {
     #[test]
     fn test_oauth_state_manager() {
         let manager = OAuthStateManager::new();
-        
+
         let state = OAuthState::new(
             OAuthProviderType::Google,
             "http://localhost:3000/auth/callback".to_string(),
             None,
             300,
         );
-        
+
         let state_token = manager.store_state(state);
-        
+
         // Valid state should be retrievable
-        let retrieved_state = manager.validate_and_consume_state(&state_token, &OAuthProviderType::Google);
+        let retrieved_state =
+            manager.validate_and_consume_state(&state_token, &OAuthProviderType::Google);
         assert!(retrieved_state.is_ok());
-        
+
         // State should be consumed (not retrievable again)
-        let second_attempt = manager.validate_and_consume_state(&state_token, &OAuthProviderType::Google);
+        let second_attempt =
+            manager.validate_and_consume_state(&state_token, &OAuthProviderType::Google);
         assert!(second_attempt.is_err());
     }
 }

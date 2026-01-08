@@ -1,4 +1,4 @@
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool, Row};
+use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use std::sync::Once;
 use tracing::info;
 
@@ -17,17 +17,17 @@ pub fn init_test_tracing() {
 /// Create an in-memory SQLite database for testing
 pub async fn create_test_database() -> SqlitePool {
     init_test_tracing();
-    
+
     // Create in-memory SQLite database
     let pool = SqlitePoolOptions::new()
         .max_connections(1) // SQLite in-memory databases are single-connection
         .connect(":memory:")
         .await
         .expect("Failed to create in-memory SQLite database");
-    
+
     // Create the necessary tables for testing
     setup_test_schema(&pool).await;
-    
+
     info!("Test database created and initialized");
     pool
 }
@@ -285,13 +285,13 @@ mod tests {
     #[tokio::test]
     async fn test_create_test_database() {
         let pool = create_test_database().await;
-        
+
         // Test that we can query the database
         let result = sqlx::query("SELECT COUNT(*) as count FROM users")
             .fetch_one(&pool)
             .await
             .unwrap();
-        
+
         let count: i64 = result.get("count");
         assert_eq!(count, 0);
     }
@@ -300,13 +300,13 @@ mod tests {
     async fn test_insert_test_data() {
         let pool = create_test_database().await;
         insert_test_data(&pool).await;
-        
+
         // Verify test data was inserted
         let result = sqlx::query("SELECT COUNT(*) as count FROM users")
             .fetch_one(&pool)
             .await
             .unwrap();
-        
+
         let count: i64 = result.get("count");
         assert_eq!(count, 1);
     }

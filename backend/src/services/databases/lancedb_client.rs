@@ -24,7 +24,9 @@ pub struct LanceDbClient {
 impl LanceDbClient {
     /// Create a new LanceDB client
     pub async fn new(db_path: &str) -> Result<Self> {
-        let db = connect(db_path).execute().await
+        let db = connect(db_path)
+            .execute()
+            .await
             .context("Failed to connect to LanceDB")?;
 
         Ok(Self {

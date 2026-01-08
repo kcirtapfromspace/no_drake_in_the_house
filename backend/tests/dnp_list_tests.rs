@@ -8,7 +8,7 @@ use uuid::Uuid;
 async fn test_add_artist_to_dnp_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create a test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -47,7 +47,7 @@ async fn test_add_artist_to_dnp_list(pool: PgPool) {
 
     let result = dnp_service.add_artist_to_dnp_list(user_id, request).await;
     assert!(result.is_ok());
-    
+
     let entry = result.unwrap();
     assert_eq!(entry.artist_name, "Test Artist");
     assert_eq!(entry.tags, vec!["test", "example"]);
@@ -58,11 +58,11 @@ async fn test_add_artist_to_dnp_list(pool: PgPool) {
 async fn test_remove_artist_from_dnp_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -99,7 +99,9 @@ async fn test_remove_artist_from_dnp_list(pool: PgPool) {
     .unwrap();
 
     // Test removing artist from DNP list
-    let result = dnp_service.remove_artist_from_dnp_list(user_id, artist_id).await;
+    let result = dnp_service
+        .remove_artist_from_dnp_list(user_id, artist_id)
+        .await;
     assert!(result.is_ok());
 
     // Verify artist is removed
@@ -111,7 +113,7 @@ async fn test_remove_artist_from_dnp_list(pool: PgPool) {
     .fetch_one(&pool)
     .await
     .unwrap();
-    
+
     assert_eq!(count, Some(0));
 }
 
@@ -119,11 +121,11 @@ async fn test_remove_artist_from_dnp_list(pool: PgPool) {
 async fn test_update_dnp_entry(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -166,9 +168,11 @@ async fn test_update_dnp_entry(pool: PgPool) {
         note: Some("Updated note".to_string()),
     };
 
-    let result = dnp_service.update_dnp_entry(user_id, artist_id, update_request).await;
+    let result = dnp_service
+        .update_dnp_entry(user_id, artist_id, update_request)
+        .await;
     assert!(result.is_ok());
-    
+
     let entry = result.unwrap();
     assert_eq!(entry.tags, vec!["new_tag", "updated"]);
     assert_eq!(entry.note, Some("Updated note".to_string()));
@@ -178,7 +182,7 @@ async fn test_update_dnp_entry(pool: PgPool) {
 async fn test_get_user_dnp_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -194,7 +198,7 @@ async fn test_get_user_dnp_list(pool: PgPool) {
     // Create test artists
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO artists (id, canonical_name, external_ids, metadata) 
@@ -234,24 +238,28 @@ async fn test_get_user_dnp_list(pool: PgPool) {
     // Test getting user's DNP list
     let result = dnp_service.get_user_dnp_list(user_id).await;
     assert!(result.is_ok());
-    
+
     let dnp_list = result.unwrap();
     assert_eq!(dnp_list.total, 2);
     assert_eq!(dnp_list.entries.len(), 2);
-    
+
     // Check that all unique tags are collected
     assert!(dnp_list.tags.contains(&"tag1".to_string()));
     assert!(dnp_list.tags.contains(&"tag2".to_string()));
     assert!(dnp_list.tags.contains(&"shared".to_string()));
-    
+
     // Check provider badges
-    let artist_with_spotify = dnp_list.entries.iter()
+    let artist_with_spotify = dnp_list
+        .entries
+        .iter()
         .find(|e| e.artist_name == "Artist One")
         .unwrap();
     assert_eq!(artist_with_spotify.provider_badges.len(), 1);
     assert_eq!(artist_with_spotify.provider_badges[0].provider, "spotify");
-    
-    let artist_with_multiple = dnp_list.entries.iter()
+
+    let artist_with_multiple = dnp_list
+        .entries
+        .iter()
         .find(|e| e.artist_name == "Artist Two")
         .unwrap();
     assert_eq!(artist_with_multiple.provider_badges.len(), 2);
@@ -261,7 +269,7 @@ async fn test_get_user_dnp_list(pool: PgPool) {
 async fn test_bulk_import_json(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -277,7 +285,7 @@ async fn test_bulk_import_json(pool: PgPool) {
     // Create test artists that will be found during import
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO artists (id, canonical_name, external_ids) 
@@ -321,7 +329,7 @@ async fn test_bulk_import_json(pool: PgPool) {
 
     let result = dnp_service.bulk_import(user_id, request).await;
     assert!(result.is_ok());
-    
+
     let bulk_result = result.unwrap();
     assert_eq!(bulk_result.total_processed, 3);
     assert_eq!(bulk_result.successful, 2);
@@ -334,7 +342,7 @@ async fn test_bulk_import_json(pool: PgPool) {
 async fn test_bulk_import_csv(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -373,7 +381,7 @@ async fn test_bulk_import_csv(pool: PgPool) {
 
     let result = dnp_service.bulk_import(user_id, request).await;
     assert!(result.is_ok());
-    
+
     let bulk_result = result.unwrap();
     assert_eq!(bulk_result.successful, 1);
     assert_eq!(bulk_result.failed, 0);
@@ -383,11 +391,11 @@ async fn test_bulk_import_csv(pool: PgPool) {
 async fn test_export_dnp_list_json(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -424,12 +432,14 @@ async fn test_export_dnp_list_json(pool: PgPool) {
     .unwrap();
 
     // Test JSON export
-    let result = dnp_service.export_dnp_list(user_id, ImportFormat::Json).await;
+    let result = dnp_service
+        .export_dnp_list(user_id, ImportFormat::Json)
+        .await;
     assert!(result.is_ok());
-    
+
     let json_data = result.unwrap();
     let export: DnpListExport = serde_json::from_str(&json_data).unwrap();
-    
+
     assert_eq!(export.total_entries, 1);
     assert_eq!(export.entries[0].artist_name, "Export Artist");
     assert_eq!(export.entries[0].tags, vec!["export", "test"]);
@@ -440,11 +450,11 @@ async fn test_export_dnp_list_json(pool: PgPool) {
 async fn test_export_dnp_list_csv(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test user and artist
     let user_id = Uuid::new_v4();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -481,9 +491,11 @@ async fn test_export_dnp_list_csv(pool: PgPool) {
     .unwrap();
 
     // Test CSV export
-    let result = dnp_service.export_dnp_list(user_id, ImportFormat::Csv).await;
+    let result = dnp_service
+        .export_dnp_list(user_id, ImportFormat::Csv)
+        .await;
     assert!(result.is_ok());
-    
+
     let csv_data = result.unwrap();
     assert!(csv_data.contains("CSV Export Artist"));
     assert!(csv_data.contains("csv;export"));
@@ -494,11 +506,11 @@ async fn test_export_dnp_list_csv(pool: PgPool) {
 async fn test_search_artists(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let dnp_service = DnpListService::new(pool.clone(), entity_service);
-    
+
     // Create test artists
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO artists (id, canonical_name, external_ids, metadata) 
@@ -520,16 +532,20 @@ async fn test_search_artists(pool: PgPool) {
     // Test artist search
     let result = dnp_service.search_artists("Search Artist", Some(10)).await;
     assert!(result.is_ok());
-    
+
     let search_response = result.unwrap();
     assert!(search_response.total >= 2);
-    
+
     // Check that results include provider badges
-    let artist_with_multiple_providers = search_response.artists.iter()
+    let artist_with_multiple_providers = search_response
+        .artists
+        .iter()
         .find(|a| a.canonical_name == "Search Artist Two")
         .unwrap();
-    
+
     assert!(artist_with_multiple_providers.provider_badges.len() >= 1);
-    assert!(artist_with_multiple_providers.provider_badges.iter()
+    assert!(artist_with_multiple_providers
+        .provider_badges
+        .iter()
         .any(|badge| badge.provider == "spotify"));
 }

@@ -6,10 +6,12 @@
 //! - Network traversal and analysis
 //! - Integration with news pipeline for mention tracking
 
-pub mod sync;
-pub mod network;
 pub mod collaboration;
+pub mod network;
+pub mod sync;
 
-pub use sync::{GraphSyncService, SyncStats, SyncJob};
-pub use network::{NetworkAnalysisService, ArtistNetworkResponse, PathResponse, NetworkStatsResponse};
-pub use collaboration::{CollaborationService, CollaborationBuilder, TrackCollaboration};
+pub use collaboration::{CollaborationBuilder, CollaborationService, TrackCollaboration};
+pub use network::{
+    ArtistNetworkResponse, NetworkAnalysisService, NetworkStatsResponse, PathResponse,
+};
+pub use sync::{GraphSyncService, SyncJob, SyncStats};

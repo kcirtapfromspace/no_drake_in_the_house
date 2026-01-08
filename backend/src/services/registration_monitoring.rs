@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use prometheus::{Counter, Histogram, Gauge, Registry, Opts, HistogramOpts};
+use prometheus::{Counter, Gauge, Histogram, HistogramOpts, Opts, Registry};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
@@ -20,10 +20,10 @@ pub struct RegistrationMonitoringService {
     validation_duration_seconds: Histogram,
     registration_duration_seconds: Histogram,
     active_registrations: Gauge,
-    
+
     // Health check metrics
     health_status: Arc<RwLock<RegistrationHealthStatus>>,
-    
+
     // Registry for metrics
     registry: Registry,
 }
@@ -93,39 +93,53 @@ impl RegistrationMonitoringService {
         let registry = Registry::new();
 
         // Create Prometheus metrics
-        let registration_attempts_total = Counter::with_opts(
-            Opts::new("registration_attempts_total", "Total number of registration attempts")
-        )?;
-        
-        let registration_successes_total = Counter::with_opts(
-            Opts::new("registration_successes_total", "Total number of successful registrations")
-        )?;
-        
-        let registration_failures_total = Counter::with_opts(
-            Opts::new("registration_failures_total", "Total number of failed registrations")
-        )?;
-        
-        let validation_failures_total = Counter::with_opts(
-            Opts::new("registration_validation_failures_total", "Total number of validation failures")
-        )?;
-        
-        let email_duplicates_total = Counter::with_opts(
-            Opts::new("registration_email_duplicates_total", "Total number of duplicate email attempts")
-        )?;
-        
+        let registration_attempts_total = Counter::with_opts(Opts::new(
+            "registration_attempts_total",
+            "Total number of registration attempts",
+        ))?;
+
+        let registration_successes_total = Counter::with_opts(Opts::new(
+            "registration_successes_total",
+            "Total number of successful registrations",
+        ))?;
+
+        let registration_failures_total = Counter::with_opts(Opts::new(
+            "registration_failures_total",
+            "Total number of failed registrations",
+        ))?;
+
+        let validation_failures_total = Counter::with_opts(Opts::new(
+            "registration_validation_failures_total",
+            "Total number of validation failures",
+        ))?;
+
+        let email_duplicates_total = Counter::with_opts(Opts::new(
+            "registration_email_duplicates_total",
+            "Total number of duplicate email attempts",
+        ))?;
+
         let validation_duration_seconds = Histogram::with_opts(
-            HistogramOpts::new("registration_validation_duration_seconds", "Time spent on registration validation")
-                .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0])
+            HistogramOpts::new(
+                "registration_validation_duration_seconds",
+                "Time spent on registration validation",
+            )
+            .buckets(vec![
+                0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
+            ]),
         )?;
-        
+
         let registration_duration_seconds = Histogram::with_opts(
-            HistogramOpts::new("registration_duration_seconds", "Total time for registration process")
-                .buckets(vec![0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0])
+            HistogramOpts::new(
+                "registration_duration_seconds",
+                "Total time for registration process",
+            )
+            .buckets(vec![0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]),
         )?;
-        
-        let active_registrations = Gauge::with_opts(
-            Opts::new("active_registrations", "Number of currently active registration processes")
-        )?;
+
+        let active_registrations = Gauge::with_opts(Opts::new(
+            "active_registrations",
+            "Number of currently active registration processes",
+        ))?;
 
         // Register metrics
         registry.register(Box::new(registration_attempts_total.clone()))?;
@@ -155,7 +169,7 @@ impl RegistrationMonitoringService {
     pub fn record_registration_attempt(&self) {
         self.registration_attempts_total.inc();
         self.active_registrations.inc();
-        
+
         tracing::info!(
             metric = "registration_attempt",
             "Registration attempt recorded"
@@ -166,8 +180,9 @@ impl RegistrationMonitoringService {
     pub fn record_registration_success(&self, duration: Duration) {
         self.registration_successes_total.inc();
         self.active_registrations.dec();
-        self.registration_duration_seconds.observe(duration.as_secs_f64());
-        
+        self.registration_duration_seconds
+            .observe(duration.as_secs_f64());
+
         tracing::info!(
             metric = "registration_success",
             duration_ms = duration.as_millis(),
@@ -179,7 +194,7 @@ impl RegistrationMonitoringService {
     pub fn record_registration_failure(&self, error_type: &str) {
         self.registration_failures_total.inc();
         self.active_registrations.dec();
-        
+
         tracing::warn!(
             metric = "registration_failure",
             error_type = error_type,
@@ -190,8 +205,9 @@ impl RegistrationMonitoringService {
     /// Record a validation failure
     pub fn record_validation_failure(&self, validation_duration: Duration) {
         self.validation_failures_total.inc();
-        self.validation_duration_seconds.observe(validation_duration.as_secs_f64());
-        
+        self.validation_duration_seconds
+            .observe(validation_duration.as_secs_f64());
+
         tracing::warn!(
             metric = "validation_failure",
             duration_ms = validation_duration.as_millis(),
@@ -202,7 +218,7 @@ impl RegistrationMonitoringService {
     /// Record an email duplicate attempt
     pub fn record_email_duplicate(&self) {
         self.email_duplicates_total.inc();
-        
+
         tracing::info!(
             metric = "email_duplicate",
             "Email duplicate attempt recorded"
@@ -211,7 +227,8 @@ impl RegistrationMonitoringService {
 
     /// Record validation timing
     pub fn record_validation_timing(&self, duration: Duration) {
-        self.validation_duration_seconds.observe(duration.as_secs_f64());
+        self.validation_duration_seconds
+            .observe(duration.as_secs_f64());
     }
 
     /// Get Prometheus metrics registry
@@ -293,10 +310,12 @@ impl RegistrationMonitoringService {
         registration_metrics: RegistrationMetrics,
     ) -> RegistrationDashboard {
         let health_status = self.get_health_status().await;
-        
+
         // Calculate success rate
         let success_rate_percent = if registration_metrics.total_attempts > 0 {
-            (registration_metrics.successful_registrations as f64 / registration_metrics.total_attempts as f64) * 100.0
+            (registration_metrics.successful_registrations as f64
+                / registration_metrics.total_attempts as f64)
+                * 100.0
         } else {
             0.0
         };
@@ -374,7 +393,7 @@ impl RegistrationMonitoringService {
 
     async fn check_redis_health(&self, redis_pool: &deadpool_redis::Pool) -> Result<()> {
         use redis::AsyncCommands;
-        
+
         let mut conn = redis_pool.get().await?;
         // Use a simple SET/GET operation instead of ping
         let test_key = "health_check";
@@ -395,7 +414,7 @@ impl RegistrationMonitoringService {
         // Get average from histogram
         let samples = self.registration_duration_seconds.get_sample_sum();
         let count = self.registration_duration_seconds.get_sample_count();
-        
+
         if count > 0 {
             (samples / count as f64) * 1000.0 // Convert to milliseconds
         } else {
@@ -406,7 +425,7 @@ impl RegistrationMonitoringService {
     fn calculate_error_rate(&self) -> f64 {
         let total_attempts = self.registration_attempts_total.get();
         let failures = self.registration_failures_total.get();
-        
+
         if total_attempts > 0.0 {
             (failures / total_attempts) * 100.0
         } else {
@@ -466,12 +485,12 @@ pub async fn registration_monitoring_middleware(
     let start_time = std::time::Instant::now();
     let method = req.method().clone();
     let uri = req.uri().clone();
-    
+
     let response = next.run(req).await;
-    
+
     let duration = start_time.elapsed();
     let status = response.status();
-    
+
     // Log request metrics
     tracing::info!(
         method = %method,
@@ -480,7 +499,7 @@ pub async fn registration_monitoring_middleware(
         duration_ms = duration.as_millis(),
         "Registration endpoint request completed"
     );
-    
+
     response
 }
 
@@ -491,7 +510,7 @@ mod tests {
     #[tokio::test]
     async fn test_monitoring_service_creation() {
         let service = RegistrationMonitoringService::new().unwrap();
-        
+
         // Test that metrics are properly initialized
         assert_eq!(service.registration_attempts_total.get(), 0.0);
         assert_eq!(service.registration_successes_total.get(), 0.0);
@@ -501,7 +520,7 @@ mod tests {
     #[tokio::test]
     async fn test_health_status_default() {
         let health = RegistrationHealthStatus::default();
-        
+
         assert_eq!(health.status, "healthy");
         assert!(health.database_healthy);
         assert!(health.redis_healthy);
@@ -513,15 +532,15 @@ mod tests {
     #[test]
     fn test_error_rate_calculation() {
         let service = RegistrationMonitoringService::new().unwrap();
-        
+
         // Initially should be 0%
         assert_eq!(service.calculate_error_rate(), 0.0);
-        
+
         // Record some attempts and failures
         service.record_registration_attempt();
         service.record_registration_attempt();
         service.record_registration_failure("validation_error");
-        
+
         // Should be 50% error rate
         let error_rate = service.calculate_error_rate();
         assert!((error_rate - 50.0).abs() < 0.1);

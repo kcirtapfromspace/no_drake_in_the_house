@@ -173,23 +173,27 @@ impl TrendAnalysisService {
         Ok(TrendSummary {
             period: format!(
                 "Last {} days vs previous {} days",
-                self.config.current_period_days,
-                self.config.comparison_period_days
+                self.config.current_period_days, self.config.comparison_period_days
             ),
             top_rising_artists: rising.unwrap_or_default(),
             top_falling_artists: falling.unwrap_or_default(),
             new_offense_trends: offense_trends.unwrap_or_default(),
-            content_volume_trend: content_trend.unwrap_or_else(|_| empty_time_series("content_volume")),
-            user_activity_trend: activity_trend.unwrap_or_else(|_| empty_time_series("user_activity")),
+            content_volume_trend: content_trend
+                .unwrap_or_else(|_| empty_time_series("content_volume")),
+            user_activity_trend: activity_trend
+                .unwrap_or_else(|_| empty_time_series("user_activity")),
         })
     }
 
     /// Get artist trend analysis
     pub async fn get_artist_trend(&self, artist_id: Uuid) -> Result<ArtistTrend> {
-        let trending = self.duckdb.get_trending_artists(
-            self.config.current_period_days + self.config.comparison_period_days,
-            1000
-        ).await?;
+        let trending = self
+            .duckdb
+            .get_trending_artists(
+                self.config.current_period_days + self.config.comparison_period_days,
+                1000,
+            )
+            .await?;
 
         // Find this artist in the trending list
         let artist = trending.iter().find(|t| t.artist_id == artist_id);
@@ -255,10 +259,10 @@ impl TrendAnalysisService {
 
     /// Get rising artists
     async fn get_rising_artists(&self, limit: i32) -> Result<Vec<ArtistTrend>> {
-        let trending = self.duckdb.get_trending_artists(
-            self.config.current_period_days,
-            limit * 2
-        ).await?;
+        let trending = self
+            .duckdb
+            .get_trending_artists(self.config.current_period_days, limit * 2)
+            .await?;
 
         // Filter and sort by positive change
         let mut artists: Vec<ArtistTrend> = trending
@@ -290,7 +294,11 @@ impl TrendAnalysisService {
             })
             .collect();
 
-        artists.sort_by(|a, b| b.change_percentage.partial_cmp(&a.change_percentage).unwrap());
+        artists.sort_by(|a, b| {
+            b.change_percentage
+                .partial_cmp(&a.change_percentage)
+                .unwrap()
+        });
         artists.truncate(limit as usize);
 
         Ok(artists)
@@ -298,42 +306,44 @@ impl TrendAnalysisService {
 
     /// Get falling artists
     async fn get_falling_artists(&self, limit: i32) -> Result<Vec<ArtistTrend>> {
-        let trending = self.duckdb.get_trending_artists(
-            self.config.current_period_days,
-            limit * 2
-        ).await?;
+        let trending = self
+            .duckdb
+            .get_trending_artists(self.config.current_period_days, limit * 2)
+            .await?;
 
         // Filter to artists with negative sentiment
         let mut artists: Vec<ArtistTrend> = trending
             .into_iter()
             .filter(|t| t.positive_ratio < 0.5)
-            .map(|t| {
-                ArtistTrend {
-                    artist_id: t.artist_id,
-                    artist_name: t.artist_name,
-                    current_mentions: t.total_mentions,
-                    previous_mentions: (t.total_mentions as f64 * 1.2) as i64,
-                    change_percentage: -0.15,
+            .map(|t| ArtistTrend {
+                artist_id: t.artist_id,
+                artist_name: t.artist_name,
+                current_mentions: t.total_mentions,
+                previous_mentions: (t.total_mentions as f64 * 1.2) as i64,
+                change_percentage: -0.15,
+                direction: TrendDirection::Falling,
+                offense_trend: OffenseTrend {
+                    current_count: t.offense_mentions,
+                    previous_count: 0,
+                    change_percentage: 0.0,
+                    direction: TrendDirection::Stable,
+                    top_categories: vec![],
+                },
+                sentiment_trend: SentimentTrend {
+                    current_score: t.positive_ratio,
+                    previous_score: t.positive_ratio,
+                    change: 0.0,
                     direction: TrendDirection::Falling,
-                    offense_trend: OffenseTrend {
-                        current_count: t.offense_mentions,
-                        previous_count: 0,
-                        change_percentage: 0.0,
-                        direction: TrendDirection::Stable,
-                        top_categories: vec![],
-                    },
-                    sentiment_trend: SentimentTrend {
-                        current_score: t.positive_ratio,
-                        previous_score: t.positive_ratio,
-                        change: 0.0,
-                        direction: TrendDirection::Falling,
-                    },
-                    mention_history: vec![],
-                }
+                },
+                mention_history: vec![],
             })
             .collect();
 
-        artists.sort_by(|a, b| a.change_percentage.partial_cmp(&b.change_percentage).unwrap());
+        artists.sort_by(|a, b| {
+            a.change_percentage
+                .partial_cmp(&b.change_percentage)
+                .unwrap()
+        });
         artists.truncate(limit as usize);
 
         Ok(artists)
@@ -365,9 +375,12 @@ impl TrendAnalysisService {
 
     /// Get content volume trend
     async fn get_content_volume_trend(&self) -> Result<TimeSeries> {
-        let summaries = self.duckdb.get_daily_news_summary(
-            self.config.current_period_days + self.config.comparison_period_days
-        ).await?;
+        let summaries = self
+            .duckdb
+            .get_daily_news_summary(
+                self.config.current_period_days + self.config.comparison_period_days,
+            )
+            .await?;
 
         let data_points: Vec<TrendData> = summaries
             .iter()
@@ -378,12 +391,14 @@ impl TrendAnalysisService {
             })
             .collect();
 
-        let current = summaries.iter()
+        let current = summaries
+            .iter()
             .take(self.config.current_period_days as usize)
             .map(|s| s.total_articles)
             .sum::<i64>() as f64;
 
-        let previous = summaries.iter()
+        let previous = summaries
+            .iter()
             .skip(self.config.current_period_days as usize)
             .map(|s| s.total_articles)
             .sum::<i64>() as f64;
@@ -408,9 +423,10 @@ impl TrendAnalysisService {
 
     /// Get platform performance trends
     pub async fn get_platform_trends(&self) -> Result<Vec<PlatformTrend>> {
-        let health = self.duckdb.get_platform_health(
-            self.config.current_period_days
-        ).await?;
+        let health = self
+            .duckdb
+            .get_platform_health(self.config.current_period_days)
+            .await?;
 
         Ok(health
             .into_iter()
@@ -485,7 +501,11 @@ pub struct PeriodChanges {
 /// Calculate percentage change
 fn calculate_change(current: f64, previous: f64) -> f64 {
     if previous == 0.0 {
-        if current > 0.0 { 1.0 } else { 0.0 }
+        if current > 0.0 {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         (current - previous) / previous
     }

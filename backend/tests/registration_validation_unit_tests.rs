@@ -25,7 +25,7 @@ fn validate_email_format(email: &str) -> Vec<RegistrationValidationError> {
         errors.push(create_validation_error(
             "email",
             "Email is required",
-            "EMAIL_REQUIRED"
+            "EMAIL_REQUIRED",
         ));
     } else {
         // Enhanced email validation with proper regex (no consecutive dots)
@@ -34,16 +34,16 @@ fn validate_email_format(email: &str) -> Vec<RegistrationValidationError> {
             errors.push(create_validation_error(
                 "email",
                 "Please enter a valid email address",
-                "EMAIL_INVALID_FORMAT"
+                "EMAIL_INVALID_FORMAT",
             ));
         }
-        
+
         // Check email length
         if email.len() > 255 {
             errors.push(create_validation_error(
                 "email",
                 "Email address is too long (maximum 255 characters)",
-                "EMAIL_TOO_LONG"
+                "EMAIL_TOO_LONG",
             ));
         }
     }
@@ -75,17 +75,32 @@ fn validate_password_strength(password: &str) -> Option<RegistrationValidationEr
     }
 
     // Special character requirement
-    if !password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)) {
+    if !password
+        .chars()
+        .any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c))
+    {
         requirements.push("at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)");
     }
 
     // Check against common passwords (basic implementation)
     let common_passwords = [
-        "password", "123456", "password123", "admin", "qwerty", "letmein",
-        "welcome", "monkey", "1234567890", "password1", "123456789"
+        "password",
+        "123456",
+        "password123",
+        "admin",
+        "qwerty",
+        "letmein",
+        "welcome",
+        "monkey",
+        "1234567890",
+        "password1",
+        "123456789",
     ];
-    
-    if common_passwords.iter().any(|&common| password.to_lowercase() == common.to_lowercase()) {
+
+    if common_passwords
+        .iter()
+        .any(|&common| password.to_lowercase() == common.to_lowercase())
+    {
         requirements.push("not be a common password");
     }
 
@@ -94,27 +109,30 @@ fn validate_password_strength(password: &str) -> Option<RegistrationValidationEr
         Some(create_validation_error(
             "password",
             &message,
-            "PASSWORD_WEAK"
+            "PASSWORD_WEAK",
         ))
     } else {
         None
     }
 }
 
-fn validate_password_confirmation(password: &str, confirm_password: &str) -> Vec<RegistrationValidationError> {
+fn validate_password_confirmation(
+    password: &str,
+    confirm_password: &str,
+) -> Vec<RegistrationValidationError> {
     let mut errors = Vec::new();
 
     if confirm_password.is_empty() {
         errors.push(create_validation_error(
             "confirm_password",
             "Password confirmation is required",
-            "CONFIRM_PASSWORD_REQUIRED"
+            "CONFIRM_PASSWORD_REQUIRED",
         ));
     } else if password != confirm_password {
         errors.push(create_validation_error(
             "confirm_password",
             "Password confirmation does not match",
-            "PASSWORD_MISMATCH"
+            "PASSWORD_MISMATCH",
         ));
     }
 
@@ -128,7 +146,7 @@ fn validate_terms_acceptance(terms_accepted: bool) -> Vec<RegistrationValidation
         errors.push(create_validation_error(
             "terms_accepted",
             "You must accept the terms of service to register",
-            "TERMS_NOT_ACCEPTED"
+            "TERMS_NOT_ACCEPTED",
         ));
     }
 
@@ -146,7 +164,7 @@ fn validate_registration_request(request: &RegisterRequest) -> Vec<RegistrationV
         errors.push(create_validation_error(
             "password",
             "Password is required",
-            "PASSWORD_REQUIRED"
+            "PASSWORD_REQUIRED",
         ));
     } else {
         // Password strength validation with detailed requirements checking
@@ -156,7 +174,10 @@ fn validate_registration_request(request: &RegisterRequest) -> Vec<RegistrationV
     }
 
     // Password confirmation matching validation
-    errors.extend(validate_password_confirmation(&request.password, &request.confirm_password));
+    errors.extend(validate_password_confirmation(
+        &request.password,
+        &request.confirm_password,
+    ));
 
     // Terms acceptance validation logic
     errors.extend(validate_terms_acceptance(request.terms_accepted));
@@ -175,11 +196,15 @@ async fn test_password_confirmation_matching_validation() {
     };
 
     let validation_errors = validate_registration_request(&valid_request);
-    let password_errors: Vec<_> = validation_errors.iter()
+    let password_errors: Vec<_> = validation_errors
+        .iter()
         .filter(|e| e.field == "confirm_password")
         .collect();
-    
-    assert!(password_errors.is_empty(), "Should not have password confirmation errors when passwords match");
+
+    assert!(
+        password_errors.is_empty(),
+        "Should not have password confirmation errors when passwords match"
+    );
 
     // Test case: Passwords don't match - should fail validation
     let invalid_request = RegisterRequest {
@@ -190,10 +215,14 @@ async fn test_password_confirmation_matching_validation() {
     };
 
     let validation_errors = validate_registration_request(&invalid_request);
-    let password_mismatch_error = validation_errors.iter()
+    let password_mismatch_error = validation_errors
+        .iter()
         .find(|e| e.field == "confirm_password" && e.code == "PASSWORD_MISMATCH");
-    
-    assert!(password_mismatch_error.is_some(), "Should have password mismatch error");
+
+    assert!(
+        password_mismatch_error.is_some(),
+        "Should have password mismatch error"
+    );
     assert_eq!(
         password_mismatch_error.unwrap().message,
         "Password confirmation does not match"
@@ -208,10 +237,14 @@ async fn test_password_confirmation_matching_validation() {
     };
 
     let validation_errors = validate_registration_request(&empty_confirm_request);
-    let empty_confirm_error = validation_errors.iter()
+    let empty_confirm_error = validation_errors
+        .iter()
         .find(|e| e.field == "confirm_password" && e.code == "CONFIRM_PASSWORD_REQUIRED");
-    
-    assert!(empty_confirm_error.is_some(), "Should have required error for empty confirm_password");
+
+    assert!(
+        empty_confirm_error.is_some(),
+        "Should have required error for empty confirm_password"
+    );
     assert_eq!(
         empty_confirm_error.unwrap().message,
         "Password confirmation is required"
@@ -229,11 +262,15 @@ async fn test_terms_acceptance_validation() {
     };
 
     let validation_errors = validate_registration_request(&valid_request);
-    let terms_errors: Vec<_> = validation_errors.iter()
+    let terms_errors: Vec<_> = validation_errors
+        .iter()
         .filter(|e| e.field == "terms_accepted")
         .collect();
-    
-    assert!(terms_errors.is_empty(), "Should not have terms errors when terms are accepted");
+
+    assert!(
+        terms_errors.is_empty(),
+        "Should not have terms errors when terms are accepted"
+    );
 
     // Test case: Terms not accepted - should fail validation
     let invalid_request = RegisterRequest {
@@ -244,10 +281,14 @@ async fn test_terms_acceptance_validation() {
     };
 
     let validation_errors = validate_registration_request(&invalid_request);
-    let terms_error = validation_errors.iter()
+    let terms_error = validation_errors
+        .iter()
         .find(|e| e.field == "terms_accepted" && e.code == "TERMS_NOT_ACCEPTED");
-    
-    assert!(terms_error.is_some(), "Should have terms not accepted error");
+
+    assert!(
+        terms_error.is_some(),
+        "Should have terms not accepted error"
+    );
     assert_eq!(
         terms_error.unwrap().message,
         "You must accept the terms of service to register"
@@ -274,11 +315,16 @@ async fn test_enhanced_email_format_validation() {
         };
 
         let validation_errors = validate_registration_request(&request);
-        let email_errors: Vec<_> = validation_errors.iter()
+        let email_errors: Vec<_> = validation_errors
+            .iter()
             .filter(|e| e.field == "email")
             .collect();
-        
-        assert!(email_errors.is_empty(), "Should not have email errors for valid email: {}", email);
+
+        assert!(
+            email_errors.is_empty(),
+            "Should not have email errors for valid email: {}",
+            email
+        );
     }
 
     // Test case: Invalid email formats - should fail validation
@@ -302,10 +348,15 @@ async fn test_enhanced_email_format_validation() {
         };
 
         let validation_errors = validate_registration_request(&request);
-        let has_email_error = validation_errors.iter()
-            .any(|e| e.field == "email" && (e.code == "EMAIL_INVALID_FORMAT" || e.code == "EMAIL_REQUIRED"));
-        
-        assert!(has_email_error, "Should have email error for invalid email: '{}'", email);
+        let has_email_error = validation_errors.iter().any(|e| {
+            e.field == "email" && (e.code == "EMAIL_INVALID_FORMAT" || e.code == "EMAIL_REQUIRED")
+        });
+
+        assert!(
+            has_email_error,
+            "Should have email error for invalid email: '{}'",
+            email
+        );
     }
 
     // Test case: Email too long - should fail validation
@@ -318,11 +369,15 @@ async fn test_enhanced_email_format_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let length_error = validation_errors.iter()
+    let length_error = validation_errors
+        .iter()
         .find(|e| e.field == "email" && e.code == "EMAIL_TOO_LONG");
-    
+
     assert!(length_error.is_some(), "Should have email too long error");
-    assert!(length_error.unwrap().message.contains("maximum 255 characters"));
+    assert!(length_error
+        .unwrap()
+        .message
+        .contains("maximum 255 characters"));
 }
 
 #[tokio::test]
@@ -344,15 +399,20 @@ async fn test_password_strength_requirements_validation() {
         };
 
         let validation_errors = validate_registration_request(&request);
-        let password_errors: Vec<_> = validation_errors.iter()
+        let password_errors: Vec<_> = validation_errors
+            .iter()
             .filter(|e| e.field == "password")
             .collect();
-        
+
         if !password_errors.is_empty() {
             println!("Password errors for '{}': {:?}", password, password_errors);
         }
-        
-        assert!(password_errors.is_empty(), "Should not have password errors for strong password: {}", password);
+
+        assert!(
+            password_errors.is_empty(),
+            "Should not have password errors for strong password: {}",
+            password
+        );
     }
 
     // Test case: Password too short - should fail validation
@@ -365,11 +425,18 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let length_error = validation_errors.iter()
+    let length_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-    
-    assert!(length_error.is_some(), "Should have password weak error for short password");
-    assert!(length_error.unwrap().message.contains("at least 8 characters"));
+
+    assert!(
+        length_error.is_some(),
+        "Should have password weak error for short password"
+    );
+    assert!(length_error
+        .unwrap()
+        .message
+        .contains("at least 8 characters"));
 
     // Test case: Password missing uppercase - should fail validation
     let no_uppercase = "lowercase123!";
@@ -381,11 +448,18 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let uppercase_error = validation_errors.iter()
+    let uppercase_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-    
-    assert!(uppercase_error.is_some(), "Should have password weak error for missing uppercase");
-    assert!(uppercase_error.unwrap().message.contains("at least one uppercase letter"));
+
+    assert!(
+        uppercase_error.is_some(),
+        "Should have password weak error for missing uppercase"
+    );
+    assert!(uppercase_error
+        .unwrap()
+        .message
+        .contains("at least one uppercase letter"));
 
     // Test case: Password missing lowercase - should fail validation
     let no_lowercase = "UPPERCASE123!";
@@ -397,11 +471,18 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let lowercase_error = validation_errors.iter()
+    let lowercase_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-    
-    assert!(lowercase_error.is_some(), "Should have password weak error for missing lowercase");
-    assert!(lowercase_error.unwrap().message.contains("at least one lowercase letter"));
+
+    assert!(
+        lowercase_error.is_some(),
+        "Should have password weak error for missing lowercase"
+    );
+    assert!(lowercase_error
+        .unwrap()
+        .message
+        .contains("at least one lowercase letter"));
 
     // Test case: Password missing number - should fail validation
     let no_number = "NoNumbersHere!";
@@ -413,11 +494,18 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let number_error = validation_errors.iter()
+    let number_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-    
-    assert!(number_error.is_some(), "Should have password weak error for missing number");
-    assert!(number_error.unwrap().message.contains("at least one number"));
+
+    assert!(
+        number_error.is_some(),
+        "Should have password weak error for missing number"
+    );
+    assert!(number_error
+        .unwrap()
+        .message
+        .contains("at least one number"));
 
     // Test case: Password missing special character - should fail validation
     let no_special = "NoSpecialChars123";
@@ -429,19 +517,21 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let special_error = validation_errors.iter()
+    let special_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-    
-    assert!(special_error.is_some(), "Should have password weak error for missing special character");
-    assert!(special_error.unwrap().message.contains("at least one special character"));
+
+    assert!(
+        special_error.is_some(),
+        "Should have password weak error for missing special character"
+    );
+    assert!(special_error
+        .unwrap()
+        .message
+        .contains("at least one special character"));
 
     // Test case: Common password - should fail validation
-    let common_passwords = vec![
-        "password",
-        "123456",
-        "admin",
-        "qwerty",
-    ];
+    let common_passwords = vec!["password", "123456", "admin", "qwerty"];
 
     for password in common_passwords {
         let request = RegisterRequest {
@@ -452,11 +542,19 @@ async fn test_password_strength_requirements_validation() {
         };
 
         let validation_errors = validate_registration_request(&request);
-        let common_error = validation_errors.iter()
+        let common_error = validation_errors
+            .iter()
             .find(|e| e.field == "password" && e.code == "PASSWORD_WEAK");
-        
-        assert!(common_error.is_some(), "Should have password weak error for common password: {}", password);
-        assert!(common_error.unwrap().message.contains("not be a common password"));
+
+        assert!(
+            common_error.is_some(),
+            "Should have password weak error for common password: {}",
+            password
+        );
+        assert!(common_error
+            .unwrap()
+            .message
+            .contains("not be a common password"));
     }
 
     // Test case: Empty password - should fail validation
@@ -468,10 +566,14 @@ async fn test_password_strength_requirements_validation() {
     };
 
     let validation_errors = validate_registration_request(&request);
-    let empty_error = validation_errors.iter()
+    let empty_error = validation_errors
+        .iter()
         .find(|e| e.field == "password" && e.code == "PASSWORD_REQUIRED");
-    
-    assert!(empty_error.is_some(), "Should have password required error for empty password");
+
+    assert!(
+        empty_error.is_some(),
+        "Should have password required error for empty password"
+    );
     assert_eq!(empty_error.unwrap().message, "Password is required");
 }
 
@@ -486,18 +588,52 @@ async fn test_multiple_validation_errors() {
     };
 
     let validation_errors = validate_registration_request(&invalid_request);
-    
+
     // Should have errors for all fields
-    assert!(validation_errors.iter().any(|e| e.field == "email"), "Should have email error");
-    assert!(validation_errors.iter().any(|e| e.field == "password"), "Should have password error");
-    assert!(validation_errors.iter().any(|e| e.field == "confirm_password"), "Should have confirm_password error");
-    assert!(validation_errors.iter().any(|e| e.field == "terms_accepted"), "Should have terms_accepted error");
-    
+    assert!(
+        validation_errors.iter().any(|e| e.field == "email"),
+        "Should have email error"
+    );
+    assert!(
+        validation_errors.iter().any(|e| e.field == "password"),
+        "Should have password error"
+    );
+    assert!(
+        validation_errors
+            .iter()
+            .any(|e| e.field == "confirm_password"),
+        "Should have confirm_password error"
+    );
+    assert!(
+        validation_errors
+            .iter()
+            .any(|e| e.field == "terms_accepted"),
+        "Should have terms_accepted error"
+    );
+
     // Verify specific error codes
-    assert!(validation_errors.iter().any(|e| e.code == "EMAIL_INVALID_FORMAT"), "Should have email format error");
-    assert!(validation_errors.iter().any(|e| e.code == "PASSWORD_WEAK"), "Should have password weak error");
-    assert!(validation_errors.iter().any(|e| e.code == "PASSWORD_MISMATCH"), "Should have password mismatch error");
-    assert!(validation_errors.iter().any(|e| e.code == "TERMS_NOT_ACCEPTED"), "Should have terms not accepted error");
+    assert!(
+        validation_errors
+            .iter()
+            .any(|e| e.code == "EMAIL_INVALID_FORMAT"),
+        "Should have email format error"
+    );
+    assert!(
+        validation_errors.iter().any(|e| e.code == "PASSWORD_WEAK"),
+        "Should have password weak error"
+    );
+    assert!(
+        validation_errors
+            .iter()
+            .any(|e| e.code == "PASSWORD_MISMATCH"),
+        "Should have password mismatch error"
+    );
+    assert!(
+        validation_errors
+            .iter()
+            .any(|e| e.code == "TERMS_NOT_ACCEPTED"),
+        "Should have terms not accepted error"
+    );
 }
 
 #[tokio::test]
@@ -510,15 +646,21 @@ async fn test_validation_error_structure() {
     };
 
     let validation_errors = validate_registration_request(&invalid_request);
-    
+
     // Verify error structure
     for error in &validation_errors {
         assert!(!error.field.is_empty(), "Error field should not be empty");
-        assert!(!error.message.is_empty(), "Error message should not be empty");
+        assert!(
+            !error.message.is_empty(),
+            "Error message should not be empty"
+        );
         assert!(!error.code.is_empty(), "Error code should not be empty");
-        
+
         // Verify error codes follow expected pattern
-        assert!(error.code.chars().all(|c| c.is_uppercase() || c == '_'), 
-               "Error code should be uppercase with underscores: {}", error.code);
+        assert!(
+            error.code.chars().all(|c| c.is_uppercase() || c == '_'),
+            "Error code should be uppercase with underscores: {}",
+            error.code
+        );
     }
 }

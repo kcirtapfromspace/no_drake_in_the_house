@@ -1,7 +1,7 @@
+use crate::models::oauth::{OAuthAccount, OAuthProviderType};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::models::oauth::{OAuthAccount, OAuthProviderType};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
@@ -222,7 +222,8 @@ impl User {
     /// Add an OAuth account to this user
     pub fn add_oauth_account(&mut self, oauth_account: OAuthAccount) {
         // Remove existing account for same provider
-        self.oauth_accounts.retain(|acc| acc.provider != oauth_account.provider);
+        self.oauth_accounts
+            .retain(|acc| acc.provider != oauth_account.provider);
         self.oauth_accounts.push(oauth_account);
         self.updated_at = Utc::now();
     }
@@ -240,12 +241,16 @@ impl User {
 
     /// Get OAuth account by provider
     pub fn get_oauth_account(&self, provider: &OAuthProviderType) -> Option<&OAuthAccount> {
-        self.oauth_accounts.iter().find(|acc| &acc.provider == provider)
+        self.oauth_accounts
+            .iter()
+            .find(|acc| &acc.provider == provider)
     }
 
     /// Check if user has OAuth account for provider
     pub fn has_oauth_account(&self, provider: &OAuthProviderType) -> bool {
-        self.oauth_accounts.iter().any(|acc| &acc.provider == provider)
+        self.oauth_accounts
+            .iter()
+            .any(|acc| &acc.provider == provider)
     }
 
     /// Check if user is OAuth-only (no password)
@@ -255,7 +260,10 @@ impl User {
 
     /// Get all linked OAuth providers
     pub fn linked_providers(&self) -> Vec<OAuthProviderType> {
-        self.oauth_accounts.iter().map(|acc| acc.provider.clone()).collect()
+        self.oauth_accounts
+            .iter()
+            .map(|acc| acc.provider.clone())
+            .collect()
     }
 
     /// Convert to user profile (safe for API responses)
@@ -265,15 +273,19 @@ impl User {
             email: self.email.clone(),
             email_verified: self.email_verified,
             totp_enabled: self.totp_enabled,
-            oauth_accounts: self.oauth_accounts.iter().map(|acc| OAuthAccountInfo {
-                provider: acc.provider.clone(),
-                provider_user_id: acc.provider_user_id.clone(),
-                email: acc.email.clone(),
-                display_name: acc.display_name.clone(),
-                avatar_url: acc.avatar_url.clone(),
-                connected_at: acc.created_at,
-                last_used_at: None, // This would come from a separate tracking mechanism
-            }).collect(),
+            oauth_accounts: self
+                .oauth_accounts
+                .iter()
+                .map(|acc| OAuthAccountInfo {
+                    provider: acc.provider.clone(),
+                    provider_user_id: acc.provider_user_id.clone(),
+                    email: acc.email.clone(),
+                    display_name: acc.display_name.clone(),
+                    avatar_url: acc.avatar_url.clone(),
+                    connected_at: acc.created_at,
+                    last_used_at: None, // This would come from a separate tracking mechanism
+                })
+                .collect(),
             created_at: self.created_at,
             updated_at: self.updated_at,
             last_login: self.last_login,

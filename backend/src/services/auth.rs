@@ -1,24 +1,33 @@
-use crate::models::{User, Claims, TokenPair, CreateUserRequest, LoginRequest, OAuthLoginRequest, TotpSetupResponse, UserSession, RegistrationValidationError};
-use crate::models::oauth::{OAuthProviderType, OAuthFlowResponse, OAuthUserInfo, OAuthTokens, OAuthAccount, AccountLinkRequest, OAuthTokenStatus, TokenExpirationStatus, TokenRefreshSchedule, RefreshPriority, OAuthAccountHealth, OAuthConnectionStatus, TokenNotificationTarget, TokenRefreshSummary};
+use crate::models::oauth::{
+    AccountLinkRequest, OAuthAccount, OAuthAccountHealth, OAuthConnectionStatus, OAuthFlowResponse,
+    OAuthProviderType, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
+    TokenExpirationStatus, TokenNotificationTarget, TokenRefreshSchedule, TokenRefreshSummary,
+};
 use crate::models::user::{MergeAccountsRequest, MergeAccountsResponse};
-use crate::services::registration_performance::RegistrationPerformanceService;
+use crate::models::{
+    Claims, CreateUserRequest, LoginRequest, OAuthLoginRequest, RegistrationValidationError,
+    TokenPair, TotpSetupResponse, User, UserSession,
+};
 use crate::services::login_performance::LoginPerformanceService;
 use crate::services::oauth::{OAuthProvider, OAuthStateManager};
-use crate::services::oauth_encryption::OAuthTokenEncryption;
-use crate::services::oauth_google::GoogleOAuthProvider;
 use crate::services::oauth_apple::AppleOAuthProvider;
-use crate::services::oauth_github::GitHubOAuthProvider;
-use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::oauth_config_validator::OAuthConfigValidator;
-use crate::services::oauth_health_monitor::{OAuthHealthMonitor, OAuthHealthConfig, OAuthProviderHealthStatus};
-use crate::services::oauth_error_recovery::{OAuthErrorRecoveryService, OAuthErrorRecoveryConfig};
+use crate::services::oauth_encryption::OAuthTokenEncryption;
+use crate::services::oauth_error_recovery::{OAuthErrorRecoveryConfig, OAuthErrorRecoveryService};
+use crate::services::oauth_github::GitHubOAuthProvider;
+use crate::services::oauth_google::GoogleOAuthProvider;
+use crate::services::oauth_health_monitor::{
+    OAuthHealthConfig, OAuthHealthMonitor, OAuthProviderHealthStatus,
+};
 use crate::services::oauth_security_logger::OAuthSecurityLogger;
+use crate::services::oauth_spotify::SpotifyOAuthProvider;
+use crate::services::registration_performance::RegistrationPerformanceService;
 use crate::{AppError, Result};
 use anyhow::anyhow;
 use base64::Engine as _;
 use bcrypt::{hash, verify};
-use chrono::{Utc, Duration};
-use jsonwebtoken::{encode, decode, Header, Validation, EncodingKey, DecodingKey, Algorithm};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use rand::Rng;
 use sqlx::PgPool;
 use std::collections::HashMap;
@@ -29,16 +38,16 @@ use uuid::Uuid;
 pub struct AuthService {
     // Database connection
     db_pool: PgPool,
-    
+
     // JWT configuration
     jwt_secret: String,
     access_token_ttl: i64,  // seconds (24 hours)
     refresh_token_ttl: i64, // seconds (30 days)
-    
+
     // Performance optimization services
     performance_service: Arc<RegistrationPerformanceService>,
     login_performance_service: Arc<LoginPerformanceService>,
-    
+
     // OAuth configuration
     oauth_providers: Arc<HashMap<OAuthProviderType, Box<dyn OAuthProvider>>>,
     oauth_state_manager: Arc<OAuthStateManager>,
@@ -54,81 +63,79 @@ impl AuthService {
         // Use environment variable or generate a random JWT secret for demo
         let jwt_secret = std::env::var("JWT_SECRET")
             .unwrap_or_else(|_| format!("jwt_secret_{}", rand::thread_rng().gen::<u64>()));
-        
+
         // Initialize performance services
-        let redis_url = std::env::var("REDIS_URL")
-            .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-        
+        let redis_url =
+            std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
         let performance_service = Arc::new(
-            RegistrationPerformanceService::new(&redis_url)
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to initialize registration performance service: {}", e);
-                    // Create a fallback service that won't use Redis
-                    RegistrationPerformanceService::new("redis://localhost:6379").unwrap()
-                })
+            RegistrationPerformanceService::new(&redis_url).unwrap_or_else(|e| {
+                tracing::warn!(
+                    "Failed to initialize registration performance service: {}",
+                    e
+                );
+                // Create a fallback service that won't use Redis
+                RegistrationPerformanceService::new("redis://localhost:6379").unwrap()
+            }),
         );
 
         let login_performance_service = Arc::new(
-            LoginPerformanceService::new(&redis_url)
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to initialize login performance service: {}", e);
-                    // Create a fallback service that won't use Redis
-                    LoginPerformanceService::new("redis://localhost:6379").unwrap()
-                })
+            LoginPerformanceService::new(&redis_url).unwrap_or_else(|e| {
+                tracing::warn!("Failed to initialize login performance service: {}", e);
+                // Create a fallback service that won't use Redis
+                LoginPerformanceService::new("redis://localhost:6379").unwrap()
+            }),
         );
-        
+
         // Initialize OAuth configuration validator
         let mut oauth_config_validator = OAuthConfigValidator::new();
         if let Err(e) = oauth_config_validator.validate_all_providers() {
             tracing::error!("OAuth configuration validation failed: {}", e);
         }
-        
+
         // Validate environment security
         if let Err(e) = oauth_config_validator.validate_environment_security() {
             tracing::error!("OAuth security validation failed: {}", e);
         }
-        
+
         let oauth_config_validator = Arc::new(oauth_config_validator);
 
         // Initialize OAuth components
         let oauth_providers = Self::initialize_oauth_providers(&oauth_config_validator);
         let oauth_providers_arc = Arc::new(oauth_providers);
-        
+
         // Initialize OAuth health monitor
         let health_config = OAuthHealthConfig::default();
         let oauth_health_monitor = Arc::new(OAuthHealthMonitor::new(
             Arc::clone(&oauth_providers_arc),
             health_config,
         ));
-        
+
         // Initialize OAuth error recovery service
         let recovery_config = OAuthErrorRecoveryConfig::default();
         let oauth_error_recovery = Arc::new(OAuthErrorRecoveryService::new(recovery_config));
-        
+
         // Initialize OAuth security logger
         let oauth_security_logger = Arc::new(OAuthSecurityLogger::new());
-        
+
         // Start health monitoring in background
         let health_monitor_clone = Arc::clone(&oauth_health_monitor);
         tokio::spawn(async move {
             health_monitor_clone.start_monitoring().await;
         });
-        
+
         let oauth_state_manager = Arc::new(OAuthStateManager::new());
-        let oauth_encryption = Arc::new(
-            OAuthTokenEncryption::new()
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to initialize OAuth encryption: {}", e);
-                    // Create with a generated key for development
-                    let key = OAuthTokenEncryption::generate_key();
-                    OAuthTokenEncryption::with_key(&key).unwrap()
-                })
-        );
-        
+        let oauth_encryption = Arc::new(OAuthTokenEncryption::new().unwrap_or_else(|e| {
+            tracing::warn!("Failed to initialize OAuth encryption: {}", e);
+            // Create with a generated key for development
+            let key = OAuthTokenEncryption::generate_key();
+            OAuthTokenEncryption::with_key(&key).unwrap()
+        }));
+
         let auth_service = Self {
             db_pool,
             jwt_secret,
-            access_token_ttl: 24 * 60 * 60,      // 24 hours as required
+            access_token_ttl: 24 * 60 * 60, // 24 hours as required
             refresh_token_ttl: 30 * 24 * 60 * 60, // 30 days
             performance_service,
             login_performance_service,
@@ -154,7 +161,9 @@ impl AuthService {
     }
 
     /// Initialize OAuth providers from environment configuration
-    fn initialize_oauth_providers(config_validator: &Arc<OAuthConfigValidator>) -> HashMap<OAuthProviderType, Box<dyn OAuthProvider>> {
+    fn initialize_oauth_providers(
+        config_validator: &Arc<OAuthConfigValidator>,
+    ) -> HashMap<OAuthProviderType, Box<dyn OAuthProvider>> {
         let mut providers: HashMap<OAuthProviderType, Box<dyn OAuthProvider>> = HashMap::new();
 
         // Initialize Google OAuth if configured and valid
@@ -165,24 +174,40 @@ impl AuthService {
                 std::env::var("GOOGLE_REDIRECT_URI"),
             ) {
                 (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) => {
-                    match GoogleOAuthProvider::with_credentials(client_id, client_secret, redirect_uri) {
+                    match GoogleOAuthProvider::with_credentials(
+                        client_id,
+                        client_secret,
+                        redirect_uri,
+                    ) {
                         Ok(provider) => {
                             providers.insert(OAuthProviderType::Google, Box::new(provider));
                             tracing::info!("✅ Google OAuth provider initialized and ready");
                         }
-                        Err(e) => tracing::error!("❌ Failed to initialize Google OAuth provider: {}", e),
+                        Err(e) => {
+                            tracing::error!("❌ Failed to initialize Google OAuth provider: {}", e)
+                        }
                     }
                 }
                 _ => {
-                    tracing::warn!("⚠️  Google OAuth validation passed but environment variables are missing");
+                    tracing::warn!(
+                        "⚠️  Google OAuth validation passed but environment variables are missing"
+                    );
                 }
             }
-        } else if let Some(validation) = config_validator.get_provider_validation(&OAuthProviderType::Google) {
+        } else if let Some(validation) =
+            config_validator.get_provider_validation(&OAuthProviderType::Google)
+        {
             if !validation.missing_variables.is_empty() {
-                tracing::debug!("Google OAuth not configured - missing: {}", validation.missing_variables.join(", "));
+                tracing::debug!(
+                    "Google OAuth not configured - missing: {}",
+                    validation.missing_variables.join(", ")
+                );
             }
             if !validation.validation_errors.is_empty() {
-                tracing::warn!("Google OAuth configuration errors: {}", validation.validation_errors.join("; "));
+                tracing::warn!(
+                    "Google OAuth configuration errors: {}",
+                    validation.validation_errors.join("; ")
+                );
             }
         }
 
@@ -196,24 +221,42 @@ impl AuthService {
                 std::env::var("APPLE_REDIRECT_URI"),
             ) {
                 (Ok(client_id), Ok(team_id), Ok(key_id), Ok(private_key), Ok(redirect_uri)) => {
-                    match AppleOAuthProvider::with_credentials(client_id, team_id, key_id, private_key, redirect_uri) {
+                    match AppleOAuthProvider::with_credentials(
+                        client_id,
+                        team_id,
+                        key_id,
+                        private_key,
+                        redirect_uri,
+                    ) {
                         Ok(provider) => {
                             providers.insert(OAuthProviderType::Apple, Box::new(provider));
                             tracing::info!("✅ Apple OAuth provider initialized and ready");
                         }
-                        Err(e) => tracing::error!("❌ Failed to initialize Apple OAuth provider: {}", e),
+                        Err(e) => {
+                            tracing::error!("❌ Failed to initialize Apple OAuth provider: {}", e)
+                        }
                     }
                 }
                 _ => {
-                    tracing::warn!("⚠️  Apple OAuth validation passed but environment variables are missing");
+                    tracing::warn!(
+                        "⚠️  Apple OAuth validation passed but environment variables are missing"
+                    );
                 }
             }
-        } else if let Some(validation) = config_validator.get_provider_validation(&OAuthProviderType::Apple) {
+        } else if let Some(validation) =
+            config_validator.get_provider_validation(&OAuthProviderType::Apple)
+        {
             if !validation.missing_variables.is_empty() {
-                tracing::debug!("Apple OAuth not configured - missing: {}", validation.missing_variables.join(", "));
+                tracing::debug!(
+                    "Apple OAuth not configured - missing: {}",
+                    validation.missing_variables.join(", ")
+                );
             }
             if !validation.validation_errors.is_empty() {
-                tracing::warn!("Apple OAuth configuration errors: {}", validation.validation_errors.join("; "));
+                tracing::warn!(
+                    "Apple OAuth configuration errors: {}",
+                    validation.validation_errors.join("; ")
+                );
             }
         }
 
@@ -225,24 +268,40 @@ impl AuthService {
                 std::env::var("GITHUB_REDIRECT_URI"),
             ) {
                 (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) => {
-                    match GitHubOAuthProvider::with_credentials(client_id, client_secret, redirect_uri) {
+                    match GitHubOAuthProvider::with_credentials(
+                        client_id,
+                        client_secret,
+                        redirect_uri,
+                    ) {
                         Ok(provider) => {
                             providers.insert(OAuthProviderType::GitHub, Box::new(provider));
                             tracing::info!("✅ GitHub OAuth provider initialized and ready");
                         }
-                        Err(e) => tracing::error!("❌ Failed to initialize GitHub OAuth provider: {}", e),
+                        Err(e) => {
+                            tracing::error!("❌ Failed to initialize GitHub OAuth provider: {}", e)
+                        }
                     }
                 }
                 _ => {
-                    tracing::warn!("⚠️  GitHub OAuth validation passed but environment variables are missing");
+                    tracing::warn!(
+                        "⚠️  GitHub OAuth validation passed but environment variables are missing"
+                    );
                 }
             }
-        } else if let Some(validation) = config_validator.get_provider_validation(&OAuthProviderType::GitHub) {
+        } else if let Some(validation) =
+            config_validator.get_provider_validation(&OAuthProviderType::GitHub)
+        {
             if !validation.missing_variables.is_empty() {
-                tracing::debug!("GitHub OAuth not configured - missing: {}", validation.missing_variables.join(", "));
+                tracing::debug!(
+                    "GitHub OAuth not configured - missing: {}",
+                    validation.missing_variables.join(", ")
+                );
             }
             if !validation.validation_errors.is_empty() {
-                tracing::warn!("GitHub OAuth configuration errors: {}", validation.validation_errors.join("; "));
+                tracing::warn!(
+                    "GitHub OAuth configuration errors: {}",
+                    validation.validation_errors.join("; ")
+                );
             }
         }
 
@@ -258,39 +317,52 @@ impl AuthService {
                             providers.insert(OAuthProviderType::Spotify, Box::new(provider));
                             tracing::info!("✅ Spotify OAuth provider initialized and ready");
                         }
-                        Err(e) => tracing::error!("❌ Failed to initialize Spotify OAuth provider: {}", e),
+                        Err(e) => {
+                            tracing::error!("❌ Failed to initialize Spotify OAuth provider: {}", e)
+                        }
                     }
                 }
                 _ => {
-                    tracing::warn!("⚠️  Spotify OAuth validation passed but environment variables are missing");
+                    tracing::warn!(
+                        "⚠️  Spotify OAuth validation passed but environment variables are missing"
+                    );
                 }
             }
-        } else if let Some(validation) = config_validator.get_provider_validation(&OAuthProviderType::Spotify) {
+        } else if let Some(validation) =
+            config_validator.get_provider_validation(&OAuthProviderType::Spotify)
+        {
             if !validation.missing_variables.is_empty() {
-                tracing::debug!("Spotify OAuth not configured - missing: {}", validation.missing_variables.join(", "));
+                tracing::debug!(
+                    "Spotify OAuth not configured - missing: {}",
+                    validation.missing_variables.join(", ")
+                );
             }
             if !validation.validation_errors.is_empty() {
-                tracing::warn!("Spotify OAuth configuration errors: {}", validation.validation_errors.join("; "));
+                tracing::warn!(
+                    "Spotify OAuth configuration errors: {}",
+                    validation.validation_errors.join("; ")
+                );
             }
         }
 
         // Check if we're in development mode and should use demo providers
-        let is_dev_mode = std::env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
-        
+        let is_dev_mode =
+            std::env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
+
         if providers.is_empty() && is_dev_mode {
             tracing::warn!("No OAuth providers configured, but OAUTH_DEV_MODE is enabled. Creating demo providers for development.");
-            
+
             // Create demo providers for development
             if let Ok(google_provider) = Self::create_demo_google_provider() {
                 providers.insert(OAuthProviderType::Google, Box::new(google_provider));
                 tracing::info!("Demo Google OAuth provider initialized for development");
             }
-            
+
             if let Ok(github_provider) = Self::create_demo_github_provider() {
                 providers.insert(OAuthProviderType::GitHub, Box::new(github_provider));
                 tracing::info!("Demo GitHub OAuth provider initialized for development");
             }
-            
+
             // Note: Apple OAuth requires real certificates, so we skip it in demo mode
             tracing::info!("Apple OAuth skipped in demo mode (requires real certificates)");
         } else if providers.is_empty() {
@@ -301,48 +373,78 @@ impl AuthService {
     }
 
     /// Get OAuth configuration validation results
-    pub fn get_oauth_config_validation(&self) -> &HashMap<OAuthProviderType, crate::services::oauth_config_validator::OAuthProviderValidation> {
+    pub fn get_oauth_config_validation(
+        &self,
+    ) -> &HashMap<OAuthProviderType, crate::services::oauth_config_validator::OAuthProviderValidation>
+    {
         self.oauth_config_validator.get_validation_results()
     }
 
     /// Get user guidance for OAuth errors
-    pub fn get_oauth_user_guidance(&self, oauth_error: &crate::error::oauth::OAuthError) -> crate::services::oauth_error_recovery::UserGuidance {
+    pub fn get_oauth_user_guidance(
+        &self,
+        oauth_error: &crate::error::oauth::OAuthError,
+    ) -> crate::services::oauth_error_recovery::UserGuidance {
         self.oauth_error_recovery.get_user_guidance(oauth_error)
     }
 
     /// Get OAuth provider health status
-    pub async fn get_oauth_provider_health(&self, provider: &OAuthProviderType) -> crate::services::oauth_error_recovery::ProviderHealthStatus {
-        self.oauth_error_recovery.get_provider_health(provider).await
+    pub async fn get_oauth_provider_health(
+        &self,
+        provider: &OAuthProviderType,
+    ) -> crate::services::oauth_error_recovery::ProviderHealthStatus {
+        self.oauth_error_recovery
+            .get_provider_health(provider)
+            .await
     }
 
     /// Get circuit breaker status for OAuth provider
-    pub async fn get_oauth_circuit_breaker_status(&self, provider: &OAuthProviderType) -> Option<bool> {
-        self.oauth_error_recovery.get_circuit_breaker_status(provider).await
+    pub async fn get_oauth_circuit_breaker_status(
+        &self,
+        provider: &OAuthProviderType,
+    ) -> Option<bool> {
+        self.oauth_error_recovery
+            .get_circuit_breaker_status(provider)
+            .await
     }
 
     /// Get OAuth security statistics
-    pub async fn get_oauth_security_stats(&self, provider: Option<OAuthProviderType>, hours: i64) -> crate::services::oauth_security_logger::SecurityStats {
-        self.oauth_security_logger.get_security_stats(provider, hours).await
+    pub async fn get_oauth_security_stats(
+        &self,
+        provider: Option<OAuthProviderType>,
+        hours: i64,
+    ) -> crate::services::oauth_security_logger::SecurityStats {
+        self.oauth_security_logger
+            .get_security_stats(provider, hours)
+            .await
     }
 
     /// Get recent OAuth security events
-    pub async fn get_oauth_security_events(&self, provider: Option<OAuthProviderType>, hours: i64) -> Vec<crate::services::oauth_security_logger::OAuthSecurityEvent> {
-        self.oauth_security_logger.get_recent_events(provider, hours).await
+    pub async fn get_oauth_security_events(
+        &self,
+        provider: Option<OAuthProviderType>,
+        hours: i64,
+    ) -> Vec<crate::services::oauth_security_logger::OAuthSecurityEvent> {
+        self.oauth_security_logger
+            .get_recent_events(provider, hours)
+            .await
     }
-
-
 
     /// Get configuration guidance for a specific OAuth provider
     pub fn get_oauth_configuration_guidance(&self, provider: &OAuthProviderType) -> String {
-        self.oauth_config_validator.get_configuration_guidance(provider)
+        self.oauth_config_validator
+            .get_configuration_guidance(provider)
     }
 
     /// Validate OAuth provider health before operations
     async fn validate_oauth_provider_health(&self, provider: &OAuthProviderType) -> Result<()> {
         use crate::services::oauth_error_recovery::ProviderHealthStatus;
-        
-        let health_status = self.oauth_error_recovery.get_provider_health(provider).await;
-        
+
+        let health_status = self
+            .oauth_error_recovery
+            .get_provider_health(provider)
+            .await;
+
         match health_status {
             ProviderHealthStatus::Healthy => Ok(()),
             ProviderHealthStatus::Degraded { reason } => {
@@ -353,22 +455,27 @@ impl AuthService {
                 );
                 Ok(()) // Allow operation but log warning
             }
-            ProviderHealthStatus::Unavailable { reason, estimated_recovery } => {
-                Err(crate::error::AppError::OAuth(crate::error::oauth::OAuthError::ProviderUnavailable {
+            ProviderHealthStatus::Unavailable {
+                reason,
+                estimated_recovery,
+            } => Err(crate::error::AppError::OAuth(
+                crate::error::oauth::OAuthError::ProviderUnavailable {
                     provider: *provider,
                     reason,
                     estimated_recovery,
                     retry_after: Some(60),
-                }))
-            }
+                },
+            )),
         }
     }
 
     /// Validate OAuth provider configuration at runtime
     pub fn validate_oauth_provider_config(&self, provider: &OAuthProviderType) -> Result<()> {
         if !self.is_oauth_provider_available(provider) {
-            let validation = self.oauth_config_validator.get_provider_validation(provider);
-            
+            let validation = self
+                .oauth_config_validator
+                .get_provider_validation(provider);
+
             if let Some(validation) = validation {
                 if !validation.is_configured {
                     return Err(AppError::OAuthProviderError {
@@ -392,13 +499,13 @@ impl AuthService {
                     });
                 }
             }
-            
+
             return Err(AppError::OAuthProviderError {
                 provider: provider.to_string(),
                 message: format!("OAuth provider {} is not available", provider),
             });
         }
-        
+
         Ok(())
     }
 
@@ -424,31 +531,28 @@ impl AuthService {
     pub async fn register_user(&self, request: CreateUserRequest) -> Result<User> {
         // Validate email format (basic validation)
         if !request.email.contains('@') {
-            return Err(AppError::InvalidFieldValue { 
-                field: "email".to_string(), 
-                message: "Invalid email format".to_string() 
+            return Err(AppError::InvalidFieldValue {
+                field: "email".to_string(),
+                message: "Invalid email format".to_string(),
             });
         }
 
         // Validate password strength (basic validation)
         if request.password.len() < 8 {
-            return Err(AppError::InvalidFieldValue { 
-                field: "password".to_string(), 
-                message: "Password must be at least 8 characters long".to_string() 
+            return Err(AppError::InvalidFieldValue {
+                field: "password".to_string(),
+                message: "Password must be at least 8 characters long".to_string(),
             });
         }
 
         // Check if user already exists
-        let existing_user = sqlx::query!(
-            "SELECT id FROM users WHERE email = $1",
-            request.email
-        )
-        .fetch_optional(&self.db_pool)
-        .await?;
+        let existing_user = sqlx::query!("SELECT id FROM users WHERE email = $1", request.email)
+            .fetch_optional(&self.db_pool)
+            .await?;
 
         if existing_user.is_some() {
-            return Err(AppError::AlreadyExists { 
-                resource: "User with this email".to_string() 
+            return Err(AppError::AlreadyExists {
+                resource: "User with this email".to_string(),
             });
         }
 
@@ -458,7 +562,7 @@ impl AuthService {
         // Create user in database
         let user_id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         sqlx::query!(
             r#"
             INSERT INTO users (id, email, password_hash, email_verified, totp_enabled, created_at, updated_at)
@@ -483,72 +587,83 @@ impl AuthService {
     // Optimized login with email/password and 2FA support
     pub async fn login_user(&self, request: LoginRequest) -> Result<TokenPair> {
         let login_start = Instant::now();
-        
+
         // Get cached user data for faster lookup
-        let cached_user = self.login_performance_service
+        let cached_user = self
+            .login_performance_service
             .get_cached_user_login(&request.email, &self.db_pool)
             .await?
             .ok_or_else(|| AppError::InvalidCredentials)?;
 
         // Verify password using optimized method (runs in background thread)
-        let password_valid = self.login_performance_service
+        let password_valid = self
+            .login_performance_service
             .verify_password_optimized(&request.password, &cached_user.password_hash)
             .await?;
 
         if !password_valid {
             // Record failed login attempt
             let login_time = login_start.elapsed().as_millis() as f64;
-            if let Err(e) = self.login_performance_service.record_login_attempt(false, login_time).await {
+            if let Err(e) = self
+                .login_performance_service
+                .record_login_attempt(false, login_time)
+                .await
+            {
                 tracing::warn!("Failed to record login metrics: {}", e);
             }
-            
+
             // Log failed login attempt (async, don't wait)
             let user_id = cached_user.user_id;
             tokio::spawn(async move {
                 // This would need access to the audit service
                 tracing::warn!(user_id = %user_id, "Failed login attempt");
             });
-            
+
             return Err(AppError::InvalidCredentials);
         }
 
         // Check 2FA if enabled (keep this synchronous for security)
         if cached_user.totp_enabled {
-            let totp_code = request.totp_code
+            let totp_code = request
+                .totp_code
                 .ok_or_else(|| AppError::TwoFactorRequired)?;
-            
-            let totp_secret = cached_user.totp_secret
-                .ok_or_else(|| AppError::Internal { 
-                    message: Some("2FA configuration error. Please contact support".to_string()) 
-                })?;
-            
+
+            let totp_secret = cached_user.totp_secret.ok_or_else(|| AppError::Internal {
+                message: Some("2FA configuration error. Please contact support".to_string()),
+            })?;
+
             if !self.verify_totp(&totp_secret, &totp_code)? {
                 // Record failed 2FA attempt
                 let login_time = login_start.elapsed().as_millis() as f64;
-                if let Err(e) = self.login_performance_service.record_login_attempt(false, login_time).await {
+                if let Err(e) = self
+                    .login_performance_service
+                    .record_login_attempt(false, login_time)
+                    .await
+                {
                     tracing::warn!("Failed to record login metrics: {}", e);
                 }
-                
+
                 // Log failed 2FA attempt (async)
                 let user_id = cached_user.user_id;
                 tokio::spawn(async move {
                     tracing::warn!(user_id = %user_id, "Failed 2FA attempt");
                 });
-                
+
                 return Err(AppError::TwoFactorInvalid);
             }
         }
 
         // Generate optimized refresh token (lighter hashing)
-        let (refresh_token_raw, refresh_token_hash) = self.login_performance_service
+        let (refresh_token_raw, refresh_token_hash) = self
+            .login_performance_service
             .generate_optimized_refresh_token()
             .await?;
 
         // Generate access token (this is fast, no need to optimize)
         let access_claims = Claims::new_access_token(
-            cached_user.user_id, 
-            cached_user.email.clone(), 
-            self.access_token_ttl
+            cached_user.user_id,
+            cached_user.email.clone(),
+            self.access_token_ttl,
         );
         let access_token = encode(
             &Header::default(),
@@ -568,7 +683,11 @@ impl AuthService {
 
         // Record successful login metrics
         let login_time = login_start.elapsed().as_millis() as f64;
-        if let Err(e) = self.login_performance_service.record_login_attempt(true, login_time).await {
+        if let Err(e) = self
+            .login_performance_service
+            .record_login_attempt(true, login_time)
+            .await
+        {
             tracing::warn!("Failed to record login metrics: {}", e);
         }
 
@@ -590,35 +709,43 @@ impl AuthService {
     // ===== OAuth Flow Methods =====
 
     /// Initiate OAuth flow for a provider
-    pub async fn initiate_oauth_flow(&self, provider_type: OAuthProviderType, redirect_uri: String) -> Result<OAuthFlowResponse> {
+    pub async fn initiate_oauth_flow(
+        &self,
+        provider_type: OAuthProviderType,
+        redirect_uri: String,
+    ) -> Result<OAuthFlowResponse> {
         // Validate provider configuration first
         self.validate_oauth_provider_config(&provider_type)?;
-        
+
         // Use error recovery service to execute with retry logic
         let redirect_uri_clone = redirect_uri.clone();
         let providers = Arc::clone(&self.oauth_providers);
         let state_manager = Arc::clone(&self.oauth_state_manager);
-        
-        self.oauth_error_recovery.execute_with_recovery(
-            provider_type,
-            "initiate_oauth_flow",
-            move || {
+
+        self.oauth_error_recovery
+            .execute_with_recovery(provider_type, "initiate_oauth_flow", move || {
                 let redirect_uri = redirect_uri_clone.clone();
                 let providers = Arc::clone(&providers);
                 let state_manager = Arc::clone(&state_manager);
                 let provider_type_clone = provider_type;
-                
+
                 Box::pin(async move {
-                    let provider = providers.get(&provider_type_clone)
-                        .ok_or_else(|| crate::error::AppError::OAuth(crate::error::oauth::OAuthError::ProviderNotConfigured {
-                            provider: provider_type_clone,
-                            reason: format!("{} OAuth provider not available", provider_type_clone),
-                            missing_variables: vec![],
-                        }))?;
+                    let provider = providers.get(&provider_type_clone).ok_or_else(|| {
+                        crate::error::AppError::OAuth(
+                            crate::error::oauth::OAuthError::ProviderNotConfigured {
+                                provider: provider_type_clone,
+                                reason: format!(
+                                    "{} OAuth provider not available",
+                                    provider_type_clone
+                                ),
+                                missing_variables: vec![],
+                            },
+                        )
+                    })?;
 
                     // Generate secure state and store it
                     let flow_response = provider.initiate_flow(&redirect_uri).await?;
-                    
+
                     // Store state for validation
                     let state = crate::models::oauth::OAuthState::new(
                         provider_type_clone,
@@ -626,29 +753,36 @@ impl AuthService {
                         flow_response.code_verifier.clone(),
                         300, // 5 minutes expiration
                     );
-                    
+
                     let state_token = state_manager.store_state(state);
-                    
+
                     Ok(OAuthFlowResponse {
                         authorization_url: flow_response.authorization_url,
                         state: state_token,
                         code_verifier: flow_response.code_verifier,
                     })
                 })
-            }
-        ).await
+            })
+            .await
     }
 
     /// Complete OAuth flow and create/login user
-    pub async fn complete_oauth_flow(&self, provider_type: OAuthProviderType, code: String, state: String, redirect_uri: String) -> Result<TokenPair> {
+    pub async fn complete_oauth_flow(
+        &self,
+        provider_type: OAuthProviderType,
+        code: String,
+        state: String,
+        redirect_uri: String,
+    ) -> Result<TokenPair> {
         // Validate provider configuration first
         self.validate_oauth_provider_config(&provider_type)?;
-        
+
         // Check provider health
         self.validate_oauth_provider_health(&provider_type).await?;
-        
+
         // Validate state parameter
-        let _oauth_state = self.oauth_state_manager
+        let _oauth_state = self
+            .oauth_state_manager
             .validate_and_consume_state(&state, &provider_type)
             .map_err(|e| {
                 let oauth_error = crate::error::oauth::OAuthError::StateValidationFailed {
@@ -656,18 +790,19 @@ impl AuthService {
                     expected_provider: Some(provider_type),
                     received_provider: None,
                 };
-                
+
                 // Log security event (skip for now due to clone issues)
                 // TODO: Fix OAuth error logging
-                
+
                 crate::error::AppError::OAuth(oauth_error)
             })?;
 
-        let provider = self.oauth_providers.get(&provider_type)
-            .ok_or_else(|| AppError::OAuthProviderError {
+        let provider = self.oauth_providers.get(&provider_type).ok_or_else(|| {
+            AppError::OAuthProviderError {
                 provider: provider_type.to_string(),
                 message: "OAuth provider not available".to_string(),
-            })?;
+            }
+        })?;
 
         // Exchange code for tokens with error logging
         let tokens = match provider.exchange_code(&code, &state, &redirect_uri).await {
@@ -678,24 +813,31 @@ impl AuthService {
                     let security_logger = Arc::clone(&self.oauth_security_logger);
                     let oauth_error_clone = oauth_error.clone();
                     tokio::spawn(async move {
-                        security_logger.log_oauth_error(&oauth_error_clone, None, None).await;
+                        security_logger
+                            .log_oauth_error(&oauth_error_clone, None, None)
+                            .await;
                     });
                 }
                 return Err(e);
             }
         };
-        
+
         // Get user info from provider with error logging
         let user_info = if provider_type == OAuthProviderType::Apple && tokens.id_token.is_some() {
             // For Apple, extract user info from ID token
-            match self.extract_apple_user_info(&tokens.id_token.as_ref().unwrap()).await {
+            match self
+                .extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
+                .await
+            {
                 Ok(info) => info,
                 Err(e) => {
                     if let crate::error::AppError::OAuth(ref oauth_error) = e {
                         let security_logger = Arc::clone(&self.oauth_security_logger);
                         let oauth_error_clone = oauth_error.clone();
                         tokio::spawn(async move {
-                            security_logger.log_oauth_error(&oauth_error_clone, None, None).await;
+                            security_logger
+                                .log_oauth_error(&oauth_error_clone, None, None)
+                                .await;
                         });
                     }
                     return Err(e);
@@ -709,7 +851,9 @@ impl AuthService {
                         let security_logger = Arc::clone(&self.oauth_security_logger);
                         let oauth_error_clone = oauth_error.clone();
                         tokio::spawn(async move {
-                            security_logger.log_oauth_error(&oauth_error_clone, None, None).await;
+                            security_logger
+                                .log_oauth_error(&oauth_error_clone, None, None)
+                                .await;
                         });
                     }
                     return Err(e);
@@ -718,39 +862,61 @@ impl AuthService {
         };
 
         // Check if user already exists with this OAuth account
-        if let Some(existing_user) = self.find_user_by_oauth_account(&provider_type, &user_info.provider_user_id).await? {
+        if let Some(existing_user) = self
+            .find_user_by_oauth_account(&provider_type, &user_info.provider_user_id)
+            .await?
+        {
             // Update tokens and login existing user
-            self.update_oauth_tokens(&existing_user.id, &provider_type, &tokens).await?;
+            self.update_oauth_tokens(&existing_user.id, &provider_type, &tokens)
+                .await?;
             self.update_user_last_login(existing_user.id).await?;
-            return self.generate_token_pair(existing_user.id, &existing_user.email).await;
+            return self
+                .generate_token_pair(existing_user.id, &existing_user.email)
+                .await;
         }
 
         // Check if user exists with same email
         if let Some(email) = &user_info.email {
             if let Some(existing_user) = self.find_user_by_email(email).await? {
                 // Link OAuth account to existing user
-                self.link_oauth_account_to_user(&existing_user, &provider_type, &user_info, &tokens).await?;
+                self.link_oauth_account_to_user(
+                    &existing_user,
+                    &provider_type,
+                    &user_info,
+                    &tokens,
+                )
+                .await?;
                 self.update_user_last_login(existing_user.id).await?;
-                return self.generate_token_pair(existing_user.id, &existing_user.email).await;
+                return self
+                    .generate_token_pair(existing_user.id, &existing_user.email)
+                    .await;
             }
         }
 
         // Create new user with OAuth account
-        let new_user = self.create_user_with_oauth_account(&provider_type, &user_info, &tokens).await?;
+        let new_user = self
+            .create_user_with_oauth_account(&provider_type, &user_info, &tokens)
+            .await?;
         self.generate_token_pair(new_user.id, &new_user.email).await
     }
 
     /// Link OAuth account to existing authenticated user
-    pub async fn link_oauth_account(&self, user_id: Uuid, request: AccountLinkRequest) -> Result<()> {
+    pub async fn link_oauth_account(
+        &self,
+        user_id: Uuid,
+        request: AccountLinkRequest,
+    ) -> Result<()> {
         // Validate state parameter
-        let _oauth_state = self.oauth_state_manager
+        let _oauth_state = self
+            .oauth_state_manager
             .validate_and_consume_state(&request.state, &request.provider)?;
 
-        let provider = self.oauth_providers.get(&request.provider)
-            .ok_or_else(|| AppError::OAuthProviderError {
+        let provider = self.oauth_providers.get(&request.provider).ok_or_else(|| {
+            AppError::OAuthProviderError {
                 provider: request.provider.to_string(),
                 message: "OAuth provider not configured".to_string(),
-            })?;
+            }
+        })?;
 
         // Get user to ensure they exist
         let user = self.get_user_by_id(user_id).await?;
@@ -765,45 +931,64 @@ impl AuthService {
         // Exchange code for tokens
         let redirect_uri = std::env::var("OAUTH_REDIRECT_URI")
             .unwrap_or_else(|_| "http://localhost:3000/auth/callback".to_string());
-        let tokens = provider.exchange_code(&request.code, &request.state, &redirect_uri).await?;
-        
+        let tokens = provider
+            .exchange_code(&request.code, &request.state, &redirect_uri)
+            .await?;
+
         // Get user info from provider
-        let user_info = if request.provider == OAuthProviderType::Apple && tokens.id_token.is_some() {
-            self.extract_apple_user_info(&tokens.id_token.as_ref().unwrap()).await?
+        let user_info = if request.provider == OAuthProviderType::Apple && tokens.id_token.is_some()
+        {
+            self.extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
+                .await?
         } else {
             provider.get_user_info(&tokens.access_token).await?
         };
 
         // Check if this OAuth account is already linked to another user
-        if let Some(_existing_user) = self.find_user_by_oauth_account(&request.provider, &user_info.provider_user_id).await? {
+        if let Some(_existing_user) = self
+            .find_user_by_oauth_account(&request.provider, &user_info.provider_user_id)
+            .await?
+        {
             return Err(AppError::Conflict {
-                message: format!("This {} account is already linked to another user", request.provider),
+                message: format!(
+                    "This {} account is already linked to another user",
+                    request.provider
+                ),
             });
         }
 
         // Link the account
-        self.link_oauth_account_to_user(&user, &request.provider, &user_info, &tokens).await?;
+        self.link_oauth_account_to_user(&user, &request.provider, &user_info, &tokens)
+            .await?;
 
         Ok(())
     }
 
     /// Unlink OAuth account from user
-    pub async fn unlink_oauth_account(&self, user_id: Uuid, provider_type: OAuthProviderType) -> Result<()> {
+    pub async fn unlink_oauth_account(
+        &self,
+        user_id: Uuid,
+        provider_type: OAuthProviderType,
+    ) -> Result<()> {
         // Check if user has other authentication methods (password or other OAuth accounts)
         let user = self.get_user_by_id(user_id).await?;
-        
+
         // Count remaining authentication methods after unlinking
-        let remaining_oauth_accounts = user.oauth_accounts.iter()
+        let remaining_oauth_accounts = user
+            .oauth_accounts
+            .iter()
             .filter(|account| account.provider != provider_type)
             .count();
-        
+
         let has_password = user.password_hash.is_some();
-        
+
         // Ensure user retains access after unlinking
         if !has_password && remaining_oauth_accounts == 0 {
             return Err(AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: "Cannot unlink the only authentication method. Please set a password first.".to_string(),
+                message:
+                    "Cannot unlink the only authentication method. Please set a password first."
+                        .to_string(),
             });
         }
 
@@ -839,11 +1024,16 @@ impl AuthService {
         // Attempt to revoke tokens with provider (best effort)
         if let Some(account) = oauth_account {
             if let Some(encrypted_token) = &account.access_token_encrypted {
-                if let Ok(access_token) = self.oauth_encryption.decrypt_token(encrypted_token).await {
+                if let Ok(access_token) = self.oauth_encryption.decrypt_token(encrypted_token).await
+                {
                     if let Some(provider) = self.oauth_providers.get(&provider_type) {
                         // Revoke token with provider (don't fail if this fails)
                         if let Err(e) = provider.revoke_token(&access_token).await {
-                            tracing::warn!("Failed to revoke OAuth token with provider {}: {}", provider_type, e);
+                            tracing::warn!(
+                                "Failed to revoke OAuth token with provider {}: {}",
+                                provider_type,
+                                e
+                            );
                         }
                     }
                 }
@@ -851,24 +1041,39 @@ impl AuthService {
         }
 
         // Audit log the account unlinking
-        self.log_audit_event(user_id, "oauth_account_unlinked", "oauth_account", &provider_type.to_string()).await?;
+        self.log_audit_event(
+            user_id,
+            "oauth_account_unlinked",
+            "oauth_account",
+            &provider_type.to_string(),
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Merge two user accounts (for duplicate account resolution)
     /// TODO: Re-enable once SQLx cache is updated with new queries
-    pub async fn merge_accounts(&self, _primary_user_id: Uuid, _request: MergeAccountsRequest) -> Result<MergeAccountsResponse> {
+    pub async fn merge_accounts(
+        &self,
+        _primary_user_id: Uuid,
+        _request: MergeAccountsRequest,
+    ) -> Result<MergeAccountsResponse> {
         // Temporarily disabled until SQLx cache is updated with new queries
         // The full implementation is ready but needs database access to cache the queries
         Err(AppError::NotFound {
-            resource: "Account merging is temporarily disabled until database setup is complete".to_string(),
+            resource: "Account merging is temporarily disabled until database setup is complete"
+                .to_string(),
         })
     }
 
     /// Refresh OAuth tokens for a user and provider
     /// Automatically refreshes tokens when they are near expiry
-    pub async fn refresh_oauth_tokens(&self, user_id: Uuid, provider_type: OAuthProviderType) -> Result<()> {
+    pub async fn refresh_oauth_tokens(
+        &self,
+        user_id: Uuid,
+        provider_type: OAuthProviderType,
+    ) -> Result<()> {
         tracing::debug!(
             user_id = %user_id,
             provider = %provider_type,
@@ -899,18 +1104,25 @@ impl AuthService {
             })?;
 
         // Decrypt refresh token with proper error handling
-        let refresh_token = self.oauth_encryption.decrypt_token(&refresh_token_encrypted).await
+        let refresh_token = self
+            .oauth_encryption
+            .decrypt_token(&refresh_token_encrypted)
+            .await
             .map_err(|e| AppError::OAuthProviderError {
                 provider: provider_type.to_string(),
-                message: format!("Failed to decrypt refresh token: {}. User may need to re-authenticate.", e),
+                message: format!(
+                    "Failed to decrypt refresh token: {}. User may need to re-authenticate.",
+                    e
+                ),
             })?;
 
         // Get OAuth provider
-        let provider = self.oauth_providers.get(&provider_type)
-            .ok_or_else(|| AppError::OAuthProviderError {
+        let provider = self.oauth_providers.get(&provider_type).ok_or_else(|| {
+            AppError::OAuthProviderError {
                 provider: provider_type.to_string(),
                 message: "OAuth provider not configured".to_string(),
-            })?;
+            }
+        })?;
 
         // Refresh tokens with provider with retry logic
         let new_tokens = match provider.refresh_token(&refresh_token).await {
@@ -922,16 +1134,21 @@ impl AuthService {
                     error = %e,
                     "OAuth token refresh failed"
                 );
-                
+
                 // Check if this is a permanent failure (invalid refresh token)
                 let error_msg = e.to_string().to_lowercase();
-                if error_msg.contains("invalid") || error_msg.contains("expired") || error_msg.contains("revoked") {
+                if error_msg.contains("invalid")
+                    || error_msg.contains("expired")
+                    || error_msg.contains("revoked")
+                {
                     return Err(AppError::OAuthProviderError {
                         provider: provider_type.to_string(),
-                        message: "Refresh token is invalid or expired. User needs to re-authenticate.".to_string(),
+                        message:
+                            "Refresh token is invalid or expired. User needs to re-authenticate."
+                                .to_string(),
                     });
                 }
-                
+
                 // For other errors, return the original error
                 return Err(e);
             }
@@ -939,17 +1156,23 @@ impl AuthService {
 
         // Update tokens in database with transaction for atomicity
         let mut tx = self.db_pool.begin().await?;
-        
+
         // Encrypt the new tokens
-        let (encrypted_access_token, encrypted_refresh_token) = self.oauth_encryption
-            .encrypt_token_pair(&new_tokens.access_token, new_tokens.refresh_token.as_deref())
+        let (encrypted_access_token, encrypted_refresh_token) = self
+            .oauth_encryption
+            .encrypt_token_pair(
+                &new_tokens.access_token,
+                new_tokens.refresh_token.as_deref(),
+            )
             .map_err(|e| AppError::OAuthProviderError {
                 provider: provider_type.to_string(),
                 message: format!("Failed to encrypt new tokens: {}", e),
             })?;
 
         let now = Utc::now();
-        let token_expires_at = new_tokens.expires_in.map(|expires_in| now + Duration::seconds(expires_in));
+        let token_expires_at = new_tokens
+            .expires_in
+            .map(|expires_in| now + Duration::seconds(expires_in));
 
         // Update tokens in database
         sqlx::query!(
@@ -1005,7 +1228,11 @@ impl AuthService {
 
     /// Get a valid OAuth token, automatically refreshing if near expiry
     /// Returns decrypted access token ready for API usage
-    pub async fn get_valid_oauth_token(&self, user_id: Uuid, provider_type: OAuthProviderType) -> Result<String> {
+    pub async fn get_valid_oauth_token(
+        &self,
+        user_id: Uuid,
+        provider_type: OAuthProviderType,
+    ) -> Result<String> {
         tracing::debug!(
             user_id = %user_id,
             provider = %provider_type,
@@ -1045,7 +1272,10 @@ impl AuthService {
                 "Token near expiry, refreshing automatically"
             );
 
-            match self.refresh_oauth_tokens(user_id, provider_type.clone()).await {
+            match self
+                .refresh_oauth_tokens(user_id, provider_type.clone())
+                .await
+            {
                 Ok(()) => {
                     // Get the updated token after refresh
                     let updated_account = sqlx::query!(
@@ -1056,13 +1286,17 @@ impl AuthService {
                     .fetch_one(&self.db_pool)
                     .await?;
 
-                    let access_token_encrypted = updated_account.access_token_encrypted
+                    let access_token_encrypted = updated_account
+                        .access_token_encrypted
                         .ok_or_else(|| AppError::OAuthProviderError {
                             provider: provider_type.to_string(),
                             message: "No access token found after refresh".to_string(),
                         })?;
-                    
-                    return self.oauth_encryption.decrypt_token(&access_token_encrypted).await
+
+                    return self
+                        .oauth_encryption
+                        .decrypt_token(&access_token_encrypted)
+                        .await
                         .map_err(|e| AppError::OAuthProviderError {
                             provider: provider_type.to_string(),
                             message: format!("Failed to decrypt refreshed token: {}", e),
@@ -1081,16 +1315,23 @@ impl AuthService {
         }
 
         // Decrypt and return current token
-        let access_token_encrypted = oauth_account.access_token_encrypted
-            .ok_or_else(|| AppError::OAuthProviderError {
-                provider: provider_type.to_string(),
-                message: "No access token found for OAuth account".to_string(),
-            })?;
-        
-        self.oauth_encryption.decrypt_token(&access_token_encrypted).await
+        let access_token_encrypted =
+            oauth_account
+                .access_token_encrypted
+                .ok_or_else(|| AppError::OAuthProviderError {
+                    provider: provider_type.to_string(),
+                    message: "No access token found for OAuth account".to_string(),
+                })?;
+
+        self.oauth_encryption
+            .decrypt_token(&access_token_encrypted)
+            .await
             .map_err(|e| AppError::OAuthProviderError {
                 provider: provider_type.to_string(),
-                message: format!("Failed to decrypt OAuth token: {}. User may need to re-authenticate.", e),
+                message: format!(
+                    "Failed to decrypt OAuth token: {}. User may need to re-authenticate.",
+                    e
+                ),
             })
     }
 
@@ -1105,7 +1346,8 @@ impl AuthService {
     // Generate JWT token pair with database storage
     async fn generate_token_pair(&self, user_id: Uuid, email: &str) -> Result<TokenPair> {
         // Generate access token (24-hour expiration as required)
-        let access_claims = Claims::new_access_token(user_id, email.to_string(), self.access_token_ttl);
+        let access_claims =
+            Claims::new_access_token(user_id, email.to_string(), self.access_token_ttl);
         let access_token = encode(
             &Header::default(),
             &access_claims,
@@ -1118,7 +1360,7 @@ impl AuthService {
 
         // Store refresh token in database with rotation support
         let expires_at = Utc::now() + chrono::Duration::seconds(self.refresh_token_ttl);
-        
+
         sqlx::query!(
             r#"
             INSERT INTO user_sessions (user_id, refresh_token_hash, expires_at)
@@ -1172,7 +1414,8 @@ impl AuthService {
         .await?;
 
         // Generate new token pair
-        self.generate_token_pair(session.user_id.unwrap(), &session.email).await
+        self.generate_token_pair(session.user_id.unwrap(), &session.email)
+            .await
     }
 
     // Verify JWT token
@@ -1181,10 +1424,11 @@ impl AuthService {
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
             &Validation::new(Algorithm::HS256),
-        ).map_err(|_| AppError::TokenInvalid)?;
+        )
+        .map_err(|_| AppError::TokenInvalid)?;
 
         let claims = token_data.claims;
-        
+
         if claims.is_expired() {
             return Err(AppError::TokenExpired);
         }
@@ -1198,13 +1442,15 @@ impl AuthService {
 
         // Check if 2FA is already enabled
         if user.totp_enabled {
-            return Err(AppError::Conflict { message: "2FA is already enabled for this user".to_string() });
+            return Err(AppError::Conflict {
+                message: "2FA is already enabled for this user".to_string(),
+            });
         }
 
         // Generate TOTP secret (160-bit secret as recommended by RFC 6238)
         let secret = self.generate_totp_secret();
         let secret_b32 = base32::encode(base32::Alphabet::Rfc4648 { padding: true }, &secret);
-        
+
         // Generate QR code URL with proper formatting
         let qr_code_url = format!(
             "otpauth://totp/NodrakeInTheHouse:{}?secret={}&issuer=NodrakeInTheHouse&algorithm=SHA1&digits=6&period=30",
@@ -1214,7 +1460,7 @@ impl AuthService {
 
         // Generate backup codes
         let backup_codes = self.generate_backup_codes();
-        
+
         // Store temporary secret (not enabled until verified)
         // We store it in totp_secret field but keep totp_enabled as false
         sqlx::query!(
@@ -1224,7 +1470,7 @@ impl AuthService {
         )
         .execute(&self.db_pool)
         .await?;
-        
+
         Ok(TotpSetupResponse {
             secret: secret_b32,
             qr_code_url,
@@ -1243,21 +1489,19 @@ impl AuthService {
         .ok_or_else(|| anyhow!("User not found"))?;
 
         // Get email separately for cache invalidation
-        let user_email = sqlx::query!(
-            "SELECT email FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await?
-        .map(|row| row.email)
-        .unwrap_or_default();
+        let user_email = sqlx::query!("SELECT email FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db_pool)
+            .await?
+            .map(|row| row.email)
+            .unwrap_or_default();
 
         // Check if 2FA is already enabled
         if user.totp_enabled.unwrap_or(false) {
             return Err(anyhow!("2FA is already enabled for this user").into());
         }
 
-        let totp_secret = user.totp_secret
+        let totp_secret = user
+            .totp_secret
             .ok_or_else(|| anyhow!("TOTP setup not initiated. Please call setup_totp first"))?;
 
         // Verify the TOTP code
@@ -1272,15 +1516,24 @@ impl AuthService {
         )
         .execute(&self.db_pool)
         .await?;
-        
+
         // Invalidate login cache since user data changed
-        if let Err(e) = self.login_performance_service.invalidate_user_cache(&user_email).await {
-            tracing::warn!("Failed to invalidate login cache for user {}: {}", user_email, e);
+        if let Err(e) = self
+            .login_performance_service
+            .invalidate_user_cache(&user_email)
+            .await
+        {
+            tracing::warn!(
+                "Failed to invalidate login cache for user {}: {}",
+                user_email,
+                e
+            );
         }
-        
+
         // Audit log the 2FA enablement
-        self.log_audit_event(user_id, "totp_enabled", "user", &user_id.to_string()).await?;
-        
+        self.log_audit_event(user_id, "totp_enabled", "user", &user_id.to_string())
+            .await?;
+
         Ok(())
     }
 
@@ -1295,26 +1548,26 @@ impl AuthService {
         .ok_or_else(|| anyhow!("User not found"))?;
 
         // Get email separately if needed for cache invalidation
-        let user_email = sqlx::query!(
-            "SELECT email FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await?
-        .map(|row| row.email)
-        .unwrap_or_default();
+        let user_email = sqlx::query!("SELECT email FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db_pool)
+            .await?
+            .map(|row| row.email)
+            .unwrap_or_default();
 
         // Check if 2FA is enabled
         if !user.totp_enabled.unwrap_or(false) {
             return Err(anyhow!("2FA is not enabled for this user").into());
         }
 
-        let totp_secret = user.totp_secret
+        let totp_secret = user
+            .totp_secret
             .ok_or_else(|| anyhow!("TOTP secret not found"))?;
 
         // Verify the TOTP code before disabling
         if !self.verify_totp(&totp_secret, totp_code)? {
-            return Err(anyhow!("Invalid TOTP code. Cannot disable 2FA without verification").into());
+            return Err(
+                anyhow!("Invalid TOTP code. Cannot disable 2FA without verification").into(),
+            );
         }
 
         // Disable 2FA and remove secret
@@ -1324,15 +1577,24 @@ impl AuthService {
         )
         .execute(&self.db_pool)
         .await?;
-        
+
         // Invalidate login cache since user data changed
-        if let Err(e) = self.login_performance_service.invalidate_user_cache(&user_email).await {
-            tracing::warn!("Failed to invalidate login cache for user {}: {}", user_email, e);
+        if let Err(e) = self
+            .login_performance_service
+            .invalidate_user_cache(&user_email)
+            .await
+        {
+            tracing::warn!(
+                "Failed to invalidate login cache for user {}: {}",
+                user_email,
+                e
+            );
         }
-        
+
         // Audit log the 2FA disablement
-        self.log_audit_event(user_id, "totp_disabled", "user", &user_id.to_string()).await?;
-        
+        self.log_audit_event(user_id, "totp_disabled", "user", &user_id.to_string())
+            .await?;
+
         Ok(())
     }
 
@@ -1344,14 +1606,18 @@ impl AuthService {
         }
 
         let secret_bytes = base32::decode(base32::Alphabet::Rfc4648 { padding: true }, secret)
-            .ok_or_else(|| AppError::Internal { message: Some("Invalid TOTP secret format".to_string()) })?;
-        
+            .ok_or_else(|| AppError::Internal {
+                message: Some("Invalid TOTP secret format".to_string()),
+            })?;
+
         if secret_bytes.len() < 10 {
-            return Err(AppError::Internal { message: Some("TOTP secret too short".to_string()) });
+            return Err(AppError::Internal {
+                message: Some("TOTP secret too short".to_string()),
+            });
         }
-        
+
         let current_time = Utc::now().timestamp() as u64;
-        
+
         // Check current and adjacent 30-second windows for clock skew tolerance
         // This allows for ±30 seconds of clock drift
         for offset in [-1, 0, 1] {
@@ -1363,35 +1629,38 @@ impl AuthService {
                 }
             }
         }
-        
+
         Ok(false)
     }
 
     // TOTP code generation following RFC 6238
     fn generate_totp_code(&self, secret: &[u8], time_step: u64) -> Result<String> {
         let time_bytes = time_step.to_be_bytes();
-        
+
         // Use HMAC-SHA1 as specified in RFC 6238 for TOTP
         use hmac::{Hmac, Mac};
         use sha1::Sha1;
-        
+
         type HmacSha1 = Hmac<Sha1>;
-        let mut mac = HmacSha1::new_from_slice(secret)
-            .map_err(|_| AppError::Internal { message: Some("Invalid TOTP secret length".to_string()) })?;
+        let mut mac = HmacSha1::new_from_slice(secret).map_err(|_| AppError::Internal {
+            message: Some("Invalid TOTP secret length".to_string()),
+        })?;
         mac.update(&time_bytes);
         let result = mac.finalize().into_bytes();
-        
+
         // Dynamic truncation as per RFC 4226
         let offset = (result[result.len() - 1] & 0xf) as usize;
         if offset + 4 > result.len() {
-            return Err(AppError::Internal { message: Some("Invalid HMAC result for TOTP".to_string()) });
+            return Err(AppError::Internal {
+                message: Some("Invalid HMAC result for TOTP".to_string()),
+            });
         }
-        
+
         let code = ((result[offset] as u32 & 0x7f) << 24)
             | ((result[offset + 1] as u32 & 0xff) << 16)
             | ((result[offset + 2] as u32 & 0xff) << 8)
             | (result[offset + 3] as u32 & 0xff);
-        
+
         // Generate 6-digit code
         Ok(format!("{:06}", code % 1000000))
     }
@@ -1476,17 +1745,14 @@ impl AuthService {
     // Request password reset
     pub async fn request_password_reset(&self, email: String) -> Result<String> {
         // Check if user exists (but don't reveal if they don't for security)
-        let _user_exists = sqlx::query!(
-            "SELECT id FROM users WHERE email = $1",
-            email
-        )
-        .fetch_optional(&self.db_pool)
-        .await?
-        .is_some();
+        let _user_exists = sqlx::query!("SELECT id FROM users WHERE email = $1", email)
+            .fetch_optional(&self.db_pool)
+            .await?
+            .is_some();
 
         // Always return a token (real or fake) to prevent email enumeration
         let reset_token = format!("reset_token_{}", rand::thread_rng().gen::<u64>());
-        
+
         // In a real implementation, store the reset token in database with expiration
         // For now, just return the token
         Ok(reset_token)
@@ -1498,7 +1764,7 @@ impl AuthService {
         if new_password.len() < 8 {
             return Err(anyhow!("Password must be at least 8 characters long").into());
         }
-        
+
         // In a real implementation, validate the reset token and update password
         // For now, just validate the password format
         Ok(())
@@ -1506,13 +1772,10 @@ impl AuthService {
 
     // Get 2FA status for user
     pub async fn get_totp_status(&self, user_id: Uuid) -> Result<bool> {
-        let user = sqlx::query!(
-            "SELECT totp_enabled FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await?
-        .ok_or_else(|| anyhow!("User not found"))?;
+        let user = sqlx::query!("SELECT totp_enabled FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db_pool)
+            .await?
+            .ok_or_else(|| anyhow!("User not found"))?;
 
         Ok(user.totp_enabled.unwrap_or(false))
     }
@@ -1525,7 +1788,11 @@ impl AuthService {
     // ===== OAuth Helper Methods =====
 
     /// Find user by OAuth account
-    async fn find_user_by_oauth_account(&self, provider: &OAuthProviderType, provider_user_id: &str) -> Result<Option<User>> {
+    async fn find_user_by_oauth_account(
+        &self,
+        provider: &OAuthProviderType,
+        provider_user_id: &str,
+    ) -> Result<Option<User>> {
         let user_row = sqlx::query!(
             r#"
             SELECT u.id, u.email, u.password_hash, u.email_verified, u.totp_secret, u.totp_enabled,
@@ -1558,7 +1825,7 @@ impl AuthService {
 
             // Load OAuth accounts
             user.oauth_accounts = self.load_oauth_accounts(user.id).await?;
-            
+
             Ok(Some(user))
         } else {
             Ok(None)
@@ -1596,7 +1863,7 @@ impl AuthService {
 
             // Load OAuth accounts
             user.oauth_accounts = self.load_oauth_accounts(user.id).await?;
-            
+
             Ok(Some(user))
         } else {
             Ok(None)
@@ -1619,8 +1886,9 @@ impl AuthService {
 
         let mut accounts = Vec::new();
         for row in rows {
-            let provider = row.provider.parse::<OAuthProviderType>()
-                .map_err(|e| AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e)))?;
+            let provider = row.provider.parse::<OAuthProviderType>().map_err(|e| {
+                AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e))
+            })?;
 
             accounts.push(OAuthAccount {
                 id: row.id,
@@ -1643,12 +1911,20 @@ impl AuthService {
     }
 
     /// Create new user with OAuth account
-    async fn create_user_with_oauth_account(&self, provider: &OAuthProviderType, user_info: &OAuthUserInfo, tokens: &OAuthTokens) -> Result<User> {
+    async fn create_user_with_oauth_account(
+        &self,
+        provider: &OAuthProviderType,
+        user_info: &OAuthUserInfo,
+        tokens: &OAuthTokens,
+    ) -> Result<User> {
         let mut tx = self.db_pool.begin().await?;
 
         // Create user
         let user_id = Uuid::new_v4();
-        let email = user_info.email.clone().unwrap_or_else(|| format!("{}@{}.oauth", user_info.provider_user_id, provider));
+        let email = user_info
+            .email
+            .clone()
+            .unwrap_or_else(|| format!("{}@{}.oauth", user_info.provider_user_id, provider));
         let now = Utc::now();
 
         sqlx::query!(
@@ -1669,10 +1945,13 @@ impl AuthService {
 
         // Create OAuth account
         let oauth_account_id = Uuid::new_v4();
-        let (encrypted_access_token, encrypted_refresh_token) = self.oauth_encryption
+        let (encrypted_access_token, encrypted_refresh_token) = self
+            .oauth_encryption
             .encrypt_token_pair(&tokens.access_token, tokens.refresh_token.as_deref())?;
 
-        let token_expires_at = tokens.expires_in.map(|expires_in| now + Duration::seconds(expires_in));
+        let token_expires_at = tokens
+            .expires_in
+            .map(|expires_in| now + Duration::seconds(expires_in));
 
         sqlx::query!(
             r#"
@@ -1702,14 +1981,21 @@ impl AuthService {
         tx.commit().await?;
 
         // Audit log the user creation
-        self.log_audit_event(user_id, "user_created_oauth", "user", &user_id.to_string()).await?;
+        self.log_audit_event(user_id, "user_created_oauth", "user", &user_id.to_string())
+            .await?;
 
         // Return the created user
         self.get_user_by_id(user_id).await
     }
 
     /// Link OAuth account to existing user
-    async fn link_oauth_account_to_user(&self, user: &User, provider: &OAuthProviderType, user_info: &OAuthUserInfo, tokens: &OAuthTokens) -> Result<()> {
+    async fn link_oauth_account_to_user(
+        &self,
+        user: &User,
+        provider: &OAuthProviderType,
+        user_info: &OAuthUserInfo,
+        tokens: &OAuthTokens,
+    ) -> Result<()> {
         let mut tx = self.db_pool.begin().await?;
 
         // Validation: Check if user already has this provider linked
@@ -1739,18 +2025,24 @@ impl AuthService {
         if let Some(existing) = existing_user {
             if existing.user_id != user.id {
                 return Err(AppError::Conflict {
-                    message: format!("This {} account is already linked to another user", provider),
+                    message: format!(
+                        "This {} account is already linked to another user",
+                        provider
+                    ),
                 });
             }
         }
 
         // Encrypt tokens before storage
         let oauth_account_id = Uuid::new_v4();
-        let (encrypted_access_token, encrypted_refresh_token) = self.oauth_encryption
+        let (encrypted_access_token, encrypted_refresh_token) = self
+            .oauth_encryption
             .encrypt_token_pair(&tokens.access_token, tokens.refresh_token.as_deref())?;
 
         let now = Utc::now();
-        let token_expires_at = tokens.expires_in.map(|expires_in| now + Duration::seconds(expires_in));
+        let token_expires_at = tokens
+            .expires_in
+            .map(|expires_in| now + Duration::seconds(expires_in));
 
         // Insert OAuth account with proper error handling for database constraint violations
         let result = sqlx::query!(
@@ -1788,12 +2080,16 @@ impl AuthService {
                     });
                 } else if constraint_name.contains("oauth_accounts_provider_user_unique") {
                     return Err(AppError::Conflict {
-                        message: format!("This {} account is already linked to another user", provider),
+                        message: format!(
+                            "This {} account is already linked to another user",
+                            provider
+                        ),
                     });
                 } else {
-                    return Err(AppError::DatabaseConstraintViolation(
-                        format!("Database constraint violation: {}", constraint_name)
-                    ));
+                    return Err(AppError::DatabaseConstraintViolation(format!(
+                        "Database constraint violation: {}",
+                        constraint_name
+                    )));
                 }
             }
         }
@@ -1802,19 +2098,33 @@ impl AuthService {
         tx.commit().await?;
 
         // Audit log the account linking
-        self.log_audit_event(user.id, "oauth_account_linked", "oauth_account", &provider.to_string()).await?;
+        self.log_audit_event(
+            user.id,
+            "oauth_account_linked",
+            "oauth_account",
+            &provider.to_string(),
+        )
+        .await?;
 
         Ok(())
     }
 
     /// Update OAuth tokens for existing account
-    async fn update_oauth_tokens(&self, user_id: &Uuid, provider: &OAuthProviderType, tokens: &OAuthTokens) -> Result<()> {
+    async fn update_oauth_tokens(
+        &self,
+        user_id: &Uuid,
+        provider: &OAuthProviderType,
+        tokens: &OAuthTokens,
+    ) -> Result<()> {
         // Encrypt the new tokens
-        let (encrypted_access_token, encrypted_refresh_token) = self.oauth_encryption
+        let (encrypted_access_token, encrypted_refresh_token) = self
+            .oauth_encryption
             .encrypt_token_pair(&tokens.access_token, tokens.refresh_token.as_deref())?;
 
         let now = Utc::now();
-        let token_expires_at = tokens.expires_in.map(|expires_in| now + Duration::seconds(expires_in));
+        let token_expires_at = tokens
+            .expires_in
+            .map(|expires_in| now + Duration::seconds(expires_in));
 
         // Update tokens in database
         sqlx::query!(
@@ -1837,7 +2147,13 @@ impl AuthService {
         .await?;
 
         // Audit log the token update
-        self.log_audit_event(*user_id, "oauth_tokens_updated", "oauth_account", &provider.to_string()).await?;
+        self.log_audit_event(
+            *user_id,
+            "oauth_tokens_updated",
+            "oauth_account",
+            &provider.to_string(),
+        )
+        .await?;
 
         Ok(())
     }
@@ -1869,14 +2185,15 @@ impl AuthService {
             });
         }
 
-        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.decode(parts[1])
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(parts[1])
             .map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to decode ID token payload: {}", e),
             })?;
 
-        let claims: serde_json::Value = serde_json::from_slice(&payload)
-            .map_err(|e| AppError::OAuthProviderError {
+        let claims: serde_json::Value =
+            serde_json::from_slice(&payload).map_err(|e| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
                 message: format!("Failed to parse ID token claims: {}", e),
             })?;
@@ -1894,7 +2211,10 @@ impl AuthService {
 
         let mut provider_data = HashMap::new();
         if let Some(is_private_email) = claims["is_private_email"].as_bool() {
-            provider_data.insert("is_private_email".to_string(), serde_json::Value::Bool(is_private_email));
+            provider_data.insert(
+                "is_private_email".to_string(),
+                serde_json::Value::Bool(is_private_email),
+            );
         }
 
         Ok(OAuthUserInfo {
@@ -1923,15 +2243,21 @@ impl AuthService {
     // ===== Token Management and Refresh Methods =====
 
     /// Check and refresh expired OAuth tokens for a user
-    pub async fn refresh_expired_oauth_tokens(&self, user_id: Uuid) -> Result<Vec<OAuthProviderType>> {
+    pub async fn refresh_expired_oauth_tokens(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<OAuthProviderType>> {
         let mut refreshed_providers = Vec::new();
-        
+
         // Get all OAuth accounts for the user
         let oauth_accounts = self.load_oauth_accounts(user_id).await?;
-        
+
         for account in oauth_accounts {
             if account.is_token_expired() && account.refresh_token_encrypted.is_some() {
-                match self.refresh_oauth_tokens(user_id, account.provider.clone()).await {
+                match self
+                    .refresh_oauth_tokens(user_id, account.provider.clone())
+                    .await
+                {
                     Ok(()) => {
                         let provider = account.provider.clone();
                         refreshed_providers.push(account.provider);
@@ -1948,14 +2274,15 @@ impl AuthService {
                             error = %e,
                             "Failed to refresh OAuth tokens"
                         );
-                        
+
                         // Notify user about token refresh failure
-                        self.notify_token_refresh_failure(user_id, &account.provider).await?;
+                        self.notify_token_refresh_failure(user_id, &account.provider)
+                            .await?;
                     }
                 }
             }
         }
-        
+
         Ok(refreshed_providers)
     }
 
@@ -1980,12 +2307,16 @@ impl AuthService {
         .await?;
 
         let mut refreshed_count = 0;
-        
+
         for account in expired_accounts {
-            let provider = account.provider.parse::<OAuthProviderType>()
-                .map_err(|e| AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e)))?;
-            
-            match self.refresh_oauth_tokens(account.user_id, provider.clone()).await {
+            let provider = account.provider.parse::<OAuthProviderType>().map_err(|e| {
+                AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e))
+            })?;
+
+            match self
+                .refresh_oauth_tokens(account.user_id, provider.clone())
+                .await
+            {
                 Ok(()) => {
                     refreshed_count += 1;
                     tracing::debug!(
@@ -2001,9 +2332,12 @@ impl AuthService {
                         error = %e,
                         "Background token refresh failed"
                     );
-                    
+
                     // Notify user about token refresh failure
-                    if let Err(notify_err) = self.notify_token_refresh_failure(account.user_id, &provider).await {
+                    if let Err(notify_err) = self
+                        .notify_token_refresh_failure(account.user_id, &provider)
+                        .await
+                    {
                         tracing::error!(
                             user_id = %account.user_id,
                             provider = %provider,
@@ -2024,7 +2358,11 @@ impl AuthService {
     }
 
     /// Revoke OAuth tokens for a provider (when unlinking account)
-    pub async fn revoke_oauth_tokens(&self, _user_id: Uuid, _provider_type: OAuthProviderType) -> Result<()> {
+    pub async fn revoke_oauth_tokens(
+        &self,
+        _user_id: Uuid,
+        _provider_type: OAuthProviderType,
+    ) -> Result<()> {
         // Temporarily disabled until SQLx cache is updated
         Err(AppError::NotFound {
             resource: "OAuth token revocation temporarily disabled".to_string(),
@@ -2070,7 +2408,7 @@ impl AuthService {
             let status = if let Some(expires_at) = account.token_expires_at {
                 let now = Utc::now();
                 let time_until_expiry = expires_at - now;
-                
+
                 if time_until_expiry.num_seconds() < 0 {
                     TokenExpirationStatus::Expired
                 } else if time_until_expiry.num_hours() < 24 {
@@ -2078,9 +2416,7 @@ impl AuthService {
                         hours_remaining: time_until_expiry.num_hours() as u32,
                     }
                 } else {
-                    TokenExpirationStatus::Valid {
-                        expires_at,
-                    }
+                    TokenExpirationStatus::Valid { expires_at }
                 }
             } else {
                 TokenExpirationStatus::NoExpiration
@@ -2098,7 +2434,11 @@ impl AuthService {
     }
 
     /// Notify user about token refresh failure
-    async fn notify_token_refresh_failure(&self, user_id: Uuid, provider: &OAuthProviderType) -> Result<()> {
+    async fn notify_token_refresh_failure(
+        &self,
+        user_id: Uuid,
+        provider: &OAuthProviderType,
+    ) -> Result<()> {
         // In a real implementation, this would send an email or push notification
         // For now, we'll just log an audit event
         self.log_audit_event(
@@ -2106,7 +2446,8 @@ impl AuthService {
             "oauth_token_refresh_failed",
             "oauth_account",
             &provider.to_string(),
-        ).await?;
+        )
+        .await?;
 
         // You could also store a notification in the database for the user to see
         // when they next log in, or send an email notification
@@ -2133,7 +2474,7 @@ impl AuthService {
 
         for account in accounts {
             let connection_status = self.check_oauth_connection_health(&account).await?;
-            
+
             let health = OAuthAccountHealth {
                 provider: account.provider,
                 email: account.email.clone(),
@@ -2154,7 +2495,10 @@ impl AuthService {
     }
 
     /// Check the health of a specific OAuth connection
-    async fn check_oauth_connection_health(&self, account: &OAuthAccount) -> Result<OAuthConnectionStatus> {
+    async fn check_oauth_connection_health(
+        &self,
+        account: &OAuthAccount,
+    ) -> Result<OAuthConnectionStatus> {
         // Check if token is expired
         if let Some(expires_at) = account.token_expires_at {
             if Utc::now() > expires_at {
@@ -2188,15 +2532,19 @@ impl AuthService {
         }
 
         // Check provider health
-        if let Some(provider_health) = self.oauth_health_monitor.get_provider_health(&account.provider).await {
+        if let Some(provider_health) = self
+            .oauth_health_monitor
+            .get_provider_health(&account.provider)
+            .await
+        {
             match provider_health.status {
                 OAuthProviderHealthStatus::Healthy => Ok(OAuthConnectionStatus::Healthy),
-                OAuthProviderHealthStatus::Degraded { reason } => Ok(OAuthConnectionStatus::ProviderDegraded {
-                    reason,
-                }),
-                OAuthProviderHealthStatus::Unhealthy { reason } => Ok(OAuthConnectionStatus::ProviderUnavailable {
-                    reason,
-                }),
+                OAuthProviderHealthStatus::Degraded { reason } => {
+                    Ok(OAuthConnectionStatus::ProviderDegraded { reason })
+                }
+                OAuthProviderHealthStatus::Unhealthy { reason } => {
+                    Ok(OAuthConnectionStatus::ProviderUnavailable { reason })
+                }
                 OAuthProviderHealthStatus::Unknown => Ok(OAuthConnectionStatus::Healthy), // Default to healthy if unknown
             }
         } else {
@@ -2206,7 +2554,9 @@ impl AuthService {
 
     /// Get users who need OAuth token refresh notifications
     /// TODO: Re-enable once SQLx cache is updated
-    pub async fn get_users_needing_token_notifications(&self) -> Result<Vec<TokenNotificationTarget>> {
+    pub async fn get_users_needing_token_notifications(
+        &self,
+    ) -> Result<Vec<TokenNotificationTarget>> {
         // Temporarily disabled until SQLx cache is updated
         Ok(vec![])
     }
@@ -2229,7 +2579,7 @@ impl AuthService {
         for schedule in high_priority_schedules {
             let provider = schedule.provider;
             let user_id = schedule.user_id;
-            
+
             tracing::debug!(
                 user_id = %user_id,
                 provider = %provider,
@@ -2248,13 +2598,14 @@ impl AuthService {
                 }
                 Err(e) => {
                     summary.failed_refreshes += 1;
-                    summary.errors.push(format!(
-                        "User {}, Provider {}: {}",
-                        user_id, provider, e
-                    ));
-                    
+                    summary
+                        .errors
+                        .push(format!("User {}, Provider {}: {}", user_id, provider, e));
+
                     // Notify user about refresh failure
-                    if let Err(notify_err) = self.notify_token_refresh_failure(user_id, &provider).await {
+                    if let Err(notify_err) =
+                        self.notify_token_refresh_failure(user_id, &provider).await
+                    {
                         tracing::warn!(
                             user_id = %user_id,
                             provider = %provider,
@@ -2262,7 +2613,7 @@ impl AuthService {
                             "Failed to notify user about token refresh failure"
                         );
                     }
-                    
+
                     tracing::warn!(
                         user_id = %user_id,
                         provider = %provider,
@@ -2285,13 +2636,23 @@ impl AuthService {
 
     /// Update last used timestamp for OAuth account
     /// TODO: Re-enable once SQLx cache is updated
-    pub async fn update_oauth_account_last_used(&self, _user_id: Uuid, _provider: OAuthProviderType) -> Result<()> {
+    pub async fn update_oauth_account_last_used(
+        &self,
+        _user_id: Uuid,
+        _provider: OAuthProviderType,
+    ) -> Result<()> {
         // Temporarily disabled until SQLx cache is updated
         Ok(())
     }
 
     // Helper method for audit logging
-    async fn log_audit_event(&self, user_id: Uuid, action: &str, subject_type: &str, subject_id: &str) -> Result<()> {
+    async fn log_audit_event(
+        &self,
+        user_id: Uuid,
+        action: &str,
+        subject_type: &str,
+        subject_id: &str,
+    ) -> Result<()> {
         sqlx::query!(
             r#"
             INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, timestamp)
@@ -2304,7 +2665,7 @@ impl AuthService {
         )
         .execute(&self.db_pool)
         .await?;
-        
+
         Ok(())
     }
 
@@ -2330,13 +2691,10 @@ impl AuthService {
     // Additional methods needed for tests
     pub async fn logout_user(&self, user_id: Uuid, refresh_token: &str) -> Result<()> {
         // Invalidate the refresh token by deleting the session
-        sqlx::query!(
-            "DELETE FROM user_sessions WHERE user_id = $1",
-            user_id
-        )
-        .execute(&self.db_pool)
-        .await?;
-        
+        sqlx::query!("DELETE FROM user_sessions WHERE user_id = $1", user_id)
+            .execute(&self.db_pool)
+            .await?;
+
         Ok(())
     }
 
@@ -2347,15 +2705,12 @@ impl AuthService {
     pub async fn create_session(&self, user_id: Uuid, _device_info: String) -> Result<String> {
         // Create a simple session token for testing
         let session_token = format!("session_{}_{}", user_id, uuid::Uuid::new_v4());
-        
+
         // In a real implementation, this would store session info in database
-        sqlx::query!(
-            "UPDATE users SET updated_at = NOW() WHERE id = $1",
-            user_id
-        )
-        .execute(&self.db_pool)
-        .await?;
-        
+        sqlx::query!("UPDATE users SET updated_at = NOW() WHERE id = $1", user_id)
+            .execute(&self.db_pool)
+            .await?;
+
         Ok(session_token)
     }
 
@@ -2373,7 +2728,10 @@ impl AuthService {
     // }
 
     // Comprehensive registration validation function with performance optimizations
-    pub async fn validate_registration_request(&self, request: &crate::models::RegisterRequest) -> Vec<RegistrationValidationError> {
+    pub async fn validate_registration_request(
+        &self,
+        request: &crate::models::RegisterRequest,
+    ) -> Vec<RegistrationValidationError> {
         let validation_start = Instant::now();
         let mut errors = Vec::new();
 
@@ -2386,7 +2744,11 @@ impl AuthService {
             });
         } else {
             // Use cached email validation
-            match self.performance_service.validate_email_format_cached(&request.email).await {
+            match self
+                .performance_service
+                .validate_email_format_cached(&request.email)
+                .await
+            {
                 Ok(is_valid) => {
                     if !is_valid {
                         errors.push(RegistrationValidationError {
@@ -2408,7 +2770,7 @@ impl AuthService {
                     }
                 }
             }
-            
+
             // Check email length
             if request.email.len() > 255 {
                 errors.push(RegistrationValidationError {
@@ -2428,7 +2790,11 @@ impl AuthService {
             });
         } else {
             // Use cached password strength validation
-            match self.performance_service.validate_password_strength_cached(&request.password).await {
+            match self
+                .performance_service
+                .validate_password_strength_cached(&request.password)
+                .await
+            {
                 Ok(Some(password_error)) => {
                     errors.push(password_error);
                 }
@@ -2437,7 +2803,8 @@ impl AuthService {
                 }
                 Err(_) => {
                     // Fallback to non-cached validation
-                    if let Some(password_error) = self.validate_password_strength(&request.password) {
+                    if let Some(password_error) = self.validate_password_strength(&request.password)
+                    {
                         errors.push(password_error);
                     }
                 }
@@ -2470,7 +2837,11 @@ impl AuthService {
 
         // Record validation metrics
         let validation_time = validation_start.elapsed().as_millis() as f64;
-        if let Err(e) = self.performance_service.record_registration_attempt(validation_time).await {
+        if let Err(e) = self
+            .performance_service
+            .record_registration_attempt(validation_time)
+            .await
+        {
             tracing::warn!("Failed to record registration metrics: {}", e);
         }
 
@@ -2502,17 +2873,32 @@ impl AuthService {
         }
 
         // Special character requirement
-        if !password.chars().any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c)) {
+        if !password
+            .chars()
+            .any(|c| "!@#$%^&*()_+-=[]{}|;:,.<>?".contains(c))
+        {
             requirements.push("at least one special character (!@#$%^&*()_+-=[]{}|;:,.<>?)");
         }
 
         // Check against common passwords (basic implementation)
         let common_passwords = [
-            "password", "123456", "password123", "admin", "qwerty", "letmein",
-            "welcome", "monkey", "1234567890", "password1", "123456789"
+            "password",
+            "123456",
+            "password123",
+            "admin",
+            "qwerty",
+            "letmein",
+            "welcome",
+            "monkey",
+            "1234567890",
+            "password1",
+            "123456789",
         ];
-        
-        if common_passwords.iter().any(|&common| password.to_lowercase() == common.to_lowercase()) {
+
+        if common_passwords
+            .iter()
+            .any(|&common| password.to_lowercase() == common.to_lowercase())
+        {
             requirements.push("not be a common password");
         }
 
@@ -2529,44 +2915,49 @@ impl AuthService {
     }
 
     // Enhanced registration method with comprehensive validation and performance optimizations
-    pub async fn register(&self, request: crate::models::RegisterRequest) -> Result<crate::models::AuthResponse> {
+    pub async fn register(
+        &self,
+        request: crate::models::RegisterRequest,
+    ) -> Result<crate::models::AuthResponse> {
         use crate::models::AuthResponse;
-        
+
         let registration_start = Instant::now();
-        
+
         // Integrate new validation function into registration flow with performance optimizations
         let validation_errors = self.validate_registration_request(&request).await;
-        
+
         // Implement structured error collection and response formatting
         if !validation_errors.is_empty() {
             // Record validation failure metrics
             if let Err(e) = self.performance_service.record_validation_failure().await {
                 tracing::warn!("Failed to record validation failure metrics: {}", e);
             }
-            
+
             // Add detailed logging for validation failures
             tracing::warn!(
                 email = %request.email,
                 validation_errors = ?validation_errors,
                 "Registration validation failed"
             );
-            
-            return Err(crate::AppError::RegistrationValidationError { 
-                errors: validation_errors 
+
+            return Err(crate::AppError::RegistrationValidationError {
+                errors: validation_errors,
             });
         }
 
         // Check if user already exists using optimized query
-        let email_exists = match self.performance_service.check_email_exists_optimized(&self.db_pool, &request.email).await {
+        let email_exists = match self
+            .performance_service
+            .check_email_exists_optimized(&self.db_pool, &request.email)
+            .await
+        {
             Ok(exists) => exists,
             Err(_) => {
                 // Fallback to original query
-                let existing_user = sqlx::query!(
-                    "SELECT id FROM users WHERE email = $1",
-                    request.email
-                )
-                .fetch_optional(&self.db_pool)
-                .await?;
+                let existing_user =
+                    sqlx::query!("SELECT id FROM users WHERE email = $1", request.email)
+                        .fetch_optional(&self.db_pool)
+                        .await?;
                 existing_user.is_some()
             }
         };
@@ -2576,13 +2967,13 @@ impl AuthService {
             if let Err(e) = self.performance_service.record_email_duplicate().await {
                 tracing::warn!("Failed to record email duplicate metrics: {}", e);
             }
-            
+
             // Add detailed logging for security events
             tracing::warn!(
                 email = %request.email,
                 "Registration attempt with existing email"
             );
-            
+
             return Err(crate::AppError::EmailAlreadyRegistered);
         }
 
@@ -2592,10 +2983,10 @@ impl AuthService {
         // Create user in database with optimized transaction
         let user_id = Uuid::new_v4();
         let now = Utc::now();
-        
+
         // Use a single transaction for both user creation and audit logging
         let mut tx = self.db_pool.begin().await?;
-        
+
         // Insert user with prepared statement for better performance
         sqlx::query!(
             r#"
@@ -2615,14 +3006,20 @@ impl AuthService {
 
         // Log successful registration for security auditing in the same transaction
         // Using existing audit logging pattern
-        self.log_audit_event(user_id, "user_registered", "user", &user_id.to_string()).await.ok();
+        self.log_audit_event(user_id, "user_registered", "user", &user_id.to_string())
+            .await
+            .ok();
 
         // Commit transaction
         tx.commit().await?;
 
         // Record successful registration metrics
         let registration_time = registration_start.elapsed().as_millis() as f64;
-        if let Err(e) = self.performance_service.record_successful_registration(registration_time).await {
+        if let Err(e) = self
+            .performance_service
+            .record_successful_registration(registration_time)
+            .await
+        {
             tracing::warn!("Failed to record successful registration metrics: {}", e);
         }
 
@@ -2636,7 +3033,7 @@ impl AuthService {
 
         // Fetch the created user (optimized to avoid unnecessary fields)
         let user = self.get_user_by_id(user_id).await?;
-        
+
         // Check if auto-login is enabled via environment variable
         let auto_login_enabled = std::env::var("AUTO_LOGIN_ENABLED")
             .unwrap_or_else(|_| "true".to_string())
@@ -2653,7 +3050,7 @@ impl AuthService {
                         email = %user.email,
                         "Auto-login successful after registration"
                     );
-                    
+
                     Ok(AuthResponse {
                         user: user.to_profile(),
                         access_token: token_pair.access_token,
@@ -2668,7 +3065,7 @@ impl AuthService {
                         error = %token_error,
                         "Auto-login failed after registration, user created successfully"
                     );
-                    
+
                     // Return the error to indicate token generation failure
                     Err(token_error)
                 }
@@ -2680,7 +3077,7 @@ impl AuthService {
                 email = %user.email,
                 "Registration successful, auto-login disabled"
             );
-            
+
             // Return response with empty tokens to indicate auto-login is disabled
             Ok(AuthResponse {
                 user: user.to_profile(),
@@ -2692,15 +3089,15 @@ impl AuthService {
 
     pub async fn login(&self, request: LoginRequest) -> Result<crate::models::AuthResponse> {
         use crate::models::AuthResponse;
-        
+
         // Login user
         let token_pair = self.login_user(request).await?;
-        
+
         // Get user info from token
         let claims = self.verify_token(&token_pair.access_token)?;
         let user_id = Uuid::parse_str(&claims.sub)?;
         let user = self.get_user(user_id).await?;
-        
+
         Ok(AuthResponse {
             user: user.to_profile(),
             access_token: token_pair.access_token,
@@ -2728,16 +3125,26 @@ impl AuthService {
 
     // OAuth-specific methods for handlers
     // TODO: Temporarily disabled until SQLx cache is updated
-    
+
     /// Find user by OAuth account (public method for handlers)
     #[allow(dead_code)]
-    pub async fn find_user_by_oauth_account_public(&self, _provider: OAuthProviderType, _provider_user_id: &str) -> Result<User> {
+    pub async fn find_user_by_oauth_account_public(
+        &self,
+        _provider: OAuthProviderType,
+        _provider_user_id: &str,
+    ) -> Result<User> {
         // Temporarily return error until SQLx cache is updated
-        Err(AppError::NotFound { resource: "OAuth functionality temporarily disabled".to_string() })
+        Err(AppError::NotFound {
+            resource: "OAuth functionality temporarily disabled".to_string(),
+        })
     }
 
     #[allow(dead_code)]
-    async fn find_user_by_oauth_account_public_impl(&self, _provider: OAuthProviderType, _provider_user_id: &str) -> Result<User> {
+    async fn find_user_by_oauth_account_public_impl(
+        &self,
+        _provider: OAuthProviderType,
+        _provider_user_id: &str,
+    ) -> Result<User> {
         // Temporarily disabled until SQLx cache is updated
         Err(AppError::NotFound {
             resource: "OAuth functionality temporarily disabled".to_string(),
@@ -2745,7 +3152,11 @@ impl AuthService {
     }
 
     #[allow(dead_code)]
-    async fn find_user_by_oauth_account_public_impl_disabled(&self, provider: OAuthProviderType, provider_user_id: &str) -> Result<User> {
+    async fn find_user_by_oauth_account_public_impl_disabled(
+        &self,
+        provider: OAuthProviderType,
+        provider_user_id: &str,
+    ) -> Result<User> {
         let user_row = sqlx::query!(
             r#"
             SELECT u.id, u.email, u.email_verified, u.password_hash, u.totp_secret, u.totp_enabled, u.created_at, u.updated_at, u.last_login
@@ -2777,19 +3188,35 @@ impl AuthService {
                     privacy_mode: false,
                 },
             }),
-            None => Err(AppError::NotFound { resource: "User".to_string() }),
+            None => Err(AppError::NotFound {
+                resource: "User".to_string(),
+            }),
         }
     }
 
     /// Create user with OAuth account
     #[allow(dead_code)]
-    pub async fn create_user_with_oauth(&self, _email: &str, _provider: OAuthProviderType, _tokens: &OAuthTokens, _user_info: &OAuthUserInfo) -> Result<User> {
+    pub async fn create_user_with_oauth(
+        &self,
+        _email: &str,
+        _provider: OAuthProviderType,
+        _tokens: &OAuthTokens,
+        _user_info: &OAuthUserInfo,
+    ) -> Result<User> {
         // Temporarily return error until SQLx cache is updated
-        Err(AppError::NotFound { resource: "OAuth functionality temporarily disabled".to_string() })
+        Err(AppError::NotFound {
+            resource: "OAuth functionality temporarily disabled".to_string(),
+        })
     }
 
     #[allow(dead_code)]
-    async fn create_user_with_oauth_impl(&self, _email: &str, _provider: OAuthProviderType, _tokens: &OAuthTokens, _user_info: &OAuthUserInfo) -> Result<User> {
+    async fn create_user_with_oauth_impl(
+        &self,
+        _email: &str,
+        _provider: OAuthProviderType,
+        _tokens: &OAuthTokens,
+        _user_info: &OAuthUserInfo,
+    ) -> Result<User> {
         // Temporarily disabled until SQLx cache is updated
         Err(AppError::NotFound {
             resource: "OAuth functionality temporarily disabled".to_string(),
@@ -2797,7 +3224,13 @@ impl AuthService {
     }
 
     #[allow(dead_code)]
-    async fn create_user_with_oauth_impl_disabled(&self, email: &str, provider: OAuthProviderType, tokens: &OAuthTokens, user_info: &OAuthUserInfo) -> Result<User> {
+    async fn create_user_with_oauth_impl_disabled(
+        &self,
+        email: &str,
+        provider: OAuthProviderType,
+        tokens: &OAuthTokens,
+        user_info: &OAuthUserInfo,
+    ) -> Result<User> {
         let mut tx = self.db_pool.begin().await?;
 
         // Create user
@@ -2820,15 +3253,17 @@ impl AuthService {
 
         // Encrypt tokens
         let encrypted_access_token = self.oauth_encryption.encrypt_token(&tokens.access_token)?;
-        let encrypted_refresh_token = tokens.refresh_token.as_ref()
+        let encrypted_refresh_token = tokens
+            .refresh_token
+            .as_ref()
             .map(|token| self.oauth_encryption.encrypt_token(token))
             .transpose()?;
 
         // Create OAuth account
         let oauth_account_id = Uuid::new_v4();
-        let token_expires_at = tokens.expires_in.map(|expires_in| {
-            Utc::now() + Duration::seconds(expires_in)
-        });
+        let token_expires_at = tokens
+            .expires_in
+            .map(|expires_in| Utc::now() + Duration::seconds(expires_in));
 
         sqlx::query!(
             r#"
@@ -2877,13 +3312,27 @@ impl AuthService {
 
     /// Update OAuth account tokens
     #[allow(dead_code)]
-    pub async fn update_oauth_account(&self, _user_id: Uuid, _provider: OAuthProviderType, _tokens: &OAuthTokens, _user_info: &OAuthUserInfo) -> Result<()> {
+    pub async fn update_oauth_account(
+        &self,
+        _user_id: Uuid,
+        _provider: OAuthProviderType,
+        _tokens: &OAuthTokens,
+        _user_info: &OAuthUserInfo,
+    ) -> Result<()> {
         // Temporarily return error until SQLx cache is updated
-        Err(AppError::NotFound { resource: "OAuth functionality temporarily disabled".to_string() })
+        Err(AppError::NotFound {
+            resource: "OAuth functionality temporarily disabled".to_string(),
+        })
     }
 
     #[allow(dead_code)]
-    async fn update_oauth_account_impl(&self, _user_id: Uuid, _provider: OAuthProviderType, _tokens: &OAuthTokens, _user_info: &OAuthUserInfo) -> Result<()> {
+    async fn update_oauth_account_impl(
+        &self,
+        _user_id: Uuid,
+        _provider: OAuthProviderType,
+        _tokens: &OAuthTokens,
+        _user_info: &OAuthUserInfo,
+    ) -> Result<()> {
         // Temporarily disabled until SQLx cache is updated
         Err(AppError::NotFound {
             resource: "OAuth account update temporarily disabled".to_string(),
@@ -2898,13 +3347,23 @@ impl AuthService {
 
     /// Unlink OAuth account from user (public method for handlers)
     #[allow(dead_code)]
-    pub async fn unlink_oauth_account_public(&self, _user_id: Uuid, _provider: OAuthProviderType) -> Result<()> {
+    pub async fn unlink_oauth_account_public(
+        &self,
+        _user_id: Uuid,
+        _provider: OAuthProviderType,
+    ) -> Result<()> {
         // Temporarily return error until SQLx cache is updated
-        Err(AppError::NotFound { resource: "OAuth functionality temporarily disabled".to_string() })
+        Err(AppError::NotFound {
+            resource: "OAuth functionality temporarily disabled".to_string(),
+        })
     }
 
     #[allow(dead_code)]
-    async fn unlink_oauth_account_public_impl(&self, user_id: Uuid, provider: OAuthProviderType) -> Result<()> {
+    async fn unlink_oauth_account_public_impl(
+        &self,
+        user_id: Uuid,
+        provider: OAuthProviderType,
+    ) -> Result<()> {
         let result = sqlx::query!(
             "DELETE FROM oauth_accounts WHERE user_id = $1 AND provider = $2",
             user_id,
@@ -2914,8 +3373,8 @@ impl AuthService {
         .await?;
 
         if result.rows_affected() == 0 {
-            return Err(AppError::NotFound { 
-                resource: format!("OAuth account for provider {}", provider) 
+            return Err(AppError::NotFound {
+                resource: format!("OAuth account for provider {}", provider),
             });
         }
 
@@ -2935,6 +3394,4 @@ impl AuthService {
     //     // Temporarily commented out due to SQLx cache issues
     //     Ok(vec![])
     // }
-
-
 }

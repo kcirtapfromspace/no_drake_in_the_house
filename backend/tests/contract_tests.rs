@@ -1,9 +1,9 @@
 use music_streaming_blocklist_backend::*;
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
-use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path, header, query_param};
-use serde_json::json;
+use wiremock::matchers::{header, method, path, query_param};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Contract tests for external API integrations
 /// These tests verify that our code can handle changes in external API contracts
@@ -11,7 +11,7 @@ use serde_json::json;
 #[tokio::test]
 async fn test_spotify_api_contract_changes() {
     // Test various Spotify API contract changes that could break our integration
-    
+
     let test_cases = vec![
         SpotifyContractTest {
             name: "Missing items field in tracks response",
@@ -94,36 +94,42 @@ async fn test_spotify_api_contract_changes() {
             error_contains: "missing field",
         },
     ];
-    
+
     for test_case in test_cases {
         println!("Testing contract change: {}", test_case.name);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         Mock::given(method("GET"))
             .and(path(test_case.endpoint))
             .respond_with(ResponseTemplate::new(200).set_body_json(test_case.response))
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = SpotifyConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-        
+
         let library_service = SpotifyLibraryService::new(spotify_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         if test_case.should_fail {
             assert!(result.is_err(), "Expected failure for: {}", test_case.name);
             if !test_case.error_contains.is_empty() {
                 let error_msg = result.unwrap_err().to_string();
-                assert!(error_msg.to_lowercase().contains(&test_case.error_contains.to_lowercase()),
-                       "Error message '{}' should contain '{}'", error_msg, test_case.error_contains);
+                assert!(
+                    error_msg
+                        .to_lowercase()
+                        .contains(&test_case.error_contains.to_lowercase()),
+                    "Error message '{}' should contain '{}'",
+                    error_msg,
+                    test_case.error_contains
+                );
             }
         } else {
             assert!(result.is_ok(), "Expected success for: {}", test_case.name);
@@ -185,36 +191,42 @@ async fn test_apple_music_api_contract_changes() {
             error_contains: "",
         },
     ];
-    
+
     for test_case in test_cases {
         println!("Testing Apple Music contract change: {}", test_case.name);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         Mock::given(method("GET"))
             .and(path(test_case.endpoint))
             .respond_with(ResponseTemplate::new(200).set_body_json(test_case.response))
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = AppleMusicConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let apple_service = AppleMusicService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_apple_music_connection(user_id, &token_vault).await;
-        
+
         let library_service = AppleMusicLibraryService::new(apple_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         if test_case.should_fail {
             assert!(result.is_err(), "Expected failure for: {}", test_case.name);
             if !test_case.error_contains.is_empty() {
                 let error_msg = result.unwrap_err().to_string();
-                assert!(error_msg.to_lowercase().contains(&test_case.error_contains.to_lowercase()),
-                       "Error message '{}' should contain '{}'", error_msg, test_case.error_contains);
+                assert!(
+                    error_msg
+                        .to_lowercase()
+                        .contains(&test_case.error_contains.to_lowercase()),
+                    "Error message '{}' should contain '{}'",
+                    error_msg,
+                    test_case.error_contains
+                );
             }
         } else {
             assert!(result.is_ok(), "Expected success for: {}", test_case.name);
@@ -281,30 +293,36 @@ async fn test_musicbrainz_api_contract_changes() {
             error_contains: "",
         },
     ];
-    
+
     for test_case in test_cases {
         println!("Testing MusicBrainz contract change: {}", test_case.name);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         Mock::given(method("GET"))
             .and(path("/ws/2/artist"))
             .respond_with(ResponseTemplate::new(200).set_body_json(test_case.response))
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let mut client = MusicBrainzClient::new();
         client.base_url = mock_server.uri();
-        
+
         let result = client.search_artists("The Beatles", Some(10)).await;
-        
+
         if test_case.should_fail {
             assert!(result.is_err(), "Expected failure for: {}", test_case.name);
             if !test_case.error_contains.is_empty() {
                 let error_msg = result.unwrap_err().to_string();
-                assert!(error_msg.to_lowercase().contains(&test_case.error_contains.to_lowercase()),
-                       "Error message '{}' should contain '{}'", error_msg, test_case.error_contains);
+                assert!(
+                    error_msg
+                        .to_lowercase()
+                        .contains(&test_case.error_contains.to_lowercase()),
+                    "Error message '{}' should contain '{}'",
+                    error_msg,
+                    test_case.error_contains
+                );
             }
         } else {
             assert!(result.is_ok(), "Expected success for: {}", test_case.name);
@@ -315,7 +333,7 @@ async fn test_musicbrainz_api_contract_changes() {
 #[tokio::test]
 async fn test_http_status_code_changes() {
     // Test handling of different HTTP status codes that might change
-    
+
     let status_tests = vec![
         (200, true, "Success"),
         (201, true, "Created - should handle as success"),
@@ -329,12 +347,12 @@ async fn test_http_status_code_changes() {
         (502, false, "Bad Gateway"),
         (503, false, "Service Unavailable"),
     ];
-    
+
     for (status_code, should_succeed, description) in status_tests {
         println!("Testing HTTP status {}: {}", status_code, description);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         let response_body = if status_code == 204 {
             // No content for 204
             ResponseTemplate::new(status_code)
@@ -353,29 +371,39 @@ async fn test_http_status_code_changes() {
                 "total": 0
             }))
         };
-        
+
         Mock::given(method("GET"))
             .and(path("/v1/me/tracks"))
             .respond_with(response_body)
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = SpotifyConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-        
+
         let library_service = SpotifyLibraryService::new(spotify_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         if should_succeed {
-            assert!(result.is_ok(), "Expected success for status {}: {}", status_code, description);
+            assert!(
+                result.is_ok(),
+                "Expected success for status {}: {}",
+                status_code,
+                description
+            );
         } else {
-            assert!(result.is_err(), "Expected failure for status {}: {}", status_code, description);
+            assert!(
+                result.is_err(),
+                "Expected failure for status {}: {}",
+                status_code,
+                description
+            );
         }
     }
 }
@@ -383,7 +411,7 @@ async fn test_http_status_code_changes() {
 #[tokio::test]
 async fn test_content_type_changes() {
     // Test handling of different content types
-    
+
     let content_type_tests = vec![
         ("application/json", true, "Standard JSON"),
         ("application/json; charset=utf-8", true, "JSON with charset"),
@@ -392,49 +420,61 @@ async fn test_content_type_changes() {
         ("text/plain", false, "Plain text"),
         ("text/html", false, "HTML response"),
     ];
-    
+
     for (content_type, should_succeed, description) in content_type_tests {
         println!("Testing content type '{}': {}", content_type, description);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         let response_body = if content_type.contains("json") {
             json!({
                 "items": [],
                 "total": 0
-            }).to_string()
+            })
+            .to_string()
         } else if content_type == "application/xml" {
-            r#"<?xml version="1.0"?><response><items></items><total>0</total></response>"#.to_string()
+            r#"<?xml version="1.0"?><response><items></items><total>0</total></response>"#
+                .to_string()
         } else {
             "Plain text response".to_string()
         };
-        
+
         Mock::given(method("GET"))
             .and(path("/v1/me/tracks"))
             .respond_with(
                 ResponseTemplate::new(200)
                     .insert_header("content-type", content_type)
-                    .set_body_string(response_body)
+                    .set_body_string(response_body),
             )
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = SpotifyConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-        
+
         let library_service = SpotifyLibraryService::new(spotify_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         if should_succeed {
-            assert!(result.is_ok(), "Expected success for content type '{}': {}", content_type, description);
+            assert!(
+                result.is_ok(),
+                "Expected success for content type '{}': {}",
+                content_type,
+                description
+            );
         } else {
-            assert!(result.is_err(), "Expected failure for content type '{}': {}", content_type, description);
+            assert!(
+                result.is_err(),
+                "Expected failure for content type '{}': {}",
+                content_type,
+                description
+            );
         }
     }
 }
@@ -442,7 +482,7 @@ async fn test_content_type_changes() {
 #[tokio::test]
 async fn test_rate_limit_header_changes() {
     // Test handling of different rate limit header formats
-    
+
     let rate_limit_tests = vec![
         RateLimitTest {
             name: "Standard Spotify headers",
@@ -486,42 +526,46 @@ async fn test_rate_limit_header_changes() {
             should_parse: false,
         },
     ];
-    
+
     for test_case in rate_limit_tests {
         println!("Testing rate limit headers: {}", test_case.name);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         let mut response = ResponseTemplate::new(200).set_body_json(json!({
             "items": [],
             "total": 0
         }));
-        
+
         for (header_name, header_value) in &test_case.headers {
             response = response.insert_header(header_name, header_value);
         }
-        
+
         Mock::given(method("GET"))
             .and(path("/v1/me/tracks"))
             .respond_with(response)
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = SpotifyConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-        
+
         let library_service = SpotifyLibraryService::new(spotify_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         // Request should succeed regardless of rate limit header parsing
-        assert!(result.is_ok(), "Request should succeed for: {}", test_case.name);
-        
+        assert!(
+            result.is_ok(),
+            "Request should succeed for: {}",
+            test_case.name
+        );
+
         // TODO: Add actual rate limit parsing verification
         // This would require exposing rate limit state from the service
     }
@@ -530,7 +574,7 @@ async fn test_rate_limit_header_changes() {
 #[tokio::test]
 async fn test_pagination_format_changes() {
     // Test handling of different pagination formats
-    
+
     let pagination_tests = vec![
         PaginationTest {
             name: "Spotify-style pagination",
@@ -572,30 +616,30 @@ async fn test_pagination_format_changes() {
             expected_total: 0,
         },
     ];
-    
+
     for test_case in pagination_tests {
         println!("Testing pagination format: {}", test_case.name);
-        
+
         let mock_server = MockServer::start().await;
-        
+
         Mock::given(method("GET"))
             .and(path("/v1/me/tracks"))
             .respond_with(ResponseTemplate::new(200).set_body_json(test_case.response))
             .expect(1)
             .mount(&mock_server)
             .await;
-        
+
         let token_vault = Arc::new(TokenVaultService::new());
         let mut config = SpotifyConfig::default();
         config.api_base_url = format!("{}/v1", mock_server.uri());
-        
+
         let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
         let user_id = Uuid::new_v4();
         let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-        
+
         let library_service = SpotifyLibraryService::new(spotify_service);
         let result = library_service.scan_user_library(&connection).await;
-        
+
         if test_case.should_parse {
             assert!(result.is_ok(), "Expected success for: {}", test_case.name);
             // TODO: Verify pagination was parsed correctly
@@ -651,21 +695,30 @@ struct PaginationTest {
 
 // Helper functions
 
-async fn create_mock_spotify_connection(user_id: Uuid, token_vault: &TokenVaultService) -> Connection {
+async fn create_mock_spotify_connection(
+    user_id: Uuid,
+    token_vault: &TokenVaultService,
+) -> Connection {
     let store_request = StoreTokenRequest {
         user_id,
         provider: StreamingProvider::Spotify,
         provider_user_id: "test_user_123".to_string(),
         access_token: "test_token".to_string(),
         refresh_token: Some("test_refresh_token".to_string()),
-        scopes: vec!["user-read-private".to_string(), "user-library-read".to_string()],
+        scopes: vec![
+            "user-read-private".to_string(),
+            "user-library-read".to_string(),
+        ],
         expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
     };
-    
+
     token_vault.store_token(store_request).await.unwrap()
 }
 
-async fn create_mock_apple_music_connection(user_id: Uuid, token_vault: &TokenVaultService) -> Connection {
+async fn create_mock_apple_music_connection(
+    user_id: Uuid,
+    token_vault: &TokenVaultService,
+) -> Connection {
     let store_request = StoreTokenRequest {
         user_id,
         provider: StreamingProvider::AppleMusic,
@@ -675,6 +728,6 @@ async fn create_mock_apple_music_connection(user_id: Uuid, token_vault: &TokenVa
         scopes: vec!["library-read".to_string()],
         expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
     };
-    
+
     token_vault.store_token(store_request).await.unwrap()
 }

@@ -147,10 +147,21 @@ impl OffenseClassifier {
             OffenseCategory::SexualMisconduct,
             CategoryKeywords {
                 keywords: vec![
-                    "sexual assault", "sexual harassment", "rape", "groping",
-                    "inappropriate", "misconduct", "metoo", "#metoo",
-                    "sexual abuse", "molestation", "predator",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "sexual assault",
+                    "sexual harassment",
+                    "rape",
+                    "groping",
+                    "inappropriate",
+                    "misconduct",
+                    "metoo",
+                    "#metoo",
+                    "sexual abuse",
+                    "molestation",
+                    "predator",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)sexual(ly)?\s+(assault|harass|abuse)").unwrap(),
                     Regex::new(r"(?i)accused\s+of\s+.*sexual").unwrap(),
@@ -159,7 +170,10 @@ impl OffenseClassifier {
                     ("rape", OffenseSeverity::Critical),
                     ("assault", OffenseSeverity::High),
                     ("harassment", OffenseSeverity::Medium),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -189,9 +203,18 @@ impl OffenseClassifier {
             OffenseCategory::HateSpeech,
             CategoryKeywords {
                 keywords: vec![
-                    "hate speech", "slur", "offensive comments", "racist remarks",
-                    "discrimination", "bigot", "hateful", "derogatory",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "hate speech",
+                    "slur",
+                    "offensive comments",
+                    "racist remarks",
+                    "discrimination",
+                    "bigot",
+                    "hateful",
+                    "derogatory",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)hate\s+speech").unwrap(),
                     Regex::new(r"(?i)(racial|racist|homophobic|transphobic)\s+slur").unwrap(),
@@ -199,7 +222,10 @@ impl OffenseClassifier {
                 severity_modifiers: [
                     ("slur", OffenseSeverity::High),
                     ("hate speech", OffenseSeverity::High),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -208,9 +234,18 @@ impl OffenseClassifier {
             OffenseCategory::Racism,
             CategoryKeywords {
                 keywords: vec![
-                    "racist", "racism", "racial slur", "n-word", "blackface",
-                    "white supremacy", "segregation", "racial discrimination",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "racist",
+                    "racism",
+                    "racial slur",
+                    "n-word",
+                    "blackface",
+                    "white supremacy",
+                    "segregation",
+                    "racial discrimination",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)racist\s+(comment|remark|statement|post)").unwrap(),
                     Regex::new(r"(?i)accused\s+of\s+racism").unwrap(),
@@ -219,7 +254,10 @@ impl OffenseClassifier {
                     ("white supremacy", OffenseSeverity::Critical),
                     ("n-word", OffenseSeverity::High),
                     ("blackface", OffenseSeverity::High),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -228,9 +266,19 @@ impl OffenseClassifier {
             OffenseCategory::Antisemitism,
             CategoryKeywords {
                 keywords: vec![
-                    "antisemit", "anti-semit", "jewish", "jews", "holocaust",
-                    "nazi", "hitler", "concentration camp", "zionist conspiracy",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "antisemit",
+                    "anti-semit",
+                    "jewish",
+                    "jews",
+                    "holocaust",
+                    "nazi",
+                    "hitler",
+                    "concentration camp",
+                    "zionist conspiracy",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)anti[- ]?semit").unwrap(),
                     Regex::new(r"(?i)against\s+jews").unwrap(),
@@ -239,7 +287,10 @@ impl OffenseClassifier {
                     ("holocaust denial", OffenseSeverity::Critical),
                     ("nazi", OffenseSeverity::Critical),
                     ("antisemitic", OffenseSeverity::High),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -248,9 +299,17 @@ impl OffenseClassifier {
             OffenseCategory::Homophobia,
             CategoryKeywords {
                 keywords: vec![
-                    "homophobic", "homophobia", "anti-gay", "anti-lgbtq",
-                    "transphobic", "transphobia", "slur",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "homophobic",
+                    "homophobia",
+                    "anti-gay",
+                    "anti-lgbtq",
+                    "transphobic",
+                    "transphobia",
+                    "slur",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)homophobic\s+(comment|remark|slur)").unwrap(),
                     Regex::new(r"(?i)anti[- ]?(gay|lgbtq|trans)").unwrap(),
@@ -258,7 +317,10 @@ impl OffenseClassifier {
                 severity_modifiers: [
                     ("slur", OffenseSeverity::High),
                     ("homophobic", OffenseSeverity::Medium),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -267,18 +329,29 @@ impl OffenseClassifier {
             OffenseCategory::ChildAbuse,
             CategoryKeywords {
                 keywords: vec![
-                    "child abuse", "minor", "underage", "pedophile",
-                    "child exploitation", "grooming",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "child abuse",
+                    "minor",
+                    "underage",
+                    "pedophile",
+                    "child exploitation",
+                    "grooming",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)child\s+(abuse|exploitation|pornography)").unwrap(),
-                    Regex::new(r"(?i)(sexual|inappropriate)\s+.*\s+(minor|underage|child)").unwrap(),
+                    Regex::new(r"(?i)(sexual|inappropriate)\s+.*\s+(minor|underage|child)")
+                        .unwrap(),
                 ],
                 severity_modifiers: [
                     ("pedophile", OffenseSeverity::Critical),
                     ("child abuse", OffenseSeverity::Critical),
                     ("grooming", OffenseSeverity::Critical),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -287,9 +360,19 @@ impl OffenseClassifier {
             OffenseCategory::ViolentCrimes,
             CategoryKeywords {
                 keywords: vec![
-                    "murder", "killed", "shooting", "stabbing", "assault",
-                    "manslaughter", "attempted murder", "gun", "weapon",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "murder",
+                    "killed",
+                    "shooting",
+                    "stabbing",
+                    "assault",
+                    "manslaughter",
+                    "attempted murder",
+                    "gun",
+                    "weapon",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)charged\s+with\s+(murder|assault|battery)").unwrap(),
                     Regex::new(r"(?i)arrested\s+for\s+(shooting|stabbing|assault)").unwrap(),
@@ -298,7 +381,10 @@ impl OffenseClassifier {
                     ("murder", OffenseSeverity::Critical),
                     ("shooting", OffenseSeverity::Critical),
                     ("assault", OffenseSeverity::High),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -307,9 +393,18 @@ impl OffenseClassifier {
             OffenseCategory::FinancialCrimes,
             CategoryKeywords {
                 keywords: vec![
-                    "fraud", "embezzlement", "money laundering", "tax evasion",
-                    "scam", "ponzi", "crypto scam", "nft scam",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "fraud",
+                    "embezzlement",
+                    "money laundering",
+                    "tax evasion",
+                    "scam",
+                    "ponzi",
+                    "crypto scam",
+                    "nft scam",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)charged\s+with\s+(fraud|embezzlement|tax)").unwrap(),
                     Regex::new(r"(?i)(crypto|nft)\s+scam").unwrap(),
@@ -318,7 +413,10 @@ impl OffenseClassifier {
                     ("fraud", OffenseSeverity::High),
                     ("embezzlement", OffenseSeverity::High),
                     ("scam", OffenseSeverity::Medium),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -327,9 +425,17 @@ impl OffenseClassifier {
             OffenseCategory::DrugOffenses,
             CategoryKeywords {
                 keywords: vec![
-                    "drug trafficking", "drug possession", "cocaine", "heroin",
-                    "fentanyl", "drug arrest", "narcotics",
-                ].iter().map(|s| s.to_string()).collect(),
+                    "drug trafficking",
+                    "drug possession",
+                    "cocaine",
+                    "heroin",
+                    "fentanyl",
+                    "drug arrest",
+                    "narcotics",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)arrested\s+.*\s+drug").unwrap(),
                     Regex::new(r"(?i)drug\s+(trafficking|possession|charges)").unwrap(),
@@ -338,7 +444,10 @@ impl OffenseClassifier {
                     ("trafficking", OffenseSeverity::High),
                     ("fentanyl", OffenseSeverity::High),
                     ("possession", OffenseSeverity::Low),
-                ].iter().map(|(k, v)| (k.to_string(), v.clone())).collect(),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
             },
         );
 
@@ -396,7 +505,8 @@ impl OffenseClassifier {
                     let matched = capture.as_str();
                     if !matched_keywords.iter().any(|k| matched.contains(k)) {
                         matched_keywords.push(matched.to_string());
-                        let context = self.extract_context(&full_text, capture.start(), capture.end());
+                        let context =
+                            self.extract_context(&full_text, capture.start(), capture.end());
                         contexts.push(context);
                     }
                 }
@@ -407,7 +517,10 @@ impl OffenseClassifier {
             }
 
             // Check for negations
-            let has_negation = self.negation_patterns.iter().any(|p| p.is_match(&full_text));
+            let has_negation = self
+                .negation_patterns
+                .iter()
+                .any(|p| p.is_match(&full_text));
 
             // Calculate confidence
             let keyword_score = (matched_keywords.len() as f64 * 0.2).min(0.6);
@@ -418,7 +531,10 @@ impl OffenseClassifier {
             };
             let title_score = if let Some(t) = title {
                 let title_lower = t.to_lowercase();
-                if matched_keywords.iter().any(|k| title_lower.contains(&k.to_lowercase())) {
+                if matched_keywords
+                    .iter()
+                    .any(|k| title_lower.contains(&k.to_lowercase()))
+                {
                     0.2
                 } else {
                     0.0
@@ -441,9 +557,7 @@ impl OffenseClassifier {
             // Create classification for each relevant entity, or general if no entities
             let relevant_entities: Vec<_> = entities
                 .iter()
-                .filter(|e| {
-                    contexts.iter().any(|c| c.contains(&e.name))
-                })
+                .filter(|e| contexts.iter().any(|c| c.contains(&e.name)))
                 .collect();
 
             if relevant_entities.is_empty() {
@@ -458,7 +572,8 @@ impl OffenseClassifier {
                     confidence,
                     matched_keywords: matched_keywords.clone(),
                     context: contexts.first().cloned().unwrap_or_default(),
-                    needs_review: confidence < self.config.high_confidence_threshold || has_negation,
+                    needs_review: confidence < self.config.high_confidence_threshold
+                        || has_negation,
                 });
             } else {
                 // Entity-specific classifications
@@ -473,7 +588,8 @@ impl OffenseClassifier {
                         confidence,
                         matched_keywords: matched_keywords.clone(),
                         context: entity.context.clone(),
-                        needs_review: confidence < self.config.high_confidence_threshold || has_negation,
+                        needs_review: confidence < self.config.high_confidence_threshold
+                            || has_negation,
                     });
                 }
             }
@@ -481,7 +597,8 @@ impl OffenseClassifier {
 
         // Sort by severity and confidence
         classifications.sort_by(|a, b| {
-            b.severity.cmp(&a.severity)
+            b.severity
+                .cmp(&a.severity)
                 .then_with(|| b.confidence.partial_cmp(&a.confidence).unwrap())
         });
 
@@ -503,8 +620,14 @@ mod tests {
 
     #[test]
     fn test_offense_category_display() {
-        assert_eq!(OffenseCategory::SexualMisconduct.to_string(), "sexual_misconduct");
-        assert_eq!(OffenseCategory::DomesticViolence.to_string(), "domestic_violence");
+        assert_eq!(
+            OffenseCategory::SexualMisconduct.to_string(),
+            "sexual_misconduct"
+        );
+        assert_eq!(
+            OffenseCategory::DomesticViolence.to_string(),
+            "domestic_violence"
+        );
     }
 
     #[test]
@@ -525,7 +648,9 @@ mod tests {
         let classifications = classifier.classify(article_id, text, None, &[]).unwrap();
 
         assert!(!classifications.is_empty());
-        assert!(classifications.iter().any(|c| c.category == OffenseCategory::SexualMisconduct));
+        assert!(classifications
+            .iter()
+            .any(|c| c.category == OffenseCategory::SexualMisconduct));
     }
 
     #[tokio::test]

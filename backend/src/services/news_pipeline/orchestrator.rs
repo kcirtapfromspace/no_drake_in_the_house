@@ -16,9 +16,8 @@ use super::ingestion::{
     RssFetcherConfig, TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig,
 };
 use super::processing::{
-    ArticleEmbedding, EmbeddingConfig, EmbeddingGenerator, EntityExtractor,
-    EntityExtractorConfig, ExtractedEntity, OffenseClassification, OffenseClassifier,
-    OffenseClassifierConfig,
+    ArticleEmbedding, EmbeddingConfig, EmbeddingGenerator, EntityExtractor, EntityExtractorConfig,
+    ExtractedEntity, OffenseClassification, OffenseClassifier, OffenseClassifierConfig,
 };
 
 /// Overall pipeline configuration
@@ -339,7 +338,10 @@ impl NewsPipelineOrchestrator {
                 FetchedArticle {
                     id: tweet.id,
                     source_id: Uuid::nil(), // Twitter source
-                    url: format!("https://twitter.com/{}/status/{}", tweet.author_username, tweet.tweet_id),
+                    url: format!(
+                        "https://twitter.com/{}/status/{}",
+                        tweet.author_username, tweet.tweet_id
+                    ),
                     title: format!("@{}: {}", tweet.author_username, title_preview),
                     content: Some(tweet.text),
                     published_at: tweet.created_at,
@@ -480,10 +482,8 @@ impl NewsPipelineOrchestrator {
 
     /// Run social media only (Twitter + Reddit)
     pub async fn run_social_only(&self) -> Result<Vec<ProcessedArticle>> {
-        let (twitter_result, reddit_result) = tokio::join!(
-            self.fetch_twitter(),
-            self.fetch_reddit(),
-        );
+        let (twitter_result, reddit_result) =
+            tokio::join!(self.fetch_twitter(), self.fetch_reddit(),);
 
         let mut all_articles = Vec::new();
 
@@ -586,9 +586,9 @@ impl ScheduledPipelineRunner {
 
         // RSS polling task
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(
-                std::time::Duration::from_secs(rss_interval.num_seconds() as u64)
-            );
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+                rss_interval.num_seconds() as u64,
+            ));
 
             loop {
                 interval.tick().await;
@@ -609,9 +609,9 @@ impl ScheduledPipelineRunner {
 
         // Social media polling task
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(
-                std::time::Duration::from_secs(social_interval.num_seconds() as u64)
-            );
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+                social_interval.num_seconds() as u64,
+            ));
 
             loop {
                 interval.tick().await;
@@ -632,9 +632,9 @@ impl ScheduledPipelineRunner {
 
         // Full run task
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(
-                std::time::Duration::from_secs(full_interval.num_seconds() as u64)
-            );
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+                full_interval.num_seconds() as u64,
+            ));
 
             loop {
                 interval.tick().await;

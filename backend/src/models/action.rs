@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Action batch for tracking enforcement operations
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -177,7 +177,7 @@ impl ActionBatch {
     pub fn mark_failed(&mut self, error: String) {
         self.status = ActionBatchStatus::Failed;
         self.completed_at = Some(Utc::now());
-        
+
         // Add error to summary
         if let Ok(mut summary) = serde_json::from_value::<BatchSummary>(self.summary.clone()) {
             summary.errors.push(BatchError {
@@ -203,7 +203,7 @@ impl ActionItem {
         before_state: Option<serde_json::Value>,
     ) -> Self {
         let idempotency_key = format!("{}_{}_{}_{}", batch_id, entity_type, entity_id, action);
-        
+
         Self {
             id: Uuid::new_v4(),
             batch_id,

@@ -7,9 +7,9 @@
 //! - System health monitoring
 
 pub mod dashboard;
-pub mod trends;
 pub mod reporting;
+pub mod trends;
 
-pub use dashboard::{DashboardService, DashboardMetrics, TimeRange};
+pub use dashboard::{DashboardMetrics, DashboardService, TimeRange};
+pub use reporting::{Report, ReportType, ReportingService};
 pub use trends::{TrendAnalysisService, TrendData, TrendDirection};
-pub use reporting::{ReportingService, Report, ReportType};

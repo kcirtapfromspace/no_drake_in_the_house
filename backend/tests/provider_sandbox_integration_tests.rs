@@ -1,8 +1,8 @@
+use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
-use wiremock::{MockServer, Mock, ResponseTemplate};
-use wiremock::matchers::{method, path, header, query_param};
-use serde_json::json;
+use wiremock::matchers::{header, method, path, query_param};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Integration tests using provider sandbox APIs and mock servers
 /// These tests verify the complete integration flow with streaming service APIs
@@ -10,7 +10,7 @@ use serde_json::json;
 #[tokio::test]
 async fn test_spotify_sandbox_oauth_flow() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock Spotify OAuth token endpoint
     Mock::given(method("POST"))
         .and(path("/api/token"))
@@ -25,7 +25,7 @@ async fn test_spotify_sandbox_oauth_flow() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock Spotify user profile endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me"))
@@ -40,18 +40,21 @@ async fn test_spotify_sandbox_oauth_flow() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock the OAuth flow by testing the HTTP interactions
     // This test verifies that our OAuth implementation would work with real Spotify API
-    
+
     // Verify the mock server received the expected requests
     println!("Spotify OAuth flow test completed successfully");
-    
+
     // Test that we can construct the auth URL correctly
-    let auth_url = format!("{}?response_type=code&client_id=test_client&redirect_uri=http://localhost:3000/callback", mock_server.uri());
+    let auth_url = format!(
+        "{}?response_type=code&client_id=test_client&redirect_uri=http://localhost:3000/callback",
+        mock_server.uri()
+    );
     assert!(auth_url.contains("response_type=code"));
     assert!(auth_url.contains("client_id=test_client"));
-    
+
     // Test that we can handle the token exchange
     let token_response = reqwest::Client::new()
         .post(&format!("{}/api/token", mock_server.uri()))
@@ -60,7 +63,7 @@ async fn test_spotify_sandbox_oauth_flow() {
         .send()
         .await
         .unwrap();
-    
+
     assert_eq!(token_response.status(), 200);
     let token_data: serde_json::Value = token_response.json().await.unwrap();
     assert_eq!(token_data["access_token"], "BQC4YqJg...");
@@ -70,7 +73,7 @@ async fn test_spotify_sandbox_oauth_flow() {
 #[tokio::test]
 async fn test_spotify_sandbox_library_scanning() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock Spotify liked songs endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me/tracks"))
@@ -126,7 +129,7 @@ async fn test_spotify_sandbox_library_scanning() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock Spotify playlists endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me/playlists"))
@@ -150,7 +153,7 @@ async fn test_spotify_sandbox_library_scanning() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock followed artists endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me/following"))
@@ -174,43 +177,56 @@ async fn test_spotify_sandbox_library_scanning() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Set up services
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = SpotifyConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
-    
+
     let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
-    
+
     // Create mock connection
     let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-    
+
     // Test library scanning
     let library_service = SpotifyLibraryService::new(spotify_service);
-    let library_scan = library_service.scan_user_library(&connection).await.unwrap();
-    
+    let library_scan = library_service
+        .scan_user_library(&connection)
+        .await
+        .unwrap();
+
     // Verify scan results
     assert_eq!(library_scan.liked_songs.len(), 2);
     assert_eq!(library_scan.playlists.len(), 1);
     assert_eq!(library_scan.followed_artists.len(), 1);
-    
+
     // Verify artist data
-    let drake_track = library_scan.liked_songs.iter()
+    let drake_track = library_scan
+        .liked_songs
+        .iter()
         .find(|t| t.artists.iter().any(|a| a.name == "Drake"))
         .unwrap();
-    assert_eq!(drake_track.artists[0].external_ids.spotify, Some("artist1".to_string()));
-    
-    let followed_drake = library_scan.followed_artists.iter()
+    assert_eq!(
+        drake_track.artists[0].external_ids.spotify,
+        Some("artist1".to_string())
+    );
+
+    let followed_drake = library_scan
+        .followed_artists
+        .iter()
         .find(|a| a.name == "Drake")
         .unwrap();
-    assert_eq!(followed_drake.external_ids.spotify, Some("artist1".to_string()));
+    assert_eq!(
+        followed_drake.external_ids.spotify,
+        Some("artist1".to_string())
+    );
 }
 
 #[tokio::test]
 async fn test_spotify_sandbox_enforcement_execution() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock remove liked song endpoint
     Mock::given(method("DELETE"))
         .and(path("/v1/me/tracks"))
@@ -219,7 +235,7 @@ async fn test_spotify_sandbox_enforcement_execution() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock unfollow artist endpoint
     Mock::given(method("DELETE"))
         .and(path("/v1/me/following"))
@@ -229,7 +245,7 @@ async fn test_spotify_sandbox_enforcement_execution() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock playlist track removal endpoint
     Mock::given(method("DELETE"))
         .and(path("/v1/playlists/playlist1/tracks"))
@@ -239,16 +255,16 @@ async fn test_spotify_sandbox_enforcement_execution() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Set up services
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = SpotifyConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
-    
+
     let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
     let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-    
+
     // Create enforcement plan
     let enforcement_plan = EnforcementPlan {
         id: Uuid::new_v4(),
@@ -278,34 +294,43 @@ async fn test_spotify_sandbox_enforcement_execution() {
                     "playlist_id": "playlist1",
                     "track_uri": "spotify:track:track1"
                 }),
-            }
+            },
         ],
         options: EnforcementOptions::default(),
         created_at: chrono::Utc::now(),
     };
-    
+
     // Execute enforcement
     let enforcement_service = SpotifyEnforcementService::new(spotify_service);
-    let result = enforcement_service.execute_enforcement(&connection, enforcement_plan).await.unwrap();
-    
+    let result = enforcement_service
+        .execute_enforcement(&connection, enforcement_plan)
+        .await
+        .unwrap();
+
     // Verify execution results
     assert_eq!(result.total_actions, 3);
     assert_eq!(result.successful_actions, 3);
     assert_eq!(result.failed_actions, 0);
     assert!(result.errors.is_empty());
-    
+
     // Verify individual action results
-    let liked_song_result = result.action_results.iter()
+    let liked_song_result = result
+        .action_results
+        .iter()
         .find(|r| r.action_type == ActionType::RemoveLikedSong)
         .unwrap();
     assert_eq!(liked_song_result.status, ActionStatus::Completed);
-    
-    let unfollow_result = result.action_results.iter()
+
+    let unfollow_result = result
+        .action_results
+        .iter()
         .find(|r| r.action_type == ActionType::UnfollowArtist)
         .unwrap();
     assert_eq!(unfollow_result.status, ActionStatus::Completed);
-    
-    let playlist_result = result.action_results.iter()
+
+    let playlist_result = result
+        .action_results
+        .iter()
         .find(|r| r.action_type == ActionType::RemovePlaylistTrack)
         .unwrap();
     assert_eq!(playlist_result.status, ActionStatus::Completed);
@@ -314,7 +339,7 @@ async fn test_spotify_sandbox_enforcement_execution() {
 #[tokio::test]
 async fn test_apple_music_sandbox_integration() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock Apple Music token validation endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me/storefront"))
@@ -334,7 +359,7 @@ async fn test_apple_music_sandbox_integration() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock Apple Music library songs endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me/library/songs"))
@@ -364,26 +389,31 @@ async fn test_apple_music_sandbox_integration() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Set up Apple Music service
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = AppleMusicConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
-    
+
     let apple_service = AppleMusicService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
-    
+
     // Create mock connection
     let connection = create_mock_apple_music_connection(user_id, &token_vault).await;
-    
+
     // Test library scanning
     let library_service = AppleMusicLibraryService::new(apple_service);
-    let library_scan = library_service.scan_user_library(&connection).await.unwrap();
-    
+    let library_scan = library_service
+        .scan_user_library(&connection)
+        .await
+        .unwrap();
+
     // Verify scan results
     assert!(!library_scan.library_songs.is_empty());
-    
-    let drake_song = library_scan.library_songs.iter()
+
+    let drake_song = library_scan
+        .library_songs
+        .iter()
         .find(|s| s.artist_name == "Drake")
         .unwrap();
     assert_eq!(drake_song.name, "Test Song");
@@ -394,7 +424,7 @@ async fn test_apple_music_sandbox_integration() {
 async fn test_contract_changes_detection() {
     // Test that our integration can detect when external API contracts change
     let mock_server = MockServer::start().await;
-    
+
     // Mock Spotify API with changed response structure
     Mock::given(method("GET"))
         .and(path("/v1/me/tracks"))
@@ -411,30 +441,32 @@ async fn test_contract_changes_detection() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = SpotifyConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
-    
+
     let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
     let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-    
+
     // This should fail due to contract change
     let library_service = SpotifyLibraryService::new(spotify_service);
     let result = library_service.scan_user_library(&connection).await;
-    
+
     // Verify that we detect the contract change
     assert!(result.is_err());
     let error = result.unwrap_err();
-    assert!(error.to_string().contains("missing field") || 
-            error.to_string().contains("unexpected response"));
+    assert!(
+        error.to_string().contains("missing field")
+            || error.to_string().contains("unexpected response")
+    );
 }
 
 #[tokio::test]
 async fn test_rate_limiting_compliance() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock rate limited response
     Mock::given(method("GET"))
         .and(path("/v1/me/tracks"))
@@ -446,12 +478,12 @@ async fn test_rate_limiting_compliance() {
                         "status": 429,
                         "message": "Rate limit exceeded"
                     }
-                }))
+                })),
         )
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock successful response after rate limit
     Mock::given(method("GET"))
         .and(path("/v1/me/tracks"))
@@ -462,25 +494,25 @@ async fn test_rate_limiting_compliance() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = SpotifyConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
-    
+
     let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
     let connection = create_mock_spotify_connection(user_id, &token_vault).await;
-    
+
     let library_service = SpotifyLibraryService::new(spotify_service);
-    
+
     // This should handle rate limiting gracefully
     let start_time = std::time::Instant::now();
     let result = library_service.scan_user_library(&connection).await;
     let elapsed = start_time.elapsed();
-    
+
     // Should succeed after handling rate limit
     assert!(result.is_ok());
-    
+
     // Should have waited for rate limit (at least a few seconds)
     assert!(elapsed.as_secs() >= 1);
 }
@@ -488,7 +520,7 @@ async fn test_rate_limiting_compliance() {
 #[tokio::test]
 async fn test_token_refresh_integration() {
     let mock_server = MockServer::start().await;
-    
+
     // Mock expired token response
     Mock::given(method("GET"))
         .and(path("/v1/me"))
@@ -502,7 +534,7 @@ async fn test_token_refresh_integration() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock token refresh endpoint
     Mock::given(method("POST"))
         .and(path("/api/token"))
@@ -515,7 +547,7 @@ async fn test_token_refresh_integration() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     // Mock successful request with new token
     Mock::given(method("GET"))
         .and(path("/v1/me"))
@@ -527,23 +559,23 @@ async fn test_token_refresh_integration() {
         .expect(1)
         .mount(&mock_server)
         .await;
-    
+
     let token_vault = Arc::new(TokenVaultService::new());
     let mut config = SpotifyConfig::default();
     config.api_base_url = format!("{}/v1", mock_server.uri());
     config.token_url = format!("{}/api/token", mock_server.uri());
-    
+
     let spotify_service = SpotifyService::new(config, token_vault.clone()).unwrap();
     let user_id = Uuid::new_v4();
-    
+
     // Create connection with expired token
     let mut connection = create_mock_spotify_connection(user_id, &token_vault).await;
     connection.access_token_encrypted = Some("expired_token".to_string());
     connection.expires_at = Some(chrono::Utc::now() - chrono::Duration::hours(1));
-    
+
     // This should automatically refresh the token
     let result = spotify_service.get_user_profile(&connection).await;
-    
+
     // Should succeed after token refresh
     assert!(result.is_ok());
     let profile = result.unwrap();
@@ -552,7 +584,10 @@ async fn test_token_refresh_integration() {
 
 // Helper functions for creating mock connections
 
-async fn create_mock_spotify_connection(user_id: Uuid, token_vault: &TokenVaultService) -> Connection {
+async fn create_mock_spotify_connection(
+    user_id: Uuid,
+    token_vault: &TokenVaultService,
+) -> Connection {
     let store_request = StoreTokenRequest {
         user_id,
         provider: StreamingProvider::Spotify,
@@ -566,11 +601,14 @@ async fn create_mock_spotify_connection(user_id: Uuid, token_vault: &TokenVaultS
         ],
         expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
     };
-    
+
     token_vault.store_token(store_request).await.unwrap()
 }
 
-async fn create_mock_apple_music_connection(user_id: Uuid, token_vault: &TokenVaultService) -> Connection {
+async fn create_mock_apple_music_connection(
+    user_id: Uuid,
+    token_vault: &TokenVaultService,
+) -> Connection {
     let store_request = StoreTokenRequest {
         user_id,
         provider: StreamingProvider::AppleMusic,
@@ -580,6 +618,6 @@ async fn create_mock_apple_music_connection(user_id: Uuid, token_vault: &TokenVa
         scopes: vec!["library-read".to_string()],
         expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
     };
-    
+
     token_vault.store_token(store_request).await.unwrap()
 }

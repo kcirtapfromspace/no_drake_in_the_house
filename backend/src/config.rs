@@ -28,7 +28,11 @@ pub enum Environment {
 
 impl Environment {
     pub fn from_env() -> Self {
-        match std::env::var("ENVIRONMENT").unwrap_or_default().to_lowercase().as_str() {
+        match std::env::var("ENVIRONMENT")
+            .unwrap_or_default()
+            .to_lowercase()
+            .as_str()
+        {
             "production" | "prod" => Self::Production,
             "staging" | "stage" => Self::Staging,
             _ => Self::Development,
@@ -124,7 +128,7 @@ impl ServerConfig {
                 std::env::var("REQUEST_TIMEOUT_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(30)
+                    .unwrap_or(30),
             ),
         })
     }
@@ -161,13 +165,13 @@ impl DatabaseSettings {
                 std::env::var("DB_CONNECTION_TIMEOUT_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(30)
+                    .unwrap_or(30),
             ),
             idle_timeout: Duration::from_secs(
                 std::env::var("DB_IDLE_TIMEOUT_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(600)
+                    .unwrap_or(600),
             ),
         })
     }
@@ -199,7 +203,7 @@ impl RedisSettings {
                 std::env::var("REDIS_TIMEOUT_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(5)
+                    .unwrap_or(5),
             ),
         })
     }
@@ -216,14 +220,13 @@ pub struct AuthConfig {
 
 impl AuthConfig {
     pub fn from_env(env: Environment) -> Result<Self, ConfigError> {
-        let jwt_secret = std::env::var("JWT_SECRET")
-            .unwrap_or_else(|_| {
-                if env.is_development() {
-                    Self::default_jwt_secret()
-                } else {
-                    String::new()
-                }
-            });
+        let jwt_secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| {
+            if env.is_development() {
+                Self::default_jwt_secret()
+            } else {
+                String::new()
+            }
+        });
 
         if jwt_secret.is_empty() {
             return Err(ConfigError::MissingRequired("JWT_SECRET".to_string()));
@@ -235,13 +238,13 @@ impl AuthConfig {
                 std::env::var("ACCESS_TOKEN_EXPIRY_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(3600) // 1 hour
+                    .unwrap_or(3600), // 1 hour
             ),
             refresh_token_expiry: Duration::from_secs(
                 std::env::var("REFRESH_TOKEN_EXPIRY_SECS")
                     .ok()
                     .and_then(|t| t.parse().ok())
-                    .unwrap_or(604800) // 7 days
+                    .unwrap_or(604800), // 7 days
             ),
             bcrypt_cost: std::env::var("BCRYPT_COST")
                 .ok()
@@ -277,7 +280,10 @@ impl OAuthSettings {
 
     /// Check if any OAuth provider is configured
     pub fn has_any_provider(&self) -> bool {
-        self.google.is_some() || self.apple.is_some() || self.github.is_some() || self.spotify.is_some()
+        self.google.is_some()
+            || self.apple.is_some()
+            || self.github.is_some()
+            || self.spotify.is_some()
     }
 }
 
@@ -298,13 +304,16 @@ impl OAuthProviderConfig {
             .map_err(|_| ConfigError::MissingRequired(format!("{}_CLIENT_SECRET", prefix)))?;
 
         let default_redirect = if env.is_development() {
-            format!("http://localhost:3000/auth/callback/{}", prefix.to_lowercase())
+            format!(
+                "http://localhost:3000/auth/callback/{}",
+                prefix.to_lowercase()
+            )
         } else {
             String::new()
         };
 
-        let redirect_uri = std::env::var(format!("{}_REDIRECT_URI", prefix))
-            .unwrap_or(default_redirect);
+        let redirect_uri =
+            std::env::var(format!("{}_REDIRECT_URI", prefix)).unwrap_or(default_redirect);
 
         // Validate redirect URI in production
         if env.is_production() && !redirect_uri.starts_with("https://") {
@@ -352,8 +361,7 @@ impl AppleOAuthConfig {
             String::new()
         };
 
-        let redirect_uri = std::env::var("APPLE_REDIRECT_URI")
-            .unwrap_or(default_redirect);
+        let redirect_uri = std::env::var("APPLE_REDIRECT_URI").unwrap_or(default_redirect);
 
         if env.is_production() && !redirect_uri.starts_with("https://") {
             return Err(ConfigError::InvalidValue {

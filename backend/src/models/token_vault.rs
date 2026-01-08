@@ -1,7 +1,7 @@
+use base64::prelude::*;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use base64::prelude::*;
 
 /// Represents a connection to a streaming service provider
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,7 +239,12 @@ impl EncryptedToken {
 }
 
 impl DataKey {
-    pub fn new(key_id: String, plaintext_key: Vec<u8>, encrypted_key: Vec<u8>, version: i32) -> Self {
+    pub fn new(
+        key_id: String,
+        plaintext_key: Vec<u8>,
+        encrypted_key: Vec<u8>,
+        version: i32,
+    ) -> Self {
         Self {
             key_id,
             plaintext_key,

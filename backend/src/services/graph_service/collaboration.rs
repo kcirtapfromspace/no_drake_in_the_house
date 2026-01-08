@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::services::databases::{KuzuClient, Collaboration};
+use crate::services::databases::{Collaboration, KuzuClient};
 
 /// Types of collaborations
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -111,11 +111,7 @@ pub struct CollaborationBuilder {
 impl CollaborationBuilder {
     /// Create a new collaboration builder
     pub fn new(kuzu: Arc<KuzuClient>, pool: PgPool, config: CollaborationBuilderConfig) -> Self {
-        Self {
-            config,
-            kuzu,
-            pool,
-        }
+        Self { config, kuzu, pool }
     }
 
     /// Build collaboration graph from track data
@@ -139,7 +135,9 @@ impl CollaborationBuilder {
 
                 artist_pairs.insert((a1, a2));
                 *type_counts.entry(collab.collaboration_type).or_insert(0) += 1;
-                *collaborator_counts.entry(collab.collaborator_id).or_insert(0) += 1;
+                *collaborator_counts
+                    .entry(collab.collaborator_id)
+                    .or_insert(0) += 1;
 
                 // Add to Kùzu
                 let kuzu_collab = Collaboration {
@@ -220,16 +218,21 @@ impl CollaborationBuilder {
     }
 
     /// Build collaboration records from raw rows
-    fn build_collaborations_from_rows(&self, rows: Vec<TrackArtistRow>) -> Result<Vec<TrackWithCollaborations>> {
+    fn build_collaborations_from_rows(
+        &self,
+        rows: Vec<TrackArtistRow>,
+    ) -> Result<Vec<TrackWithCollaborations>> {
         let mut tracks: HashMap<Uuid, TrackWithCollaborations> = HashMap::new();
 
         for row in rows {
-            let track = tracks.entry(row.track_id).or_insert_with(|| TrackWithCollaborations {
-                track_id: row.track_id,
-                track_name: row.track_name.clone(),
-                artists: Vec::new(),
-                collaborations: Vec::new(),
-            });
+            let track = tracks
+                .entry(row.track_id)
+                .or_insert_with(|| TrackWithCollaborations {
+                    track_id: row.track_id,
+                    track_name: row.track_name.clone(),
+                    artists: Vec::new(),
+                    collaborations: Vec::new(),
+                });
 
             track.artists.push(TrackArtist {
                 artist_id: row.artist_id,
@@ -243,7 +246,11 @@ impl CollaborationBuilder {
             let primary = track.artists.iter().find(|a| a.is_primary);
             let primary_id = match primary {
                 Some(p) => p.artist_id,
-                None => track.artists.first().map(|a| a.artist_id).unwrap_or(Uuid::nil()),
+                None => track
+                    .artists
+                    .first()
+                    .map(|a| a.artist_id)
+                    .unwrap_or(Uuid::nil()),
             };
 
             for artist in &track.artists {
@@ -321,7 +328,7 @@ impl CollaborationBuilder {
     /// Resolve artist name to ID
     async fn resolve_artist_id(&self, name: &str) -> Option<Uuid> {
         sqlx::query_scalar::<_, Uuid>(
-            "SELECT id FROM artists WHERE LOWER(name) = LOWER($1) LIMIT 1"
+            "SELECT id FROM artists WHERE LOWER(name) = LOWER($1) LIMIT 1",
         )
         .bind(name)
         .fetch_optional(&self.pool)
@@ -331,7 +338,10 @@ impl CollaborationBuilder {
     }
 
     /// Get collaboration statistics for an artist
-    pub async fn get_artist_collaboration_stats(&self, artist_id: Uuid) -> Result<ArtistCollaborationStats> {
+    pub async fn get_artist_collaboration_stats(
+        &self,
+        artist_id: Uuid,
+    ) -> Result<ArtistCollaborationStats> {
         // Query Kùzu for collaboration data
         let network = self.kuzu.get_artist_network(&artist_id.to_string(), 1)?;
 
@@ -341,11 +351,14 @@ impl CollaborationBuilder {
         // Count by type
         let mut type_breakdown: HashMap<String, u32> = HashMap::new();
         for edge in &network.edges {
-            *type_breakdown.entry(edge.collaboration_type.clone()).or_insert(0) += 1;
+            *type_breakdown
+                .entry(edge.collaboration_type.clone())
+                .or_insert(0) += 1;
         }
 
         // Top collaborators (by track count)
-        let mut collaborator_counts: Vec<(String, u32)> = network.edges
+        let mut collaborator_counts: Vec<(String, u32)> = network
+            .edges
             .iter()
             .filter(|e| e.source_id == artist_id.to_string())
             .map(|e| (e.target_id.clone(), e.track_count))
@@ -376,7 +389,11 @@ impl CollaborationService {
         }
     }
 
-    pub fn with_config(kuzu: Arc<KuzuClient>, pool: PgPool, config: CollaborationBuilderConfig) -> Self {
+    pub fn with_config(
+        kuzu: Arc<KuzuClient>,
+        pool: PgPool,
+        config: CollaborationBuilderConfig,
+    ) -> Self {
         Self {
             builder: CollaborationBuilder::new(kuzu, pool, config),
         }
@@ -472,10 +489,19 @@ mod tests {
 
     #[test]
     fn test_parse_collaboration_type() {
-        assert_eq!(parse_collaboration_type("feature"), CollaborationType::Feature);
+        assert_eq!(
+            parse_collaboration_type("feature"),
+            CollaborationType::Feature
+        );
         assert_eq!(parse_collaboration_type("feat"), CollaborationType::Feature);
-        assert_eq!(parse_collaboration_type("producer"), CollaborationType::Producer);
-        assert_eq!(parse_collaboration_type("unknown"), CollaborationType::Other);
+        assert_eq!(
+            parse_collaboration_type("producer"),
+            CollaborationType::Producer
+        );
+        assert_eq!(
+            parse_collaboration_type("unknown"),
+            CollaborationType::Other
+        );
     }
 
     #[test]

@@ -110,11 +110,18 @@ impl AuditLoggingService {
         let entry_id = Uuid::new_v4();
         let timestamp = Utc::now();
 
-        let (user_id, session_id, ip_address, user_agent, correlation_id) = if let Some(ctx) = context {
-            (ctx.user_id, ctx.session_id, ctx.ip_address, ctx.user_agent, ctx.correlation_id)
-        } else {
-            (None, None, None, None, None)
-        };
+        let (user_id, session_id, ip_address, user_agent, correlation_id) =
+            if let Some(ctx) = context {
+                (
+                    ctx.user_id,
+                    ctx.session_id,
+                    ctx.ip_address,
+                    ctx.user_agent,
+                    ctx.correlation_id,
+                )
+            } else {
+                (None, None, None, None, None)
+            };
 
         // Log to structured logging first
         match severity {
@@ -391,11 +398,12 @@ impl AuditLoggingService {
         let mut entries = Vec::new();
         for row in rows {
             // Parse event_type and severity from strings
-            let event_type = row.event_type_str
+            let event_type = row
+                .event_type_str
                 .as_ref()
                 .and_then(|et| AuditEventType::from_str(et).ok())
                 .unwrap_or(AuditEventType::SystemEvent);
-            
+
             let severity = match row.severity_str.as_deref() {
                 Some("info") => AuditSeverity::Info,
                 Some("warning") => AuditSeverity::Warning,
@@ -404,15 +412,13 @@ impl AuditLoggingService {
                 _ => AuditSeverity::Info,
             };
 
-            let ip_address = row.ip_address
-                .as_ref()
-                .and_then(|ip_net| {
-                    // Convert from IpNetwork to IpAddr
-                    match ip_net.ip() {
-                        std::net::IpAddr::V4(v4) => Some(std::net::IpAddr::V4(v4)),
-                        std::net::IpAddr::V6(v6) => Some(std::net::IpAddr::V6(v6)),
-                    }
-                });
+            let ip_address = row.ip_address.as_ref().and_then(|ip_net| {
+                // Convert from IpNetwork to IpAddr
+                match ip_net.ip() {
+                    std::net::IpAddr::V4(v4) => Some(std::net::IpAddr::V4(v4)),
+                    std::net::IpAddr::V6(v6) => Some(std::net::IpAddr::V6(v6)),
+                }
+            });
 
             entries.push(AuditLogEntry {
                 id: row.id,

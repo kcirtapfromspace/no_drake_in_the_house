@@ -1,14 +1,14 @@
-use music_streaming_blocklist_backend::{
-    AppState, AuthService, RateLimitService, AuditLoggingService,
-    create_router, initialize_database, DatabaseConfig
-};
-use std::sync::Arc;
 use axum::{
     body::Body,
     http::{Method, Request, StatusCode},
 };
-use tower::ServiceExt;
+use music_streaming_blocklist_backend::{
+    create_router, initialize_database, AppState, AuditLoggingService, AuthService, DatabaseConfig,
+    RateLimitService,
+};
 use serde_json::json;
+use std::sync::Arc;
+use tower::ServiceExt;
 
 #[tokio::test]
 #[ignore] // Requires Redis and PostgreSQL
@@ -18,8 +18,8 @@ async fn test_rate_limiting_and_audit_integration() {
     let db_pool = initialize_database(db_config).await.unwrap();
 
     // Initialize Redis URL
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
     // Initialize services
     let auth_service = Arc::new(AuthService::new(db_pool.clone()));
@@ -65,7 +65,8 @@ async fn test_rate_limiting_and_audit_integration() {
                         json!({
                             "email": "test@example.com",
                             "password": "testpassword"
-                        }).to_string()
+                        })
+                        .to_string(),
                     ))
                     .unwrap(),
             )
@@ -87,22 +88,31 @@ async fn test_rate_limiting_and_audit_integration() {
 #[tokio::test]
 #[ignore] // Requires Redis
 async fn test_rate_limit_service_basic() {
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 
     let rate_limiter = RateLimitService::new(&redis_url).unwrap();
 
     // Test basic rate limiting
-    let result1 = rate_limiter.check_rate_limit("test_ip", "auth").await.unwrap();
+    let result1 = rate_limiter
+        .check_rate_limit("test_ip", "auth")
+        .await
+        .unwrap();
     assert!(result1.allowed);
     assert_eq!(result1.current_count, 1);
 
-    let result2 = rate_limiter.check_rate_limit("test_ip", "auth").await.unwrap();
+    let result2 = rate_limiter
+        .check_rate_limit("test_ip", "auth")
+        .await
+        .unwrap();
     assert!(result2.allowed);
     assert_eq!(result2.current_count, 2);
 
     // Test different endpoint type
-    let result3 = rate_limiter.check_rate_limit("test_ip", "api").await.unwrap();
+    let result3 = rate_limiter
+        .check_rate_limit("test_ip", "api")
+        .await
+        .unwrap();
     assert!(result3.allowed);
     assert_eq!(result3.current_count, 1); // Different counter
 
@@ -112,7 +122,7 @@ async fn test_rate_limit_service_basic() {
 #[tokio::test]
 #[ignore] // Requires PostgreSQL
 async fn test_audit_logging_service_basic() {
-    use music_streaming_blocklist_backend::{AuditEventType, AuditSeverity, AuditContext};
+    use music_streaming_blocklist_backend::{AuditContext, AuditEventType, AuditSeverity};
     use std::net::IpAddr;
 
     // Initialize database
@@ -130,13 +140,16 @@ async fn test_audit_logging_service_basic() {
         correlation_id: Some("test_correlation".to_string()),
     };
 
-    let entry_id = audit_logger.log_security_event(
-        AuditEventType::UserLogin,
-        AuditSeverity::Info,
-        "Test login event".to_string(),
-        serde_json::json!({"test": "data"}),
-        Some(context),
-    ).await.unwrap();
+    let entry_id = audit_logger
+        .log_security_event(
+            AuditEventType::UserLogin,
+            AuditSeverity::Info,
+            "Test login event".to_string(),
+            serde_json::json!({"test": "data"}),
+            Some(context),
+        )
+        .await
+        .unwrap();
 
     assert!(!entry_id.is_nil());
 

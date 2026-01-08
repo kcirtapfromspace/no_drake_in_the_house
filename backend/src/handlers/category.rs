@@ -59,7 +59,7 @@ pub async fn unsubscribe_category(
     let category = validate_category(&category_id)?;
 
     sqlx::query(
-        "DELETE FROM category_subscriptions WHERE user_id = $1 AND category = $2::offense_category"
+        "DELETE FROM category_subscriptions WHERE user_id = $1 AND category = $2::offense_category",
     )
     .bind(user.id)
     .bind(&category)
@@ -95,7 +95,7 @@ pub async fn get_blocked_artists(
         WHERE cs.user_id = $1
         AND ao.status IN ('pending', 'verified')
         ORDER BY a.canonical_name
-        "#
+        "#,
     )
     .bind(user.id)
     .fetch_all(&state.db_pool)
@@ -143,30 +143,71 @@ fn validate_category(category_id: &str) -> Result<String> {
     }
 }
 
-async fn get_categories_with_status(
-    pool: &PgPool,
-    user_id: Uuid,
-) -> Result<Vec<CategoryInfo>> {
+async fn get_categories_with_status(pool: &PgPool, user_id: Uuid) -> Result<Vec<CategoryInfo>> {
     // Define all categories with display info
     let category_defs = vec![
-        ("sexual_misconduct", "Sexual Misconduct", "Artists with credible allegations or convictions"),
-        ("sexual_assault", "Sexual Assault", "Artists convicted or credibly accused"),
-        ("domestic_violence", "Domestic Violence", "Documented domestic violence incidents"),
-        ("child_abuse", "Child Abuse", "Artists convicted or accused of child abuse"),
-        ("violent_crime", "Violent Crime", "Artists convicted of violent crimes"),
-        ("drug_trafficking", "Drug Trafficking", "Artists convicted of drug trafficking"),
-        ("hate_speech", "Hate Speech", "Documented hate speech or extremism"),
-        ("racism", "Racism", "Documented racist statements or actions"),
-        ("homophobia", "Homophobia", "Documented homophobic statements or actions"),
-        ("antisemitism", "Antisemitism", "Documented antisemitic statements or actions"),
+        (
+            "sexual_misconduct",
+            "Sexual Misconduct",
+            "Artists with credible allegations or convictions",
+        ),
+        (
+            "sexual_assault",
+            "Sexual Assault",
+            "Artists convicted or credibly accused",
+        ),
+        (
+            "domestic_violence",
+            "Domestic Violence",
+            "Documented domestic violence incidents",
+        ),
+        (
+            "child_abuse",
+            "Child Abuse",
+            "Artists convicted or accused of child abuse",
+        ),
+        (
+            "violent_crime",
+            "Violent Crime",
+            "Artists convicted of violent crimes",
+        ),
+        (
+            "drug_trafficking",
+            "Drug Trafficking",
+            "Artists convicted of drug trafficking",
+        ),
+        (
+            "hate_speech",
+            "Hate Speech",
+            "Documented hate speech or extremism",
+        ),
+        (
+            "racism",
+            "Racism",
+            "Documented racist statements or actions",
+        ),
+        (
+            "homophobia",
+            "Homophobia",
+            "Documented homophobic statements or actions",
+        ),
+        (
+            "antisemitism",
+            "Antisemitism",
+            "Documented antisemitic statements or actions",
+        ),
         ("fraud", "Fraud", "Artists convicted of financial crimes"),
-        ("animal_abuse", "Animal Abuse", "Artists convicted of animal abuse"),
+        (
+            "animal_abuse",
+            "Animal Abuse",
+            "Artists convicted of animal abuse",
+        ),
         ("other", "Other", "Other documented misconduct"),
     ];
 
     // Get user's subscriptions
     let sub_rows = sqlx::query(
-        "SELECT category::text as category FROM category_subscriptions WHERE user_id = $1"
+        "SELECT category::text as category FROM category_subscriptions WHERE user_id = $1",
     )
     .bind(user_id)
     .fetch_all(pool)
@@ -184,7 +225,7 @@ async fn get_categories_with_status(
         FROM artist_offenses
         WHERE status IN ('pending', 'verified')
         GROUP BY category
-        "#
+        "#,
     )
     .fetch_all(pool)
     .await?;

@@ -9,7 +9,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::services::databases::{DuckDbClient, DailyNewsSummary, TrendingArtist, PlatformHealth};
+use crate::services::databases::{DailyNewsSummary, DuckDbClient, PlatformHealth, TrendingArtist};
 
 /// Time range for analytics queries
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,17 +191,16 @@ impl DashboardService {
             .unwrap_or(0);
 
         // New users in time range
-        let new_users: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM users WHERE created_at >= $1"
-        )
-        .bind(cutoff)
-        .fetch_one(&self.pool)
-        .await
-        .unwrap_or(0);
+        let new_users: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE created_at >= $1")
+                .bind(cutoff)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or(0);
 
         // Active users (users with blocks in time range)
         let active_users: i64 = sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT user_id) FROM user_artist_blocks WHERE created_at >= $1"
+            "SELECT COUNT(DISTINCT user_id) FROM user_artist_blocks WHERE created_at >= $1",
         )
         .bind(cutoff)
         .fetch_one(&self.pool)
@@ -215,13 +214,12 @@ impl DashboardService {
             .unwrap_or(0);
 
         // New blocks in time range
-        let new_blocks: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM user_artist_blocks WHERE created_at >= $1"
-        )
-        .bind(cutoff)
-        .fetch_one(&self.pool)
-        .await
-        .unwrap_or(0);
+        let new_blocks: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE created_at >= $1")
+                .bind(cutoff)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or(0);
 
         let avg_blocks_per_user = if total_users > 0 {
             total_blocks as f64 / total_users as f64
@@ -322,7 +320,11 @@ impl DashboardService {
     }
 
     /// Get trending artists
-    async fn get_trending_artists(&self, days: i32, limit: i32) -> Result<Vec<TrendingArtistSummary>> {
+    async fn get_trending_artists(
+        &self,
+        days: i32,
+        limit: i32,
+    ) -> Result<Vec<TrendingArtistSummary>> {
         let trending = self.duckdb.get_trending_artists(days, limit).await?;
 
         Ok(trending
@@ -402,17 +404,16 @@ impl DashboardService {
     /// Get quick stats for a specific user
     pub async fn get_user_quick_stats(&self, user_id: Uuid) -> Result<UserQuickStats> {
         // Get user's block count
-        let block_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1"
-        )
-        .bind(user_id)
-        .fetch_one(&self.pool)
-        .await
-        .unwrap_or(0);
+        let block_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or(0);
 
         // Get subscription count
         let subscription_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM user_category_subscriptions WHERE user_id = $1"
+            "SELECT COUNT(*) FROM user_category_subscriptions WHERE user_id = $1",
         )
         .bind(user_id)
         .fetch_one(&self.pool)

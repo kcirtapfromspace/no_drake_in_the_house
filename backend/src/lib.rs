@@ -336,6 +336,52 @@ pub fn create_router(state: AppState) -> Router {
             "/analytics/export/parquet",
             post(handlers::analytics_v2::export_to_parquet_handler),
         )
+        // Trouble score routes
+        .route(
+            "/analytics/trouble-scores/artist/:artist_id",
+            get(handlers::analytics_v2::get_artist_trouble_score_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/artist/:artist_id/history",
+            get(handlers::analytics_v2::get_artist_score_history_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/leaderboard",
+            get(handlers::analytics_v2::get_trouble_leaderboard_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/distribution",
+            get(handlers::analytics_v2::get_tier_distribution_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/recalculate",
+            post(handlers::analytics_v2::recalculate_trouble_scores_handler),
+        )
+        // Revenue tracking routes
+        .route(
+            "/analytics/revenue/distribution",
+            get(handlers::analytics_v2::get_user_revenue_distribution_handler),
+        )
+        .route(
+            "/analytics/revenue/top-artists",
+            get(handlers::analytics_v2::get_user_top_artists_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/problematic",
+            get(handlers::analytics_v2::get_user_problematic_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/global-problematic",
+            get(handlers::analytics_v2::get_global_problematic_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/artist/:artist_id",
+            get(handlers::analytics_v2::get_artist_revenue_breakdown_handler),
+        )
+        .route(
+            "/analytics/payout-rates",
+            get(handlers::analytics_v2::get_payout_rates_handler),
+        )
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
             crate::middleware::auth::auth_middleware,

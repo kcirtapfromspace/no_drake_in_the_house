@@ -22,6 +22,27 @@ pub enum OffenseCategory {
     Other,
 }
 
+impl std::fmt::Display for OffenseCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::DomesticViolence => "domestic_violence",
+            Self::SexualMisconduct => "sexual_misconduct",
+            Self::SexualAssault => "sexual_assault",
+            Self::ChildAbuse => "child_abuse",
+            Self::HateSpeech => "hate_speech",
+            Self::Racism => "racism",
+            Self::Homophobia => "homophobia",
+            Self::Antisemitism => "antisemitism",
+            Self::ViolentCrime => "violent_crime",
+            Self::DrugTrafficking => "drug_trafficking",
+            Self::Fraud => "fraud",
+            Self::AnimalAbuse => "animal_abuse",
+            Self::Other => "other",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 impl OffenseCategory {
     pub fn display_name(&self) -> &'static str {
         match self {
@@ -52,6 +73,18 @@ pub enum EvidenceStatus {
     Rejected,
 }
 
+impl std::fmt::Display for EvidenceStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Pending => "pending",
+            Self::Verified => "verified",
+            Self::Disputed => "disputed",
+            Self::Rejected => "rejected",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 /// Offense severity levels matching database enum
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "offense_severity", rename_all = "snake_case")]
@@ -60,6 +93,18 @@ pub enum OffenseSeverity {
     Moderate,
     Severe,
     Egregious,
+}
+
+impl std::fmt::Display for OffenseSeverity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::Minor => "minor",
+            Self::Moderate => "moderate",
+            Self::Severe => "severe",
+            Self::Egregious => "egregious",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 impl OffenseSeverity {
@@ -214,4 +259,49 @@ pub struct ImportTrack {
     pub source_type: Option<String>,
     pub playlist_name: Option<String>,
     pub added_at: Option<DateTime<Utc>>,
+}
+
+/// Artist from category query
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct CategoryArtist {
+    pub id: Uuid,
+    pub name: String,
+    pub category: String,
+    pub severity: String,
+}
+
+/// Full artist details with offenses for API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArtistDetails {
+    pub id: Uuid,
+    pub canonical_name: String,
+    pub genres: Option<Vec<String>>,
+    pub image_url: Option<String>,
+    pub offenses: Vec<OffenseDetail>,
+}
+
+/// Offense detail with evidence for API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OffenseDetail {
+    pub id: Uuid,
+    pub category: String,
+    pub severity: String,
+    pub title: String,
+    pub description: String,
+    pub incident_date: Option<NaiveDate>,
+    pub status: String,
+    pub evidence: Vec<EvidenceDetail>,
+}
+
+/// Evidence detail for API
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EvidenceDetail {
+    pub id: Uuid,
+    pub source_url: String,
+    pub source_name: Option<String>,
+    pub source_type: Option<String>,
+    pub title: Option<String>,
+    pub excerpt: Option<String>,
+    pub published_date: Option<NaiveDate>,
+    pub credibility_score: Option<i32>,
 }

@@ -1,16 +1,16 @@
 use axum::{
-    extract::{State, Path, Query},
-    response::Json,
+    extract::{Path, Query, State},
     http::StatusCode,
+    response::Json,
 };
-use serde::{Deserialize, Serialize};
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 
 use crate::{
-    AppState, Result, AppError,
-    models::oauth::{OAuthProviderType, OAuthFlowResponse},
+    models::oauth::{OAuthFlowResponse, OAuthProviderType},
     models::user::AuthenticatedUser,
     services::oauth::OAuthProvider,
+    AppError, AppState, Result,
 };
 
 #[derive(Debug, Deserialize)]
@@ -65,19 +65,18 @@ pub async fn initiate_oauth_handler(
     let provider_type: OAuthProviderType = provider.parse()
         .map_err(|_| {
             tracing::warn!(provider = %provider, "Invalid OAuth provider requested");
-            AppError::InvalidFieldValue { 
+            AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider) 
+                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider)
             }
         })?;
 
     // Set default redirect URI if not provided
-    let redirect_uri = query.redirect_uri
-        .unwrap_or_else(|| {
-            let default_uri = format!("http://localhost:3000/auth/callback/{}", provider);
-            tracing::debug!(default_uri = %default_uri, "Using default redirect URI");
-            default_uri
-        });
+    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
+        let default_uri = format!("http://localhost:3000/auth/callback/{}", provider);
+        tracing::debug!(default_uri = %default_uri, "Using default redirect URI");
+        default_uri
+    });
 
     // Validate redirect URI format
     if let Err(_) = Url::parse(&redirect_uri) {
@@ -89,7 +88,11 @@ pub async fn initiate_oauth_handler(
     }
 
     // Initiate OAuth flow using the auth service
-    let flow_response = match state.auth_service.initiate_oauth_flow(provider_type.clone(), redirect_uri.clone()).await {
+    let flow_response = match state
+        .auth_service
+        .initiate_oauth_flow(provider_type.clone(), redirect_uri.clone())
+        .await
+    {
         Ok(response) => response,
         Err(e) => {
             tracing::error!(
@@ -98,20 +101,25 @@ pub async fn initiate_oauth_handler(
                 error = %e,
                 "Failed to initiate OAuth flow"
             );
-            
+
             // Provide user-friendly error messages based on error type
             let user_message = match &e {
                 AppError::InvalidFieldValue { field, .. } if field == "provider" => {
                     format!("{} OAuth is not configured or temporarily unavailable. Please try again later or contact support.", provider_type)
-                },
+                }
                 AppError::ExternalServiceError(msg) => {
-                    format!("Unable to connect to {} authentication service. Please try again later.", provider_type)
-                },
+                    format!(
+                        "Unable to connect to {} authentication service. Please try again later.",
+                        provider_type
+                    )
+                }
                 _ => {
-                    format!("Authentication service temporarily unavailable. Please try again later.")
+                    format!(
+                        "Authentication service temporarily unavailable. Please try again later."
+                    )
                 }
             };
-            
+
             return Err(AppError::ExternalServiceError(user_message));
         }
     };
@@ -125,15 +133,18 @@ pub async fn initiate_oauth_handler(
         "OAuth flow initiated successfully"
     );
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "data": {
-            "authorization_url": flow_response.authorization_url,
-            "state": flow_response.state,
-            "provider": provider_type.to_string()
-        },
-        "message": format!("OAuth flow initiated successfully for {}", provider_type)
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "authorization_url": flow_response.authorization_url,
+                "state": flow_response.state,
+                "provider": provider_type.to_string()
+            },
+            "message": format!("OAuth flow initiated successfully for {}", provider_type)
+        })),
+    ))
 }
 
 #[allow(dead_code)]
@@ -144,20 +155,23 @@ async fn initiate_oauth_handler_impl(
 ) -> Result<(StatusCode, Json<OAuthFlowResponse>)> {
     tracing::info!(provider = %provider, "Initiating OAuth flow");
 
-    let provider_type: OAuthProviderType = provider.parse()
-        .map_err(|_| AppError::InvalidFieldValue { 
+    let provider_type: OAuthProviderType =
+        provider.parse().map_err(|_| AppError::InvalidFieldValue {
             field: "provider".to_string(),
-            message: format!("Unsupported OAuth provider: {}", provider) 
+            message: format!("Unsupported OAuth provider: {}", provider),
         })?;
 
     let oauth_provider = get_oauth_provider(provider_type)?;
-    
-    let redirect_uri = query.redirect_uri
+
+    let redirect_uri = query
+        .redirect_uri
         .unwrap_or_else(|| format!("http://localhost:3000/auth/callback/{}", provider));
 
-    let flow_response = oauth_provider.initiate_flow(&redirect_uri).await
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Failed to initiate OAuth flow: {}", e)) 
+    let flow_response = oauth_provider
+        .initiate_flow(&redirect_uri)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to initiate OAuth flow: {}", e)),
         })?;
 
     tracing::info!(
@@ -206,9 +220,9 @@ pub async fn oauth_callback_handler(
     let provider_type: OAuthProviderType = provider.parse()
         .map_err(|_| {
             tracing::warn!(provider = %provider, "Invalid OAuth provider in callback");
-            AppError::InvalidFieldValue { 
+            AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider) 
+                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider)
             }
         })?;
 
@@ -222,12 +236,16 @@ pub async fn oauth_callback_handler(
     }
 
     // Complete OAuth flow using the auth service
-    let token_pair = match state.auth_service.complete_oauth_flow(
-        provider_type.clone(),
-        request.code.clone(),
-        request.state.clone(),
-        request.redirect_uri.clone(),
-    ).await {
+    let token_pair = match state
+        .auth_service
+        .complete_oauth_flow(
+            provider_type.clone(),
+            request.code.clone(),
+            request.state.clone(),
+            request.redirect_uri.clone(),
+        )
+        .await
+    {
         Ok(tokens) => tokens,
         Err(e) => {
             tracing::error!(
@@ -236,23 +254,32 @@ pub async fn oauth_callback_handler(
                 error = %e,
                 "Failed to complete OAuth flow"
             );
-            
+
             // Provide user-friendly error messages based on error type
             let user_message = match &e {
                 AppError::InvalidFieldValue { field, message } if field == "state" => {
-                    "Invalid or expired authentication request. Please try signing in again.".to_string()
-                },
+                    "Invalid or expired authentication request. Please try signing in again."
+                        .to_string()
+                }
                 AppError::ExternalServiceError(msg) => {
-                    format!("Authentication failed with {}. Please try again or contact support.", provider_type)
-                },
+                    format!(
+                        "Authentication failed with {}. Please try again or contact support.",
+                        provider_type
+                    )
+                }
                 AppError::NotFound { .. } => {
-                    format!("Unable to complete {} authentication. The authorization may have expired.", provider_type)
-                },
+                    format!(
+                        "Unable to complete {} authentication. The authorization may have expired.",
+                        provider_type
+                    )
+                }
                 _ => {
-                    format!("Authentication service temporarily unavailable. Please try again later.")
+                    format!(
+                        "Authentication service temporarily unavailable. Please try again later."
+                    )
                 }
             };
-            
+
             return Err(AppError::ExternalServiceError(user_message));
         }
     };
@@ -261,20 +288,18 @@ pub async fn oauth_callback_handler(
     let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
         Ok(claims) => {
             match claims.user_id() {
-                Ok(user_id) => {
-                    match state.auth_service.get_user_by_id(user_id).await {
-                        Ok(user) => (claims, user),
-                        Err(e) => {
-                            tracing::error!(
-                                provider = %provider,
-                                user_id = %user_id,
-                                error = %e,
-                                "Failed to retrieve user after OAuth completion"
-                            );
-                            return Err(AppError::Internal {
+                Ok(user_id) => match state.auth_service.get_user_by_id(user_id).await {
+                    Ok(user) => (claims, user),
+                    Err(e) => {
+                        tracing::error!(
+                            provider = %provider,
+                            user_id = %user_id,
+                            error = %e,
+                            "Failed to retrieve user after OAuth completion"
+                        );
+                        return Err(AppError::Internal {
                                 message: Some("Authentication completed but user data unavailable. Please try again.".to_string())
                             });
-                        }
                     }
                 },
                 Err(e) => {
@@ -284,11 +309,13 @@ pub async fn oauth_callback_handler(
                         "Invalid user ID in generated token"
                     );
                     return Err(AppError::Internal {
-                        message: Some("Authentication token generation failed. Please try again.".to_string())
+                        message: Some(
+                            "Authentication token generation failed. Please try again.".to_string(),
+                        ),
                     });
                 }
             }
-        },
+        }
         Err(e) => {
             tracing::error!(
                 provider = %provider,
@@ -296,7 +323,9 @@ pub async fn oauth_callback_handler(
                 "Failed to verify generated token"
             );
             return Err(AppError::Internal {
-                message: Some("Authentication token verification failed. Please try again.".to_string())
+                message: Some(
+                    "Authentication token verification failed. Please try again.".to_string(),
+                ),
             });
         }
     };
@@ -329,16 +358,19 @@ pub async fn oauth_callback_handler(
         }).collect::<Vec<_>>()
     });
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "data": {
-            "access_token": token_pair.access_token,
-            "refresh_token": token_pair.refresh_token,
-            "user": user_data,
-            "provider": provider_type.to_string()
-        },
-        "message": format!("Successfully authenticated with {}", provider_type)
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "access_token": token_pair.access_token,
+                "refresh_token": token_pair.refresh_token,
+                "user": user_data,
+                "provider": provider_type.to_string()
+            },
+            "message": format!("Successfully authenticated with {}", provider_type)
+        })),
+    ))
 }
 
 #[allow(dead_code)]
@@ -353,58 +385,57 @@ async fn oauth_callback_handler_impl(
         "Processing OAuth callback"
     );
 
-    let provider_type: OAuthProviderType = provider.parse()
-        .map_err(|_| AppError::InvalidFieldValue { 
+    let provider_type: OAuthProviderType =
+        provider.parse().map_err(|_| AppError::InvalidFieldValue {
             field: "provider".to_string(),
-            message: format!("Unsupported OAuth provider: {}", provider) 
+            message: format!("Unsupported OAuth provider: {}", provider),
         })?;
 
     let oauth_provider = get_oauth_provider(provider_type.clone())?;
 
     // Exchange authorization code for tokens
-    let tokens = oauth_provider.exchange_code(
-        &request.code,
-        &request.state,
-        &request.redirect_uri,
-    ).await
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Failed to exchange OAuth code: {}", e)) 
+    let tokens = oauth_provider
+        .exchange_code(&request.code, &request.state, &request.redirect_uri)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to exchange OAuth code: {}", e)),
         })?;
 
     // Get user information from OAuth provider
-    let user_info = oauth_provider.get_user_info(&tokens.access_token).await
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Failed to get user info: {}", e)) 
+    let user_info = oauth_provider
+        .get_user_info(&tokens.access_token)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to get user info: {}", e)),
         })?;
 
     // Check if user exists or create new user
-    let user = match state.auth_service.find_user_by_oauth_account_public(
-        provider_type.clone(),
-        &user_info.provider_user_id,
-    ).await {
+    let user = match state
+        .auth_service
+        .find_user_by_oauth_account_public(provider_type.clone(), &user_info.provider_user_id)
+        .await
+    {
         Ok(existing_user) => {
             // Update OAuth account tokens
-            state.auth_service.update_oauth_account(
-                existing_user.id,
-                provider_type,
-                &tokens,
-                &user_info,
-            ).await?;
+            state
+                .auth_service
+                .update_oauth_account(existing_user.id, provider_type, &tokens, &user_info)
+                .await?;
             existing_user
         }
         Err(AppError::NotFound { .. }) => {
             // Create new user with OAuth account
-            let email = user_info.email.clone()
-                .ok_or_else(|| AppError::MissingField { 
-                    field: "email".to_string() 
+            let email = user_info
+                .email
+                .clone()
+                .ok_or_else(|| AppError::MissingField {
+                    field: "email".to_string(),
                 })?;
 
-            state.auth_service.create_user_with_oauth(
-                &email,
-                provider_type,
-                &tokens,
-                &user_info,
-            ).await?
+            state
+                .auth_service
+                .create_user_with_oauth(&email, provider_type, &tokens, &user_info)
+                .await?
         }
         Err(e) => return Err(e),
     };
@@ -421,10 +452,9 @@ async fn oauth_callback_handler_impl(
     let response = OAuthCallbackResponse {
         access_token,
         refresh_token,
-        user: serde_json::to_value(&user)
-            .map_err(|e| AppError::Internal { 
-                message: Some(format!("Failed to serialize user: {}", e)) 
-            })?,
+        user: serde_json::to_value(&user).map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to serialize user: {}", e)),
+        })?,
     };
 
     Ok((StatusCode::OK, Json(response)))
@@ -450,14 +480,18 @@ pub async fn link_oauth_account_handler(
     let provider_type: OAuthProviderType = provider.parse()
         .map_err(|_| {
             tracing::warn!(provider = %provider, "Invalid OAuth provider for linking");
-            AppError::InvalidFieldValue { 
+            AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider) 
+                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider)
             }
         })?;
 
     // Check if user already has this provider linked
-    let existing_accounts = match state.auth_service.load_oauth_accounts(authenticated_user.id).await {
+    let existing_accounts = match state
+        .auth_service
+        .load_oauth_accounts(authenticated_user.id)
+        .await
+    {
         Ok(accounts) => accounts,
         Err(e) => {
             tracing::error!(
@@ -467,13 +501,16 @@ pub async fn link_oauth_account_handler(
                 "Failed to check existing OAuth accounts"
             );
             return Err(AppError::ExternalServiceError(
-                "Unable to verify existing account links. Please try again later.".to_string()
+                "Unable to verify existing account links. Please try again later.".to_string(),
             ));
         }
     };
 
     // Check if provider is already linked
-    if existing_accounts.iter().any(|account| account.provider == provider_type) {
+    if existing_accounts
+        .iter()
+        .any(|account| account.provider == provider_type)
+    {
         tracing::warn!(
             user_id = %authenticated_user.id,
             provider = %provider,
@@ -486,12 +523,11 @@ pub async fn link_oauth_account_handler(
     }
 
     // Set redirect URI for account linking
-    let redirect_uri = query.redirect_uri
-        .unwrap_or_else(|| {
-            let default_uri = format!("http://localhost:3000/auth/link-callback/{}", provider);
-            tracing::debug!(default_uri = %default_uri, "Using default link callback URI");
-            default_uri
-        });
+    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
+        let default_uri = format!("http://localhost:3000/auth/link-callback/{}", provider);
+        tracing::debug!(default_uri = %default_uri, "Using default link callback URI");
+        default_uri
+    });
 
     // Validate redirect URI format
     if let Err(_) = Url::parse(&redirect_uri) {
@@ -503,7 +539,11 @@ pub async fn link_oauth_account_handler(
     }
 
     // Initiate OAuth flow for account linking
-    let flow_response = match state.auth_service.initiate_oauth_flow(provider_type.clone(), redirect_uri.clone()).await {
+    let flow_response = match state
+        .auth_service
+        .initiate_oauth_flow(provider_type.clone(), redirect_uri.clone())
+        .await
+    {
         Ok(response) => response,
         Err(e) => {
             tracing::error!(
@@ -513,19 +553,21 @@ pub async fn link_oauth_account_handler(
                 error = %e,
                 "Failed to initiate OAuth linking flow"
             );
-            
+
             let user_message = match &e {
                 AppError::InvalidFieldValue { field, .. } if field == "provider" => {
                     format!("{} OAuth is not configured or temporarily unavailable. Please try again later.", provider_type)
-                },
-                AppError::ExternalServiceError(_) => {
-                    format!("Unable to connect to {} authentication service. Please try again later.", provider_type)
-                },
-                _ => {
-                    "Account linking service temporarily unavailable. Please try again later.".to_string()
                 }
+                AppError::ExternalServiceError(_) => {
+                    format!(
+                        "Unable to connect to {} authentication service. Please try again later.",
+                        provider_type
+                    )
+                }
+                _ => "Account linking service temporarily unavailable. Please try again later."
+                    .to_string(),
             };
-            
+
             return Err(AppError::ExternalServiceError(user_message));
         }
     };
@@ -539,16 +581,19 @@ pub async fn link_oauth_account_handler(
         "OAuth account linking flow initiated successfully"
     );
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "data": {
-            "authorization_url": flow_response.authorization_url,
-            "state": flow_response.state,
-            "provider": provider_type.to_string(),
-            "linking_mode": true
-        },
-        "message": format!("Account linking initiated for {}. Please complete the authorization process.", provider_type)
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "authorization_url": flow_response.authorization_url,
+                "state": flow_response.state,
+                "provider": provider_type.to_string(),
+                "linking_mode": true
+            },
+            "message": format!("Account linking initiated for {}. Please complete the authorization process.", provider_type)
+        })),
+    ))
 }
 
 /// Complete OAuth account linking callback
@@ -588,9 +633,9 @@ pub async fn oauth_link_callback_handler(
     let provider_type: OAuthProviderType = provider.parse()
         .map_err(|_| {
             tracing::warn!(provider = %provider, "Invalid OAuth provider in linking callback");
-            AppError::InvalidFieldValue { 
+            AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider) 
+                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider)
             }
         })?;
 
@@ -601,7 +646,11 @@ pub async fn oauth_link_callback_handler(
         state: request.state.clone(),
     };
 
-    match state.auth_service.link_oauth_account(authenticated_user.id, account_link_request).await {
+    match state
+        .auth_service
+        .link_oauth_account(authenticated_user.id, account_link_request)
+        .await
+    {
         Ok(()) => {
             let duration = start_time.elapsed();
             tracing::info!(
@@ -612,19 +661,25 @@ pub async fn oauth_link_callback_handler(
             );
 
             // Get updated user information
-            let updated_accounts = state.auth_service.load_oauth_accounts(authenticated_user.id).await
+            let updated_accounts = state
+                .auth_service
+                .load_oauth_accounts(authenticated_user.id)
+                .await
                 .unwrap_or_default();
 
-            Ok((StatusCode::OK, Json(serde_json::json!({
-                "success": true,
-                "data": {
-                    "provider": provider_type.to_string(),
-                    "linked_at": chrono::Utc::now(),
-                    "total_linked_accounts": updated_accounts.len()
-                },
-                "message": format!("{} account has been successfully linked to your profile", provider_type)
-            }))))
-        },
+            Ok((
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "data": {
+                        "provider": provider_type.to_string(),
+                        "linked_at": chrono::Utc::now(),
+                        "total_linked_accounts": updated_accounts.len()
+                    },
+                    "message": format!("{} account has been successfully linked to your profile", provider_type)
+                })),
+            ))
+        }
         Err(e) => {
             tracing::error!(
                 provider = %provider,
@@ -633,22 +688,28 @@ pub async fn oauth_link_callback_handler(
                 error = %e,
                 "Failed to complete OAuth account linking"
             );
-            
+
             let user_message = match &e {
                 AppError::InvalidFieldValue { field, .. } if field == "state" => {
-                    "Invalid or expired linking request. Please try linking your account again.".to_string()
-                },
-                AppError::InvalidFieldValue { field, .. } if field == "provider" => {
-                    format!("This {} account is already linked to another user or to your account.", provider_type)
-                },
-                AppError::ExternalServiceError(_) => {
-                    format!("Failed to connect with {}. Please try again or contact support.", provider_type)
-                },
-                _ => {
-                    "Account linking service temporarily unavailable. Please try again later.".to_string()
+                    "Invalid or expired linking request. Please try linking your account again."
+                        .to_string()
                 }
+                AppError::InvalidFieldValue { field, .. } if field == "provider" => {
+                    format!(
+                        "This {} account is already linked to another user or to your account.",
+                        provider_type
+                    )
+                }
+                AppError::ExternalServiceError(_) => {
+                    format!(
+                        "Failed to connect with {}. Please try again or contact support.",
+                        provider_type
+                    )
+                }
+                _ => "Account linking service temporarily unavailable. Please try again later."
+                    .to_string(),
             };
-            
+
             Err(AppError::ExternalServiceError(user_message))
         }
     }
@@ -680,9 +741,9 @@ pub async fn unlink_oauth_account_handler(
     let provider_type: OAuthProviderType = provider.parse()
         .map_err(|_| {
             tracing::warn!(provider = %provider, "Invalid OAuth provider for unlinking");
-            AppError::InvalidFieldValue { 
+            AppError::InvalidFieldValue {
                 field: "provider".to_string(),
-                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider) 
+                message: format!("Unsupported OAuth provider '{}'. Supported providers are: google, apple, github, spotify", provider)
             }
         })?;
 
@@ -700,7 +761,11 @@ pub async fn unlink_oauth_account_handler(
     }
 
     // Check if user has this provider linked
-    let existing_accounts = match state.auth_service.load_oauth_accounts(authenticated_user.id).await {
+    let existing_accounts = match state
+        .auth_service
+        .load_oauth_accounts(authenticated_user.id)
+        .await
+    {
         Ok(accounts) => accounts,
         Err(e) => {
             tracing::error!(
@@ -710,13 +775,15 @@ pub async fn unlink_oauth_account_handler(
                 "Failed to check existing OAuth accounts for unlinking"
             );
             return Err(AppError::ExternalServiceError(
-                "Unable to verify existing account links. Please try again later.".to_string()
+                "Unable to verify existing account links. Please try again later.".to_string(),
             ));
         }
     };
 
     // Verify the provider is actually linked
-    let account_exists = existing_accounts.iter().any(|account| account.provider == provider_type);
+    let account_exists = existing_accounts
+        .iter()
+        .any(|account| account.provider == provider_type);
     if !account_exists {
         tracing::warn!(
             user_id = %authenticated_user.id,
@@ -729,7 +796,11 @@ pub async fn unlink_oauth_account_handler(
     }
 
     // Check if user has other authentication methods (password or other OAuth accounts)
-    let user = match state.auth_service.get_user_by_id(authenticated_user.id).await {
+    let user = match state
+        .auth_service
+        .get_user_by_id(authenticated_user.id)
+        .await
+    {
         Ok(user) => user,
         Err(e) => {
             tracing::error!(
@@ -738,7 +809,7 @@ pub async fn unlink_oauth_account_handler(
                 "Failed to retrieve user for unlinking validation"
             );
             return Err(AppError::ExternalServiceError(
-                "Unable to verify account security. Please try again later.".to_string()
+                "Unable to verify account security. Please try again later.".to_string(),
             ));
         }
     };
@@ -746,7 +817,7 @@ pub async fn unlink_oauth_account_handler(
     // Ensure user retains access after unlinking
     let has_password = user.password_hash.is_some();
     let other_oauth_accounts = existing_accounts.len() > 1;
-    
+
     if !has_password && !other_oauth_accounts {
         tracing::warn!(
             user_id = %authenticated_user.id,
@@ -760,7 +831,11 @@ pub async fn unlink_oauth_account_handler(
     }
 
     // Perform the unlinking
-    match state.auth_service.unlink_oauth_account(authenticated_user.id, provider_type.clone()).await {
+    match state
+        .auth_service
+        .unlink_oauth_account(authenticated_user.id, provider_type.clone())
+        .await
+    {
         Ok(()) => {
             let duration = start_time.elapsed();
             tracing::info!(
@@ -770,19 +845,22 @@ pub async fn unlink_oauth_account_handler(
                 "OAuth account unlinked successfully"
             );
 
-            Ok((StatusCode::OK, Json(serde_json::json!({
-                "success": true,
-                "data": {
-                    "provider": provider_type.to_string(),
-                    "unlinked_at": chrono::Utc::now(),
-                    "remaining_auth_methods": {
-                        "has_password": has_password,
-                        "oauth_accounts": existing_accounts.len() - 1
-                    }
-                },
-                "message": format!("{} account has been successfully unlinked from your profile", provider_type)
-            }))))
-        },
+            Ok((
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "data": {
+                        "provider": provider_type.to_string(),
+                        "unlinked_at": chrono::Utc::now(),
+                        "remaining_auth_methods": {
+                            "has_password": has_password,
+                            "oauth_accounts": existing_accounts.len() - 1
+                        }
+                    },
+                    "message": format!("{} account has been successfully unlinked from your profile", provider_type)
+                })),
+            ))
+        }
         Err(e) => {
             tracing::error!(
                 user_id = %authenticated_user.id,
@@ -790,19 +868,18 @@ pub async fn unlink_oauth_account_handler(
                 error = %e,
                 "Failed to unlink OAuth account"
             );
-            
+
             let user_message = match &e {
                 AppError::NotFound { .. } => {
                     format!("No {} account found to unlink", provider_type)
-                },
+                }
                 AppError::DatabaseQueryFailed(_) => {
                     "Unable to update account information. Please try again later.".to_string()
-                },
-                _ => {
-                    "Account unlinking service temporarily unavailable. Please try again later.".to_string()
                 }
+                _ => "Account unlinking service temporarily unavailable. Please try again later."
+                    .to_string(),
             };
-            
+
             Err(AppError::ExternalServiceError(user_message))
         }
     }
@@ -822,7 +899,11 @@ pub async fn get_linked_accounts_handler(
     );
 
     // Load OAuth accounts for the authenticated user
-    let oauth_accounts = match state.auth_service.load_oauth_accounts(authenticated_user.id).await {
+    let oauth_accounts = match state
+        .auth_service
+        .load_oauth_accounts(authenticated_user.id)
+        .await
+    {
         Ok(accounts) => accounts,
         Err(e) => {
             tracing::error!(
@@ -830,19 +911,15 @@ pub async fn get_linked_accounts_handler(
                 error = %e,
                 "Failed to load OAuth accounts"
             );
-            
+
             let user_message = match &e {
-                AppError::NotFound { .. } => {
-                    "No linked accounts found.".to_string()
-                },
+                AppError::NotFound { .. } => "No linked accounts found.".to_string(),
                 AppError::DatabaseQueryFailed(_) => {
                     "Unable to retrieve account information. Please try again later.".to_string()
-                },
-                _ => {
-                    "Account service temporarily unavailable. Please try again later.".to_string()
                 }
+                _ => "Account service temporarily unavailable. Please try again later.".to_string(),
             };
-            
+
             return Err(AppError::ExternalServiceError(user_message));
         }
     };
@@ -856,27 +933,33 @@ pub async fn get_linked_accounts_handler(
     );
 
     // Format accounts for response (excluding sensitive token information)
-    let accounts_data: Vec<serde_json::Value> = oauth_accounts.iter().map(|account| {
-        serde_json::json!({
-            "provider": account.provider.to_string(),
-            "provider_user_id": account.provider_user_id,
-            "email": account.email,
-            "display_name": account.display_name,
-            "avatar_url": account.avatar_url,
-            "linked_at": account.created_at,
-            "last_updated": account.updated_at,
-            "status": "active" // Could be enhanced with actual token status
+    let accounts_data: Vec<serde_json::Value> = oauth_accounts
+        .iter()
+        .map(|account| {
+            serde_json::json!({
+                "provider": account.provider.to_string(),
+                "provider_user_id": account.provider_user_id,
+                "email": account.email,
+                "display_name": account.display_name,
+                "avatar_url": account.avatar_url,
+                "linked_at": account.created_at,
+                "last_updated": account.updated_at,
+                "status": "active" // Could be enhanced with actual token status
+            })
         })
-    }).collect();
+        .collect();
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "data": {
-            "accounts": accounts_data,
-            "total_count": accounts_data.len()
-        },
-        "message": format!("Found {} linked account(s)", accounts_data.len())
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "accounts": accounts_data,
+                "total_count": accounts_data.len()
+            },
+            "message": format!("Found {} linked account(s)", accounts_data.len())
+        })),
+    ))
 }
 
 /// Get OAuth provider instance based on provider type
@@ -884,30 +967,38 @@ pub async fn get_linked_accounts_handler(
 fn get_oauth_provider(provider_type: OAuthProviderType) -> Result<Box<dyn OAuthProvider>> {
     match provider_type {
         OAuthProviderType::Google => {
-            let provider = crate::services::oauth_google::GoogleOAuthProvider::new()
-                .map_err(|e| AppError::Internal { 
-                    message: Some(format!("Failed to create Google OAuth provider: {}", e)) 
+            let provider =
+                crate::services::oauth_google::GoogleOAuthProvider::new().map_err(|e| {
+                    AppError::Internal {
+                        message: Some(format!("Failed to create Google OAuth provider: {}", e)),
+                    }
                 })?;
             Ok(Box::new(provider))
         }
         OAuthProviderType::Apple => {
-            let provider = crate::services::oauth_apple::AppleOAuthProvider::new()
-                .map_err(|e| AppError::Internal { 
-                    message: Some(format!("Failed to create Apple OAuth provider: {}", e)) 
+            let provider =
+                crate::services::oauth_apple::AppleOAuthProvider::new().map_err(|e| {
+                    AppError::Internal {
+                        message: Some(format!("Failed to create Apple OAuth provider: {}", e)),
+                    }
                 })?;
             Ok(Box::new(provider))
         }
         OAuthProviderType::GitHub => {
-            let provider = crate::services::oauth_github::GitHubOAuthProvider::new()
-                .map_err(|e| AppError::Internal {
-                    message: Some(format!("Failed to create GitHub OAuth provider: {}", e))
+            let provider =
+                crate::services::oauth_github::GitHubOAuthProvider::new().map_err(|e| {
+                    AppError::Internal {
+                        message: Some(format!("Failed to create GitHub OAuth provider: {}", e)),
+                    }
                 })?;
             Ok(Box::new(provider))
         }
         OAuthProviderType::Spotify => {
-            let provider = crate::services::oauth_spotify::SpotifyOAuthProvider::new()
-                .map_err(|e| AppError::Internal {
-                    message: Some(format!("Failed to create Spotify OAuth provider: {}", e))
+            let provider =
+                crate::services::oauth_spotify::SpotifyOAuthProvider::new().map_err(|e| {
+                    AppError::Internal {
+                        message: Some(format!("Failed to create Spotify OAuth provider: {}", e)),
+                    }
                 })?;
             Ok(Box::new(provider))
         }
@@ -924,19 +1015,22 @@ pub async fn oauth_health_handler(
         crate::models::oauth::OAuthProviderType::Apple,
         crate::models::oauth::OAuthProviderType::GitHub,
     ];
-    
+
     let mut health_status = std::collections::HashMap::new();
     for provider in providers {
-        let health = state.auth_service.get_oauth_provider_health(&provider).await;
+        let health = state
+            .auth_service
+            .get_oauth_provider_health(&provider)
+            .await;
         health_status.insert(provider.to_string(), format!("{:?}", health));
     }
-    
+
     let health_summary = serde_json::json!({
         "status": "ok",
         "providers": health_status,
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
-    
+
     Ok(Json(health_summary))
 }
 
@@ -945,20 +1039,23 @@ pub async fn oauth_provider_health_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    let provider_type: OAuthProviderType = provider.parse()
-        .map_err(|_| AppError::InvalidFieldValue {
+    let provider_type: OAuthProviderType =
+        provider.parse().map_err(|_| AppError::InvalidFieldValue {
             field: "provider".to_string(),
             message: format!("Unknown OAuth provider: {}", provider),
         })?;
-    
-    let health = state.auth_service.get_oauth_provider_health(&provider_type).await;
-    
+
+    let health = state
+        .auth_service
+        .get_oauth_provider_health(&provider_type)
+        .await;
+
     let response = serde_json::json!({
         "provider": provider_type,
         "health": format!("{:?}", health),
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
-    
+
     Ok(Json(response))
 }
 
@@ -968,13 +1065,13 @@ pub async fn force_oauth_health_check_handler(
 ) -> Result<Json<serde_json::Value>> {
     // Force health check is not implemented yet
     // state.auth_service.force_oauth_health_check().await;
-    
+
     let response = serde_json::json!({
         "status": "health_check_initiated",
         "message": "OAuth provider health checks have been initiated",
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
-    
+
     Ok(Json(response))
 }
 
@@ -984,13 +1081,13 @@ pub async fn oauth_config_status_handler(
 ) -> Result<Json<serde_json::Value>> {
     let validation_results = state.auth_service.get_oauth_config_validation();
     let available_providers = state.auth_service.get_available_oauth_providers();
-    
+
     let config_status = serde_json::json!({
         "available_providers": available_providers,
         "configuration_details": validation_results,
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
-    
+
     Ok(Json(config_status))
 }
 
@@ -999,22 +1096,28 @@ pub async fn oauth_config_guidance_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
 ) -> Result<Json<serde_json::Value>> {
-    let provider_type: OAuthProviderType = provider.parse()
-        .map_err(|_| AppError::InvalidFieldValue {
+    let provider_type: OAuthProviderType =
+        provider.parse().map_err(|_| AppError::InvalidFieldValue {
             field: "provider".to_string(),
             message: format!("Unknown OAuth provider: {}", provider),
         })?;
-    
-    let guidance = state.auth_service.get_oauth_configuration_guidance(&provider_type);
-    let validation = state.auth_service.get_oauth_config_validation().get(&provider_type).cloned();
-    
+
+    let guidance = state
+        .auth_service
+        .get_oauth_configuration_guidance(&provider_type);
+    let validation = state
+        .auth_service
+        .get_oauth_config_validation()
+        .get(&provider_type)
+        .cloned();
+
     let response = serde_json::json!({
         "provider": provider_type,
         "configuration_guidance": guidance,
         "current_validation": validation,
         "timestamp": chrono::Utc::now().to_rfc3339(),
     });
-    
+
     Ok(Json(response))
 }
 
@@ -1028,7 +1131,8 @@ pub async fn get_oauth_account_health_handler(
         "Getting OAuth account health status"
     );
 
-    let health_statuses = state.auth_service
+    let health_statuses = state
+        .auth_service
         .get_oauth_account_health(authenticated_user.id)
         .await?;
 
@@ -1060,7 +1164,8 @@ pub async fn get_oauth_token_status_handler(
         "Getting OAuth token status"
     );
 
-    let token_statuses = state.auth_service
+    let token_statuses = state
+        .auth_service
         .get_oauth_token_status(authenticated_user.id)
         .await?;
 
@@ -1105,7 +1210,11 @@ pub async fn execute_proactive_refresh_handler(
     let mut errors = Vec::new();
 
     for schedule in user_schedules {
-        match state.auth_service.refresh_oauth_tokens(schedule.user_id, schedule.provider).await {
+        match state
+            .auth_service
+            .refresh_oauth_tokens(schedule.user_id, schedule.provider)
+            .await
+        {
             Ok(()) => {
                 successful_refreshes += 1;
                 tracing::info!(
@@ -1151,7 +1260,8 @@ pub async fn get_token_notification_targets_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::debug!("Getting users needing OAuth token notifications");
 
-    let notification_targets = state.auth_service
+    let notification_targets = state
+        .auth_service
         .get_users_needing_token_notifications()
         .await?;
 
@@ -1183,9 +1293,7 @@ pub async fn execute_system_token_refresh_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Executing system-wide proactive OAuth token refresh");
 
-    let summary = state.auth_service
-        .execute_proactive_token_refresh()
-        .await?;
+    let summary = state.auth_service.execute_proactive_token_refresh().await?;
 
     let response = serde_json::json!({
         "success": true,

@@ -17,7 +17,7 @@
   let showPathFinder = false;
   let pathSourceId = '';
   let pathTargetId = '';
-  let svgContainer: SVGSVGElement;
+  let _svgContainer: SVGSVGElement;
 
   // Simple force-directed layout simulation
   let nodes: (NetworkNode & { x: number; y: number; vx: number; vy: number })[] = [];
@@ -73,7 +73,7 @@
     const height = 400;
 
     // Initialize node positions
-    nodes = $networkNodes.map((node, i) => ({
+    nodes = $networkNodes.map((node) => ({
       ...node,
       x: width / 2 + (Math.random() - 0.5) * 200,
       y: height / 2 + (Math.random() - 0.5) * 200,
@@ -110,7 +110,6 @@
             if (other) {
               const dx = other.x - node.x;
               const dy = other.y - node.y;
-              const dist = Math.sqrt(dx * dx + dy * dy) || 1;
               node.vx += dx * 0.01;
               node.vy += dy * 0.01;
             }
@@ -412,7 +411,7 @@
             </div>
           {:else}
             <svg
-              bind:this={svgContainer}
+              bind:this={_svgContainer}
               viewBox="0 0 600 400"
               class="w-full h-96 bg-gray-50 rounded-lg"
             >

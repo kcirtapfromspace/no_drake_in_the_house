@@ -405,7 +405,7 @@
                   </div>
 
                   <div class="space-y-2">
-                    {#each artist.offenses as offense, idx}
+                    {#each artist.offenses as offense}
                       <div class="bg-gray-50 rounded-xl p-4">
                         <div class="flex items-start justify-between">
                           <div class="flex-1">

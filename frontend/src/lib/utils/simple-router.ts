@@ -1,9 +1,19 @@
 import { writable, derived } from 'svelte/store';
 
-// Simplified route definitions - just 3 main routes
+// Route definitions
 export type Route =
   | 'home'
+  | 'dashboard'
   | 'settings'
+  | 'profile'
+  | 'blocklist'
+  | 'library-scan'
+  | 'offense-database'
+  | 'connections'
+  | 'community'
+  | 'sync'
+  | 'analytics'
+  | 'graph'
   | 'oauth-callback'
   | 'oauth-error';
 
@@ -11,12 +21,32 @@ export type Route =
 const pathToRoute: Record<string, Route> = {
   '/': 'home',
   '/home': 'home',
+  '/dashboard': 'dashboard',
   '/settings': 'settings',
+  '/profile': 'profile',
+  '/blocklist': 'blocklist',
+  '/library-scan': 'library-scan',
+  '/offense-database': 'offense-database',
+  '/connections': 'connections',
+  '/community': 'community',
+  '/sync': 'sync',
+  '/analytics': 'analytics',
+  '/graph': 'graph',
 };
 
 const routeToPath: Record<Route, string> = {
   'home': '/',
+  'dashboard': '/dashboard',
   'settings': '/settings',
+  'profile': '/profile',
+  'blocklist': '/blocklist',
+  'library-scan': '/library-scan',
+  'offense-database': '/offense-database',
+  'connections': '/connections',
+  'community': '/community',
+  'sync': '/sync',
+  'analytics': '/analytics',
+  'graph': '/graph',
   'oauth-callback': '/auth/callback',
   'oauth-error': '/auth/error',
 };
@@ -24,7 +54,17 @@ const routeToPath: Record<Route, string> = {
 // Route metadata
 const routeMeta: Record<Route, { title: string; description: string }> = {
   'home': { title: 'Home', description: 'Your music blocklist dashboard' },
+  'dashboard': { title: 'Dashboard', description: 'Your music blocklist dashboard' },
   'settings': { title: 'Settings', description: 'Account and connection settings' },
+  'profile': { title: 'Profile', description: 'Your profile settings' },
+  'blocklist': { title: 'Blocklist', description: 'Manage your blocked artists' },
+  'library-scan': { title: 'Scan Library', description: 'Scan your music library' },
+  'offense-database': { title: 'Database', description: 'Browse offense database' },
+  'connections': { title: 'Connections', description: 'Manage streaming connections' },
+  'community': { title: 'Community', description: 'Community lists' },
+  'sync': { title: 'Catalog Sync', description: 'Synchronize artist catalogs across platforms' },
+  'analytics': { title: 'Analytics', description: 'View system metrics and trends' },
+  'graph': { title: 'Graph Explorer', description: 'Explore artist collaboration networks' },
   'oauth-callback': { title: 'Connecting...', description: 'Processing authentication' },
   'oauth-error': { title: 'Connection Error', description: 'There was a problem connecting' },
 };

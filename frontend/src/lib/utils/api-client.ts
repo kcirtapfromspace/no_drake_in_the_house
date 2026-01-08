@@ -31,7 +31,7 @@ export class ApiClient {
   /**
    * Get authentication token from localStorage
    */
-  private getAuthToken(): string | null {
+  public getAuthToken(): string | null {
     return localStorage.getItem('auth_token');
   }
 
@@ -313,6 +313,3 @@ export class ApiClient {
 
 // Create singleton instance
 export const apiClient = new ApiClient();
-
-// Export types for use in stores
-export type { ApiResponse, ApiError };

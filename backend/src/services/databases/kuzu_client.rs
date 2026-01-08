@@ -402,6 +402,55 @@ impl KuzuClient {
             risk_scores,
         })
     }
+
+    /// Get graph database statistics
+    pub fn get_stats(&self) -> Result<GraphStats> {
+        let conn = self.connection()?;
+
+        // Count artists
+        let artist_result = conn.query("MATCH (a:Artist) RETURN COUNT(a)")?;
+        let artist_count = artist_result.into_iter()
+            .next()
+            .map(|row| value_to_u32(&row[0]) as u64)
+            .unwrap_or(0);
+
+        // Count collaborations
+        let collab_result = conn.query("MATCH ()-[r:COLLABORATED_WITH]->() RETURN COUNT(r)")?;
+        let collaboration_count = collab_result.into_iter()
+            .next()
+            .map(|row| value_to_u32(&row[0]) as u64)
+            .unwrap_or(0);
+
+        // Count labels
+        let label_result = conn.query("MATCH (l:Label) RETURN COUNT(l)")?;
+        let label_count = label_result.into_iter()
+            .next()
+            .map(|row| value_to_u32(&row[0]) as u64)
+            .unwrap_or(0);
+
+        // Count tracks
+        let track_result = conn.query("MATCH (t:Track) RETURN COUNT(t)")?;
+        let track_count = track_result.into_iter()
+            .next()
+            .map(|row| value_to_u32(&row[0]) as u64)
+            .unwrap_or(0);
+
+        Ok(GraphStats {
+            artist_count,
+            collaboration_count,
+            label_count,
+            track_count,
+        })
+    }
+}
+
+/// Graph database statistics
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GraphStats {
+    pub artist_count: u64,
+    pub collaboration_count: u64,
+    pub label_count: u64,
+    pub track_count: u64,
 }
 
 // Helper functions

@@ -1,10 +1,10 @@
-use crate::models::UserSettings;
 use crate::error::{AppError, Result};
-use sqlx::PgPool;
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
+use crate::models::UserSettings;
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 // Re-export the model UserProfile
 pub use crate::models::UserProfile;
@@ -88,11 +88,14 @@ impl UserService {
         .fetch_optional(&self.db_pool)
         .await
         .map_err(AppError::DatabaseQueryFailed)?
-        .ok_or_else(|| AppError::NotFound { resource: "User not found".to_string() })?;
+        .ok_or_else(|| AppError::NotFound {
+            resource: "User not found".to_string(),
+        })?;
 
         // Parse settings from JSONB
-        let settings: UserSettings = serde_json::from_value(user.settings.unwrap_or_else(|| serde_json::json!({})))
-            .unwrap_or_default();
+        let settings: UserSettings =
+            serde_json::from_value(user.settings.unwrap_or_else(|| serde_json::json!({})))
+                .unwrap_or_default();
 
         // Check if user has TOTP enabled (would need to check auth service or separate table)
         let totp_enabled = self.check_totp_enabled(user_id).await?;
@@ -112,11 +115,15 @@ impl UserService {
 
     /// Update user profile
     pub async fn update_profile(
-        &self, 
-        user_id: Uuid, 
-        request: UpdateUserProfileRequest
+        &self,
+        user_id: Uuid,
+        request: UpdateUserProfileRequest,
     ) -> Result<UserProfile> {
-        let mut tx = self.db_pool.begin().await.map_err(AppError::DatabaseQueryFailed)?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
 
         // Update email if provided
         if let Some(email) = &request.email {
@@ -132,8 +139,9 @@ impl UserService {
 
         // Update settings if provided
         if let Some(settings) = &request.settings {
-            let settings_json = serde_json::to_value(settings)
-                .map_err(|e| AppError::InvalidRequestFormat(format!("Invalid settings format: {}", e)))?;
+            let settings_json = serde_json::to_value(settings).map_err(|e| {
+                AppError::InvalidRequestFormat(format!("Invalid settings format: {}", e))
+            })?;
 
             sqlx::query!(
                 "UPDATE users SET settings = $1, updated_at = NOW() WHERE id = $2",
@@ -176,37 +184,40 @@ impl UserService {
 
     /// Delete user account and all associated data
     pub async fn delete_account(
-        &self, 
-        user_id: Uuid, 
-        request: AccountDeletionRequest
+        &self,
+        user_id: Uuid,
+        request: AccountDeletionRequest,
     ) -> Result<AccountDeletionResult> {
         // Verify the confirmation email matches the user's email
-        let user = sqlx::query!(
-            "SELECT email FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-        .ok_or_else(|| AppError::NotFound { resource: "User not found".to_string() })?;
+        let user = sqlx::query!("SELECT email FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db_pool)
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?
+            .ok_or_else(|| AppError::NotFound {
+                resource: "User not found".to_string(),
+            })?;
 
         if user.email != request.confirmation_email {
-            return Err(AppError::InvalidRequestFormat("Email confirmation does not match".to_string()));
+            return Err(AppError::InvalidRequestFormat(
+                "Email confirmation does not match".to_string(),
+            ));
         }
 
-        let mut tx = self.db_pool.begin().await.map_err(AppError::DatabaseQueryFailed)?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
 
         let mut cleanup_summary = HashMap::new();
 
         // Delete user's DNP list entries
-        let dnp_deleted = sqlx::query!(
-            "DELETE FROM user_artist_blocks WHERE user_id = $1",
-            user_id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-        .rows_affected();
+        let dnp_deleted =
+            sqlx::query!("DELETE FROM user_artist_blocks WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?
+                .rows_affected();
         cleanup_summary.insert("dnp_entries".to_string(), dnp_deleted as u32);
 
         // Delete community list subscriptions
@@ -218,29 +229,31 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?
         .rows_affected();
-        cleanup_summary.insert("community_subscriptions".to_string(), subscriptions_deleted as u32);
+        cleanup_summary.insert(
+            "community_subscriptions".to_string(),
+            subscriptions_deleted as u32,
+        );
 
         // Delete action batches and items
-        let actions_deleted = sqlx::query!(
-            "DELETE FROM action_batches WHERE user_id = $1",
-            user_id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-        .rows_affected();
+        let actions_deleted =
+            sqlx::query!("DELETE FROM action_batches WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?
+                .rows_affected();
         cleanup_summary.insert("action_batches".to_string(), actions_deleted as u32);
 
         // Delete service connections
-        let connections_deleted = sqlx::query!(
-            "DELETE FROM connections WHERE user_id = $1",
-            user_id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-        .rows_affected();
-        cleanup_summary.insert("service_connections".to_string(), connections_deleted as u32);
+        let connections_deleted =
+            sqlx::query!("DELETE FROM connections WHERE user_id = $1", user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?
+                .rows_affected();
+        cleanup_summary.insert(
+            "service_connections".to_string(),
+            connections_deleted as u32,
+        );
 
         // Update community lists owned by user to be orphaned or transfer ownership
         let owned_lists_updated = sqlx::query!(
@@ -251,7 +264,10 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?
         .rows_affected();
-        cleanup_summary.insert("owned_lists_orphaned".to_string(), owned_lists_updated as u32);
+        cleanup_summary.insert(
+            "owned_lists_orphaned".to_string(),
+            owned_lists_updated as u32,
+        );
 
         // Anonymize audit log entries (keep for compliance but remove PII)
         let audit_anonymized = sqlx::query!(
@@ -268,16 +284,16 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?
         .rows_affected();
-        cleanup_summary.insert("audit_entries_anonymized".to_string(), audit_anonymized as u32);
+        cleanup_summary.insert(
+            "audit_entries_anonymized".to_string(),
+            audit_anonymized as u32,
+        );
 
         // Finally, delete the user account
-        sqlx::query!(
-            "DELETE FROM users WHERE id = $1",
-            user_id
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
+        sqlx::query!("DELETE FROM users WHERE id = $1", user_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
 
         tx.commit().await.map_err(AppError::DatabaseQueryFailed)?;
 
@@ -292,17 +308,15 @@ impl UserService {
     async fn check_totp_enabled(&self, user_id: Uuid) -> Result<bool> {
         // This would typically check a separate auth table or call the auth service
         // For now, we'll check if there's any TOTP-related data in the user record
-        let result = sqlx::query!(
-            "SELECT settings FROM users WHERE id = $1",
-            user_id
-        )
-        .fetch_optional(&self.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
+        let result = sqlx::query!("SELECT settings FROM users WHERE id = $1", user_id)
+            .fetch_optional(&self.db_pool)
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
 
         if let Some(row) = result {
-            let settings: UserSettings = serde_json::from_value(row.settings.unwrap_or_else(|| serde_json::json!({})))
-                .unwrap_or_default();
+            let settings: UserSettings =
+                serde_json::from_value(row.settings.unwrap_or_else(|| serde_json::json!({})))
+                    .unwrap_or_default();
             Ok(settings.two_factor_enabled)
         } else {
             Ok(false)
@@ -329,16 +343,22 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
-        Ok(entries.into_iter().map(|row| DnpListExport {
-            artist_name: row.canonical_name,
-            tags: row.tags,
-            note: row.note,
-            created_at: row.created_at.unwrap_or_else(|| Utc::now()),
-        }).collect())
+        Ok(entries
+            .into_iter()
+            .map(|row| DnpListExport {
+                artist_name: row.canonical_name,
+                tags: row.tags,
+                note: row.note,
+                created_at: row.created_at.unwrap_or_else(|| Utc::now()),
+            })
+            .collect())
     }
 
     /// Export community list subscriptions for user
-    async fn export_community_subscriptions(&self, user_id: Uuid) -> Result<Vec<CommunityListSubscriptionExport>> {
+    async fn export_community_subscriptions(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<CommunityListSubscriptionExport>> {
         let subscriptions = sqlx::query!(
             r#"
             SELECT 
@@ -357,12 +377,15 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
-        Ok(subscriptions.into_iter().map(|row| CommunityListSubscriptionExport {
-            list_name: row.name,
-            list_description: row.description,
-            subscribed_at: row.created_at.unwrap_or_else(|| Utc::now()),
-            auto_update: row.auto_update.unwrap_or(true),
-        }).collect())
+        Ok(subscriptions
+            .into_iter()
+            .map(|row| CommunityListSubscriptionExport {
+                list_name: row.name,
+                list_description: row.description,
+                subscribed_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                auto_update: row.auto_update.unwrap_or(true),
+            })
+            .collect())
     }
 
     /// Export audit log data for user (limited to their own actions)
@@ -384,11 +407,14 @@ impl UserService {
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
-        Ok(audit_entries.into_iter().map(|row| AuditLogExport {
-            event_type: row.action,
-            timestamp: row.timestamp.unwrap_or_else(|| Utc::now()),
-            details: row.old_subject_type,
-        }).collect())
+        Ok(audit_entries
+            .into_iter()
+            .map(|row| AuditLogExport {
+                event_type: row.action,
+                timestamp: row.timestamp.unwrap_or_else(|| Utc::now()),
+                details: row.old_subject_type,
+            })
+            .collect())
     }
 }
 

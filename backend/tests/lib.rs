@@ -3,8 +3,8 @@
 
 pub mod common;
 pub mod fixtures;
-pub mod unit;
 pub mod integration;
+pub mod unit;
 
 // Re-export commonly used testing utilities
 pub use common::*;
@@ -21,7 +21,7 @@ pub fn init_test_env() {
         // Set test environment variables
         std::env::set_var("RUST_ENV", "test");
         std::env::set_var("RUST_LOG", "debug");
-        
+
         // Initialize tracing for tests
         tracing_subscriber::fmt()
             .with_test_writer()
@@ -35,13 +35,13 @@ pub fn init_test_env() {
 pub mod categories {
     /// Unit tests - fast, isolated tests
     pub const UNIT: &str = "unit";
-    
+
     /// Integration tests - tests with database/external dependencies
     pub const INTEGRATION: &str = "integration";
-    
+
     /// Performance tests - tests that measure performance
     pub const PERFORMANCE: &str = "performance";
-    
+
     /// End-to-end tests - full workflow tests
     pub const E2E: &str = "e2e";
 }
@@ -50,7 +50,7 @@ pub mod categories {
 pub mod utils {
     use super::*;
     use std::time::Duration;
-    
+
     /// Wait for a condition to be true with timeout
     pub async fn wait_for_condition<F, Fut>(
         mut condition: F,
@@ -62,17 +62,17 @@ pub mod utils {
         Fut: std::future::Future<Output = bool>,
     {
         let start = std::time::Instant::now();
-        
+
         while start.elapsed() < timeout {
             if condition().await {
                 return true;
             }
             tokio::time::sleep(check_interval).await;
         }
-        
+
         false
     }
-    
+
     /// Retry an async operation with exponential backoff
     pub async fn retry_with_backoff<F, Fut, T, E>(
         mut operation: F,
@@ -84,7 +84,7 @@ pub mod utils {
         Fut: std::future::Future<Output = Result<T, E>>,
     {
         let mut delay = initial_delay;
-        
+
         for attempt in 0..=max_retries {
             match operation().await {
                 Ok(result) => return Ok(result),
@@ -97,7 +97,7 @@ pub mod utils {
                 }
             }
         }
-        
+
         unreachable!()
     }
 }
@@ -161,7 +161,7 @@ impl TestResults {
             (self.passed as f64) / (self.total as f64) * 100.0
         }
     }
-    
+
     pub fn is_passing(&self) -> bool {
         self.failed == 0
     }
@@ -180,8 +180,9 @@ pub struct TestConfig {
 impl Default for TestConfig {
     fn default() -> Self {
         Self {
-            database_url: std::env::var("TEST_DATABASE_URL")
-                .unwrap_or_else(|_| "postgres://test_user:test_password@localhost:5432/test_db".to_string()),
+            database_url: std::env::var("TEST_DATABASE_URL").unwrap_or_else(|_| {
+                "postgres://test_user:test_password@localhost:5432/test_db".to_string()
+            }),
             redis_url: std::env::var("TEST_REDIS_URL")
                 .unwrap_or_else(|_| "redis://localhost:6379".to_string()),
             timeout: Duration::from_secs(30),
@@ -202,18 +203,18 @@ impl TestEnvironment {
             config: TestConfig::default(),
         }
     }
-    
+
     pub async fn setup(&self) -> Result<(), Box<dyn std::error::Error>> {
         init_test_env();
-        
+
         // Additional setup can be added here
         // - Start test containers
         // - Initialize test databases
         // - Set up mock services
-        
+
         Ok(())
     }
-    
+
     pub async fn teardown(&self) -> Result<(), Box<dyn std::error::Error>> {
         if self.config.cleanup_after_tests {
             // Cleanup operations
@@ -221,7 +222,7 @@ impl TestEnvironment {
             // - Clean up test data
             // - Reset mock services
         }
-        
+
         Ok(())
     }
 }

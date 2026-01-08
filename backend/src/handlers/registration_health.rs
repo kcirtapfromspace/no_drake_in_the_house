@@ -1,14 +1,9 @@
-use axum::{
-    extract::State,
-    response::Json,
-    http::StatusCode,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json;
 
 use crate::{
-    AppState, Result,
     services::registration_monitoring::RegistrationMonitoringService,
-    services::registration_performance::RegistrationPerformanceService,
+    services::registration_performance::RegistrationPerformanceService, AppState, Result,
 };
 
 /// Health check endpoint for registration service
@@ -17,17 +12,17 @@ pub async fn registration_health_handler(
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // This would need to be added to AppState in a real implementation
     // For now, create a temporary monitoring service
-    let monitoring_service = RegistrationMonitoringService::new()
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create monitoring service: {}", e)) 
+    let monitoring_service =
+        RegistrationMonitoringService::new().map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create monitoring service: {}", e)),
         })?;
 
     // Check health of dependencies
     let health_status = monitoring_service
         .check_health(&state.db_pool, &get_redis_pool(&state).await?)
         .await
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Health check failed: {}", e)) 
+        .map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Health check failed: {}", e)),
         })?;
 
     let status_code = match health_status.status.as_str() {
@@ -43,26 +38,29 @@ pub async fn registration_health_handler(
         "Registration health check completed"
     );
 
-    Ok((status_code, Json(serde_json::json!({
-        "status": health_status.status,
-        "timestamp": health_status.last_check,
-        "components": {
-            "database": {
-                "status": if health_status.database_healthy { "healthy" } else { "unhealthy" }
+    Ok((
+        status_code,
+        Json(serde_json::json!({
+            "status": health_status.status,
+            "timestamp": health_status.last_check,
+            "components": {
+                "database": {
+                    "status": if health_status.database_healthy { "healthy" } else { "unhealthy" }
+                },
+                "redis": {
+                    "status": if health_status.redis_healthy { "healthy" } else { "unhealthy" }
+                },
+                "validation_service": {
+                    "status": if health_status.validation_service_healthy { "healthy" } else { "unhealthy" }
+                }
             },
-            "redis": {
-                "status": if health_status.redis_healthy { "healthy" } else { "unhealthy" }
-            },
-            "validation_service": {
-                "status": if health_status.validation_service_healthy { "healthy" } else { "unhealthy" }
+            "metrics": {
+                "avg_response_time_ms": health_status.avg_response_time_ms,
+                "error_rate_percent": health_status.error_rate_percent,
+                "uptime_seconds": health_status.uptime_seconds
             }
-        },
-        "metrics": {
-            "avg_response_time_ms": health_status.avg_response_time_ms,
-            "error_rate_percent": health_status.error_rate_percent,
-            "uptime_seconds": health_status.uptime_seconds
-        }
-    }))))
+        })),
+    ))
 }
 
 /// Registration metrics endpoint
@@ -71,12 +69,12 @@ pub async fn registration_metrics_handler(
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // This would need to be added to AppState in a real implementation
     // For now, create a temporary performance service
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
-    let performance_service = RegistrationPerformanceService::new(&redis_url)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create performance service: {}", e)) 
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
+    let performance_service =
+        RegistrationPerformanceService::new(&redis_url).map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create performance service: {}", e)),
         })?;
 
     let metrics = performance_service.get_metrics().await;
@@ -88,24 +86,27 @@ pub async fn registration_metrics_handler(
         "Registration metrics retrieved"
     );
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "timestamp": metrics.last_updated,
-        "totals": {
-            "attempts": metrics.total_attempts,
-            "successes": metrics.successful_registrations,
-            "validation_failures": metrics.validation_failures,
-            "email_duplicates": metrics.email_duplicates
-        },
-        "performance": {
-            "avg_validation_time_ms": metrics.avg_validation_time_ms,
-            "avg_registration_time_ms": metrics.avg_registration_time_ms,
-            "success_rate_percent": if metrics.total_attempts > 0 {
-                (metrics.successful_registrations as f64 / metrics.total_attempts as f64) * 100.0
-            } else {
-                0.0
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "timestamp": metrics.last_updated,
+            "totals": {
+                "attempts": metrics.total_attempts,
+                "successes": metrics.successful_registrations,
+                "validation_failures": metrics.validation_failures,
+                "email_duplicates": metrics.email_duplicates
+            },
+            "performance": {
+                "avg_validation_time_ms": metrics.avg_validation_time_ms,
+                "avg_registration_time_ms": metrics.avg_registration_time_ms,
+                "success_rate_percent": if metrics.total_attempts > 0 {
+                    (metrics.successful_registrations as f64 / metrics.total_attempts as f64) * 100.0
+                } else {
+                    0.0
+                }
             }
-        }
-    }))))
+        })),
+    ))
 }
 
 /// Registration dashboard endpoint
@@ -113,17 +114,17 @@ pub async fn registration_dashboard_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // Create monitoring and performance services
-    let monitoring_service = RegistrationMonitoringService::new()
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create monitoring service: {}", e)) 
+    let monitoring_service =
+        RegistrationMonitoringService::new().map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create monitoring service: {}", e)),
         })?;
 
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
-    let performance_service = RegistrationPerformanceService::new(&redis_url)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create performance service: {}", e)) 
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
+    let performance_service =
+        RegistrationPerformanceService::new(&redis_url).map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create performance service: {}", e)),
         })?;
 
     // Get metrics and generate dashboard
@@ -137,10 +138,14 @@ pub async fn registration_dashboard_handler(
         "Registration dashboard generated"
     );
 
-    Ok((StatusCode::OK, Json(serde_json::to_value(dashboard)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to serialize dashboard: {}", e)) 
-        })?)))
+    Ok((
+        StatusCode::OK,
+        Json(
+            serde_json::to_value(dashboard).map_err(|e| crate::AppError::Internal {
+                message: Some(format!("Failed to serialize dashboard: {}", e)),
+            })?,
+        ),
+    ))
 }
 
 /// Prometheus metrics endpoint for registration
@@ -148,30 +153,32 @@ pub async fn registration_prometheus_metrics_handler(
     State(_state): State<AppState>,
 ) -> Result<String> {
     // Create monitoring service to get metrics registry
-    let monitoring_service = RegistrationMonitoringService::new()
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create monitoring service: {}", e)) 
+    let monitoring_service =
+        RegistrationMonitoringService::new().map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create monitoring service: {}", e)),
         })?;
 
     let registry = monitoring_service.get_metrics_registry();
     let encoder = prometheus::TextEncoder::new();
     let metric_families = registry.gather();
-    
-    encoder.encode_to_string(&metric_families)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to encode metrics: {}", e)) 
+
+    encoder
+        .encode_to_string(&metric_families)
+        .map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to encode metrics: {}", e)),
         })
 }
 
 // Helper function to get Redis pool (this would be part of AppState in real implementation)
 async fn get_redis_pool(state: &AppState) -> Result<deadpool_redis::Pool> {
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
     let config = deadpool_redis::Config::from_url(&redis_url);
-    config.create_pool(Some(deadpool_redis::Runtime::Tokio1))
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create Redis pool: {}", e)) 
+    config
+        .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+        .map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create Redis pool: {}", e)),
         })
 }
 

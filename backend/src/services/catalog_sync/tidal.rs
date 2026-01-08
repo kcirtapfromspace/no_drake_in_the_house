@@ -87,7 +87,11 @@ impl TidalSyncWorker {
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("Tidal token request failed: {} - {}", status, body));
+            return Err(anyhow::anyhow!(
+                "Tidal token request failed: {} - {}",
+                status,
+                body
+            ));
         }
 
         let token_response: TokenResponse = response
@@ -144,7 +148,10 @@ impl TidalSyncWorker {
             return Err(anyhow::anyhow!("Tidal API error: {} - {}", status, body));
         }
 
-        response.json().await.context("Failed to parse Tidal response")
+        response
+            .json()
+            .await
+            .context("Failed to parse Tidal response")
     }
 }
 
@@ -252,7 +259,11 @@ impl From<TidalArtist> for PlatformArtist {
 }
 
 impl TidalTrack {
-    fn into_platform_track(self, artist_ids: Vec<String>, album_id: Option<String>) -> PlatformTrack {
+    fn into_platform_track(
+        self,
+        artist_ids: Vec<String>,
+        album_id: Option<String>,
+    ) -> PlatformTrack {
         PlatformTrack {
             platform_id: self.id,
             platform: Platform::Tidal,
@@ -321,7 +332,10 @@ impl PlatformCatalogWorker for TidalSyncWorker {
 
     async fn get_artist(&self, platform_id: &str) -> Result<Option<PlatformArtist>> {
         let endpoint = format!("/artists/{}?countryCode=US", platform_id);
-        match self.api_request::<TidalResponse<TidalArtist>>(&endpoint).await {
+        match self
+            .api_request::<TidalResponse<TidalArtist>>(&endpoint)
+            .await
+        {
             Ok(response) => Ok(response.data.into_iter().next().map(Into::into)),
             Err(e) if e.to_string().contains("404") => Ok(None),
             Err(e) => Err(e),

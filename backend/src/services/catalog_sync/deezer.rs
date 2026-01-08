@@ -299,11 +299,7 @@ impl PlatformCatalogWorker for DeezerSyncWorker {
         platform_id: &str,
         limit: u32,
     ) -> Result<Vec<PlatformTrack>> {
-        let endpoint = format!(
-            "/artist/{}/top?limit={}",
-            platform_id,
-            limit.min(100)
-        );
+        let endpoint = format!("/artist/{}/top?limit={}", platform_id, limit.min(100));
 
         let response: DeezerTracksResponse = self.api_request(&endpoint).await?;
         Ok(response.data.into_iter().map(Into::into).collect())

@@ -1,8 +1,8 @@
-use crate::models::oauth::OAuthProviderType;
 use crate::error::{AppError, Result};
+use crate::models::oauth::OAuthProviderType;
 use std::collections::HashMap;
 use std::env;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 
 /// OAuth provider configuration validation results
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -42,13 +42,15 @@ impl OAuthConfigValidator {
         self.log_validation_summary();
 
         // Check if at least one provider is configured
-        let configured_providers: Vec<_> = self.validation_results
+        let configured_providers: Vec<_> = self
+            .validation_results
             .values()
             .filter(|v| v.is_configured && v.is_valid)
             .collect();
 
         if configured_providers.is_empty() {
-            let dev_mode = env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
+            let dev_mode =
+                env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
             if dev_mode {
                 warn!("⚠️  No OAuth providers configured, but OAUTH_DEV_MODE is enabled. Demo providers will be used.");
             } else {
@@ -56,7 +58,10 @@ impl OAuthConfigValidator {
                 warn!("💡 Set environment variables for OAuth providers or enable OAUTH_DEV_MODE=true for development.");
             }
         } else {
-            info!("✅ {} OAuth provider(s) configured successfully", configured_providers.len());
+            info!(
+                "✅ {} OAuth provider(s) configured successfully",
+                configured_providers.len()
+            );
         }
 
         Ok(())
@@ -68,7 +73,10 @@ impl OAuthConfigValidator {
     }
 
     /// Get validation result for a specific provider
-    pub fn get_provider_validation(&self, provider: &OAuthProviderType) -> Option<&OAuthProviderValidation> {
+    pub fn get_provider_validation(
+        &self,
+        provider: &OAuthProviderType,
+    ) -> Option<&OAuthProviderValidation> {
         self.validation_results.get(provider)
     }
 
@@ -107,45 +115,61 @@ impl OAuthConfigValidator {
 
         // Track missing variables
         if client_id.is_err() {
-            validation.missing_variables.push("GOOGLE_CLIENT_ID".to_string());
+            validation
+                .missing_variables
+                .push("GOOGLE_CLIENT_ID".to_string());
         }
         if client_secret.is_err() {
-            validation.missing_variables.push("GOOGLE_CLIENT_SECRET".to_string());
+            validation
+                .missing_variables
+                .push("GOOGLE_CLIENT_SECRET".to_string());
         }
         if redirect_uri.is_err() {
-            validation.missing_variables.push("GOOGLE_REDIRECT_URI".to_string());
+            validation
+                .missing_variables
+                .push("GOOGLE_REDIRECT_URI".to_string());
         }
 
         // If all variables are present, validate their values
-        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) = (client_id, client_secret, redirect_uri) {
+        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) =
+            (client_id, client_secret, redirect_uri)
+        {
             validation.is_configured = true;
 
             // Validate client ID format (Google client IDs end with .apps.googleusercontent.com)
-            if !client_id.ends_with(".apps.googleusercontent.com") && !client_id.starts_with("demo-") {
+            if !client_id.ends_with(".apps.googleusercontent.com")
+                && !client_id.starts_with("demo-")
+            {
                 validation.validation_errors.push(
-                    "GOOGLE_CLIENT_ID should end with '.apps.googleusercontent.com'".to_string()
+                    "GOOGLE_CLIENT_ID should end with '.apps.googleusercontent.com'".to_string(),
                 );
             }
 
             // Validate client secret is not empty
             if client_secret.trim().is_empty() {
-                validation.validation_errors.push("GOOGLE_CLIENT_SECRET cannot be empty".to_string());
+                validation
+                    .validation_errors
+                    .push("GOOGLE_CLIENT_SECRET cannot be empty".to_string());
             }
 
             // Validate redirect URI format
             if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
-                validation.validation_errors.push(
-                    "GOOGLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string()
-                );
+                validation
+                    .validation_errors
+                    .push("GOOGLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string());
             }
 
             // Check for development/demo configuration
             if client_id.starts_with("demo-") || client_secret.starts_with("demo-") {
-                validation.warnings.push("Using demo Google OAuth configuration - not suitable for production".to_string());
+                validation.warnings.push(
+                    "Using demo Google OAuth configuration - not suitable for production"
+                        .to_string(),
+                );
             }
 
             // Validate redirect URI points to callback endpoint
-            if !redirect_uri.contains("/auth/callback") && !redirect_uri.contains("/oauth/callback") {
+            if !redirect_uri.contains("/auth/callback") && !redirect_uri.contains("/oauth/callback")
+            {
                 validation.warnings.push(
                     "GOOGLE_REDIRECT_URI should point to OAuth callback endpoint (e.g., /auth/callback/google)".to_string()
                 );
@@ -155,7 +179,8 @@ impl OAuthConfigValidator {
             validation.is_valid = validation.validation_errors.is_empty();
         }
 
-        self.validation_results.insert(OAuthProviderType::Google, validation);
+        self.validation_results
+            .insert(OAuthProviderType::Google, validation);
     }
 
     /// Validate Apple OAuth configuration
@@ -178,30 +203,42 @@ impl OAuthConfigValidator {
 
         // Track missing variables
         if client_id.is_err() {
-            validation.missing_variables.push("APPLE_CLIENT_ID".to_string());
+            validation
+                .missing_variables
+                .push("APPLE_CLIENT_ID".to_string());
         }
         if team_id.is_err() {
-            validation.missing_variables.push("APPLE_TEAM_ID".to_string());
+            validation
+                .missing_variables
+                .push("APPLE_TEAM_ID".to_string());
         }
         if key_id.is_err() {
-            validation.missing_variables.push("APPLE_KEY_ID".to_string());
+            validation
+                .missing_variables
+                .push("APPLE_KEY_ID".to_string());
         }
         if private_key.is_err() {
-            validation.missing_variables.push("APPLE_PRIVATE_KEY".to_string());
+            validation
+                .missing_variables
+                .push("APPLE_PRIVATE_KEY".to_string());
         }
         if redirect_uri.is_err() {
-            validation.missing_variables.push("APPLE_REDIRECT_URI".to_string());
+            validation
+                .missing_variables
+                .push("APPLE_REDIRECT_URI".to_string());
         }
 
         // If all variables are present, validate their values
-        if let (Ok(client_id), Ok(team_id), Ok(key_id), Ok(private_key), Ok(redirect_uri)) = 
-            (client_id, team_id, key_id, private_key, redirect_uri) {
+        if let (Ok(client_id), Ok(team_id), Ok(key_id), Ok(private_key), Ok(redirect_uri)) =
+            (client_id, team_id, key_id, private_key, redirect_uri)
+        {
             validation.is_configured = true;
 
             // Validate client ID format (Apple client IDs are typically bundle identifiers)
             if !client_id.contains('.') && !client_id.starts_with("demo-") {
                 validation.validation_errors.push(
-                    "APPLE_CLIENT_ID should be a bundle identifier (e.g., com.example.app)".to_string()
+                    "APPLE_CLIENT_ID should be a bundle identifier (e.g., com.example.app)"
+                        .to_string(),
                 );
             }
 
@@ -209,7 +246,7 @@ impl OAuthConfigValidator {
             if team_id.len() != 10 || !team_id.chars().all(|c| c.is_alphanumeric()) {
                 if !team_id.starts_with("demo-") {
                     validation.validation_errors.push(
-                        "APPLE_TEAM_ID should be a 10-character alphanumeric string".to_string()
+                        "APPLE_TEAM_ID should be a 10-character alphanumeric string".to_string(),
                     );
                 }
             }
@@ -218,28 +255,33 @@ impl OAuthConfigValidator {
             if key_id.len() != 10 || !key_id.chars().all(|c| c.is_alphanumeric()) {
                 if !key_id.starts_with("demo-") {
                     validation.validation_errors.push(
-                        "APPLE_KEY_ID should be a 10-character alphanumeric string".to_string()
+                        "APPLE_KEY_ID should be a 10-character alphanumeric string".to_string(),
                     );
                 }
             }
 
             // Validate private key format (should be PEM format)
-            if !private_key.contains("-----BEGIN PRIVATE KEY-----") && !private_key.starts_with("demo-") {
-                validation.validation_errors.push(
-                    "APPLE_PRIVATE_KEY should be in PEM format".to_string()
-                );
+            if !private_key.contains("-----BEGIN PRIVATE KEY-----")
+                && !private_key.starts_with("demo-")
+            {
+                validation
+                    .validation_errors
+                    .push("APPLE_PRIVATE_KEY should be in PEM format".to_string());
             }
 
             // Validate redirect URI format
             if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
-                validation.validation_errors.push(
-                    "APPLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string()
-                );
+                validation
+                    .validation_errors
+                    .push("APPLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string());
             }
 
             // Check for development/demo configuration
             if client_id.starts_with("demo-") || team_id.starts_with("demo-") {
-                validation.warnings.push("Using demo Apple OAuth configuration - not suitable for production".to_string());
+                validation.warnings.push(
+                    "Using demo Apple OAuth configuration - not suitable for production"
+                        .to_string(),
+                );
             }
 
             // Apple Sign In requires HTTPS in production
@@ -253,7 +295,8 @@ impl OAuthConfigValidator {
             validation.is_valid = validation.validation_errors.is_empty();
         }
 
-        self.validation_results.insert(OAuthProviderType::Apple, validation);
+        self.validation_results
+            .insert(OAuthProviderType::Apple, validation);
     }
 
     /// Validate GitHub OAuth configuration
@@ -274,29 +317,40 @@ impl OAuthConfigValidator {
 
         // Track missing variables
         if client_id.is_err() {
-            validation.missing_variables.push("GITHUB_CLIENT_ID".to_string());
+            validation
+                .missing_variables
+                .push("GITHUB_CLIENT_ID".to_string());
         }
         if client_secret.is_err() {
-            validation.missing_variables.push("GITHUB_CLIENT_SECRET".to_string());
+            validation
+                .missing_variables
+                .push("GITHUB_CLIENT_SECRET".to_string());
         }
         if redirect_uri.is_err() {
-            validation.missing_variables.push("GITHUB_REDIRECT_URI".to_string());
+            validation
+                .missing_variables
+                .push("GITHUB_REDIRECT_URI".to_string());
         }
 
         // If all variables are present, validate their values
-        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) = (client_id, client_secret, redirect_uri) {
+        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) =
+            (client_id, client_secret, redirect_uri)
+        {
             validation.is_configured = true;
 
             // Validate client ID format (GitHub client IDs are typically hex strings)
             if client_id.len() < 16 && !client_id.starts_with("demo-") {
                 validation.validation_errors.push(
-                    "GITHUB_CLIENT_ID appears to be too short (should be at least 16 characters)".to_string()
+                    "GITHUB_CLIENT_ID appears to be too short (should be at least 16 characters)"
+                        .to_string(),
                 );
             }
 
             // Validate client secret is not empty
             if client_secret.trim().is_empty() {
-                validation.validation_errors.push("GITHUB_CLIENT_SECRET cannot be empty".to_string());
+                validation
+                    .validation_errors
+                    .push("GITHUB_CLIENT_SECRET cannot be empty".to_string());
             }
 
             // Validate client secret format (GitHub client secrets are typically 40 characters)
@@ -308,18 +362,22 @@ impl OAuthConfigValidator {
 
             // Validate redirect URI format
             if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
-                validation.validation_errors.push(
-                    "GITHUB_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string()
-                );
+                validation
+                    .validation_errors
+                    .push("GITHUB_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string());
             }
 
             // Check for development/demo configuration
             if client_id.starts_with("demo-") || client_secret.starts_with("demo-") {
-                validation.warnings.push("Using demo GitHub OAuth configuration - not suitable for production".to_string());
+                validation.warnings.push(
+                    "Using demo GitHub OAuth configuration - not suitable for production"
+                        .to_string(),
+                );
             }
 
             // Validate redirect URI points to callback endpoint
-            if !redirect_uri.contains("/auth/callback") && !redirect_uri.contains("/oauth/callback") {
+            if !redirect_uri.contains("/auth/callback") && !redirect_uri.contains("/oauth/callback")
+            {
                 validation.warnings.push(
                     "GITHUB_REDIRECT_URI should point to OAuth callback endpoint (e.g., /auth/callback/github)".to_string()
                 );
@@ -329,7 +387,8 @@ impl OAuthConfigValidator {
             validation.is_valid = validation.validation_errors.is_empty();
         }
 
-        self.validation_results.insert(OAuthProviderType::GitHub, validation);
+        self.validation_results
+            .insert(OAuthProviderType::GitHub, validation);
     }
 
     /// Validate Spotify OAuth configuration
@@ -349,15 +408,20 @@ impl OAuthConfigValidator {
 
         // Check if all required variables are present
         if client_id.is_err() {
-            validation.missing_variables.push("SPOTIFY_CLIENT_ID".to_string());
+            validation
+                .missing_variables
+                .push("SPOTIFY_CLIENT_ID".to_string());
         }
         if client_secret.is_err() {
-            validation.missing_variables.push("SPOTIFY_CLIENT_SECRET".to_string());
+            validation
+                .missing_variables
+                .push("SPOTIFY_CLIENT_SECRET".to_string());
         }
 
         // If any required variables are missing, mark as not configured
         if !validation.missing_variables.is_empty() {
-            self.validation_results.insert(OAuthProviderType::Spotify, validation);
+            self.validation_results
+                .insert(OAuthProviderType::Spotify, validation);
             return;
         }
 
@@ -368,34 +432,38 @@ impl OAuthConfigValidator {
         if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
             // Validate client ID format (Spotify client IDs are typically 32 characters)
             if client_id.len() != 32 && !client_id.starts_with("demo-") {
-                validation.validation_errors.push(
-                    "SPOTIFY_CLIENT_ID should be exactly 32 characters".to_string()
-                );
+                validation
+                    .validation_errors
+                    .push("SPOTIFY_CLIENT_ID should be exactly 32 characters".to_string());
             }
 
             // Validate client secret format (Spotify client secrets are typically 32 characters)
             if client_secret.len() != 32 && !client_secret.starts_with("demo-") {
-                validation.validation_errors.push(
-                    "SPOTIFY_CLIENT_SECRET should be exactly 32 characters".to_string()
-                );
+                validation
+                    .validation_errors
+                    .push("SPOTIFY_CLIENT_SECRET should be exactly 32 characters".to_string());
             }
 
             // Check for development/demo configuration
             if client_id.starts_with("demo-") || client_secret.starts_with("demo-") {
-                validation.warnings.push("Using demo Spotify OAuth configuration - not suitable for production".to_string());
+                validation.warnings.push(
+                    "Using demo Spotify OAuth configuration - not suitable for production"
+                        .to_string(),
+                );
             }
 
             // Configuration is valid if no validation errors
             validation.is_valid = validation.validation_errors.is_empty();
         }
 
-        self.validation_results.insert(OAuthProviderType::Spotify, validation);
+        self.validation_results
+            .insert(OAuthProviderType::Spotify, validation);
     }
 
     /// Log validation summary
     fn log_validation_summary(&self) {
         info!("📋 OAuth Configuration Validation Summary:");
-        
+
         for (provider, validation) in &self.validation_results {
             if validation.is_configured && validation.is_valid {
                 info!("  ✅ {}: Configured and valid", provider);
@@ -410,7 +478,10 @@ impl OAuthConfigValidator {
             } else {
                 info!("  ⏭️  {}: Not configured", provider);
                 if !validation.missing_variables.is_empty() {
-                    info!("    📝 Missing variables: {}", validation.missing_variables.join(", "));
+                    info!(
+                        "    📝 Missing variables: {}",
+                        validation.missing_variables.join(", ")
+                    );
                 }
             }
         }
@@ -419,8 +490,7 @@ impl OAuthConfigValidator {
     /// Get configuration guidance for a provider
     pub fn get_configuration_guidance(&self, provider: &OAuthProviderType) -> String {
         match provider {
-            OAuthProviderType::Google => {
-                "To configure Google OAuth:\n\
+            OAuthProviderType::Google => "To configure Google OAuth:\n\
                 1. Go to Google Cloud Console (https://console.cloud.google.com/)\n\
                 2. Create or select a project\n\
                 3. Enable the Google+ API\n\
@@ -428,10 +498,9 @@ impl OAuthConfigValidator {
                 5. Set environment variables:\n\
                    - GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com\n\
                    - GOOGLE_CLIENT_SECRET=your_client_secret\n\
-                   - GOOGLE_REDIRECT_URI=https://yourdomain.com/auth/callback/google".to_string()
-            }
-            OAuthProviderType::Apple => {
-                "To configure Apple Sign In:\n\
+                   - GOOGLE_REDIRECT_URI=https://yourdomain.com/auth/callback/google"
+                .to_string(),
+            OAuthProviderType::Apple => "To configure Apple Sign In:\n\
                 1. Go to Apple Developer Portal (https://developer.apple.com/)\n\
                 2. Create an App ID with Sign In with Apple capability\n\
                 3. Create a Services ID for web authentication\n\
@@ -441,28 +510,26 @@ impl OAuthConfigValidator {
                    - APPLE_TEAM_ID=your_team_id\n\
                    - APPLE_KEY_ID=your_key_id\n\
                    - APPLE_PRIVATE_KEY=your_private_key_pem\n\
-                   - APPLE_REDIRECT_URI=https://yourdomain.com/auth/callback/apple".to_string()
-            }
-            OAuthProviderType::GitHub => {
-                "To configure GitHub OAuth:\n\
+                   - APPLE_REDIRECT_URI=https://yourdomain.com/auth/callback/apple"
+                .to_string(),
+            OAuthProviderType::GitHub => "To configure GitHub OAuth:\n\
                 1. Go to GitHub Settings > Developer settings > OAuth Apps\n\
                 2. Create a new OAuth App\n\
                 3. Set the authorization callback URL\n\
                 4. Set environment variables:\n\
                    - GITHUB_CLIENT_ID=your_client_id\n\
                    - GITHUB_CLIENT_SECRET=your_client_secret\n\
-                   - GITHUB_REDIRECT_URI=https://yourdomain.com/auth/callback/github".to_string()
-            }
-            OAuthProviderType::Spotify => {
-                "To configure Spotify OAuth:\n\
+                   - GITHUB_REDIRECT_URI=https://yourdomain.com/auth/callback/github"
+                .to_string(),
+            OAuthProviderType::Spotify => "To configure Spotify OAuth:\n\
                 1. Go to Spotify Developer Dashboard (https://developer.spotify.com/dashboard)\n\
                 2. Create a new application\n\
                 3. Set the redirect URI\n\
                 4. Set environment variables:\n\
                    - SPOTIFY_CLIENT_ID=your_client_id\n\
                    - SPOTIFY_CLIENT_SECRET=your_client_secret\n\
-                   - SPOTIFY_REDIRECT_URI=https://yourdomain.com/auth/callback/spotify".to_string()
-            }
+                   - SPOTIFY_REDIRECT_URI=https://yourdomain.com/auth/callback/spotify"
+                .to_string(),
         }
     }
 
@@ -481,7 +548,7 @@ impl OAuthConfigValidator {
                     for warning in &validation.warnings {
                         if warning.contains("demo") {
                             security_issues.push(format!(
-                                "{}: Demo configuration detected in production environment", 
+                                "{}: Demo configuration detected in production environment",
                                 provider
                             ));
                         }
@@ -500,7 +567,7 @@ impl OAuthConfigValidator {
                 if let Ok(uri) = uri_result {
                     if uri.starts_with("http://") && !uri.contains("localhost") {
                         security_issues.push(format!(
-                            "{}: HTTP redirect URI not allowed in production (use HTTPS)", 
+                            "{}: HTTP redirect URI not allowed in production (use HTTPS)",
                             var_name
                         ));
                     }
@@ -550,7 +617,9 @@ mod tests {
         let mut validator = OAuthConfigValidator::new();
         validator.validate_google_config();
 
-        let validation = validator.get_provider_validation(&OAuthProviderType::Google).unwrap();
+        let validation = validator
+            .get_provider_validation(&OAuthProviderType::Google)
+            .unwrap();
         assert!(!validation.is_configured);
         assert!(!validation.is_valid);
         assert_eq!(validation.missing_variables.len(), 3);
@@ -561,12 +630,17 @@ mod tests {
         // Set valid environment variables
         env::set_var("GOOGLE_CLIENT_ID", "test.apps.googleusercontent.com");
         env::set_var("GOOGLE_CLIENT_SECRET", "test_secret");
-        env::set_var("GOOGLE_REDIRECT_URI", "https://example.com/auth/callback/google");
+        env::set_var(
+            "GOOGLE_REDIRECT_URI",
+            "https://example.com/auth/callback/google",
+        );
 
         let mut validator = OAuthConfigValidator::new();
         validator.validate_google_config();
 
-        let validation = validator.get_provider_validation(&OAuthProviderType::Google).unwrap();
+        let validation = validator
+            .get_provider_validation(&OAuthProviderType::Google)
+            .unwrap();
         assert!(validation.is_configured);
         assert!(validation.is_valid);
         assert!(validation.validation_errors.is_empty());
@@ -587,7 +661,9 @@ mod tests {
         let mut validator = OAuthConfigValidator::new();
         validator.validate_github_config();
 
-        let validation = validator.get_provider_validation(&OAuthProviderType::GitHub).unwrap();
+        let validation = validator
+            .get_provider_validation(&OAuthProviderType::GitHub)
+            .unwrap();
         assert!(validation.is_configured);
         assert!(!validation.is_valid);
         assert!(!validation.validation_errors.is_empty());
@@ -601,13 +677,13 @@ mod tests {
     #[test]
     fn test_configuration_guidance() {
         let validator = OAuthConfigValidator::new();
-        
+
         let google_guidance = validator.get_configuration_guidance(&OAuthProviderType::Google);
         assert!(google_guidance.contains("Google Cloud Console"));
-        
+
         let apple_guidance = validator.get_configuration_guidance(&OAuthProviderType::Apple);
         assert!(apple_guidance.contains("Apple Developer Portal"));
-        
+
         let github_guidance = validator.get_configuration_guidance(&OAuthProviderType::GitHub);
         assert!(github_guidance.contains("GitHub Settings"));
     }

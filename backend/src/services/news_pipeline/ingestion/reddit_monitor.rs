@@ -170,9 +170,7 @@ impl RedditMonitor {
 
         let url = format!(
             "{}/r/{}/hot.json?limit={}",
-            REDDIT_BASE,
-            subreddit,
-            self.config.max_posts
+            REDDIT_BASE, subreddit, self.config.max_posts
         );
 
         let response = self
@@ -184,7 +182,11 @@ impl RedditMonitor {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(anyhow::anyhow!("Reddit API error: {} for r/{}", status, subreddit));
+            return Err(anyhow::anyhow!(
+                "Reddit API error: {} for r/{}",
+                status,
+                subreddit
+            ));
         }
 
         let listing: RedditListing = response
@@ -215,8 +217,8 @@ impl RedditMonitor {
 
             seen.insert(post.id.clone());
 
-            let created_at = DateTime::from_timestamp(post.created_utc as i64, 0)
-                .unwrap_or_else(|| Utc::now());
+            let created_at =
+                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(|| Utc::now());
 
             posts.push(ProcessedRedditPost {
                 id: Uuid::new_v4(),
@@ -240,7 +242,11 @@ impl RedditMonitor {
     }
 
     /// Search Reddit for a query
-    pub async fn search(&self, query: &str, subreddit: Option<&str>) -> Result<Vec<ProcessedRedditPost>> {
+    pub async fn search(
+        &self,
+        query: &str,
+        subreddit: Option<&str>,
+    ) -> Result<Vec<ProcessedRedditPost>> {
         self.check_rate_limit().await?;
 
         let url = if let Some(sub) = subreddit {
@@ -268,7 +274,10 @@ impl RedditMonitor {
             .context("Reddit search failed")?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!("Reddit search error: {}", response.status()));
+            return Err(anyhow::anyhow!(
+                "Reddit search error: {}",
+                response.status()
+            ));
         }
 
         let listing: RedditListing = response
@@ -288,8 +297,8 @@ impl RedditMonitor {
 
             seen.insert(post.id.clone());
 
-            let created_at = DateTime::from_timestamp(post.created_utc as i64, 0)
-                .unwrap_or_else(|| Utc::now());
+            let created_at =
+                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(|| Utc::now());
 
             posts.push(ProcessedRedditPost {
                 id: Uuid::new_v4(),

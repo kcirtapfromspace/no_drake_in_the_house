@@ -5,10 +5,15 @@
 //! - Offense classification
 //! - Embedding generation for semantic search
 
+pub mod embedding_generator;
 pub mod entity_extractor;
 pub mod offense_classifier;
-pub mod embedding_generator;
 
-pub use entity_extractor::{EntityExtractor, EntityExtractorConfig, ExtractedEntity, EntityType, KnownArtist};
-pub use offense_classifier::{OffenseClassifier, OffenseClassifierConfig, OffenseClassification, OffenseCategory, OffenseSeverity};
-pub use embedding_generator::{EmbeddingGenerator, EmbeddingConfig, ArticleEmbedding};
+pub use embedding_generator::{ArticleEmbedding, EmbeddingConfig, EmbeddingGenerator};
+pub use entity_extractor::{
+    EntityExtractor, EntityExtractorConfig, EntityType, ExtractedEntity, KnownArtist,
+};
+pub use offense_classifier::{
+    OffenseCategory, OffenseClassification, OffenseClassifier, OffenseClassifierConfig,
+    OffenseSeverity,
+};

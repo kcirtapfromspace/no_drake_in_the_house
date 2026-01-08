@@ -203,8 +203,13 @@ impl KuzuClient {
             artist.id,
             escape_string(&artist.canonical_name),
             format_string_array(&artist.genres),
-            artist.country.as_ref().map_or("NULL".to_string(), |c| format!("'{}'", escape_string(c))),
-            artist.formed_year.map_or("NULL".to_string(), |y| y.to_string()),
+            artist
+                .country
+                .as_ref()
+                .map_or("NULL".to_string(), |c| format!("'{}'", escape_string(c))),
+            artist
+                .formed_year
+                .map_or("NULL".to_string(), |y| y.to_string()),
             artist.is_blocked,
             artist.block_count,
         ))?;
@@ -268,8 +273,7 @@ impl KuzuClient {
             ORDER BY collab_count DESC
             LIMIT 50
             "#,
-            artist_id,
-            depth,
+            artist_id, depth,
         ))?;
 
         let mut nodes = vec![center.clone()];
@@ -327,8 +331,7 @@ impl KuzuClient {
             MATCH p = shortestPath((a1:Artist {{id: '{}'}})-[*..6]-(a2:Artist {{id: '{}'}}))
             RETURN nodes(p), relationships(p)
             "#,
-            artist1_id,
-            artist2_id,
+            artist1_id, artist2_id,
         ))?;
 
         if let Some(_row) = result.into_iter().next() {
@@ -345,7 +348,11 @@ impl KuzuClient {
     }
 
     /// Get blocked artist network analysis
-    pub fn analyze_blocked_network(&self, user_blocked_ids: &[String], max_distance: u32) -> Result<BlockedNetworkAnalysis> {
+    pub fn analyze_blocked_network(
+        &self,
+        user_blocked_ids: &[String],
+        max_distance: u32,
+    ) -> Result<BlockedNetworkAnalysis> {
         let conn = self.connection()?;
 
         // For each blocked artist, find connected artists within distance
@@ -363,8 +370,7 @@ impl KuzuClient {
                 ORDER BY distance, connection_strength DESC
                 LIMIT 20
                 "#,
-                blocked_id,
-                max_distance,
+                blocked_id, max_distance,
             ))?;
 
             for row in result {
@@ -375,7 +381,8 @@ impl KuzuClient {
                 let strength = value_to_u32(&row[3]);
                 let risk = (max_distance - distance + 1) as f64 * strength as f64;
 
-                risk_scores.entry(artist_id.clone())
+                risk_scores
+                    .entry(artist_id.clone())
                     .and_modify(|r: &mut f64| *r += risk)
                     .or_insert(risk);
 
@@ -392,7 +399,9 @@ impl KuzuClient {
         connected_artists.sort_by(|a, b| {
             let risk_a = risk_scores.get(&a.id).unwrap_or(&0.0);
             let risk_b = risk_scores.get(&b.id).unwrap_or(&0.0);
-            risk_b.partial_cmp(risk_a).unwrap_or(std::cmp::Ordering::Equal)
+            risk_b
+                .partial_cmp(risk_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         connected_artists.dedup_by(|a, b| a.id == b.id);
 
@@ -409,28 +418,32 @@ impl KuzuClient {
 
         // Count artists
         let artist_result = conn.query("MATCH (a:Artist) RETURN COUNT(a)")?;
-        let artist_count = artist_result.into_iter()
+        let artist_count = artist_result
+            .into_iter()
             .next()
             .map(|row| value_to_u32(&row[0]) as u64)
             .unwrap_or(0);
 
         // Count collaborations
         let collab_result = conn.query("MATCH ()-[r:COLLABORATED_WITH]->() RETURN COUNT(r)")?;
-        let collaboration_count = collab_result.into_iter()
+        let collaboration_count = collab_result
+            .into_iter()
             .next()
             .map(|row| value_to_u32(&row[0]) as u64)
             .unwrap_or(0);
 
         // Count labels
         let label_result = conn.query("MATCH (l:Label) RETURN COUNT(l)")?;
-        let label_count = label_result.into_iter()
+        let label_count = label_result
+            .into_iter()
             .next()
             .map(|row| value_to_u32(&row[0]) as u64)
             .unwrap_or(0);
 
         // Count tracks
         let track_result = conn.query("MATCH (t:Track) RETURN COUNT(t)")?;
-        let track_count = track_result.into_iter()
+        let track_count = track_result
+            .into_iter()
             .next()
             .map(|row| value_to_u32(&row[0]) as u64)
             .unwrap_or(0);
@@ -462,10 +475,13 @@ fn format_string_array(arr: &[String]) -> String {
     if arr.is_empty() {
         "[]".to_string()
     } else {
-        format!("[{}]", arr.iter()
-            .map(|s| format!("'{}'", escape_string(s)))
-            .collect::<Vec<_>>()
-            .join(", "))
+        format!(
+            "[{}]",
+            arr.iter()
+                .map(|s| format!("'{}'", escape_string(s)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
     }
 }
 

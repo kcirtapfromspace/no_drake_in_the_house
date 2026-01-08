@@ -8,7 +8,7 @@ use uuid::Uuid;
 async fn test_create_community_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create a test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -31,13 +31,18 @@ async fn test_create_community_list(pool: PgPool) {
         visibility: CommunityListVisibility::Public,
     };
 
-    let result = community_service.create_community_list(user_id, request).await;
+    let result = community_service
+        .create_community_list(user_id, request)
+        .await;
     assert!(result.is_ok());
-    
+
     let list = result.unwrap();
     assert_eq!(list.name, "Test Community List");
     assert_eq!(list.description, Some("A test community list".to_string()));
-    assert_eq!(list.criteria, "Artists who have been involved in specific controversies");
+    assert_eq!(
+        list.criteria,
+        "Artists who have been involved in specific controversies"
+    );
     assert_eq!(list.version, 1);
     assert_eq!(list.visibility, "public");
     assert_eq!(list.owner.id, user_id);
@@ -47,7 +52,7 @@ async fn test_create_community_list(pool: PgPool) {
 async fn test_create_community_list_with_invalid_criteria(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create a test user
     let user_id = Uuid::new_v4();
     sqlx::query!(
@@ -70,7 +75,9 @@ async fn test_create_community_list_with_invalid_criteria(pool: PgPool) {
         visibility: CommunityListVisibility::Private,
     };
 
-    let result = community_service.create_community_list(user_id, request).await;
+    let result = community_service
+        .create_community_list(user_id, request)
+        .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("neutral"));
 }
@@ -79,11 +86,11 @@ async fn test_create_community_list_with_invalid_criteria(pool: PgPool) {
 async fn test_browse_community_lists(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test users
     let user1_id = Uuid::new_v4();
     let user2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3), ($4, $5, $6)",
         user1_id,
@@ -100,7 +107,7 @@ async fn test_browse_community_lists(pool: PgPool) {
     // Create test community lists
     let list1_id = Uuid::new_v4();
     let list2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO community_lists (
@@ -144,13 +151,13 @@ async fn test_browse_community_lists(pool: PgPool) {
 
     let result = community_service.browse_community_lists(query).await;
     assert!(result.is_ok());
-    
+
     let directory = result.unwrap();
     assert_eq!(directory.lists.len(), 2);
     assert_eq!(directory.total, 2);
     assert_eq!(directory.page, 1);
     assert_eq!(directory.per_page, 20);
-    
+
     // Check that email is masked
     assert!(directory.lists[0].owner_email.contains("*"));
 }
@@ -159,11 +166,11 @@ async fn test_browse_community_lists(pool: PgPool) {
 async fn test_subscribe_to_community_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test users
     let owner_id = Uuid::new_v4();
     let subscriber_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3), ($4, $5, $6)",
         owner_id,
@@ -205,9 +212,11 @@ async fn test_subscribe_to_community_list(pool: PgPool) {
         auto_update: Some(false),
     };
 
-    let result = community_service.subscribe_to_community_list(subscriber_id, list_id, request).await;
+    let result = community_service
+        .subscribe_to_community_list(subscriber_id, list_id, request)
+        .await;
     assert!(result.is_ok());
-    
+
     let subscription = result.unwrap();
     assert_eq!(subscription.version_pinned, Some(1));
     assert_eq!(subscription.auto_update, false);
@@ -218,20 +227,25 @@ async fn test_subscribe_to_community_list(pool: PgPool) {
         auto_update: None,
     };
 
-    let duplicate_result = community_service.subscribe_to_community_list(subscriber_id, list_id, duplicate_request).await;
+    let duplicate_result = community_service
+        .subscribe_to_community_list(subscriber_id, list_id, duplicate_request)
+        .await;
     assert!(duplicate_result.is_err());
-    assert!(duplicate_result.unwrap_err().to_string().contains("already subscribed"));
+    assert!(duplicate_result
+        .unwrap_err()
+        .to_string()
+        .contains("already subscribed"));
 }
 
 #[sqlx::test]
 async fn test_get_subscription_impact_preview(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test users
     let owner_id = Uuid::new_v4();
     let subscriber_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3), ($4, $5, $6)",
         owner_id,
@@ -271,7 +285,7 @@ async fn test_get_subscription_impact_preview(pool: PgPool) {
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
     let artist3_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO artists (id, canonical_name, external_ids, metadata) 
@@ -325,9 +339,11 @@ async fn test_get_subscription_impact_preview(pool: PgPool) {
     .unwrap();
 
     // Test getting subscription impact preview
-    let result = community_service.get_subscription_impact_preview(subscriber_id, list_id).await;
+    let result = community_service
+        .get_subscription_impact_preview(subscriber_id, list_id)
+        .await;
     assert!(result.is_ok());
-    
+
     let impact = result.unwrap();
     assert_eq!(impact.list_name, "Impact Test List");
     assert_eq!(impact.total_artists_in_list, 3);
@@ -341,7 +357,7 @@ async fn test_get_subscription_impact_preview(pool: PgPool) {
 async fn test_add_artist_to_community_list(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test user
     let owner_id = Uuid::new_v4();
     sqlx::query!(
@@ -398,16 +414,24 @@ async fn test_add_artist_to_community_list(pool: PgPool) {
         rationale_link: Some("https://example.com/rationale".to_string()),
     };
 
-    let result = community_service.add_artist_to_community_list(owner_id, list_id, request).await;
+    let result = community_service
+        .add_artist_to_community_list(owner_id, list_id, request)
+        .await;
     assert!(result.is_ok());
-    
+
     let artist_entry = result.unwrap();
     assert_eq!(artist_entry.artist_name, "Community List Artist");
-    assert_eq!(artist_entry.rationale_link, Some("https://example.com/rationale".to_string()));
+    assert_eq!(
+        artist_entry.rationale_link,
+        Some("https://example.com/rationale".to_string())
+    );
     assert!(artist_entry.provider_badges.len() > 0);
 
     // Verify list version was incremented
-    let updated_list = community_service.get_community_list_by_id(list_id, Some(owner_id)).await.unwrap();
+    let updated_list = community_service
+        .get_community_list_by_id(list_id, Some(owner_id))
+        .await
+        .unwrap();
     assert_eq!(updated_list.version, 2);
     assert_eq!(updated_list.total_artists, 1);
 }
@@ -416,11 +440,11 @@ async fn test_add_artist_to_community_list(pool: PgPool) {
 async fn test_unauthorized_community_list_modification(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test users
     let owner_id = Uuid::new_v4();
     let other_user_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3), ($4, $5, $6)",
         owner_id,
@@ -477,7 +501,9 @@ async fn test_unauthorized_community_list_modification(pool: PgPool) {
         rationale_link: None,
     };
 
-    let result = community_service.add_artist_to_community_list(other_user_id, list_id, request).await;
+    let result = community_service
+        .add_artist_to_community_list(other_user_id, list_id, request)
+        .await;
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not authorized"));
 
@@ -486,22 +512,30 @@ async fn test_unauthorized_community_list_modification(pool: PgPool) {
         artist_query: "Unauthorized Test Artist".to_string(),
         rationale_link: None,
     };
-    community_service.add_artist_to_community_list(owner_id, list_id, add_request).await.unwrap();
+    community_service
+        .add_artist_to_community_list(owner_id, list_id, add_request)
+        .await
+        .unwrap();
 
-    let remove_result = community_service.remove_artist_from_community_list(other_user_id, list_id, artist_id).await;
+    let remove_result = community_service
+        .remove_artist_from_community_list(other_user_id, list_id, artist_id)
+        .await;
     assert!(remove_result.is_err());
-    assert!(remove_result.unwrap_err().to_string().contains("not authorized"));
+    assert!(remove_result
+        .unwrap_err()
+        .to_string()
+        .contains("not authorized"));
 }
 
 #[sqlx::test]
 async fn test_get_user_subscriptions(pool: PgPool) {
     let entity_service = Arc::new(EntityResolutionService::new(pool.clone()));
     let community_service = CommunityListService::new(pool.clone(), entity_service);
-    
+
     // Create test users
     let owner_id = Uuid::new_v4();
     let subscriber_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3), ($4, $5, $6)",
         owner_id,
@@ -518,7 +552,7 @@ async fn test_get_user_subscriptions(pool: PgPool) {
     // Create test community lists
     let list1_id = Uuid::new_v4();
     let list2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         r#"
         INSERT INTO community_lists (
@@ -568,22 +602,42 @@ async fn test_get_user_subscriptions(pool: PgPool) {
     .unwrap();
 
     // Test getting user subscriptions
-    let result = community_service.get_user_subscriptions(subscriber_id).await;
+    let result = community_service
+        .get_user_subscriptions(subscriber_id)
+        .await;
     assert!(result.is_ok());
-    
+
     let subscriptions = result.unwrap();
     assert_eq!(subscriptions.len(), 2);
-    
+
     // Check subscription details
-    let sub1 = subscriptions.iter().find(|s| s.name == "Subscription List 1").unwrap();
+    let sub1 = subscriptions
+        .iter()
+        .find(|s| s.name == "Subscription List 1")
+        .unwrap();
     assert_eq!(sub1.is_subscribed, true);
     assert!(sub1.subscription_details.is_some());
-    assert_eq!(sub1.subscription_details.as_ref().unwrap().version_pinned, Some(1));
-    assert_eq!(sub1.subscription_details.as_ref().unwrap().auto_update, true);
-    
-    let sub2 = subscriptions.iter().find(|s| s.name == "Subscription List 2").unwrap();
+    assert_eq!(
+        sub1.subscription_details.as_ref().unwrap().version_pinned,
+        Some(1)
+    );
+    assert_eq!(
+        sub1.subscription_details.as_ref().unwrap().auto_update,
+        true
+    );
+
+    let sub2 = subscriptions
+        .iter()
+        .find(|s| s.name == "Subscription List 2")
+        .unwrap();
     assert_eq!(sub2.is_subscribed, true);
     assert!(sub2.subscription_details.is_some());
-    assert_eq!(sub2.subscription_details.as_ref().unwrap().version_pinned, None);
-    assert_eq!(sub2.subscription_details.as_ref().unwrap().auto_update, false);
+    assert_eq!(
+        sub2.subscription_details.as_ref().unwrap().version_pinned,
+        None
+    );
+    assert_eq!(
+        sub2.subscription_details.as_ref().unwrap().auto_update,
+        false
+    );
 }

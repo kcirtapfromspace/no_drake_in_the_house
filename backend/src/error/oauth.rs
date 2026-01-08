@@ -1,10 +1,10 @@
 //! OAuth-specific error types and handling
 
+use crate::models::oauth::OAuthProviderType;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use thiserror::Error;
-use serde::{Serialize, Deserialize};
-use crate::models::oauth::OAuthProviderType;
 
 /// Comprehensive OAuth error types for different failure scenarios
 #[derive(Debug, Error, Clone, Serialize, Deserialize)]
@@ -305,7 +305,10 @@ impl OAuthError {
             Self::RateLimitExceeded { .. } => true,
             Self::TokenExchangeFailed { error_code, .. } => {
                 // Some token exchange errors are retryable
-                matches!(error_code.as_deref(), Some("temporarily_unavailable") | Some("server_error"))
+                matches!(
+                    error_code.as_deref(),
+                    Some("temporarily_unavailable") | Some("server_error")
+                )
             }
             _ => false,
         }
@@ -329,7 +332,9 @@ impl OAuthError {
     /// Check if this error requires user re-authentication
     pub fn requires_reauth(&self) -> bool {
         match self {
-            Self::TokenRefreshFailed { requires_reauth, .. } => *requires_reauth,
+            Self::TokenRefreshFailed {
+                requires_reauth, ..
+            } => *requires_reauth,
             Self::InvalidToken { .. } => true,
             Self::InsufficientScopes { .. } => true,
             Self::InvalidAuthorizationCode { .. } => true,
@@ -340,7 +345,9 @@ impl OAuthError {
     /// Get user-friendly error message
     pub fn user_message(&self) -> String {
         match self {
-            Self::ProviderError { provider, message, .. } => {
+            Self::ProviderError {
+                provider, message, ..
+            } => {
                 format!("Authentication with {} failed: {}", provider, message)
             }
             Self::ProviderNotConfigured { provider, .. } => {
@@ -356,41 +363,79 @@ impl OAuthError {
                 format!("Authentication with {} failed. Please try again.", provider)
             }
             Self::RedirectUriMismatch { provider, .. } => {
-                format!("Authentication with {} failed due to configuration error", provider)
+                format!(
+                    "Authentication with {} failed due to configuration error",
+                    provider
+                )
             }
             Self::TokenExchangeFailed { provider, .. } => {
-                format!("Failed to complete authentication with {}. Please try again.", provider)
+                format!(
+                    "Failed to complete authentication with {}. Please try again.",
+                    provider
+                )
             }
-            Self::TokenRefreshFailed { provider, requires_reauth, .. } => {
+            Self::TokenRefreshFailed {
+                provider,
+                requires_reauth,
+                ..
+            } => {
                 if *requires_reauth {
-                    format!("Your {} authentication has expired. Please sign in again.", provider)
+                    format!(
+                        "Your {} authentication has expired. Please sign in again.",
+                        provider
+                    )
                 } else {
-                    format!("Failed to refresh {} authentication. Please try again.", provider)
+                    format!(
+                        "Failed to refresh {} authentication. Please try again.",
+                        provider
+                    )
                 }
             }
             Self::InvalidToken { provider, .. } => {
-                format!("Your {} authentication is invalid. Please sign in again.", provider)
+                format!(
+                    "Your {} authentication is invalid. Please sign in again.",
+                    provider
+                )
             }
             Self::TokenEncryptionFailed { .. } => {
                 "Authentication data processing failed. Please try again.".to_string()
             }
-            Self::AccountLinkingFailed { provider, reason, .. } => {
+            Self::AccountLinkingFailed {
+                provider, reason, ..
+            } => {
                 format!("Failed to link {} account: {}", provider, reason)
             }
-            Self::AccountUnlinkingFailed { provider, reason, .. } => {
+            Self::AccountUnlinkingFailed {
+                provider, reason, ..
+            } => {
                 format!("Failed to unlink {} account: {}", provider, reason)
             }
-            Self::AccountMergeConflict { provider, reason, .. } => {
+            Self::AccountMergeConflict {
+                provider, reason, ..
+            } => {
                 format!("Account merge conflict with {}: {}", provider, reason)
             }
             Self::ProviderUnavailable { provider, .. } => {
-                format!("{} authentication is temporarily unavailable. Please try again later.", provider)
+                format!(
+                    "{} authentication is temporarily unavailable. Please try again later.",
+                    provider
+                )
             }
-            Self::RateLimitExceeded { provider, retry_after, .. } => {
-                format!("{} authentication rate limit exceeded. Please try again in {} seconds.", provider, retry_after)
+            Self::RateLimitExceeded {
+                provider,
+                retry_after,
+                ..
+            } => {
+                format!(
+                    "{} authentication rate limit exceeded. Please try again in {} seconds.",
+                    provider, retry_after
+                )
             }
             Self::UserInfoRetrievalFailed { provider, .. } => {
-                format!("Failed to retrieve profile information from {}. Please try again.", provider)
+                format!(
+                    "Failed to retrieve profile information from {}. Please try again.",
+                    provider
+                )
             }
             Self::InsufficientScopes { provider, .. } => {
                 format!("Insufficient permissions granted for {}. Please try again and grant the required permissions.", provider)
@@ -402,7 +447,10 @@ impl OAuthError {
                 "Authentication request blocked for security reasons. Please try again.".to_string()
             }
             Self::NetworkError { provider, .. } => {
-                format!("Network error connecting to {}. Please check your connection and try again.", provider)
+                format!(
+                    "Network error connecting to {}. Please check your connection and try again.",
+                    provider
+                )
             }
             Self::ApiTimeout { provider, .. } => {
                 format!("{} authentication timed out. Please try again.", provider)
@@ -413,79 +461,211 @@ impl OAuthError {
     /// Get error details for debugging and logging
     pub fn error_details(&self) -> HashMap<String, serde_json::Value> {
         let mut details = HashMap::new();
-        
+
         match self {
-            Self::ProviderError { provider, error_code, details: provider_details, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("error_code".to_string(), serde_json::Value::String(error_code.clone()));
+            Self::ProviderError {
+                provider,
+                error_code,
+                details: provider_details,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "error_code".to_string(),
+                    serde_json::Value::String(error_code.clone()),
+                );
                 if let Some(provider_details) = provider_details {
                     details.insert("provider_details".to_string(), provider_details.clone());
                 }
             }
-            Self::ProviderNotConfigured { provider, missing_variables, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("missing_variables".to_string(), serde_json::Value::Array(
-                    missing_variables.iter().map(|v| serde_json::Value::String(v.clone())).collect()
-                ));
+            Self::ProviderNotConfigured {
+                provider,
+                missing_variables,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "missing_variables".to_string(),
+                    serde_json::Value::Array(
+                        missing_variables
+                            .iter()
+                            .map(|v| serde_json::Value::String(v.clone()))
+                            .collect(),
+                    ),
+                );
             }
-            Self::InvalidConfiguration { provider, validation_errors, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("validation_errors".to_string(), serde_json::Value::Array(
-                    validation_errors.iter().map(|e| serde_json::Value::String(e.clone())).collect()
-                ));
+            Self::InvalidConfiguration {
+                provider,
+                validation_errors,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "validation_errors".to_string(),
+                    serde_json::Value::Array(
+                        validation_errors
+                            .iter()
+                            .map(|e| serde_json::Value::String(e.clone()))
+                            .collect(),
+                    ),
+                );
             }
-            Self::StateValidationFailed { expected_provider, received_provider, .. } => {
+            Self::StateValidationFailed {
+                expected_provider,
+                received_provider,
+                ..
+            } => {
                 if let Some(expected) = expected_provider {
-                    details.insert("expected_provider".to_string(), serde_json::Value::String(expected.to_string()));
+                    details.insert(
+                        "expected_provider".to_string(),
+                        serde_json::Value::String(expected.to_string()),
+                    );
                 }
                 if let Some(received) = received_provider {
-                    details.insert("received_provider".to_string(), serde_json::Value::String(received.to_string()));
+                    details.insert(
+                        "received_provider".to_string(),
+                        serde_json::Value::String(received.to_string()),
+                    );
                 }
             }
-            Self::TokenRefreshFailed { provider, requires_reauth, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("requires_reauth".to_string(), serde_json::Value::Bool(*requires_reauth));
+            Self::TokenRefreshFailed {
+                provider,
+                requires_reauth,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "requires_reauth".to_string(),
+                    serde_json::Value::Bool(*requires_reauth),
+                );
             }
-            Self::RateLimitExceeded { provider, retry_after, limit_type } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("retry_after".to_string(), serde_json::Value::Number((*retry_after).into()));
-                details.insert("limit_type".to_string(), serde_json::to_value(limit_type).unwrap_or_default());
+            Self::RateLimitExceeded {
+                provider,
+                retry_after,
+                limit_type,
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "retry_after".to_string(),
+                    serde_json::Value::Number((*retry_after).into()),
+                );
+                details.insert(
+                    "limit_type".to_string(),
+                    serde_json::to_value(limit_type).unwrap_or_default(),
+                );
             }
-            Self::InsufficientScopes { provider, required_scopes, granted_scopes } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("required_scopes".to_string(), serde_json::Value::Array(
-                    required_scopes.iter().map(|s| serde_json::Value::String(s.clone())).collect()
-                ));
-                details.insert("granted_scopes".to_string(), serde_json::Value::Array(
-                    granted_scopes.iter().map(|s| serde_json::Value::String(s.clone())).collect()
-                ));
+            Self::InsufficientScopes {
+                provider,
+                required_scopes,
+                granted_scopes,
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "required_scopes".to_string(),
+                    serde_json::Value::Array(
+                        required_scopes
+                            .iter()
+                            .map(|s| serde_json::Value::String(s.clone()))
+                            .collect(),
+                    ),
+                );
+                details.insert(
+                    "granted_scopes".to_string(),
+                    serde_json::Value::Array(
+                        granted_scopes
+                            .iter()
+                            .map(|s| serde_json::Value::String(s.clone()))
+                            .collect(),
+                    ),
+                );
             }
-            Self::SecurityViolation { provider, violation, client_info, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("violation_type".to_string(), serde_json::to_value(violation).unwrap_or_default());
+            Self::SecurityViolation {
+                provider,
+                violation,
+                client_info,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "violation_type".to_string(),
+                    serde_json::to_value(violation).unwrap_or_default(),
+                );
                 if let Some(client) = client_info {
-                    details.insert("client_info".to_string(), serde_json::to_value(client).unwrap_or_default());
+                    details.insert(
+                        "client_info".to_string(),
+                        serde_json::to_value(client).unwrap_or_default(),
+                    );
                 }
             }
-            Self::NetworkError { provider, retry_count, is_transient, .. } => {
-                details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
-                details.insert("retry_count".to_string(), serde_json::Value::Number((*retry_count).into()));
-                details.insert("is_transient".to_string(), serde_json::Value::Bool(*is_transient));
+            Self::NetworkError {
+                provider,
+                retry_count,
+                is_transient,
+                ..
+            } => {
+                details.insert(
+                    "provider".to_string(),
+                    serde_json::Value::String(provider.to_string()),
+                );
+                details.insert(
+                    "retry_count".to_string(),
+                    serde_json::Value::Number((*retry_count).into()),
+                );
+                details.insert(
+                    "is_transient".to_string(),
+                    serde_json::Value::Bool(*is_transient),
+                );
             }
             _ => {
                 // Add common details for other error types
                 if let Some(provider) = self.get_provider() {
-                    details.insert("provider".to_string(), serde_json::Value::String(provider.to_string()));
+                    details.insert(
+                        "provider".to_string(),
+                        serde_json::Value::String(provider.to_string()),
+                    );
                 }
             }
         }
 
-        details.insert("error_type".to_string(), serde_json::Value::String(self.error_type()));
-        details.insert("is_retryable".to_string(), serde_json::Value::Bool(self.is_retryable()));
-        details.insert("requires_reauth".to_string(), serde_json::Value::Bool(self.requires_reauth()));
-        
+        details.insert(
+            "error_type".to_string(),
+            serde_json::Value::String(self.error_type()),
+        );
+        details.insert(
+            "is_retryable".to_string(),
+            serde_json::Value::Bool(self.is_retryable()),
+        );
+        details.insert(
+            "requires_reauth".to_string(),
+            serde_json::Value::Bool(self.requires_reauth()),
+        );
+
         if let Some(retry_delay) = self.retry_delay() {
-            details.insert("retry_delay_seconds".to_string(), serde_json::Value::Number(retry_delay.into()));
+            details.insert(
+                "retry_delay_seconds".to_string(),
+                serde_json::Value::Number(retry_delay.into()),
+            );
         }
 
         details
@@ -494,25 +674,25 @@ impl OAuthError {
     /// Get the OAuth provider associated with this error
     pub fn get_provider(&self) -> Option<&OAuthProviderType> {
         match self {
-            Self::ProviderError { provider, .. } |
-            Self::ProviderNotConfigured { provider, .. } |
-            Self::InvalidConfiguration { provider, .. } |
-            Self::InvalidAuthorizationCode { provider, .. } |
-            Self::RedirectUriMismatch { provider, .. } |
-            Self::TokenExchangeFailed { provider, .. } |
-            Self::TokenRefreshFailed { provider, .. } |
-            Self::InvalidToken { provider, .. } |
-            Self::AccountLinkingFailed { provider, .. } |
-            Self::AccountUnlinkingFailed { provider, .. } |
-            Self::AccountMergeConflict { provider, .. } |
-            Self::ProviderUnavailable { provider, .. } |
-            Self::RateLimitExceeded { provider, .. } |
-            Self::UserInfoRetrievalFailed { provider, .. } |
-            Self::InsufficientScopes { provider, .. } |
-            Self::SecurityViolation { provider, .. } |
-            Self::CsrfAttackDetected { provider, .. } |
-            Self::NetworkError { provider, .. } |
-            Self::ApiTimeout { provider, .. } => Some(provider),
+            Self::ProviderError { provider, .. }
+            | Self::ProviderNotConfigured { provider, .. }
+            | Self::InvalidConfiguration { provider, .. }
+            | Self::InvalidAuthorizationCode { provider, .. }
+            | Self::RedirectUriMismatch { provider, .. }
+            | Self::TokenExchangeFailed { provider, .. }
+            | Self::TokenRefreshFailed { provider, .. }
+            | Self::InvalidToken { provider, .. }
+            | Self::AccountLinkingFailed { provider, .. }
+            | Self::AccountUnlinkingFailed { provider, .. }
+            | Self::AccountMergeConflict { provider, .. }
+            | Self::ProviderUnavailable { provider, .. }
+            | Self::RateLimitExceeded { provider, .. }
+            | Self::UserInfoRetrievalFailed { provider, .. }
+            | Self::InsufficientScopes { provider, .. }
+            | Self::SecurityViolation { provider, .. }
+            | Self::CsrfAttackDetected { provider, .. }
+            | Self::NetworkError { provider, .. }
+            | Self::ApiTimeout { provider, .. } => Some(provider),
             _ => None,
         }
     }
@@ -568,8 +748,12 @@ impl fmt::Display for EncryptionOperation {
 impl fmt::Display for AccountConflictType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AccountConflictType::AlreadyLinkedToSameUser => write!(f, "already_linked_to_same_user"),
-            AccountConflictType::AlreadyLinkedToDifferentUser => write!(f, "already_linked_to_different_user"),
+            AccountConflictType::AlreadyLinkedToSameUser => {
+                write!(f, "already_linked_to_same_user")
+            }
+            AccountConflictType::AlreadyLinkedToDifferentUser => {
+                write!(f, "already_linked_to_different_user")
+            }
             AccountConflictType::EmailConflict => write!(f, "email_conflict"),
             AccountConflictType::ProviderUserIdConflict => write!(f, "provider_user_id_conflict"),
         }
@@ -593,7 +777,9 @@ impl fmt::Display for SecurityViolationType {
             SecurityViolationType::StateParameterMissing => write!(f, "state_parameter_missing"),
             SecurityViolationType::StateParameterTampered => write!(f, "state_parameter_tampered"),
             SecurityViolationType::UnexpectedRedirectUri => write!(f, "unexpected_redirect_uri"),
-            SecurityViolationType::SuspiciousClientBehavior => write!(f, "suspicious_client_behavior"),
+            SecurityViolationType::SuspiciousClientBehavior => {
+                write!(f, "suspicious_client_behavior")
+            }
             SecurityViolationType::TokenReplayAttack => write!(f, "token_replay_attack"),
             SecurityViolationType::InvalidSignature => write!(f, "invalid_signature"),
         }
@@ -622,7 +808,10 @@ pub fn parse_provider_error(
 ) -> OAuthError {
     // Try to parse as JSON first
     if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(response_body) {
-        let error_code = error_json["error"].as_str().unwrap_or("unknown_error").to_string();
+        let error_code = error_json["error"]
+            .as_str()
+            .unwrap_or("unknown_error")
+            .to_string();
         let error_description = error_json["error_description"]
             .as_str()
             .or_else(|| error_json["message"].as_str())
@@ -631,27 +820,21 @@ pub fn parse_provider_error(
 
         // Handle common OAuth error codes
         match error_code.as_str() {
-            "invalid_grant" | "bad_verification_code" => {
-                OAuthError::InvalidAuthorizationCode {
-                    provider,
-                    error_code: Some(error_code),
-                    error_description: Some(error_description),
-                }
-            }
-            "invalid_client" | "incorrect_client_credentials" => {
-                OAuthError::InvalidConfiguration {
-                    provider,
-                    reason: "Invalid client credentials".to_string(),
-                    validation_errors: vec![error_description],
-                }
-            }
-            "redirect_uri_mismatch" => {
-                OAuthError::RedirectUriMismatch {
-                    provider,
-                    expected: "configured redirect URI".to_string(),
-                    received: "request redirect URI".to_string(),
-                }
-            }
+            "invalid_grant" | "bad_verification_code" => OAuthError::InvalidAuthorizationCode {
+                provider,
+                error_code: Some(error_code),
+                error_description: Some(error_description),
+            },
+            "invalid_client" | "incorrect_client_credentials" => OAuthError::InvalidConfiguration {
+                provider,
+                reason: "Invalid client credentials".to_string(),
+                validation_errors: vec![error_description],
+            },
+            "redirect_uri_mismatch" => OAuthError::RedirectUriMismatch {
+                provider,
+                expected: "configured redirect URI".to_string(),
+                received: "request redirect URI".to_string(),
+            },
             "temporarily_unavailable" | "server_error" => {
                 OAuthError::ProviderUnavailable {
                     provider,
@@ -660,14 +843,12 @@ pub fn parse_provider_error(
                     retry_after: Some(60), // Default 1 minute retry
                 }
             }
-            _ => {
-                OAuthError::provider_error_with_details(
-                    provider,
-                    error_code,
-                    error_description,
-                    error_json,
-                )
-            }
+            _ => OAuthError::provider_error_with_details(
+                provider,
+                error_code,
+                error_description,
+                error_json,
+            ),
         }
     } else {
         // Fallback for non-JSON responses
@@ -694,7 +875,7 @@ mod tests {
         let error = OAuthError::provider_error(
             OAuthProviderType::Google,
             "invalid_grant",
-            "Authorization code expired"
+            "Authorization code expired",
         );
 
         assert_eq!(error.get_provider(), Some(&OAuthProviderType::Google));
@@ -751,9 +932,18 @@ mod tests {
         };
 
         let details = error.error_details();
-        assert_eq!(details.get("provider").unwrap(), &serde_json::Value::String("GitHub".to_string()));
-        assert_eq!(details.get("retry_after").unwrap(), &serde_json::Value::Number(60.into()));
-        assert_eq!(details.get("is_retryable").unwrap(), &serde_json::Value::Bool(true));
+        assert_eq!(
+            details.get("provider").unwrap(),
+            &serde_json::Value::String("GitHub".to_string())
+        );
+        assert_eq!(
+            details.get("retry_after").unwrap(),
+            &serde_json::Value::Number(60.into())
+        );
+        assert_eq!(
+            details.get("is_retryable").unwrap(),
+            &serde_json::Value::Bool(true)
+        );
     }
 
     #[test]
@@ -762,7 +952,11 @@ mod tests {
         let error = parse_provider_error(OAuthProviderType::Google, 400, json_response);
 
         match error {
-            OAuthError::InvalidAuthorizationCode { provider, error_code, .. } => {
+            OAuthError::InvalidAuthorizationCode {
+                provider,
+                error_code,
+                ..
+            } => {
                 assert_eq!(provider, OAuthProviderType::Google);
                 assert_eq!(error_code, Some("invalid_grant".to_string()));
             }

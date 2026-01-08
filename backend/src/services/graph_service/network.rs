@@ -14,8 +14,8 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::services::databases::{
-    KuzuClient, ArtistNetwork, ArtistPath, BlockedNetworkAnalysis,
-    GraphArtistNode, CollaborationEdge, ConnectedArtist,
+    ArtistNetwork, ArtistPath, BlockedNetworkAnalysis, CollaborationEdge, ConnectedArtist,
+    GraphArtistNode, KuzuClient,
 };
 
 /// Network analysis response for API
@@ -212,29 +212,36 @@ impl NetworkAnalysisService {
 
     /// Create with custom config
     pub fn with_config(kuzu: Arc<KuzuClient>, pool: PgPool, config: NetworkAnalysisConfig) -> Self {
-        Self {
-            config,
-            kuzu,
-            pool,
-        }
+        Self { config, kuzu, pool }
     }
 
     /// Get artist collaboration network
-    pub fn get_artist_network(&self, artist_id: Uuid, depth: Option<u32>) -> Result<ArtistNetworkResponse> {
-        let depth = depth.unwrap_or(self.config.max_depth).min(self.config.max_depth);
+    pub fn get_artist_network(
+        &self,
+        artist_id: Uuid,
+        depth: Option<u32>,
+    ) -> Result<ArtistNetworkResponse> {
+        let depth = depth
+            .unwrap_or(self.config.max_depth)
+            .min(self.config.max_depth);
 
-        let network = self.kuzu.get_artist_network(&artist_id.to_string(), depth)?;
+        let network = self
+            .kuzu
+            .get_artist_network(&artist_id.to_string(), depth)?;
 
         self.convert_network_response(network)
     }
 
     /// Find shortest path between two artists
     pub fn find_path(&self, from_id: Uuid, to_id: Uuid) -> Result<PathResponse> {
-        let path = self.kuzu.find_path(&from_id.to_string(), &to_id.to_string())?;
+        let path = self
+            .kuzu
+            .find_path(&from_id.to_string(), &to_id.to_string())?;
 
         match path {
             Some(p) => {
-                let path_nodes: Vec<PathNodeResponse> = p.artists
+                let path_nodes: Vec<PathNodeResponse> = p
+                    .artists
                     .iter()
                     .enumerate()
                     .map(|(i, artist_id)| {
@@ -308,13 +315,18 @@ impl NetworkAnalysisService {
         let max_distance = max_distance.unwrap_or(3);
         let blocked_id_strings: Vec<String> = blocked_ids.iter().map(|id| id.to_string()).collect();
 
-        let analysis = self.kuzu.analyze_blocked_network(&blocked_id_strings, max_distance)?;
+        let analysis = self
+            .kuzu
+            .analyze_blocked_network(&blocked_id_strings, max_distance)?;
 
         self.convert_blocked_analysis(analysis, &blocked_ids).await
     }
 
     /// Get blocked artists with network context
-    pub async fn get_blocked_artists_network(&self, user_id: Uuid) -> Result<Vec<ArtistNodeResponse>> {
+    pub async fn get_blocked_artists_network(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<ArtistNodeResponse>> {
         let blocked_ids = self.get_user_blocked_artists(user_id).await?;
 
         let mut artists = Vec::new();
@@ -338,7 +350,8 @@ impl NetworkAnalysisService {
     pub fn get_collaborators(&self, artist_id: Uuid) -> Result<Vec<ArtistNodeResponse>> {
         let network = self.kuzu.get_artist_network(&artist_id.to_string(), 1)?;
 
-        let collaborators: Vec<ArtistNodeResponse> = network.nodes
+        let collaborators: Vec<ArtistNodeResponse> = network
+            .nodes
             .iter()
             .filter(|n| n.id != artist_id.to_string())
             .map(|node| ArtistNodeResponse {
@@ -347,7 +360,11 @@ impl NetworkAnalysisService {
                 is_blocked: node.is_blocked,
                 genres: node.genres.clone(),
                 collaboration_count: node.collaboration_count,
-                risk_level: if node.is_blocked { Some(RiskLevel::High) } else { None },
+                risk_level: if node.is_blocked {
+                    Some(RiskLevel::High)
+                } else {
+                    None
+                },
             })
             .collect();
 
@@ -356,19 +373,20 @@ impl NetworkAnalysisService {
 
     /// Get network statistics for an artist
     pub fn get_network_stats(&self, artist_id: Uuid, depth: u32) -> Result<NetworkStatsResponse> {
-        let network = self.kuzu.get_artist_network(&artist_id.to_string(), depth)?;
+        let network = self
+            .kuzu
+            .get_artist_network(&artist_id.to_string(), depth)?;
         self.calculate_network_stats(&network)
     }
 
     /// Get user's blocked artists from PostgreSQL
     async fn get_user_blocked_artists(&self, user_id: Uuid) -> Result<Vec<Uuid>> {
-        let blocked: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT artist_id FROM user_artist_blocks WHERE user_id = $1"
-        )
-        .bind(user_id)
-        .fetch_all(&self.pool)
-        .await
-        .context("Failed to fetch blocked artists")?;
+        let blocked: Vec<Uuid> =
+            sqlx::query_scalar("SELECT artist_id FROM user_artist_blocks WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_all(&self.pool)
+                .await
+                .context("Failed to fetch blocked artists")?;
 
         Ok(blocked)
     }
@@ -384,7 +402,8 @@ impl NetworkAnalysisService {
             risk_level: None,
         };
 
-        let nodes: Vec<ArtistNodeResponse> = network.nodes
+        let nodes: Vec<ArtistNodeResponse> = network
+            .nodes
             .iter()
             .map(|node| ArtistNodeResponse {
                 id: Uuid::parse_str(&node.id).unwrap_or_default(),
@@ -392,11 +411,16 @@ impl NetworkAnalysisService {
                 is_blocked: node.is_blocked,
                 genres: node.genres.clone(),
                 collaboration_count: node.collaboration_count,
-                risk_level: if node.is_blocked { Some(RiskLevel::High) } else { None },
+                risk_level: if node.is_blocked {
+                    Some(RiskLevel::High)
+                } else {
+                    None
+                },
             })
             .collect();
 
-        let edges: Vec<EdgeResponse> = network.edges
+        let edges: Vec<EdgeResponse> = network
+            .edges
             .iter()
             .map(|edge| EdgeResponse {
                 source: Uuid::parse_str(&edge.source_id).unwrap_or_default(),

@@ -55,7 +55,9 @@ pub async fn get_offense(
     Path(offense_id): Path<Uuid>,
 ) -> Result<Json<OffenseWithEvidence>> {
     let offense_service = OffenseService::new(&state.db_pool);
-    let offense = offense_service.get_offense_with_evidence(offense_id).await?;
+    let offense = offense_service
+        .get_offense_with_evidence(offense_id)
+        .await?;
     Ok(Json(offense))
 }
 

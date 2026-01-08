@@ -1,8 +1,8 @@
 use crate::error::{AppError, Result};
 use crate::models::offense::{
-    AddEvidenceRequest, ArtistOffense, CreateOffenseRequest, FlaggedArtist,
-    ImportLibraryRequest, LibraryScanResponse, OffenseEvidence, OffenseSeverity,
-    OffenseSummary, OffenseWithEvidence, UserLibraryTrack,
+    AddEvidenceRequest, ArtistOffense, CreateOffenseRequest, FlaggedArtist, ImportLibraryRequest,
+    LibraryScanResponse, OffenseEvidence, OffenseSeverity, OffenseSummary, OffenseWithEvidence,
+    UserLibraryTrack,
 };
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -39,10 +39,7 @@ impl<'a> OffenseService<'a> {
     }
 
     /// Get a single offense with all evidence
-    pub async fn get_offense_with_evidence(
-        &self,
-        offense_id: Uuid,
-    ) -> Result<OffenseWithEvidence> {
+    pub async fn get_offense_with_evidence(&self, offense_id: Uuid) -> Result<OffenseWithEvidence> {
         let offense = sqlx::query_as::<_, ArtistOffense>(
             r#"
             SELECT id, artist_id, category, severity, title, description,
@@ -57,7 +54,9 @@ impl<'a> OffenseService<'a> {
         .fetch_optional(self.db)
         .await
         .map_err(|e| AppError::DatabaseQueryFailed(e))?
-        .ok_or_else(|| AppError::NotFound { resource: "Offense".to_string() })?;
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Offense".to_string(),
+        })?;
 
         let evidence = sqlx::query_as::<_, OffenseEvidence>(
             r#"
@@ -75,14 +74,13 @@ impl<'a> OffenseService<'a> {
         .map_err(|e| AppError::DatabaseQueryFailed(e))?;
 
         // Get artist name
-        let artist_name: String = sqlx::query_scalar(
-            "SELECT canonical_name FROM artists WHERE id = $1",
-        )
-        .bind(offense.artist_id)
-        .fetch_optional(self.db)
-        .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?
-        .unwrap_or_else(|| "Unknown Artist".to_string());
+        let artist_name: String =
+            sqlx::query_scalar("SELECT canonical_name FROM artists WHERE id = $1")
+                .bind(offense.artist_id)
+                .fetch_optional(self.db)
+                .await
+                .map_err(|e| AppError::DatabaseQueryFailed(e))?
+                .unwrap_or_else(|| "Unknown Artist".to_string());
 
         Ok(OffenseWithEvidence {
             offense,
@@ -229,7 +227,15 @@ impl<'a> OffenseService<'a> {
 
     /// Get offense summaries for an artist
     async fn get_offense_summaries(&self, artist_id: Uuid) -> Result<Vec<OffenseSummary>> {
-        let rows = sqlx::query_as::<_, (crate::models::offense::OffenseCategory, String, Option<chrono::NaiveDate>, i64)>(
+        let rows = sqlx::query_as::<
+            _,
+            (
+                crate::models::offense::OffenseCategory,
+                String,
+                Option<chrono::NaiveDate>,
+                i64,
+            ),
+        >(
             r#"
             SELECT ao.category, ao.title, ao.incident_date,
                    COUNT(oe.id) as evidence_count
@@ -447,9 +453,12 @@ impl<'a> OffenseService<'a> {
         .fetch_optional(self.db)
         .await
         .map_err(|e| AppError::DatabaseQueryFailed(e))?
-        .ok_or_else(|| AppError::NotFound { resource: "Artist".to_string() })?;
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Artist".to_string(),
+        })?;
 
-        let genres: Vec<String> = artist.1
+        let genres: Vec<String> = artist
+            .1
             .and_then(|m| m.get("genres").cloned())
             .and_then(|g| serde_json::from_value(g).ok())
             .unwrap_or_default();
@@ -482,23 +491,30 @@ impl<'a> OffenseService<'a> {
                 description: offense.description,
                 incident_date: offense.incident_date,
                 status: offense.status.to_string(),
-                evidence: evidence.into_iter().map(|e| crate::models::offense::EvidenceDetail {
-                    id: e.id,
-                    source_url: e.url,
-                    source_name: e.source_name,
-                    source_type: e.source_type,
-                    title: e.title,
-                    excerpt: e.excerpt,
-                    published_date: e.published_date,
-                    credibility_score: e.credibility_score,
-                }).collect(),
+                evidence: evidence
+                    .into_iter()
+                    .map(|e| crate::models::offense::EvidenceDetail {
+                        id: e.id,
+                        source_url: e.url,
+                        source_name: e.source_name,
+                        source_type: e.source_type,
+                        title: e.title,
+                        excerpt: e.excerpt,
+                        published_date: e.published_date,
+                        credibility_score: e.credibility_score,
+                    })
+                    .collect(),
             });
         }
 
         Ok(crate::models::offense::ArtistDetails {
             id: artist_id,
             canonical_name: artist.0,
-            genres: if genres.is_empty() { None } else { Some(genres) },
+            genres: if genres.is_empty() {
+                None
+            } else {
+                Some(genres)
+            },
             image_url: None,
             offenses: offense_details,
         })

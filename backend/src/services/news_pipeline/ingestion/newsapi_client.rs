@@ -308,7 +308,10 @@ impl NewsApiClient {
     }
 
     /// Search for music-related news
-    pub async fn search_music_news(&self, keywords: Option<&[&str]>) -> Result<Vec<FetchedArticle>> {
+    pub async fn search_music_news(
+        &self,
+        keywords: Option<&[&str]>,
+    ) -> Result<Vec<FetchedArticle>> {
         let default_keywords = ["music artist", "musician", "singer", "rapper", "band"];
         let search_terms = keywords.unwrap_or(&default_keywords);
 

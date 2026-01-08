@@ -21,7 +21,7 @@ async fn setup_authenticated_user(pool: &PgPool) -> (Uuid, String) {
         r#"
         INSERT INTO users (id, email, password_hash, created_at)
         VALUES ($1, $2, $3, NOW())
-        "#
+        "#,
     )
     .bind(user_id)
     .bind(&email)
@@ -58,7 +58,7 @@ async fn seed_test_artists(pool: &PgPool) -> Vec<Uuid> {
         INSERT INTO artist_offenses (artist_id, category, severity, title, description, status)
         VALUES ($1, 'domestic_violence'::offense_category, 'severe'::offense_severity,
                 'Test DV Offense', 'Test description', 'verified'::evidence_status)
-        "#
+        "#,
     )
     .bind(dv_artist)
     .execute(pool)
@@ -85,7 +85,7 @@ async fn seed_test_artists(pool: &PgPool) -> Vec<Uuid> {
         INSERT INTO artist_offenses (artist_id, category, severity, title, description, status)
         VALUES ($1, 'hate_speech'::offense_category, 'moderate'::offense_severity,
                 'Test HS Offense', 'Test description', 'verified'::evidence_status)
-        "#
+        "#,
     )
     .bind(hs_artist)
     .execute(pool)
@@ -112,7 +112,7 @@ async fn seed_test_artists(pool: &PgPool) -> Vec<Uuid> {
         INSERT INTO artist_offenses (artist_id, category, severity, title, description, status)
         VALUES ($1, 'domestic_violence'::offense_category, 'severe'::offense_severity,
                 'Test Multi DV', 'Test description', 'verified'::evidence_status)
-        "#
+        "#,
     )
     .bind(multi_artist)
     .execute(pool)
@@ -124,7 +124,7 @@ async fn seed_test_artists(pool: &PgPool) -> Vec<Uuid> {
         INSERT INTO artist_offenses (artist_id, category, severity, title, description, status)
         VALUES ($1, 'racism'::offense_category, 'moderate'::offense_severity,
                 'Test Multi Racism', 'Test description', 'verified'::evidence_status)
-        "#
+        "#,
     )
     .bind(multi_artist)
     .execute(pool)
@@ -155,7 +155,7 @@ mod tests {
             FROM artist_offenses
             WHERE status IN ('pending', 'verified')
             GROUP BY category
-            "#
+            "#,
         )
         .fetch_all(&pool)
         .await
@@ -165,7 +165,8 @@ mod tests {
         assert!(!rows.is_empty(), "Should have offense categories");
 
         // Verify domestic_violence category exists
-        let dv_count: Option<i64> = rows.iter()
+        let dv_count: Option<i64> = rows
+            .iter()
             .find(|r| r.get::<String, _>("category") == "domestic_violence")
             .map(|r| r.get("count"));
 
@@ -190,13 +191,12 @@ mod tests {
         .unwrap();
 
         // Verify subscription exists
-        let sub_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM category_subscriptions WHERE user_id = $1"
-        )
-        .bind(user_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let sub_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM category_subscriptions WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         assert_eq!(sub_count, 1, "Should have one subscription");
     }
@@ -230,7 +230,7 @@ mod tests {
             JOIN artists a ON a.id = ao.artist_id
             WHERE cs.user_id = $1
             AND ao.status IN ('pending', 'verified')
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(&pool)
@@ -240,9 +240,7 @@ mod tests {
         // Should block DV artist and Multi artist (both have DV offenses)
         assert_eq!(blocked_rows.len(), 2, "Should block 2 artists");
 
-        let blocked_names: Vec<String> = blocked_rows.iter()
-            .map(|r| r.get("name"))
-            .collect();
+        let blocked_names: Vec<String> = blocked_rows.iter().map(|r| r.get("name")).collect();
 
         assert!(blocked_names.contains(&"Test DV Artist".to_string()));
         assert!(blocked_names.contains(&"Test Multi Artist".to_string()));
@@ -274,7 +272,7 @@ mod tests {
             JOIN artist_offenses ao ON ao.category = cs.category
             JOIN artists a ON a.id = ao.artist_id
             WHERE cs.user_id = $1
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_one(&pool)
@@ -300,14 +298,17 @@ mod tests {
             JOIN artist_offenses ao ON ao.category = cs.category
             JOIN artists a ON a.id = ao.artist_id
             WHERE cs.user_id = $1
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_one(&pool)
         .await
         .unwrap();
 
-        assert_eq!(final_blocked, 0, "Should have no blocked artists after unsubscribe");
+        assert_eq!(
+            final_blocked, 0,
+            "Should have no blocked artists after unsubscribe"
+        );
     }
 
     /// Test subscribing to multiple categories
@@ -344,7 +345,7 @@ mod tests {
             JOIN artists a ON a.id = ao.artist_id
             WHERE cs.user_id = $1
             AND ao.status IN ('pending', 'verified')
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(&pool)
@@ -352,7 +353,11 @@ mod tests {
         .unwrap();
 
         // Should block all 3 test artists
-        assert_eq!(blocked_rows.len(), 3, "Should block 3 artists with both categories");
+        assert_eq!(
+            blocked_rows.len(),
+            3,
+            "Should block 3 artists with both categories"
+        );
     }
 
     /// Test artist with multiple offense categories is only listed once
@@ -389,7 +394,7 @@ mod tests {
             JOIN artists a ON a.id = ao.artist_id
             WHERE cs.user_id = $1
             AND ao.status IN ('pending', 'verified')
-            "#
+            "#,
         )
         .bind(user_id)
         .fetch_all(&pool)
@@ -397,11 +402,15 @@ mod tests {
         .unwrap();
 
         // Multi artist should appear only once despite having both DV and racism offenses
-        let multi_count = blocked_rows.iter()
+        let multi_count = blocked_rows
+            .iter()
             .filter(|r| r.get::<String, _>("name") == "Test Multi Artist")
             .count();
 
-        assert_eq!(multi_count, 1, "Multi-offense artist should appear exactly once");
+        assert_eq!(
+            multi_count, 1,
+            "Multi-offense artist should appear exactly once"
+        );
     }
 
     /// Test idempotent subscription (subscribe twice doesn't error)
@@ -423,13 +432,12 @@ mod tests {
         }
 
         // Should only have one subscription
-        let sub_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM category_subscriptions WHERE user_id = $1"
-        )
-        .bind(user_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let sub_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM category_subscriptions WHERE user_id = $1")
+                .bind(user_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         assert_eq!(sub_count, 1, "Should have exactly one subscription");
     }
@@ -437,8 +445,9 @@ mod tests {
 
 /// Get test database pool
 async fn get_test_pool() -> PgPool {
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string());
+    let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string()
+    });
 
     PgPool::connect(&database_url)
         .await

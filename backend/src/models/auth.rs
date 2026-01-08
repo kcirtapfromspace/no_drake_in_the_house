@@ -1,13 +1,13 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user_id
     pub email: String,
-    pub exp: i64, // expiration timestamp
-    pub iat: i64, // issued at timestamp
+    pub exp: i64,    // expiration timestamp
+    pub iat: i64,    // issued at timestamp
     pub jti: String, // JWT ID for token tracking
     pub token_type: TokenType,
     pub scopes: Vec<String>,
@@ -81,7 +81,12 @@ impl Claims {
 }
 
 impl RefreshToken {
-    pub fn new(user_id: Uuid, token_hash: String, expires_in_seconds: i64, family_id: Uuid) -> Self {
+    pub fn new(
+        user_id: Uuid,
+        token_hash: String,
+        expires_in_seconds: i64,
+        family_id: Uuid,
+    ) -> Self {
         let now = Utc::now();
         Self {
             id: Uuid::new_v4(),

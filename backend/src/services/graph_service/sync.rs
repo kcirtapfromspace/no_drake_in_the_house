@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-use crate::services::databases::{KuzuClient, GraphArtist, Collaboration};
+use crate::services::databases::{Collaboration, GraphArtist, KuzuClient};
 
 /// Sync job status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -219,7 +219,8 @@ impl GraphSyncService {
                 job.artists_synced = count;
             }
             Err(e) => {
-                job.errors.push(format!("Incremental artist sync failed: {}", e));
+                job.errors
+                    .push(format!("Incremental artist sync failed: {}", e));
             }
         }
 

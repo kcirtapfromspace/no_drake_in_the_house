@@ -3,13 +3,15 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use kiro_backend::models::{
-    ActionBatch, ActionBatchStatus, ActionItem, ActionItemStatus, BatchSummary,
-    Connection, ConnectionStatus, StreamingProvider, ExecuteBatchRequest,
-    EnforcementPlan, PlannedAction, EnforcementOptions, AggressivenessLevel,
-};
 use kiro_backend::models::spotify::{ActionType, EntityType};
-use kiro_backend::services::{SpotifyService, SpotifyLibraryService, SpotifyEnforcementService, TokenVaultService};
+use kiro_backend::models::{
+    ActionBatch, ActionBatchStatus, ActionItem, ActionItemStatus, AggressivenessLevel,
+    BatchSummary, Connection, ConnectionStatus, EnforcementOptions, EnforcementPlan,
+    ExecuteBatchRequest, PlannedAction, StreamingProvider,
+};
+use kiro_backend::services::{
+    SpotifyEnforcementService, SpotifyLibraryService, SpotifyService, TokenVaultService,
+};
 
 #[tokio::test]
 async fn test_enforcement_batch_creation() -> Result<()> {
@@ -25,18 +27,16 @@ async fn test_enforcement_batch_creation() -> Result<()> {
             block_songwriter_only: false,
             dry_run: true,
         },
-        actions: vec![
-            PlannedAction {
-                id: Uuid::new_v4(),
-                action_type: ActionType::RemoveLikedSong,
-                entity_type: EntityType::Track,
-                entity_id: "test_track_id".to_string(),
-                metadata: json!({
-                    "track_name": "Test Track",
-                    "artist_name": "Test Artist"
-                }),
-            }
-        ],
+        actions: vec![PlannedAction {
+            id: Uuid::new_v4(),
+            action_type: ActionType::RemoveLikedSong,
+            entity_type: EntityType::Track,
+            entity_id: "test_track_id".to_string(),
+            metadata: json!({
+                "track_name": "Test Track",
+                "artist_name": "Test Artist"
+            }),
+        }],
         summary: json!({
             "total_actions": 1,
             "liked_songs_to_remove": 1
@@ -66,22 +66,22 @@ async fn test_enforcement_batch_creation() -> Result<()> {
 #[tokio::test]
 async fn test_batch_summary_creation() -> Result<()> {
     let mut summary = BatchSummary::default();
-    
+
     assert_eq!(summary.total_actions, 0);
     assert_eq!(summary.completed_actions, 0);
     assert_eq!(summary.failed_actions, 0);
     assert_eq!(summary.execution_time_ms, 0);
-    
+
     // Test updating summary
     summary.total_actions = 10;
     summary.completed_actions = 8;
     summary.failed_actions = 2;
     summary.execution_time_ms = 5000;
-    
+
     assert_eq!(summary.total_actions, 10);
     assert_eq!(summary.completed_actions, 8);
     assert_eq!(summary.failed_actions, 2);
-    
+
     Ok(())
 }
 
@@ -113,7 +113,7 @@ async fn test_action_item_state_transitions() -> Result<()> {
         "remove_liked_song".to_string(),
         None,
     );
-    
+
     failed_action.mark_failed("API error".to_string());
     assert!(matches!(failed_action.status, ActionItemStatus::Failed));
     assert_eq!(failed_action.error_message, Some("API error".to_string()));
@@ -142,9 +142,15 @@ async fn test_execute_batch_request() -> Result<()> {
 #[tokio::test]
 async fn test_action_type_display() -> Result<()> {
     assert_eq!(ActionType::RemoveLikedSong.to_string(), "remove_liked_song");
-    assert_eq!(ActionType::RemovePlaylistTrack.to_string(), "remove_playlist_track");
+    assert_eq!(
+        ActionType::RemovePlaylistTrack.to_string(),
+        "remove_playlist_track"
+    );
     assert_eq!(ActionType::UnfollowArtist.to_string(), "unfollow_artist");
-    assert_eq!(ActionType::RemoveSavedAlbum.to_string(), "remove_saved_album");
+    assert_eq!(
+        ActionType::RemoveSavedAlbum.to_string(),
+        "remove_saved_album"
+    );
     assert_eq!(ActionType::SkipTrack.to_string(), "skip_track");
 
     Ok(())

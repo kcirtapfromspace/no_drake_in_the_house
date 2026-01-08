@@ -141,7 +141,10 @@ impl YouTubeMusicSyncWorker {
             return Err(anyhow::anyhow!("YouTube API error: {} - {}", status, body));
         }
 
-        response.json().await.context("Failed to parse YouTube response")
+        response
+            .json()
+            .await
+            .context("Failed to parse YouTube response")
     }
 }
 
@@ -404,7 +407,11 @@ impl PlatformCatalogWorker for YouTubeMusicSyncWorker {
     async fn get_artist(&self, platform_id: &str) -> Result<Option<PlatformArtist>> {
         let endpoint = format!("/channels?part=snippet,statistics&id={}", platform_id);
         let response: YouTubeChannelResponse = self.api_request(&endpoint, 1).await?;
-        Ok(response.items.into_iter().next().map(|c| c.into_platform_artist()))
+        Ok(response
+            .items
+            .into_iter()
+            .next()
+            .map(|c| c.into_platform_artist()))
     }
 
     async fn get_artist_top_tracks(

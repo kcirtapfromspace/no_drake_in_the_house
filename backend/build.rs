@@ -1,5 +1,3 @@
-use std::env;
-
 fn main() {
     // Enable offline mode for SQLx if .sqlx directory has query cache files
     // SQLx 0.8 uses individual query-*.json files

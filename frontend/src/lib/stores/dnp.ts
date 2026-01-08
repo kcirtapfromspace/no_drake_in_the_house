@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { apiClient, type ApiResponse } from '../utils/api-client';
+import { apiClient } from '../utils/api-client';
 
 export interface Artist {
   id: string;

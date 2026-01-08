@@ -182,8 +182,10 @@
 
 {#if isVisible}
   <!-- Modal backdrop -->
+  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" on:click={closeModal}>
     <!-- Modal content -->
+    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 xl:w-2/5 shadow-lg rounded-md bg-white" on:click|stopPropagation>
       <!-- Modal header -->
       <div class="flex items-center justify-between pb-4 border-b">

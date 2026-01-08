@@ -66,6 +66,8 @@ jobs:
 
     - name: Run database migrations
       working-directory: backend
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/kiro_test
       run: sqlx migrate run
 
     - name: Check code formatting
@@ -74,17 +76,27 @@ jobs:
 
     - name: Run clippy
       working-directory: backend
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/kiro_test
+        SQLX_OFFLINE: true
       run: cargo clippy --all-targets --all-features -- -D warnings
 
     - name: Run unit tests
       working-directory: backend
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/kiro_test
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET: test_jwt_secret_for_ci
       run: cargo test --lib
 
     - name: Run integration tests
       working-directory: backend
-      run: cargo test --test '*' --no-fail-fast
       env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/kiro_test
+        REDIS_URL: redis://localhost:6379
+        JWT_SECRET: test_jwt_secret_for_ci
         RUST_LOG: debug
+      run: cargo test --test '*' --no-fail-fast
 
   test-frontend:
     name: Frontend Tests
@@ -120,7 +132,10 @@ jobs:
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4

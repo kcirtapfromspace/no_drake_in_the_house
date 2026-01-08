@@ -156,54 +156,74 @@ impl DatabaseClients {
         })
     }
 
-    /// Health check for all databases
+    /// Health check for all databases with latency measurements
     pub async fn health_check(&self) -> Result<DatabasesHealth> {
+        use std::time::Instant;
         let mut health = DatabasesHealth::default();
 
-        // Check DuckDB
+        // Check DuckDB with timing
+        let start = Instant::now();
         health.duckdb = self.duckdb.get_daily_news_summary(1).await.is_ok();
+        health.latencies_ms.duckdb_ms = start.elapsed().as_millis() as u64;
 
-        // Check Kùzu - just try to get a connection
+        // Check Kùzu with timing
+        let start = Instant::now();
         health.kuzu = true; // Kùzu is synchronous, connection test done on init
+        health.latencies_ms.kuzu_ms = start.elapsed().as_millis() as u64;
 
-        // Check LanceDB
+        // Check LanceDB with timing
+        let start = Instant::now();
         health.lancedb = self.lancedb.get_stats().await.is_ok();
+        health.latencies_ms.lancedb_ms = start.elapsed().as_millis() as u64;
 
         health.all_healthy = health.duckdb && health.kuzu && health.lancedb;
 
         Ok(health)
     }
 
-    /// Get combined statistics
+    /// Get combined statistics from all databases
     pub async fn get_stats(&self) -> Result<CombinedStats> {
         let vector_stats = self.lancedb.get_stats().await?;
+        let graph_stats = self.kuzu.get_stats()?;
 
         Ok(CombinedStats {
             news_embeddings: vector_stats.news_embeddings_count,
             artist_embeddings: vector_stats.artist_embeddings_count,
-            // Graph stats would require additional methods
-            graph_artists: 0, // TODO: Add graph stats
-            graph_collaborations: 0,
+            graph_artists: graph_stats.artist_count,
+            graph_collaborations: graph_stats.collaboration_count,
+            total_storage_bytes: None, // Would need filesystem stats
         })
     }
 }
 
 /// Health status of all databases
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct DatabasesHealth {
     pub duckdb: bool,
     pub kuzu: bool,
     pub lancedb: bool,
     pub all_healthy: bool,
+    /// Latency in milliseconds for each database check
+    pub latencies_ms: DatabaseLatencies,
+}
+
+/// Latency measurements for database health checks
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct DatabaseLatencies {
+    pub duckdb_ms: u64,
+    pub kuzu_ms: u64,
+    pub lancedb_ms: u64,
 }
 
 /// Combined statistics from all databases
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CombinedStats {
     pub news_embeddings: u64,
     pub artist_embeddings: u64,
     pub graph_artists: u64,
     pub graph_collaborations: u64,
+    /// Total storage size across all databases (if available)
+    pub total_storage_bytes: Option<u64>,
 }
 
 #[cfg(test)]

@@ -2,8 +2,8 @@ use crate::models::{Claims, User};
 use crate::services::AuthService;
 use axum::{
     async_trait,
-    extract::{Request, State, FromRequestParts},
-    http::{header::AUTHORIZATION, StatusCode, request::Parts},
+    extract::{FromRequestParts, Request, State},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode},
     middleware::Next,
     response::Response,
     Json,
@@ -22,31 +22,25 @@ where
     type Rejection = (StatusCode, Json<serde_json::Value>);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let user = parts
-            .extensions
-            .get::<User>()
-            .ok_or_else(|| {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "success": false,
-                        "message": "Authentication required"
-                    })),
-                )
-            })?;
+        let user = parts.extensions.get::<User>().ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "message": "Authentication required"
+                })),
+            )
+        })?;
 
-        let _claims = parts
-            .extensions
-            .get::<Claims>()
-            .ok_or_else(|| {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "success": false,
-                        "message": "Invalid authentication"
-                    })),
-                )
-            })?;
+        let _claims = parts.extensions.get::<Claims>().ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "message": "Invalid authentication"
+                })),
+            )
+        })?;
 
         Ok(AuthenticatedUser {
             id: user.id,
@@ -235,7 +229,7 @@ pub async fn auth_rate_limit_middleware(
 ) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
     // Simple rate limiting based on IP address
     // In production, use a proper rate limiting solution like tower-governor
-    
+
     let client_ip = request
         .headers()
         .get("x-forwarded-for")

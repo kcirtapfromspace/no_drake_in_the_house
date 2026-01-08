@@ -1,12 +1,12 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
 use serde_json::Value;
+use std::collections::HashMap;
 
-use crate::models::oauth::{
-    OAuthProviderType, OAuthTokens, OAuthUserInfo, OAuthFlowResponse, OAuthConfig
-};
-use crate::services::oauth::{OAuthProvider, BaseOAuthProvider};
 use crate::error::{AppError, Result};
+use crate::models::oauth::{
+    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
+};
+use crate::services::oauth::{BaseOAuthProvider, OAuthProvider};
 
 /// GitHub OAuth provider implementation
 pub struct GitHubOAuthProvider {
@@ -17,22 +17,27 @@ impl GitHubOAuthProvider {
     /// Test GitHub OAuth configuration by making a test API call
     pub async fn test_configuration(&self) -> Result<()> {
         // Test connection to GitHub API
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .get("https://api.github.com/meta")
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "OAuth-App")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to connect to GitHub API: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to connect to GitHub API: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(
-                "GitHub API is not accessible".to_string()
+                "GitHub API is not accessible".to_string(),
             ));
         }
 
-        let meta_info: serde_json::Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse GitHub meta response: {}", e)))?;
+        let meta_info: serde_json::Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse GitHub meta response: {}", e))
+        })?;
 
         // Verify that GitHub API is responding correctly
         if meta_info["verifiable_password_authentication"].is_null() {
@@ -44,16 +49,16 @@ impl GitHubOAuthProvider {
 
     /// Create a new GitHub OAuth provider with environment variables
     pub fn new() -> Result<Self> {
-        let client_id = std::env::var("GITHUB_CLIENT_ID")
-            .map_err(|_| AppError::ConfigurationError {
+        let client_id =
+            std::env::var("GITHUB_CLIENT_ID").map_err(|_| AppError::ConfigurationError {
                 message: "GITHUB_CLIENT_ID environment variable is required".to_string(),
             })?;
-        let client_secret = std::env::var("GITHUB_CLIENT_SECRET")
-            .map_err(|_| AppError::ConfigurationError {
+        let client_secret =
+            std::env::var("GITHUB_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
                 message: "GITHUB_CLIENT_SECRET environment variable is required".to_string(),
             })?;
-        let redirect_uri = std::env::var("GITHUB_REDIRECT_URI")
-            .map_err(|_| AppError::ConfigurationError {
+        let redirect_uri =
+            std::env::var("GITHUB_REDIRECT_URI").map_err(|_| AppError::ConfigurationError {
                 message: "GITHUB_REDIRECT_URI environment variable is required".to_string(),
             })?;
 
@@ -75,23 +80,24 @@ impl GitHubOAuthProvider {
     }
 
     /// Create a GitHub OAuth provider with default configuration
-    pub fn with_credentials(client_id: String, client_secret: String, redirect_uri: String) -> Result<Self> {
+    pub fn with_credentials(
+        client_id: String,
+        client_secret: String,
+        redirect_uri: String,
+    ) -> Result<Self> {
         let config = OAuthConfig {
             client_id,
             client_secret,
             redirect_uri,
-            scopes: vec![
-                "user:email".to_string(),
-                "read:user".to_string(),
-            ],
+            scopes: vec!["user:email".to_string(), "read:user".to_string()],
             additional_params: HashMap::new(),
         };
 
         let provider = Self::new_with_config(config)?;
-        
+
         // Validate configuration on creation
         provider.validate_config()?;
-        
+
         Ok(provider)
     }
 
@@ -124,33 +130,60 @@ impl GitHubOAuthProvider {
         // Store additional GitHub-specific data
         let mut provider_data = HashMap::new();
         if let Some(login) = user_data["login"].as_str() {
-            provider_data.insert("username".to_string(), serde_json::Value::String(login.to_string()));
+            provider_data.insert(
+                "username".to_string(),
+                serde_json::Value::String(login.to_string()),
+            );
         }
         if let Some(html_url) = user_data["html_url"].as_str() {
-            provider_data.insert("profile_url".to_string(), serde_json::Value::String(html_url.to_string()));
+            provider_data.insert(
+                "profile_url".to_string(),
+                serde_json::Value::String(html_url.to_string()),
+            );
         }
         if let Some(bio) = user_data["bio"].as_str() {
-            provider_data.insert("bio".to_string(), serde_json::Value::String(bio.to_string()));
+            provider_data.insert(
+                "bio".to_string(),
+                serde_json::Value::String(bio.to_string()),
+            );
         }
         if let Some(company) = user_data["company"].as_str() {
-            provider_data.insert("company".to_string(), serde_json::Value::String(company.to_string()));
+            provider_data.insert(
+                "company".to_string(),
+                serde_json::Value::String(company.to_string()),
+            );
         }
         if let Some(location) = user_data["location"].as_str() {
-            provider_data.insert("location".to_string(), serde_json::Value::String(location.to_string()));
+            provider_data.insert(
+                "location".to_string(),
+                serde_json::Value::String(location.to_string()),
+            );
         }
         if let Some(blog) = user_data["blog"].as_str() {
             if !blog.is_empty() {
-                provider_data.insert("blog".to_string(), serde_json::Value::String(blog.to_string()));
+                provider_data.insert(
+                    "blog".to_string(),
+                    serde_json::Value::String(blog.to_string()),
+                );
             }
         }
         if let Some(public_repos) = user_data["public_repos"].as_i64() {
-            provider_data.insert("public_repos".to_string(), serde_json::Value::Number(public_repos.into()));
+            provider_data.insert(
+                "public_repos".to_string(),
+                serde_json::Value::Number(public_repos.into()),
+            );
         }
         if let Some(followers) = user_data["followers"].as_i64() {
-            provider_data.insert("followers".to_string(), serde_json::Value::Number(followers.into()));
+            provider_data.insert(
+                "followers".to_string(),
+                serde_json::Value::Number(followers.into()),
+            );
         }
         if let Some(following) = user_data["following"].as_i64() {
-            provider_data.insert("following".to_string(), serde_json::Value::Number(following.into()));
+            provider_data.insert(
+                "following".to_string(),
+                serde_json::Value::Number(following.into()),
+            );
         }
 
         Ok(OAuthUserInfo {
@@ -168,19 +201,26 @@ impl GitHubOAuthProvider {
 
     /// Get user's primary email from GitHub API
     async fn get_user_emails(&self, access_token: &str) -> Result<Vec<Value>> {
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .get("https://api.github.com/user/emails")
             .header("Authorization", format!("Bearer {}", access_token))
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("GitHub emails request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("GitHub emails request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Handle specific GitHub API error responses
             if status == reqwest::StatusCode::UNAUTHORIZED {
                 return Err(AppError::OAuthProviderError {
@@ -188,15 +228,16 @@ impl GitHubOAuthProvider {
                     message: "GitHub access token is invalid or expired".to_string(),
                 });
             }
-            
+
             if status == reqwest::StatusCode::FORBIDDEN {
                 // This might happen if the user:email scope wasn't granted
                 return Err(AppError::OAuthProviderError {
                     provider: "GitHub".to_string(),
-                    message: "GitHub API access denied. Check if 'user:email' scope was granted.".to_string(),
+                    message: "GitHub API access denied. Check if 'user:email' scope was granted."
+                        .to_string(),
                 });
             }
-            
+
             // Parse GitHub-specific error response
             if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                 if let Some(message) = error_json["message"].as_str() {
@@ -206,16 +247,16 @@ impl GitHubOAuthProvider {
                     });
                 }
             }
-            
+
             return Err(AppError::ExternalServiceError(format!(
-                "GitHub emails request failed with status {}: {}", 
-                status, 
-                error_text
+                "GitHub emails request failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse GitHub emails response: {}", e)))
+        response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse GitHub emails response: {}", e))
+        })
     }
 }
 
@@ -227,12 +268,14 @@ impl OAuthProvider for GitHubOAuthProvider {
 
     async fn initiate_flow(&self, redirect_uri: &str) -> Result<OAuthFlowResponse> {
         let state = self.base.generate_state();
-        
+
         // GitHub-specific parameters
         let mut additional_params = HashMap::new();
         additional_params.insert("allow_signup".to_string(), "true".to_string());
 
-        let authorization_url = self.base.build_auth_url(redirect_uri, &state, Some(additional_params));
+        let authorization_url =
+            self.base
+                .build_auth_url(redirect_uri, &state, Some(additional_params));
 
         Ok(OAuthFlowResponse {
             authorization_url,
@@ -241,7 +284,12 @@ impl OAuthProvider for GitHubOAuthProvider {
         })
     }
 
-    async fn exchange_code(&self, code: &str, _state: &str, redirect_uri: &str) -> Result<OAuthTokens> {
+    async fn exchange_code(
+        &self,
+        code: &str,
+        _state: &str,
+        redirect_uri: &str,
+    ) -> Result<OAuthTokens> {
         let params = [
             ("grant_type", "authorization_code"),
             ("client_id", &self.base.config.client_id),
@@ -250,7 +298,9 @@ impl OAuthProvider for GitHubOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .post(&self.base.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json") // GitHub returns JSON when this header is set
@@ -258,17 +308,27 @@ impl OAuthProvider for GitHubOAuthProvider {
             .form(&params)
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("GitHub token exchange request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "GitHub token exchange request failed: {}",
+                    e
+                ))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Parse GitHub-specific error response
             if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                 let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
-                let error_description = error_json["error_description"].as_str().unwrap_or(&error_text);
-                
+                let error_description = error_json["error_description"]
+                    .as_str()
+                    .unwrap_or(&error_text);
+
                 // Handle specific GitHub errors
                 match error_code {
                     "bad_verification_code" => {
@@ -291,21 +351,24 @@ impl OAuthProvider for GitHubOAuthProvider {
                     _ => {
                         return Err(AppError::OAuthProviderError {
                             provider: "GitHub".to_string(),
-                            message: format!("Token exchange failed ({}): {}", error_code, error_description),
+                            message: format!(
+                                "Token exchange failed ({}): {}",
+                                error_code, error_description
+                            ),
                         });
                     }
                 }
             }
-            
+
             return Err(AppError::ExternalServiceError(format!(
-                "GitHub token exchange failed with status {}: {}", 
-                status, 
-                error_text
+                "GitHub token exchange failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let token_response: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse GitHub token response: {}", e)))?;
+        let token_response: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse GitHub token response: {}", e))
+        })?;
 
         let access_token = token_response["access_token"]
             .as_str()
@@ -320,9 +383,7 @@ impl OAuthProvider for GitHubOAuthProvider {
             .unwrap_or("bearer")
             .to_string();
 
-        let scope = token_response["scope"]
-            .as_str()
-            .map(|s| s.to_string());
+        let scope = token_response["scope"].as_str().map(|s| s.to_string());
 
         // Validate that we received the expected token type
         if token_type.to_lowercase() != "bearer" {
@@ -344,19 +405,26 @@ impl OAuthProvider for GitHubOAuthProvider {
     }
 
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
-        let response = self.base.client
+        let response = self
+            .base
+            .client
             .get(&self.base.user_info_endpoint)
             .header("Authorization", format!("Bearer {}", access_token))
             .header("Accept", "application/vnd.github.v3+json")
             .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("GitHub user info request failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("GitHub user info request failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             let status = response.status();
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+
             // Handle specific GitHub API error responses
             if status == reqwest::StatusCode::UNAUTHORIZED {
                 return Err(AppError::OAuthProviderError {
@@ -364,14 +432,15 @@ impl OAuthProvider for GitHubOAuthProvider {
                     message: "GitHub access token is invalid or expired".to_string(),
                 });
             }
-            
+
             if status == reqwest::StatusCode::FORBIDDEN {
                 return Err(AppError::OAuthProviderError {
                     provider: "GitHub".to_string(),
-                    message: "GitHub API rate limit exceeded or insufficient permissions".to_string(),
+                    message: "GitHub API rate limit exceeded or insufficient permissions"
+                        .to_string(),
                 });
             }
-            
+
             // Parse GitHub-specific error response
             if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                 if let Some(message) = error_json["message"].as_str() {
@@ -381,16 +450,19 @@ impl OAuthProvider for GitHubOAuthProvider {
                     });
                 }
             }
-            
+
             return Err(AppError::ExternalServiceError(format!(
-                "GitHub user info request failed with status {}: {}", 
-                status, 
-                error_text
+                "GitHub user info request failed with status {}: {}",
+                status, error_text
             )));
         }
 
-        let user_data: Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse GitHub user info response: {}", e)))?;
+        let user_data: Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Failed to parse GitHub user info response: {}",
+                e
+            ))
+        })?;
 
         self.parse_user_info(user_data)
     }
@@ -437,7 +509,8 @@ impl OAuthProvider for GitHubOAuthProvider {
 
         // Validate client_id format (GitHub client IDs are typically 20 characters)
         // Skip validation in development mode
-        let is_dev_mode = std::env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
+        let is_dev_mode =
+            std::env::var("OAUTH_DEV_MODE").unwrap_or_else(|_| "false".to_string()) == "true";
         if !is_dev_mode && self.base.config.client_id.len() != 20 {
             tracing::warn!("GitHub client_id length is not 20 characters, which is unusual");
         }
@@ -478,16 +551,21 @@ impl GitHubOAuthService {
         login: Option<&str>, // Suggest a specific account
     ) -> Result<OAuthFlowResponse> {
         let state = self.provider.base.generate_state();
-        
+
         let mut additional_params = HashMap::new();
-        additional_params.insert("allow_signup".to_string(), 
-            allow_signup.unwrap_or(true).to_string());
+        additional_params.insert(
+            "allow_signup".to_string(),
+            allow_signup.unwrap_or(true).to_string(),
+        );
 
         if let Some(suggested_login) = login {
             additional_params.insert("login".to_string(), suggested_login.to_string());
         }
 
-        let authorization_url = self.provider.base.build_auth_url(redirect_uri, &state, Some(additional_params));
+        let authorization_url =
+            self.provider
+                .base
+                .build_auth_url(redirect_uri, &state, Some(additional_params));
 
         Ok(OAuthFlowResponse {
             authorization_url,
@@ -499,7 +577,7 @@ impl GitHubOAuthService {
     /// Get user's email addresses with verification status
     pub async fn get_user_emails(&self, access_token: &str) -> Result<Vec<GitHubEmail>> {
         let emails = self.provider.get_user_emails(access_token).await?;
-        
+
         let mut github_emails = Vec::new();
         for email_data in emails {
             let email = GitHubEmail {
@@ -517,7 +595,7 @@ impl GitHubOAuthService {
     /// Get user's primary verified email
     pub async fn get_primary_email(&self, access_token: &str) -> Result<Option<String>> {
         let emails = self.get_user_emails(access_token).await?;
-        
+
         // Find primary verified email
         for email in &emails {
             if email.primary && email.verified {
@@ -538,7 +616,7 @@ impl GitHubOAuthService {
     /// Get enhanced user info including verified email
     pub async fn get_enhanced_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
         let mut user_info = self.provider.get_user_info(access_token).await?;
-        
+
         // If email is not in user info or not verified, try to get verified email
         if user_info.email.is_none() {
             if let Ok(Some(primary_email)) = self.get_primary_email(access_token).await {
@@ -570,7 +648,8 @@ mod tests {
             "test_client_id".to_string(),
             "test_client_secret".to_string(),
             "http://localhost:3000/auth/github/callback".to_string(),
-        ).unwrap()
+        )
+        .unwrap()
     }
 
     #[test]
@@ -598,20 +677,29 @@ mod tests {
         let provider = GitHubOAuthProvider::new_with_config(config).unwrap();
         let result = provider.validate_config();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("client_id is required"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("client_id is required"));
     }
 
     #[tokio::test]
     async fn test_github_initiate_flow() {
         let provider = create_test_github_provider();
         let redirect_uri = "http://localhost:3000/auth/github/callback";
-        
+
         let flow_response = provider.initiate_flow(redirect_uri).await.unwrap();
-        
-        assert!(flow_response.authorization_url.contains("github.com/login/oauth/authorize"));
-        assert!(flow_response.authorization_url.contains("client_id=test_client_id"));
+
+        assert!(flow_response
+            .authorization_url
+            .contains("github.com/login/oauth/authorize"));
+        assert!(flow_response
+            .authorization_url
+            .contains("client_id=test_client_id"));
         assert!(flow_response.authorization_url.contains("redirect_uri="));
-        assert!(flow_response.authorization_url.contains("allow_signup=true"));
+        assert!(flow_response
+            .authorization_url
+            .contains("allow_signup=true"));
         assert!(!flow_response.state.is_empty());
         assert!(flow_response.code_verifier.is_none());
     }
@@ -619,7 +707,7 @@ mod tests {
     #[test]
     fn test_github_parse_user_info() {
         let provider = create_test_github_provider();
-        
+
         let user_data = serde_json::json!({
             "id": 123456789,
             "login": "testuser",
@@ -637,14 +725,17 @@ mod tests {
         });
 
         let user_info = provider.parse_user_info(user_data).unwrap();
-        
+
         assert_eq!(user_info.provider_user_id, "123456789");
         assert_eq!(user_info.email, Some("test@example.com".to_string()));
         assert_eq!(user_info.display_name, Some("Test User".to_string()));
         assert_eq!(user_info.first_name, Some("Test".to_string()));
         assert_eq!(user_info.last_name, Some("User".to_string()));
-        assert_eq!(user_info.avatar_url, Some("https://avatars.githubusercontent.com/u/123456789".to_string()));
-        
+        assert_eq!(
+            user_info.avatar_url,
+            Some("https://avatars.githubusercontent.com/u/123456789".to_string())
+        );
+
         // Check GitHub-specific data
         assert_eq!(
             user_info.provider_data.get("username"),
@@ -652,7 +743,9 @@ mod tests {
         );
         assert_eq!(
             user_info.provider_data.get("profile_url"),
-            Some(&serde_json::Value::String("https://github.com/testuser".to_string()))
+            Some(&serde_json::Value::String(
+                "https://github.com/testuser".to_string()
+            ))
         );
         assert_eq!(
             user_info.provider_data.get("bio"),
@@ -671,7 +764,7 @@ mod tests {
     #[test]
     fn test_github_parse_user_info_missing_id() {
         let provider = create_test_github_provider();
-        
+
         let user_data = serde_json::json!({
             "login": "testuser",
             "name": "Test User"
@@ -685,7 +778,7 @@ mod tests {
     #[test]
     fn test_github_parse_user_info_name_splitting() {
         let provider = create_test_github_provider();
-        
+
         // Test single name
         let user_data = serde_json::json!({
             "id": 123456789,
@@ -694,7 +787,7 @@ mod tests {
         let user_info = provider.parse_user_info(user_data).unwrap();
         assert_eq!(user_info.first_name, Some("SingleName".to_string()));
         assert_eq!(user_info.last_name, None);
-        
+
         // Test full name
         let user_data = serde_json::json!({
             "id": 123456789,
@@ -703,7 +796,7 @@ mod tests {
         let user_info = provider.parse_user_info(user_data).unwrap();
         assert_eq!(user_info.first_name, Some("First".to_string()));
         assert_eq!(user_info.last_name, Some("Last".to_string()));
-        
+
         // Test name with multiple spaces
         let user_data = serde_json::json!({
             "id": 123456789,
@@ -718,26 +811,33 @@ mod tests {
     fn test_github_oauth_service() {
         let provider = create_test_github_provider();
         let service = GitHubOAuthService::new(provider);
-        
-        assert_eq!(service.provider().provider_type(), OAuthProviderType::GitHub);
+
+        assert_eq!(
+            service.provider().provider_type(),
+            OAuthProviderType::GitHub
+        );
     }
 
     #[tokio::test]
     async fn test_github_oauth_service_with_options() {
         let provider = create_test_github_provider();
         let service = GitHubOAuthService::new(provider);
-        
+
         let redirect_uri = "http://localhost:3000/auth/github/callback";
         let allow_signup = Some(false);
         let login = Some("suggested_user");
-        
+
         let flow_response = service
             .initiate_flow_with_options(redirect_uri, allow_signup, login)
             .await
             .unwrap();
-        
-        assert!(flow_response.authorization_url.contains("allow_signup=false"));
-        assert!(flow_response.authorization_url.contains("login=suggested_user"));
+
+        assert!(flow_response
+            .authorization_url
+            .contains("allow_signup=false"));
+        assert!(flow_response
+            .authorization_url
+            .contains("login=suggested_user"));
     }
 
     #[test]
@@ -748,7 +848,7 @@ mod tests {
             verified: true,
             visibility: Some("public".to_string()),
         };
-        
+
         assert_eq!(email.email, "test@example.com");
         assert!(email.primary);
         assert!(email.verified);

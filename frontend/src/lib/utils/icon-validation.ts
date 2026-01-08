@@ -35,8 +35,7 @@ export function validateIconSizes(): void {
 
   svgElements.forEach((svg) => {
     const rect = svg.getBoundingClientRect();
-    const computedStyle = window.getComputedStyle(svg);
-    
+
     // Skip if element is not visible
     if (rect.width === 0 && rect.height === 0) {
       return;

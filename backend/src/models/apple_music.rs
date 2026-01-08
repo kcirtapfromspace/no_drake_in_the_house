@@ -1,6 +1,6 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 /// Apple Music track information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -243,7 +243,7 @@ impl Default for AppleMusicCapabilities {
             library_read: true,
             library_modify: false, // Limited by Apple Music API
             playlist_read: true,
-            playlist_modify: false, // Limited by Apple Music API
+            playlist_modify: false,      // Limited by Apple Music API
             recommendations_read: false, // Not available in API
             recently_played_read: true,
         }
@@ -347,7 +347,8 @@ impl AppleMusicLibrary {
     }
 
     pub fn total_items(&self) -> u32 {
-        (self.library_tracks.len() + self.library_albums.len() + self.library_playlists.len()) as u32
+        (self.library_tracks.len() + self.library_albums.len() + self.library_playlists.len())
+            as u32
     }
 }
 

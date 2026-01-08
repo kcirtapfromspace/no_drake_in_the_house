@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use uuid::Uuid;
-use sqlx::PgPool;
-use serde_json::Value;
 use crate::error::AppError;
 use crate::models::*;
+use serde_json::Value;
+use sqlx::PgPool;
+use std::sync::Arc;
+use uuid::Uuid;
 
 // Stub services are defined below and exported by the services module
 
@@ -19,12 +19,21 @@ impl TokenVaultService {
     pub fn new() -> Self {
         Self {}
     }
-    
-    pub async fn store_token(&self, _user_id: Uuid, _provider: &str, _token: &str) -> Result<(), AppError> {
+
+    pub async fn store_token(
+        &self,
+        _user_id: Uuid,
+        _provider: &str,
+        _token: &str,
+    ) -> Result<(), AppError> {
         Ok(())
     }
-    
-    pub async fn get_token(&self, _user_id: Uuid, _provider: &str) -> Result<Option<String>, AppError> {
+
+    pub async fn get_token(
+        &self,
+        _user_id: Uuid,
+        _provider: &str,
+    ) -> Result<Option<String>, AppError> {
         Ok(Some("mock_token".to_string()))
     }
 }
@@ -38,8 +47,12 @@ impl EntityResolutionService {
     pub fn new(pool: PgPool) -> Self {
         Self { _pool: pool }
     }
-    
-    pub async fn resolve_artist(&self, _query: &str, _provider: Option<&str>) -> Result<Option<Artist>, AppError> {
+
+    pub async fn resolve_artist(
+        &self,
+        _query: &str,
+        _provider: Option<&str>,
+    ) -> Result<Option<Artist>, AppError> {
         // Return None for stub implementation
         Ok(None)
     }
@@ -58,8 +71,12 @@ impl DnpListService {
             _entity_service: entity_service,
         }
     }
-    
-    pub async fn add_artist_to_dnp_list(&self, _user_id: Uuid, _request: AddArtistToDnpRequest) -> Result<UserArtistBlock, AppError> {
+
+    pub async fn add_artist_to_dnp_list(
+        &self,
+        _user_id: Uuid,
+        _request: AddArtistToDnpRequest,
+    ) -> Result<UserArtistBlock, AppError> {
         Ok(UserArtistBlock {
             user_id: _user_id,
             artist_id: Uuid::new_v4(),
@@ -68,12 +85,19 @@ impl DnpListService {
             created_at: chrono::Utc::now(),
         })
     }
-    
-    pub async fn get_user_dnp_list(&self, _user_id: Uuid) -> Result<Vec<UserArtistBlock>, AppError> {
+
+    pub async fn get_user_dnp_list(
+        &self,
+        _user_id: Uuid,
+    ) -> Result<Vec<UserArtistBlock>, AppError> {
         Ok(vec![])
     }
-    
-    pub async fn remove_artist_from_dnp_list(&self, _user_id: Uuid, _artist_id: Uuid) -> Result<(), AppError> {
+
+    pub async fn remove_artist_from_dnp_list(
+        &self,
+        _user_id: Uuid,
+        _artist_id: Uuid,
+    ) -> Result<(), AppError> {
         Ok(())
     }
 }
@@ -91,8 +115,11 @@ impl CommunityListService {
             _entity_service: entity_service,
         }
     }
-    
-    pub async fn create_community_list(&self, _request: CreateCommunityListRequest) -> Result<CommunityList, AppError> {
+
+    pub async fn create_community_list(
+        &self,
+        _request: CreateCommunityListRequest,
+    ) -> Result<CommunityList, AppError> {
         Ok(CommunityList {
             id: Uuid::new_v4(),
             owner_user_id: Uuid::new_v4(),
@@ -137,13 +164,16 @@ pub struct SpotifyService {
 }
 
 impl SpotifyService {
-    pub fn new(config: SpotifyConfig, token_vault: Arc<TokenVaultService>) -> Result<Self, AppError> {
+    pub fn new(
+        config: SpotifyConfig,
+        token_vault: Arc<TokenVaultService>,
+    ) -> Result<Self, AppError> {
         Ok(Self {
             _config: config,
             _token_vault: token_vault,
         })
     }
-    
+
     pub async fn get_auth_url(&self) -> Result<SpotifyAuthUrlResponse, AppError> {
         Ok(SpotifyAuthUrlResponse {
             auth_url: "https://accounts.spotify.com/authorize?mock=true".to_string(),
@@ -163,7 +193,7 @@ impl SpotifyLibraryService {
             _spotify_service: spotify_service,
         }
     }
-    
+
     pub async fn scan_library(&self, _user_id: Uuid) -> Result<LibraryScanResult, AppError> {
         Ok(LibraryScanResult {
             total_tracks: 100,
@@ -184,8 +214,12 @@ impl SpotifyEnforcementService {
             _spotify_service: spotify_service,
         }
     }
-    
-    pub async fn execute_enforcement(&self, _user_id: Uuid, _plan: EnforcementPlan) -> Result<EnforcementResult, AppError> {
+
+    pub async fn execute_enforcement(
+        &self,
+        _user_id: Uuid,
+        _plan: EnforcementPlan,
+    ) -> Result<EnforcementResult, AppError> {
         Ok(EnforcementResult {
             tracks_removed: 5,
             playlists_modified: 2,
@@ -201,14 +235,21 @@ pub struct EnforcementPlanningService {
 }
 
 impl EnforcementPlanningService {
-    pub fn new(dnp_service: Arc<DnpListService>, entity_service: Arc<EntityResolutionService>) -> Self {
+    pub fn new(
+        dnp_service: Arc<DnpListService>,
+        entity_service: Arc<EntityResolutionService>,
+    ) -> Self {
         Self {
             _dnp_service: dnp_service,
             _entity_service: entity_service,
         }
     }
-    
-    pub async fn create_enforcement_plan(&self, _user_id: Uuid, _library_scan: LibraryScanResult) -> Result<EnforcementPlan, AppError> {
+
+    pub async fn create_enforcement_plan(
+        &self,
+        _user_id: Uuid,
+        _library_scan: LibraryScanResult,
+    ) -> Result<EnforcementPlan, AppError> {
         Ok(EnforcementPlan {
             user_id: _user_id,
             tracks_to_remove: vec![],
@@ -242,7 +283,10 @@ pub struct AppleMusicService {
 }
 
 impl AppleMusicService {
-    pub fn new(config: AppleMusicConfig, token_vault: Arc<TokenVaultService>) -> Result<Self, AppError> {
+    pub fn new(
+        config: AppleMusicConfig,
+        token_vault: Arc<TokenVaultService>,
+    ) -> Result<Self, AppError> {
         Ok(Self {
             _config: config,
             _token_vault: token_vault,
@@ -335,20 +379,23 @@ impl JobQueueService {
             _rate_limiter: rate_limiter,
         }
     }
-    
+
     pub async fn enqueue_job(&self, _job: Job) -> Result<(), AppError> {
         Ok(())
     }
-    
+
     pub async fn get_jobs_by_priority(&self) -> Result<Vec<Job>, AppError> {
         Ok(vec![])
     }
-    
+
     pub async fn get_jobs_by_type(&self, _job_types: Vec<JobType>) -> Result<Vec<Job>, AppError> {
         Ok(vec![])
     }
-    
-    pub async fn get_jobs_by_status(&self, _statuses: Vec<JobStatus>) -> Result<Vec<Job>, AppError> {
+
+    pub async fn get_jobs_by_status(
+        &self,
+        _statuses: Vec<JobStatus>,
+    ) -> Result<Vec<Job>, AppError> {
         Ok(vec![])
     }
 }

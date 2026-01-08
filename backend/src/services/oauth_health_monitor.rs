@@ -1,13 +1,13 @@
+use crate::error::{AppError, Result};
 use crate::models::oauth::OAuthProviderType;
 use crate::services::oauth::OAuthProvider;
-use crate::error::{AppError, Result};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, debug};
-use serde::{Serialize, Deserialize};
-use chrono::{DateTime, Utc};
+use tracing::{debug, error, info, warn};
 
 /// OAuth provider health status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -96,39 +96,40 @@ impl OAuthHealthMonitor {
     /// Start background health monitoring
     pub async fn start_monitoring(&self) {
         info!("🏥 Starting OAuth provider health monitoring...");
-        
+
         // Initialize health status for all providers
         self.initialize_health_status().await;
-        
+
         // Start periodic health checks
         let health_status = Arc::clone(&self.health_status);
         let providers = Arc::clone(&self.providers);
         let config = self.config.clone();
         let client = self.client.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(config.check_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 debug!("🔍 Running OAuth provider health checks...");
-                
+
                 for (provider_type, provider) in providers.iter() {
                     let health_check_result = Self::perform_health_check(
                         provider_type,
                         provider.as_ref(),
                         &client,
                         &config,
-                    ).await;
-                    
+                    )
+                    .await;
+
                     // Update health status
                     let mut status_map = health_status.write().await;
                     if let Some(current_health) = status_map.get_mut(provider_type) {
                         Self::update_health_status(current_health, health_check_result, &config);
                     }
                 }
-                
+
                 // Log health summary
                 Self::log_health_summary(&health_status).await;
             }
@@ -138,7 +139,7 @@ impl OAuthHealthMonitor {
     /// Initialize health status for all providers
     async fn initialize_health_status(&self) {
         let mut status_map = self.health_status.write().await;
-        
+
         for provider_type in self.providers.keys() {
             status_map.insert(
                 provider_type.clone(),
@@ -165,9 +166,9 @@ impl OAuthHealthMonitor {
         config: &OAuthHealthConfig,
     ) -> HealthCheckResult {
         let start_time = Instant::now();
-        
+
         debug!("🔍 Checking health for {} OAuth provider", provider_type);
-        
+
         // Perform provider-specific health checks
         let result = match provider_type {
             OAuthProviderType::Google => Self::check_google_health(client).await,
@@ -175,12 +176,16 @@ impl OAuthHealthMonitor {
             OAuthProviderType::GitHub => Self::check_github_health(client).await,
             OAuthProviderType::Spotify => Self::check_spotify_health(client).await,
         };
-        
+
         let response_time = start_time.elapsed();
-        
+
         match result {
             Ok(rate_limit_info) => {
-                debug!("✅ {} OAuth provider is healthy ({}ms)", provider_type, response_time.as_millis());
+                debug!(
+                    "✅ {} OAuth provider is healthy ({}ms)",
+                    provider_type,
+                    response_time.as_millis()
+                );
                 HealthCheckResult {
                     is_healthy: true,
                     response_time_ms: response_time.as_millis() as u64,
@@ -189,7 +194,10 @@ impl OAuthHealthMonitor {
                 }
             }
             Err(e) => {
-                warn!("❌ {} OAuth provider health check failed: {}", provider_type, e);
+                warn!(
+                    "❌ {} OAuth provider health check failed: {}",
+                    provider_type, e
+                );
                 HealthCheckResult {
                     is_healthy: false,
                     response_time_ms: response_time.as_millis() as u64,
@@ -207,7 +215,9 @@ impl OAuthHealthMonitor {
             .get("https://accounts.google.com/.well-known/openid_configuration")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Google health check failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Google health check failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(format!(
@@ -220,13 +230,18 @@ impl OAuthHealthMonitor {
         let rate_limit_info = Self::parse_rate_limit_headers(&response);
 
         // Verify the response contains expected OAuth endpoints
-        let discovery_doc: serde_json::Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse Google discovery document: {}", e)))?;
+        let discovery_doc: serde_json::Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Failed to parse Google discovery document: {}",
+                e
+            ))
+        })?;
 
-        if !discovery_doc.get("authorization_endpoint").is_some() ||
-           !discovery_doc.get("token_endpoint").is_some() {
+        if !discovery_doc.get("authorization_endpoint").is_some()
+            || !discovery_doc.get("token_endpoint").is_some()
+        {
             return Err(AppError::ExternalServiceError(
-                "Google OAuth endpoints not found in discovery document".to_string()
+                "Google OAuth endpoints not found in discovery document".to_string(),
             ));
         }
 
@@ -240,7 +255,9 @@ impl OAuthHealthMonitor {
             .head("https://appleid.apple.com/auth/authorize")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Apple health check failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Apple health check failed: {}", e))
+            })?;
 
         // Apple returns 400 for HEAD requests without parameters, which is expected
         if response.status().as_u16() != 400 && !response.status().is_success() {
@@ -262,7 +279,9 @@ impl OAuthHealthMonitor {
             .header("User-Agent", "no-drake-oauth-health-monitor/1.0")
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("GitHub health check failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("GitHub health check failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(format!(
@@ -272,12 +291,19 @@ impl OAuthHealthMonitor {
         }
 
         // Parse GitHub rate limit information
-        let rate_limit_data: serde_json::Value = response.json().await
-            .map_err(|e| AppError::ExternalServiceError(format!("Failed to parse GitHub rate limit response: {}", e)))?;
+        let rate_limit_data: serde_json::Value = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Failed to parse GitHub rate limit response: {}",
+                e
+            ))
+        })?;
 
         let rate_limit_info = if let Some(core) = rate_limit_data.get("rate") {
             Some(RateLimitInfo {
-                requests_remaining: core.get("remaining").and_then(|v| v.as_u64()).map(|v| v as u32),
+                requests_remaining: core
+                    .get("remaining")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as u32),
                 reset_time: core.get("reset").and_then(|v| v.as_i64()).map(|timestamp| {
                     DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now)
                 }),
@@ -299,7 +325,9 @@ impl OAuthHealthMonitor {
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Spotify health check failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Spotify health check failed: {}", e))
+            })?;
 
         if !response.status().is_success() {
             return Err(AppError::ExternalServiceError(format!(
@@ -316,10 +344,14 @@ impl OAuthHealthMonitor {
             .timeout(std::time::Duration::from_secs(10))
             .send()
             .await
-            .map_err(|e| AppError::ExternalServiceError(format!("Spotify API health check failed: {}", e)))?;
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Spotify API health check failed: {}", e))
+            })?;
 
         // Spotify API returns 404 for root endpoint, which is expected
-        if api_response.status() != reqwest::StatusCode::NOT_FOUND && !api_response.status().is_success() {
+        if api_response.status() != reqwest::StatusCode::NOT_FOUND
+            && !api_response.status().is_success()
+        {
             return Err(AppError::ExternalServiceError(format!(
                 "Spotify API service returned unexpected status: {}",
                 api_response.status()
@@ -332,20 +364,23 @@ impl OAuthHealthMonitor {
     /// Parse rate limit headers from HTTP response
     fn parse_rate_limit_headers(response: &reqwest::Response) -> Option<RateLimitInfo> {
         let headers = response.headers();
-        
+
         // Check for standard rate limit headers
-        let requests_remaining = headers.get("x-ratelimit-remaining")
+        let requests_remaining = headers
+            .get("x-ratelimit-remaining")
             .or_else(|| headers.get("x-rate-limit-remaining"))
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<u32>().ok());
 
-        let reset_time = headers.get("x-ratelimit-reset")
+        let reset_time = headers
+            .get("x-ratelimit-reset")
             .or_else(|| headers.get("x-rate-limit-reset"))
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<i64>().ok())
             .map(|timestamp| DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now));
 
-        let retry_after = headers.get("retry-after")
+        let retry_after = headers
+            .get("retry-after")
             .and_then(|v| v.to_str().ok())
             .and_then(|s| s.parse::<u64>().ok())
             .map(Duration::from_secs);
@@ -376,7 +411,7 @@ impl OAuthHealthMonitor {
             current_health.consecutive_failures = 0;
             current_health.last_success = Some(Utc::now());
             current_health.error_message = None;
-            
+
             // Check if rate limited
             if let Some(ref rate_limit) = current_health.rate_limit_info {
                 if rate_limit.is_rate_limited {
@@ -396,12 +431,16 @@ impl OAuthHealthMonitor {
 
             if current_health.consecutive_failures >= config.max_consecutive_failures {
                 current_health.status = OAuthProviderHealthStatus::Unhealthy {
-                    reason: current_health.error_message.clone()
+                    reason: current_health
+                        .error_message
+                        .clone()
                         .unwrap_or_else(|| "Multiple consecutive failures".to_string()),
                 };
             } else {
                 current_health.status = OAuthProviderHealthStatus::Degraded {
-                    reason: current_health.error_message.clone()
+                    reason: current_health
+                        .error_message
+                        .clone()
                         .unwrap_or_else(|| "Health check failed".to_string()),
                 };
             }
@@ -409,38 +448,51 @@ impl OAuthHealthMonitor {
     }
 
     /// Log health summary for all providers
-    async fn log_health_summary(health_status: &Arc<RwLock<HashMap<OAuthProviderType, OAuthProviderHealth>>>) {
+    async fn log_health_summary(
+        health_status: &Arc<RwLock<HashMap<OAuthProviderType, OAuthProviderHealth>>>,
+    ) {
         let status_map = health_status.read().await;
-        
-        let healthy_count = status_map.values()
+
+        let healthy_count = status_map
+            .values()
             .filter(|h| matches!(h.status, OAuthProviderHealthStatus::Healthy))
             .count();
-        
-        let degraded_count = status_map.values()
+
+        let degraded_count = status_map
+            .values()
             .filter(|h| matches!(h.status, OAuthProviderHealthStatus::Degraded { .. }))
             .count();
-        
-        let unhealthy_count = status_map.values()
+
+        let unhealthy_count = status_map
+            .values()
             .filter(|h| matches!(h.status, OAuthProviderHealthStatus::Unhealthy { .. }))
             .count();
 
         if unhealthy_count > 0 {
-            error!("🚨 OAuth Health Summary: {} healthy, {} degraded, {} unhealthy", 
-                   healthy_count, degraded_count, unhealthy_count);
+            error!(
+                "🚨 OAuth Health Summary: {} healthy, {} degraded, {} unhealthy",
+                healthy_count, degraded_count, unhealthy_count
+            );
         } else if degraded_count > 0 {
-            warn!("⚠️  OAuth Health Summary: {} healthy, {} degraded, {} unhealthy", 
-                  healthy_count, degraded_count, unhealthy_count);
+            warn!(
+                "⚠️  OAuth Health Summary: {} healthy, {} degraded, {} unhealthy",
+                healthy_count, degraded_count, unhealthy_count
+            );
         } else {
-            debug!("✅ OAuth Health Summary: {} healthy, {} degraded, {} unhealthy", 
-                   healthy_count, degraded_count, unhealthy_count);
+            debug!(
+                "✅ OAuth Health Summary: {} healthy, {} degraded, {} unhealthy",
+                healthy_count, degraded_count, unhealthy_count
+            );
         }
 
         // Log details for unhealthy providers
         for (provider, health) in status_map.iter() {
             match &health.status {
                 OAuthProviderHealthStatus::Unhealthy { reason } => {
-                    error!("❌ {} OAuth provider is unhealthy: {} (failures: {})", 
-                           provider, reason, health.consecutive_failures);
+                    error!(
+                        "❌ {} OAuth provider is unhealthy: {} (failures: {})",
+                        provider, reason, health.consecutive_failures
+                    );
                 }
                 OAuthProviderHealthStatus::Degraded { reason } => {
                     warn!("⚠️  {} OAuth provider is degraded: {}", provider, reason);
@@ -456,7 +508,10 @@ impl OAuthHealthMonitor {
     }
 
     /// Get health status for a specific provider
-    pub async fn get_provider_health(&self, provider: &OAuthProviderType) -> Option<OAuthProviderHealth> {
+    pub async fn get_provider_health(
+        &self,
+        provider: &OAuthProviderType,
+    ) -> Option<OAuthProviderHealth> {
         self.health_status.read().await.get(provider).cloned()
     }
 
@@ -482,15 +537,16 @@ impl OAuthHealthMonitor {
     /// Force a health check for all providers
     pub async fn force_health_check(&self) {
         info!("🔄 Forcing OAuth provider health checks...");
-        
+
         for (provider_type, provider) in self.providers.iter() {
             let health_check_result = Self::perform_health_check(
                 provider_type,
                 provider.as_ref(),
                 &self.client,
                 &self.config,
-            ).await;
-            
+            )
+            .await;
+
             // Update health status
             let mut status_map = self.health_status.write().await;
             if let Some(current_health) = status_map.get_mut(provider_type) {

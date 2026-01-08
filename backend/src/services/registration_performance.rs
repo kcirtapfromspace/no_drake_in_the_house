@@ -121,9 +121,9 @@ impl RegistrationPerformanceService {
         // Try to load from Redis
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:password_rules";
-        
+
         let cached_rules: Option<String> = conn.get(&redis_key).await?;
-        
+
         let rules = if let Some(rules_json) = cached_rules {
             match serde_json::from_str::<PasswordValidationRules>(&rules_json) {
                 Ok(rules) => {
@@ -166,7 +166,7 @@ impl RegistrationPerformanceService {
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:password_rules";
         let rules_json = serde_json::to_string(rules)?;
-        
+
         // Cache for 24 hours
         let _: () = conn.set_ex(&redis_key, rules_json, 86400).await?;
         Ok(())
@@ -201,12 +201,20 @@ impl RegistrationPerformanceService {
         }
 
         // Special character requirement
-        if rules.require_special_char && !password.chars().any(|c| rules.special_chars.contains(c)) {
-            requirements.push(format!("at least one special character ({})", rules.special_chars));
+        if rules.require_special_char && !password.chars().any(|c| rules.special_chars.contains(c))
+        {
+            requirements.push(format!(
+                "at least one special character ({})",
+                rules.special_chars
+            ));
         }
 
         // Check against cached common passwords
-        if rules.common_passwords.iter().any(|common| password.to_lowercase() == common.to_lowercase()) {
+        if rules
+            .common_passwords
+            .iter()
+            .any(|common| password.to_lowercase() == common.to_lowercase())
+        {
             requirements.push("not be a common password".to_string());
         }
 
@@ -226,7 +234,7 @@ impl RegistrationPerformanceService {
     pub async fn validate_email_format_cached(&self, email: &str) -> Result<bool> {
         // Create hash of email for cache key (to avoid storing actual emails)
         let email_hash = format!("{:x}", md5::compute(email.to_lowercase()));
-        
+
         // Check in-memory cache first
         {
             let cache = self.email_validation_cache.read().await;
@@ -241,7 +249,7 @@ impl RegistrationPerformanceService {
 
         // Perform validation
         let is_valid = self.validate_email_format(email);
-        
+
         // Cache the result
         let cache_entry = EmailValidationCache {
             email_hash: email_hash.clone(),
@@ -253,13 +261,17 @@ impl RegistrationPerformanceService {
         {
             let mut cache = self.email_validation_cache.write().await;
             cache.insert(email_hash, cache_entry);
-            
+
             // Limit cache size to prevent memory bloat
             if cache.len() > 10000 {
                 // Remove oldest entries
                 let mut entries: Vec<_> = cache.iter().collect();
                 entries.sort_by_key(|(_, entry)| entry.cached_at);
-                let to_remove: Vec<_> = entries.iter().take(1000).map(|(k, _)| (*k).clone()).collect();
+                let to_remove: Vec<_> = entries
+                    .iter()
+                    .take(1000)
+                    .map(|(k, _)| (*k).clone())
+                    .collect();
                 for key in to_remove {
                     cache.remove(&key);
                 }
@@ -279,7 +291,7 @@ impl RegistrationPerformanceService {
         let email_regex = regex::Regex::new(
             r"^[a-zA-Z0-9]([a-zA-Z0-9._+%-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?\.[a-zA-Z]{2,}$"
         ).unwrap();
-        
+
         email_regex.is_match(email)
     }
 
@@ -287,21 +299,22 @@ impl RegistrationPerformanceService {
     pub async fn record_registration_attempt(&self, validation_time_ms: f64) -> Result<()> {
         let mut metrics = self.metrics.write().await;
         metrics.total_attempts += 1;
-        
+
         // Update average validation time using exponential moving average
         if metrics.avg_validation_time_ms == 0.0 {
             metrics.avg_validation_time_ms = validation_time_ms;
         } else {
-            metrics.avg_validation_time_ms = 0.9 * metrics.avg_validation_time_ms + 0.1 * validation_time_ms;
+            metrics.avg_validation_time_ms =
+                0.9 * metrics.avg_validation_time_ms + 0.1 * validation_time_ms;
         }
-        
+
         metrics.last_updated = Utc::now();
-        
+
         // Persist metrics to Redis every 10 attempts
         if metrics.total_attempts % 10 == 0 {
             self.persist_metrics(&metrics).await?;
         }
-        
+
         Ok(())
     }
 
@@ -309,17 +322,18 @@ impl RegistrationPerformanceService {
     pub async fn record_successful_registration(&self, total_time_ms: f64) -> Result<()> {
         let mut metrics = self.metrics.write().await;
         metrics.successful_registrations += 1;
-        
+
         // Update average registration time
         if metrics.avg_registration_time_ms == 0.0 {
             metrics.avg_registration_time_ms = total_time_ms;
         } else {
-            metrics.avg_registration_time_ms = 0.9 * metrics.avg_registration_time_ms + 0.1 * total_time_ms;
+            metrics.avg_registration_time_ms =
+                0.9 * metrics.avg_registration_time_ms + 0.1 * total_time_ms;
         }
-        
+
         metrics.last_updated = Utc::now();
         self.persist_metrics(&metrics).await?;
-        
+
         Ok(())
     }
 
@@ -349,7 +363,7 @@ impl RegistrationPerformanceService {
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:metrics";
         let metrics_json = serde_json::to_string(metrics)?;
-        
+
         // Cache for 7 days
         let _: () = conn.set_ex(&redis_key, metrics_json, 604800).await?;
         Ok(())
@@ -359,16 +373,16 @@ impl RegistrationPerformanceService {
     pub async fn load_metrics(&self) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:metrics";
-        
+
         let cached_metrics: Option<String> = conn.get(&redis_key).await?;
-        
+
         if let Some(metrics_json) = cached_metrics {
             if let Ok(cached_metrics) = serde_json::from_str::<RegistrationMetrics>(&metrics_json) {
                 let mut metrics = self.metrics.write().await;
                 *metrics = cached_metrics;
             }
         }
-        
+
         Ok(())
     }
 
@@ -379,12 +393,9 @@ impl RegistrationPerformanceService {
         email: &str,
     ) -> Result<bool> {
         // Use existing query pattern to avoid SQLx cache issues
-        let existing_user = sqlx::query!(
-            "SELECT id FROM users WHERE email = $1",
-            email
-        )
-        .fetch_optional(db_pool)
-        .await?;
+        let existing_user = sqlx::query!("SELECT id FROM users WHERE email = $1", email)
+            .fetch_optional(db_pool)
+            .await?;
 
         Ok(existing_user.is_some())
     }
@@ -397,7 +408,7 @@ impl RegistrationPerformanceService {
     ) -> Result<HashMap<String, bool>> {
         // For now, check emails individually using existing queries
         let mut result_map = HashMap::new();
-        
+
         for email in emails {
             let exists = self.check_email_exists_optimized(db_pool, email).await?;
             result_map.insert(email.clone(), exists);
@@ -413,7 +424,7 @@ impl RegistrationPerformanceService {
             let mut validation_cache = self.validation_rules_cache.write().await;
             *validation_cache = None;
         }
-        
+
         {
             let mut email_cache = self.email_validation_cache.write().await;
             email_cache.clear();
@@ -422,7 +433,7 @@ impl RegistrationPerformanceService {
         // Clear Redis caches
         let mut conn = self.redis_pool.get().await?;
         let _: i32 = conn.del("registration:password_rules").await?;
-        
+
         Ok(())
     }
 }
@@ -436,7 +447,7 @@ mod tests {
         // This would require a Redis instance for full testing
         // For now, test the validation logic
         let rules = PasswordValidationRules::default();
-        
+
         assert_eq!(rules.min_length, 8);
         assert!(rules.require_uppercase);
         assert!(rules.require_lowercase);
@@ -448,7 +459,9 @@ mod tests {
     #[test]
     fn test_email_format_validation() {
         let service = RegistrationPerformanceService {
-            redis_pool: deadpool_redis::Config::from_url("redis://localhost").create_pool(Some(Runtime::Tokio1)).unwrap(),
+            redis_pool: deadpool_redis::Config::from_url("redis://localhost")
+                .create_pool(Some(Runtime::Tokio1))
+                .unwrap(),
             validation_rules_cache: Arc::new(RwLock::new(None)),
             email_validation_cache: Arc::new(RwLock::new(HashMap::new())),
             metrics: Arc::new(RwLock::new(RegistrationMetrics::default())),
@@ -471,12 +484,12 @@ mod tests {
     #[test]
     fn test_metrics_calculation() {
         let mut metrics = RegistrationMetrics::default();
-        
+
         // Test exponential moving average calculation
         metrics.avg_validation_time_ms = 100.0;
         let new_time = 200.0;
         metrics.avg_validation_time_ms = 0.9 * metrics.avg_validation_time_ms + 0.1 * new_time;
-        
+
         assert!((metrics.avg_validation_time_ms - 110.0).abs() < 0.1);
     }
 }

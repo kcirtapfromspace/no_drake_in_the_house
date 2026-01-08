@@ -15,7 +15,7 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, warn, error};
+use tracing::{debug, error, warn};
 use uuid;
 
 /// Rate limiting configuration for different endpoints
@@ -49,31 +49,43 @@ impl RateLimitService {
         let pool = config.create_pool(Some(Runtime::Tokio1))?;
 
         let mut configs = HashMap::new();
-        
+
         // Default configurations for different endpoint types
-        configs.insert("auth".to_string(), RateLimitConfig {
-            requests_per_window: 10,
-            window_seconds: 300, // 5 minutes
-            burst_allowance: 3,
-        });
-        
-        configs.insert("registration".to_string(), RateLimitConfig {
-            requests_per_window: 3,
-            window_seconds: 60, // 1 minute
-            burst_allowance: 1,
-        });
-        
-        configs.insert("api".to_string(), RateLimitConfig {
-            requests_per_window: 100,
-            window_seconds: 60, // 1 minute
-            burst_allowance: 20,
-        });
-        
-        configs.insert("health".to_string(), RateLimitConfig {
-            requests_per_window: 1000,
-            window_seconds: 60, // 1 minute
-            burst_allowance: 100,
-        });
+        configs.insert(
+            "auth".to_string(),
+            RateLimitConfig {
+                requests_per_window: 10,
+                window_seconds: 300, // 5 minutes
+                burst_allowance: 3,
+            },
+        );
+
+        configs.insert(
+            "registration".to_string(),
+            RateLimitConfig {
+                requests_per_window: 3,
+                window_seconds: 60, // 1 minute
+                burst_allowance: 1,
+            },
+        );
+
+        configs.insert(
+            "api".to_string(),
+            RateLimitConfig {
+                requests_per_window: 100,
+                window_seconds: 60, // 1 minute
+                burst_allowance: 20,
+            },
+        );
+
+        configs.insert(
+            "health".to_string(),
+            RateLimitConfig {
+                requests_per_window: 1000,
+                window_seconds: 60, // 1 minute
+                burst_allowance: 100,
+            },
+        );
 
         Ok(Self {
             redis_pool: pool,
@@ -88,16 +100,20 @@ impl RateLimitService {
         endpoint_type: &str,
     ) -> Result<RateLimitResult> {
         let configs = self.configs.read().await;
-        let config = configs.get(endpoint_type)
-            .cloned()
-            .unwrap_or_default();
+        let config = configs.get(endpoint_type).cloned().unwrap_or_default();
 
-        let mut conn = self.redis_pool.get().await
+        let mut conn = self
+            .redis_pool
+            .get()
+            .await
             .map_err(|e| anyhow!("Failed to get Redis connection: {}", e))?;
 
         let now = Utc::now().timestamp() as u64;
         let window_start = now - (now % config.window_seconds);
-        let key = format!("rate_limit:{}:{}:{}", endpoint_type, identifier, window_start);
+        let key = format!(
+            "rate_limit:{}:{}:{}",
+            endpoint_type, identifier, window_start
+        );
 
         // Get current count for this window
         let current_count: u32 = conn.get(&key).await.unwrap_or(0);
@@ -115,11 +131,15 @@ impl RateLimitService {
         }
 
         // Increment counter
-        let new_count: u32 = conn.incr(&key, 1).await
+        let new_count: u32 = conn
+            .incr(&key, 1)
+            .await
             .map_err(|e| anyhow!("Failed to increment rate limit counter: {}", e))?;
 
         // Set expiration for the key
-        let _: () = conn.expire(&key, config.window_seconds as i64).await
+        let _: () = conn
+            .expire(&key, config.window_seconds as i64)
+            .await
             .map_err(|e| anyhow!("Failed to set expiration: {}", e))?;
 
         let reset_time = window_start + config.window_seconds;
@@ -145,16 +165,20 @@ impl RateLimitService {
         endpoint_type: &str,
     ) -> Result<RateLimitStatus> {
         let configs = self.configs.read().await;
-        let config = configs.get(endpoint_type)
-            .cloned()
-            .unwrap_or_default();
+        let config = configs.get(endpoint_type).cloned().unwrap_or_default();
 
-        let mut conn = self.redis_pool.get().await
+        let mut conn = self
+            .redis_pool
+            .get()
+            .await
             .map_err(|e| anyhow!("Failed to get Redis connection: {}", e))?;
 
         let now = Utc::now().timestamp() as u64;
         let window_start = now - (now % config.window_seconds);
-        let key = format!("rate_limit:{}:{}:{}", endpoint_type, identifier, window_start);
+        let key = format!(
+            "rate_limit:{}:{}:{}",
+            endpoint_type, identifier, window_start
+        );
 
         let current_count: u32 = conn.get(&key).await.unwrap_or(0);
         let reset_time = window_start + config.window_seconds;
@@ -192,7 +216,10 @@ pub struct RateLimitStatus {
 }
 
 /// Extract client IP address from request
-pub fn extract_client_ip(headers: &HeaderMap, connect_info: Option<&ConnectInfo<SocketAddr>>) -> String {
+pub fn extract_client_ip(
+    headers: &HeaderMap,
+    connect_info: Option<&ConnectInfo<SocketAddr>>,
+) -> String {
     // Try X-Forwarded-For header first (for proxies)
     if let Some(forwarded) = headers.get("x-forwarded-for") {
         if let Ok(forwarded_str) = forwarded.to_str() {
@@ -227,8 +254,11 @@ pub async fn auth_rate_limit_middleware(
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
     let client_ip = extract_client_ip(request.headers(), connect_info.as_ref());
-    
-    debug!("Rate limiting check for auth endpoint from IP: {}", client_ip);
+
+    debug!(
+        "Rate limiting check for auth endpoint from IP: {}",
+        client_ip
+    );
 
     match rate_limiter.check_rate_limit(&client_ip, "auth").await {
         Ok(result) => {
@@ -257,11 +287,22 @@ pub async fn auth_rate_limit_middleware(
             // Add rate limit headers to response
             let mut response = next.run(request).await;
             let headers = response.headers_mut();
-            
-            headers.insert("X-RateLimit-Limit", result.limit.to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Remaining", 
-                (result.limit.saturating_sub(result.current_count)).to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Reset", result.reset_time.to_string().parse().unwrap());
+
+            headers.insert(
+                "X-RateLimit-Limit",
+                result.limit.to_string().parse().unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Remaining",
+                (result.limit.saturating_sub(result.current_count))
+                    .to_string()
+                    .parse()
+                    .unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Reset",
+                result.reset_time.to_string().parse().unwrap(),
+            );
 
             Ok(response)
         }
@@ -281,10 +322,16 @@ pub async fn registration_rate_limit_middleware(
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
     let client_ip = extract_client_ip(request.headers(), connect_info.as_ref());
-    
-    debug!("Rate limiting check for registration endpoint from IP: {}", client_ip);
 
-    match rate_limiter.check_rate_limit(&client_ip, "registration").await {
+    debug!(
+        "Rate limiting check for registration endpoint from IP: {}",
+        client_ip
+    );
+
+    match rate_limiter
+        .check_rate_limit(&client_ip, "registration")
+        .await
+    {
         Ok(result) => {
             if !result.allowed {
                 warn!(
@@ -318,11 +365,22 @@ pub async fn registration_rate_limit_middleware(
             // Add rate limit headers to response
             let mut response = next.run(request).await;
             let headers = response.headers_mut();
-            
-            headers.insert("X-RateLimit-Limit", result.limit.to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Remaining", 
-                (result.limit.saturating_sub(result.current_count)).to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Reset", result.reset_time.to_string().parse().unwrap());
+
+            headers.insert(
+                "X-RateLimit-Limit",
+                result.limit.to_string().parse().unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Remaining",
+                (result.limit.saturating_sub(result.current_count))
+                    .to_string()
+                    .parse()
+                    .unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Reset",
+                result.reset_time.to_string().parse().unwrap(),
+            );
 
             Ok(response)
         }
@@ -342,8 +400,11 @@ pub async fn api_rate_limit_middleware(
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
     let client_ip = extract_client_ip(request.headers(), connect_info.as_ref());
-    
-    debug!("Rate limiting check for API endpoint from IP: {}", client_ip);
+
+    debug!(
+        "Rate limiting check for API endpoint from IP: {}",
+        client_ip
+    );
 
     match rate_limiter.check_rate_limit(&client_ip, "api").await {
         Ok(result) => {
@@ -367,11 +428,22 @@ pub async fn api_rate_limit_middleware(
             // Add rate limit headers to response
             let mut response = next.run(request).await;
             let headers = response.headers_mut();
-            
-            headers.insert("X-RateLimit-Limit", result.limit.to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Remaining", 
-                (result.limit.saturating_sub(result.current_count)).to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Reset", result.reset_time.to_string().parse().unwrap());
+
+            headers.insert(
+                "X-RateLimit-Limit",
+                result.limit.to_string().parse().unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Remaining",
+                (result.limit.saturating_sub(result.current_count))
+                    .to_string()
+                    .parse()
+                    .unwrap(),
+            );
+            headers.insert(
+                "X-RateLimit-Reset",
+                result.reset_time.to_string().parse().unwrap(),
+            );
 
             Ok(response)
         }
@@ -391,11 +463,14 @@ pub async fn brute_force_protection_middleware(
     next: Next,
 ) -> Result<Response, impl IntoResponse> {
     let client_ip = extract_client_ip(request.headers(), connect_info.as_ref());
-    
+
     // Check for brute force patterns (very restrictive limits)
     let brute_force_key = format!("brute_force:{}", client_ip);
-    
-    match rate_limiter.check_rate_limit(&brute_force_key, "auth").await {
+
+    match rate_limiter
+        .check_rate_limit(&brute_force_key, "auth")
+        .await
+    {
         Ok(result) => {
             if !result.allowed {
                 warn!(
@@ -436,13 +511,19 @@ mod tests {
         let rate_limiter = RateLimitService::new(redis_url).unwrap();
 
         // First request should be allowed
-        let result1 = rate_limiter.check_rate_limit("test_ip", "auth").await.unwrap();
+        let result1 = rate_limiter
+            .check_rate_limit("test_ip", "auth")
+            .await
+            .unwrap();
         assert!(result1.allowed);
         assert_eq!(result1.current_count, 1);
 
         // Multiple requests within limit should be allowed
         for i in 2..=5 {
-            let result = rate_limiter.check_rate_limit("test_ip", "auth").await.unwrap();
+            let result = rate_limiter
+                .check_rate_limit("test_ip", "auth")
+                .await
+                .unwrap();
             assert!(result.allowed);
             assert_eq!(result.current_count, i);
         }
@@ -456,13 +537,19 @@ mod tests {
 
         // Make requests up to the limit (10 for auth)
         for i in 1..=10 {
-            let result = rate_limiter.check_rate_limit("test_ip_2", "auth").await.unwrap();
+            let result = rate_limiter
+                .check_rate_limit("test_ip_2", "auth")
+                .await
+                .unwrap();
             assert!(result.allowed);
             assert_eq!(result.current_count, i);
         }
 
         // Next request should be denied
-        let result = rate_limiter.check_rate_limit("test_ip_2", "auth").await.unwrap();
+        let result = rate_limiter
+            .check_rate_limit("test_ip_2", "auth")
+            .await
+            .unwrap();
         assert!(!result.allowed);
         assert_eq!(result.current_count, 11);
         assert!(result.retry_after > 0);
@@ -475,28 +562,45 @@ mod tests {
         let mut rate_limiter = RateLimitService::new(redis_url).unwrap();
 
         // Set a very short window for testing
-        rate_limiter.update_config("test".to_string(), RateLimitConfig {
-            requests_per_window: 2,
-            window_seconds: 1,
-            burst_allowance: 0,
-        }).await;
+        rate_limiter
+            .update_config(
+                "test".to_string(),
+                RateLimitConfig {
+                    requests_per_window: 2,
+                    window_seconds: 1,
+                    burst_allowance: 0,
+                },
+            )
+            .await;
 
         // Make requests up to limit
-        let result1 = rate_limiter.check_rate_limit("test_ip_3", "test").await.unwrap();
+        let result1 = rate_limiter
+            .check_rate_limit("test_ip_3", "test")
+            .await
+            .unwrap();
         assert!(result1.allowed);
 
-        let result2 = rate_limiter.check_rate_limit("test_ip_3", "test").await.unwrap();
+        let result2 = rate_limiter
+            .check_rate_limit("test_ip_3", "test")
+            .await
+            .unwrap();
         assert!(result2.allowed);
 
         // Should be rate limited now
-        let result3 = rate_limiter.check_rate_limit("test_ip_3", "test").await.unwrap();
+        let result3 = rate_limiter
+            .check_rate_limit("test_ip_3", "test")
+            .await
+            .unwrap();
         assert!(!result3.allowed);
 
         // Wait for window to reset
         sleep(Duration::from_secs(2)).await;
 
         // Should be allowed again
-        let result4 = rate_limiter.check_rate_limit("test_ip_3", "test").await.unwrap();
+        let result4 = rate_limiter
+            .check_rate_limit("test_ip_3", "test")
+            .await
+            .unwrap();
         assert!(result4.allowed);
         assert_eq!(result4.current_count, 1);
     }

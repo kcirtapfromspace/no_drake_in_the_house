@@ -17,7 +17,6 @@
   let showPathFinder = false;
   let pathSourceId = '';
   let pathTargetId = '';
-  let _svgContainer: SVGSVGElement;
 
   // Simple force-directed layout simulation
   let nodes: (NetworkNode & { x: number; y: number; vx: number; vy: number })[] = [];
@@ -411,7 +410,6 @@
             </div>
           {:else}
             <svg
-              bind:this={_svgContainer}
               viewBox="0 0 600 400"
               class="w-full h-96 bg-gray-50 rounded-lg"
             >

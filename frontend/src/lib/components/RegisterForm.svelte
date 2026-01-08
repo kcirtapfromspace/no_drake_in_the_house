@@ -32,12 +32,7 @@
     passwordStrength <= 2 ? 'Weak' :
     passwordStrength <= 3 ? 'Fair' :
     passwordStrength <= 4 ? 'Good' : 'Strong';
-  
-  $: passwordStrengthColor = passwordStrength === 0 ? '' :
-    passwordStrength <= 2 ? 'text-red-600' :
-    passwordStrength <= 3 ? 'text-yellow-600' :
-    passwordStrength <= 4 ? 'text-blue-600' : 'text-green-600';
-  
+
   // Validation
   $: emailValid = email.length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   $: passwordValid = password.length === 0 || (passwordLength && passwordStrength >= 3);

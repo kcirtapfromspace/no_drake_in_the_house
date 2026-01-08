@@ -1,7 +1,7 @@
+use crate::models::ProviderBadge;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::models::ProviderBadge;
 
 /// Community list with governance information
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -10,9 +10,9 @@ pub struct CommunityList {
     pub owner_user_id: Uuid,
     pub name: String,
     pub description: Option<String>,
-    pub criteria: String, // Required neutral criteria
+    pub criteria: String,               // Required neutral criteria
     pub governance_url: Option<String>, // Link to governance process
-    pub update_cadence: String, // "weekly", "monthly", "as-needed"
+    pub update_cadence: String,         // "weekly", "monthly", "as-needed"
     pub version: i32,
     pub visibility: String, // "public", "private", "unlisted"
     pub created_at: DateTime<Utc>,

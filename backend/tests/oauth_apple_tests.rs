@@ -1,11 +1,11 @@
 use music_streaming_blocklist_backend::{
-    models::oauth::OAuthProviderType,
-    services::oauth_apple::{AppleOAuthProvider, AppleOAuthService, AppleOAuthConfig},
-    services::oauth::OAuthProvider,
     error::AppError,
+    models::oauth::OAuthProviderType,
+    services::oauth::OAuthProvider,
+    services::oauth_apple::{AppleOAuthConfig, AppleOAuthProvider, AppleOAuthService},
 };
-use std::collections::HashMap;
 use serde_json::json;
+use std::collections::HashMap;
 
 fn create_test_apple_config() -> AppleOAuthConfig {
     AppleOAuthConfig {
@@ -18,7 +18,8 @@ MIGTAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBHkwdwIBAQQgTest1234567890Test
 1234567890Test1234567890Test1234567890oAoGCCqGSM49AwEHoUQDQgAETest
 1234567890Test1234567890Test1234567890Test1234567890Test1234567890
 Test1234567890Test1234567890Test1234567890Test1234567890==
------END PRIVATE KEY-----"#.to_string(),
+-----END PRIVATE KEY-----"#
+            .to_string(),
         redirect_uri: "https://example.com/auth/apple/callback".to_string(),
         scopes: vec!["name".to_string(), "email".to_string()],
     }
@@ -27,12 +28,15 @@ Test1234567890Test1234567890Test1234567890Test1234567890==
 #[test]
 fn test_apple_oauth_config_creation() {
     let config = create_test_apple_config();
-    
+
     assert_eq!(config.client_id, "com.example.testapp");
     assert_eq!(config.team_id, "TESTTEAM123");
     assert_eq!(config.key_id, "TESTKEY123");
     assert!(config.private_key.contains("BEGIN PRIVATE KEY"));
-    assert_eq!(config.redirect_uri, "https://example.com/auth/apple/callback");
+    assert_eq!(
+        config.redirect_uri,
+        "https://example.com/auth/apple/callback"
+    );
     assert!(config.scopes.contains(&"name".to_string()));
     assert!(config.scopes.contains(&"email".to_string()));
 }
@@ -41,7 +45,10 @@ fn test_apple_oauth_config_creation() {
 fn test_apple_provider_type() {
     let provider_type = OAuthProviderType::Apple;
     assert_eq!(provider_type.to_string(), "apple");
-    assert_eq!("apple".parse::<OAuthProviderType>().unwrap(), OAuthProviderType::Apple);
+    assert_eq!(
+        "apple".parse::<OAuthProviderType>().unwrap(),
+        OAuthProviderType::Apple
+    );
 }
 
 #[test]
@@ -49,25 +56,25 @@ fn test_apple_oauth_config_validation_missing_fields() {
     // Test missing client_id
     let mut config = create_test_apple_config();
     config.client_id = "".to_string();
-    
+
     // We can't create a provider with invalid config, but we can test the validation logic
     assert!(config.client_id.is_empty());
-    
+
     // Test missing team_id
     let mut config = create_test_apple_config();
     config.team_id = "".to_string();
     assert!(config.team_id.is_empty());
-    
+
     // Test missing key_id
     let mut config = create_test_apple_config();
     config.key_id = "".to_string();
     assert!(config.key_id.is_empty());
-    
+
     // Test missing private_key
     let mut config = create_test_apple_config();
     config.private_key = "".to_string();
     assert!(config.private_key.is_empty());
-    
+
     // Test missing redirect_uri
     let mut config = create_test_apple_config();
     config.redirect_uri = "".to_string();
@@ -77,11 +84,11 @@ fn test_apple_oauth_config_validation_missing_fields() {
 #[test]
 fn test_apple_scopes_validation() {
     let config = create_test_apple_config();
-    
+
     // Apple supports name and email scopes
     assert!(config.scopes.contains(&"name".to_string()));
     assert!(config.scopes.contains(&"email".to_string()));
-    
+
     // Test scope string generation
     let scope_string = config.scopes.join(" ");
     assert_eq!(scope_string, "name email");
@@ -91,10 +98,10 @@ fn test_apple_scopes_validation() {
 async fn test_apple_initiate_flow_structure() {
     // Test the expected structure without creating a real provider
     // (since we don't have a valid private key)
-    
+
     let redirect_uri = "https://example.com/auth/apple/callback";
     let state = "test_state_123";
-    
+
     // Verify expected URL components that would be in Apple's auth URL
     let expected_base_url = "https://appleid.apple.com/auth/authorize";
     let expected_params = [
@@ -105,7 +112,7 @@ async fn test_apple_initiate_flow_structure() {
         ("scope", "name email"),
         ("response_mode", "form_post"),
     ];
-    
+
     // Build expected URL manually to test structure
     let mut url = format!("{}?", expected_base_url);
     for (i, (key, value)) in expected_params.iter().enumerate() {
@@ -114,7 +121,7 @@ async fn test_apple_initiate_flow_structure() {
         }
         url.push_str(&format!("{}={}", key, urlencoding::encode(value)));
     }
-    
+
     assert!(url.contains("appleid.apple.com"));
     assert!(url.contains("client_id=com.example.testapp"));
     assert!(url.contains("response_mode=form_post"));
@@ -126,20 +133,28 @@ fn test_apple_user_data_parsing() {
     // Test parsing Apple's user data format
     let user_json = r#"{"name":{"firstName":"John","lastName":"Doe"}}"#;
     let user_data: serde_json::Value = serde_json::from_str(user_json).unwrap();
-    
-    let first_name = user_data["name"]["firstName"].as_str().map(|s| s.to_string());
-    let last_name = user_data["name"]["lastName"].as_str().map(|s| s.to_string());
-    
+
+    let first_name = user_data["name"]["firstName"]
+        .as_str()
+        .map(|s| s.to_string());
+    let last_name = user_data["name"]["lastName"]
+        .as_str()
+        .map(|s| s.to_string());
+
     assert_eq!(first_name, Some("John".to_string()));
     assert_eq!(last_name, Some("Doe".to_string()));
-    
+
     // Test minimal user data
     let minimal_json = r#"{"name":{}}"#;
     let minimal_data: serde_json::Value = serde_json::from_str(minimal_json).unwrap();
-    
-    let no_first_name = minimal_data["name"]["firstName"].as_str().map(|s| s.to_string());
-    let no_last_name = minimal_data["name"]["lastName"].as_str().map(|s| s.to_string());
-    
+
+    let no_first_name = minimal_data["name"]["firstName"]
+        .as_str()
+        .map(|s| s.to_string());
+    let no_last_name = minimal_data["name"]["lastName"]
+        .as_str()
+        .map(|s| s.to_string());
+
     assert_eq!(no_first_name, None);
     assert_eq!(no_last_name, None);
 }
@@ -158,13 +173,15 @@ fn test_apple_id_token_structure() {
         "exp": 1234567890,
         "iat": 1234567800
     });
-    
+
     // Test extracting user info from payload
     let provider_user_id = mock_payload["sub"].as_str().unwrap();
     let email = mock_payload["email"].as_str().map(|s| s.to_string());
     let email_verified = mock_payload["email_verified"].as_str().map(|s| s == "true");
-    let is_private_email = mock_payload["is_private_email"].as_str().map(|s| s == "true");
-    
+    let is_private_email = mock_payload["is_private_email"]
+        .as_str()
+        .map(|s| s == "true");
+
     assert_eq!(provider_user_id, "apple_user_123456");
     assert_eq!(email, Some("user@privaterelay.appleid.com".to_string()));
     assert_eq!(email_verified, Some(true));
@@ -173,12 +190,12 @@ fn test_apple_id_token_structure() {
 
 #[test]
 fn test_apple_jwt_claims_structure() {
-    use chrono::{Utc, Duration};
-    
+    use chrono::{Duration, Utc};
+
     // Test JWT claims structure for client secret
     let now = Utc::now();
     let exp = now + Duration::minutes(5);
-    
+
     let claims = json!({
         "iss": "TESTTEAM123",
         "iat": now.timestamp(),
@@ -186,7 +203,7 @@ fn test_apple_jwt_claims_structure() {
         "aud": "https://appleid.apple.com",
         "sub": "com.example.testapp"
     });
-    
+
     assert_eq!(claims["iss"], "TESTTEAM123");
     assert_eq!(claims["sub"], "com.example.testapp");
     assert_eq!(claims["aud"], "https://appleid.apple.com");
@@ -197,7 +214,7 @@ fn test_apple_jwt_claims_structure() {
 fn test_apple_oauth_service_structure() {
     // Test service structure without creating real provider
     let config = create_test_apple_config();
-    
+
     // Verify config is properly structured for service creation
     assert!(!config.client_id.is_empty());
     assert!(!config.team_id.is_empty());
@@ -213,12 +230,12 @@ fn test_apple_response_mode_options() {
     let form_post_mode = "form_post";
     let query_mode = "query";
     let fragment_mode = "fragment";
-    
+
     // Apple recommends form_post for security
     assert_eq!(form_post_mode, "form_post");
     assert_eq!(query_mode, "query");
     assert_eq!(fragment_mode, "fragment");
-    
+
     // Default should be form_post
     let default_mode = "form_post";
     assert_eq!(default_mode, form_post_mode);
@@ -234,7 +251,7 @@ fn test_apple_token_response_structure() {
         "refresh_token": "apple_refresh_token",
         "id_token": "apple_id_token_jwt"
     });
-    
+
     assert_eq!(mock_token_response["access_token"], "apple_access_token");
     assert_eq!(mock_token_response["token_type"], "Bearer");
     assert_eq!(mock_token_response["expires_in"], 3600);
@@ -249,15 +266,21 @@ fn test_apple_error_handling() {
         "error": "invalid_grant",
         "error_description": "The provided authorization grant is invalid, expired, revoked, does not match the redirection URI used in the authorization request, or was issued to another client."
     });
-    
+
     assert_eq!(invalid_grant_error["error"], "invalid_grant");
-    assert!(invalid_grant_error["error_description"].as_str().unwrap().contains("invalid"));
-    
+    assert!(invalid_grant_error["error_description"]
+        .as_str()
+        .unwrap()
+        .contains("invalid"));
+
     let invalid_client_error = json!({
         "error": "invalid_client",
         "error_description": "Client authentication failed"
     });
-    
+
     assert_eq!(invalid_client_error["error"], "invalid_client");
-    assert!(invalid_client_error["error_description"].as_str().unwrap().contains("authentication failed"));
+    assert!(invalid_client_error["error_description"]
+        .as_str()
+        .unwrap()
+        .contains("authentication failed"));
 }

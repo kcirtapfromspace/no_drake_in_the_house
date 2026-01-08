@@ -151,10 +151,16 @@ impl CrossPlatformIdentityResolver {
             .await?
         {
             // Check if MusicBrainz result matches an existing artist
-            if let Some(existing) = existing_artists
-                .iter()
-                .find(|a| a.musicbrainz_id.as_ref() == Some(&match_result.artist.musicbrainz_id.clone().unwrap_or_default()))
-            {
+            if let Some(existing) = existing_artists.iter().find(|a| {
+                a.musicbrainz_id.as_ref()
+                    == Some(
+                        &match_result
+                            .artist
+                            .musicbrainz_id
+                            .clone()
+                            .unwrap_or_default(),
+                    )
+            }) {
                 return Ok(IdentityMatch {
                     artist: existing.clone(),
                     confidence: match_result.confidence,
@@ -219,7 +225,11 @@ impl CrossPlatformIdentityResolver {
             .context("MusicBrainz API request failed")?;
 
         if !response.status().is_success() {
-            tracing::warn!("MusicBrainz search failed for '{}': {}", name, response.status());
+            tracing::warn!(
+                "MusicBrainz search failed for '{}': {}",
+                name,
+                response.status()
+            );
             return Ok(None);
         }
 
@@ -368,7 +378,8 @@ impl CrossPlatformIdentityResolver {
         // Genre overlap (weight: 0.3)
         if !platform_artist.genres.is_empty() && !canonical.genres.is_empty() {
             let canonical_genres: Vec<&str> = canonical.genres.iter().map(|s| s.as_str()).collect();
-            let platform_genres: Vec<&str> = platform_artist.genres.iter().map(|s| s.as_str()).collect();
+            let platform_genres: Vec<&str> =
+                platform_artist.genres.iter().map(|s| s.as_str()).collect();
             let genre_overlap = self.genre_overlap(&platform_genres, &canonical_genres);
             score += genre_overlap * 0.3;
         } else {
@@ -454,7 +465,11 @@ impl CrossPlatformIdentityResolver {
 
         for i in 1..=a_len {
             for j in 1..=b_len {
-                let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+                let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                    0
+                } else {
+                    1
+                };
                 matrix[i][j] = (matrix[i - 1][j] + 1)
                     .min(matrix[i][j - 1] + 1)
                     .min(matrix[i - 1][j - 1] + cost);

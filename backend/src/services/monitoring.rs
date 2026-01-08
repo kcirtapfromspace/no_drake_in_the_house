@@ -1,15 +1,15 @@
+use chrono::{DateTime, Utc};
+use prometheus::{
+    Encoder, Gauge, GaugeVec, HistogramVec, IntCounterVec, IntGauge, IntGaugeVec, Registry,
+    TextEncoder,
+};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use chrono::{DateTime, Utc};
-use prometheus::{
-    Gauge, GaugeVec, HistogramVec, IntCounterVec,
-    IntGauge, IntGaugeVec, Registry, TextEncoder, Encoder,
-};
-use serde::{Deserialize, Serialize};
 use sysinfo::System;
 use tokio::sync::RwLock;
-use tracing::{info, warn, error, debug};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Correlation ID for distributed tracing
@@ -120,7 +120,7 @@ pub struct MonitoringService {
     health_checks: Arc<RwLock<HashMap<String, HealthCheck>>>,
     alerts: Arc<RwLock<Vec<Alert>>>,
     slos: Arc<RwLock<HashMap<String, SLO>>>,
-    
+
     // Prometheus metrics
     http_requests_total: IntCounterVec,
     http_request_duration: HistogramVec,
@@ -154,31 +154,41 @@ impl MonitoringService {
         registry.register(Box::new(http_requests_total.clone()))?;
 
         let http_request_duration = HistogramVec::new(
-            prometheus::HistogramOpts::new("http_request_duration_seconds", "HTTP request duration"),
+            prometheus::HistogramOpts::new(
+                "http_request_duration_seconds",
+                "HTTP request duration",
+            ),
             &["method", "endpoint"],
         )?;
         registry.register(Box::new(http_request_duration.clone()))?;
 
-        let database_connections_active = IntGauge::new(
-            "database_connections_active",
-            "Active database connections",
-        )?;
+        let database_connections_active =
+            IntGauge::new("database_connections_active", "Active database connections")?;
         registry.register(Box::new(database_connections_active.clone()))?;
 
         let database_query_duration = HistogramVec::new(
-            prometheus::HistogramOpts::new("database_query_duration_seconds", "Database query duration"),
+            prometheus::HistogramOpts::new(
+                "database_query_duration_seconds",
+                "Database query duration",
+            ),
             &["query_type", "table"],
         )?;
         registry.register(Box::new(database_query_duration.clone()))?;
 
         let enforcement_operations_total = IntCounterVec::new(
-            prometheus::Opts::new("enforcement_operations_total", "Total enforcement operations"),
+            prometheus::Opts::new(
+                "enforcement_operations_total",
+                "Total enforcement operations",
+            ),
             &["provider", "operation_type", "status"],
         )?;
         registry.register(Box::new(enforcement_operations_total.clone()))?;
 
         let enforcement_success_rate = GaugeVec::new(
-            prometheus::Opts::new("enforcement_success_rate", "Enforcement operation success rate"),
+            prometheus::Opts::new(
+                "enforcement_success_rate",
+                "Enforcement operation success rate",
+            ),
             &["provider", "operation_type"],
         )?;
         registry.register(Box::new(enforcement_success_rate.clone()))?;
@@ -208,18 +218,26 @@ impl MonitoringService {
         registry.register(Box::new(job_queue_size.clone()))?;
 
         let job_processing_duration = HistogramVec::new(
-            prometheus::HistogramOpts::new("job_processing_duration_seconds", "Job processing duration"),
+            prometheus::HistogramOpts::new(
+                "job_processing_duration_seconds",
+                "Job processing duration",
+            ),
             &["job_type", "status"],
         )?;
         registry.register(Box::new(job_processing_duration.clone()))?;
 
-        let system_cpu_usage = Gauge::new("system_cpu_usage_percent", "System CPU usage percentage")?;
+        let system_cpu_usage =
+            Gauge::new("system_cpu_usage_percent", "System CPU usage percentage")?;
         registry.register(Box::new(system_cpu_usage.clone()))?;
 
-        let system_memory_usage = Gauge::new("system_memory_usage_percent", "System memory usage percentage")?;
+        let system_memory_usage = Gauge::new(
+            "system_memory_usage_percent",
+            "System memory usage percentage",
+        )?;
         registry.register(Box::new(system_memory_usage.clone()))?;
 
-        let system_disk_usage = Gauge::new("system_disk_usage_percent", "System disk usage percentage")?;
+        let system_disk_usage =
+            Gauge::new("system_disk_usage_percent", "System disk usage percentage")?;
         registry.register(Box::new(system_disk_usage.clone()))?;
 
         let active_users = IntGauge::new("active_users", "Number of active users")?;
@@ -232,7 +250,10 @@ impl MonitoringService {
         registry.register(Box::new(dnp_list_size.clone()))?;
 
         let community_list_subscriptions = IntGaugeVec::new(
-            prometheus::Opts::new("community_list_subscriptions", "Community list subscriptions"),
+            prometheus::Opts::new(
+                "community_list_subscriptions",
+                "Community list subscriptions",
+            ),
             &["list_id", "list_name"],
         )?;
         registry.register(Box::new(community_list_subscriptions.clone()))?;
@@ -264,11 +285,17 @@ impl MonitoringService {
     }
 
     /// Record HTTP request metrics
-    pub fn record_http_request(&self, method: &str, endpoint: &str, status_code: u16, duration: Duration) {
+    pub fn record_http_request(
+        &self,
+        method: &str,
+        endpoint: &str,
+        status_code: u16,
+        duration: Duration,
+    ) {
         self.http_requests_total
             .with_label_values(&[method, endpoint, &status_code.to_string()])
             .inc();
-        
+
         self.http_request_duration
             .with_label_values(&[method, endpoint])
             .observe(duration.as_secs_f64());
@@ -282,9 +309,15 @@ impl MonitoringService {
     }
 
     /// Record enforcement operation metrics
-    pub fn record_enforcement_operation(&self, provider: &str, operation_type: &str, success: bool, _duration: Duration) {
+    pub fn record_enforcement_operation(
+        &self,
+        provider: &str,
+        operation_type: &str,
+        success: bool,
+        _duration: Duration,
+    ) {
         let status = if success { "success" } else { "failure" };
-        
+
         self.enforcement_operations_total
             .with_label_values(&[provider, operation_type, status])
             .inc();
@@ -318,7 +351,13 @@ impl MonitoringService {
     }
 
     /// Update job queue metrics
-    pub fn update_job_queue_size(&self, queue_name: &str, pending: i64, processing: i64, failed: i64) {
+    pub fn update_job_queue_size(
+        &self,
+        queue_name: &str,
+        pending: i64,
+        processing: i64,
+        failed: i64,
+    ) {
         self.job_queue_size
             .with_label_values(&[queue_name, "pending"])
             .set(pending);
@@ -379,8 +418,9 @@ impl MonitoringService {
 
     /// Log structured entry with correlation ID
     pub fn log_structured(&self, entry: StructuredLogEntry) {
-        let json_entry = serde_json::to_string(&entry).unwrap_or_else(|_| "Failed to serialize log entry".to_string());
-        
+        let json_entry = serde_json::to_string(&entry)
+            .unwrap_or_else(|_| "Failed to serialize log entry".to_string());
+
         match entry.level.as_str() {
             "ERROR" => error!(correlation_id = %entry.correlation_id, "{}", json_entry),
             "WARN" => warn!(correlation_id = %entry.correlation_id, "{}", json_entry),
@@ -404,11 +444,11 @@ impl MonitoringService {
     /// Check overall system health
     pub async fn get_overall_health(&self) -> HealthStatus {
         let health_checks = self.health_checks.read().await;
-        
+
         let mut _healthy_count = 0;
         let mut degraded_count = 0;
         let mut unhealthy_count = 0;
-        
+
         for health_check in health_checks.values() {
             match health_check.status {
                 HealthStatus::Healthy => _healthy_count += 1,
@@ -416,7 +456,7 @@ impl MonitoringService {
                 HealthStatus::Unhealthy => unhealthy_count += 1,
             }
         }
-        
+
         if unhealthy_count > 0 {
             HealthStatus::Unhealthy
         } else if degraded_count > 0 {
@@ -430,11 +470,13 @@ impl MonitoringService {
     pub async fn trigger_alert(&self, alert: Alert) {
         let mut alerts = self.alerts.write().await;
         alerts.push(alert.clone());
-        
+
         // Log the alert
         let log_entry = StructuredLogEntry {
             timestamp: Utc::now(),
-            correlation_id: alert.correlation_id.unwrap_or_else(|| CorrelationId::new().0),
+            correlation_id: alert
+                .correlation_id
+                .unwrap_or_else(|| CorrelationId::new().0),
             level: match alert.severity {
                 AlertSeverity::Critical => "ERROR".to_string(),
                 AlertSeverity::Warning => "WARN".to_string(),
@@ -448,9 +490,9 @@ impl MonitoringService {
             message: alert.message.clone(),
             metadata: alert.metadata.clone(),
         };
-        
+
         self.log_structured(log_entry);
-        
+
         // In production, this would send to alerting systems like PagerDuty, Slack, etc.
         match alert.severity {
             AlertSeverity::Critical => {
@@ -485,11 +527,13 @@ impl MonitoringService {
     /// Check SLO violations and trigger alerts
     pub async fn check_slo_violations(&self) {
         let slos = self.slos.read().await;
-        
+
         for slo in slos.values() {
             if slo.current_percentage < slo.target_percentage {
-                let error_budget_burned = ((slo.target_percentage - slo.current_percentage) / slo.target_percentage) * 100.0;
-                
+                let error_budget_burned = ((slo.target_percentage - slo.current_percentage)
+                    / slo.target_percentage)
+                    * 100.0;
+
                 if error_budget_burned > 50.0 {
                     let alert = Alert {
                         id: Uuid::new_v4().to_string(),
@@ -497,20 +541,41 @@ impl MonitoringService {
                         severity: AlertSeverity::Critical,
                         message: format!(
                             "SLO '{}' is at {:.2}% (target: {:.2}%), error budget {:.2}% burned",
-                            slo.name, slo.current_percentage, slo.target_percentage, error_budget_burned
+                            slo.name,
+                            slo.current_percentage,
+                            slo.target_percentage,
+                            error_budget_burned
                         ),
                         timestamp: Utc::now(),
                         correlation_id: None,
                         metadata: {
                             let mut metadata = HashMap::new();
-                            metadata.insert("slo_name".to_string(), serde_json::Value::String(slo.name.clone()));
-                            metadata.insert("current_percentage".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(slo.current_percentage).unwrap()));
-                            metadata.insert("target_percentage".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(slo.target_percentage).unwrap()));
-                            metadata.insert("error_budget_burned".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(error_budget_burned).unwrap()));
+                            metadata.insert(
+                                "slo_name".to_string(),
+                                serde_json::Value::String(slo.name.clone()),
+                            );
+                            metadata.insert(
+                                "current_percentage".to_string(),
+                                serde_json::Value::Number(
+                                    serde_json::Number::from_f64(slo.current_percentage).unwrap(),
+                                ),
+                            );
+                            metadata.insert(
+                                "target_percentage".to_string(),
+                                serde_json::Value::Number(
+                                    serde_json::Number::from_f64(slo.target_percentage).unwrap(),
+                                ),
+                            );
+                            metadata.insert(
+                                "error_budget_burned".to_string(),
+                                serde_json::Value::Number(
+                                    serde_json::Number::from_f64(error_budget_burned).unwrap(),
+                                ),
+                            );
                             metadata
                         },
                     };
-                    
+
                     drop(slos); // Release the lock before triggering alert
                     self.trigger_alert(alert).await;
                     return;
@@ -531,7 +596,7 @@ impl MonitoringService {
     /// Start background monitoring tasks
     pub async fn start_background_tasks(&self) {
         let monitoring_service = Arc::new(self.clone());
-        
+
         // System metrics update task
         let system_monitor = monitoring_service.clone();
         tokio::spawn(async move {
@@ -541,7 +606,7 @@ impl MonitoringService {
                 system_monitor.update_system_metrics().await;
             }
         });
-        
+
         // SLO violation check task
         let slo_monitor = monitoring_service.clone();
         tokio::spawn(async move {
@@ -551,7 +616,7 @@ impl MonitoringService {
                 slo_monitor.check_slo_violations().await;
             }
         });
-        
+
         // Health check task
         let health_monitor = monitoring_service.clone();
         tokio::spawn(async move {
@@ -609,7 +674,7 @@ impl HealthCheckService {
     /// Check database health
     pub async fn check_database_health(&self, db_pool: &sqlx::PgPool) -> HealthCheck {
         let start = Instant::now();
-        
+
         match sqlx::query("SELECT 1").fetch_one(db_pool).await {
             Ok(_) => HealthCheck {
                 service: "database".to_string(),
@@ -633,30 +698,18 @@ impl HealthCheckService {
     /// Check Redis health
     pub async fn check_redis_health(&self, redis_url: &str) -> HealthCheck {
         let start = Instant::now();
-        
+
         match redis::Client::open(redis_url) {
-            Ok(client) => {
-                match client.get_connection() {
-                    Ok(mut conn) => {
-                        match redis::cmd("PING").query::<String>(&mut conn) {
-                            Ok(_) => HealthCheck {
-                                service: "redis".to_string(),
-                                status: HealthStatus::Healthy,
-                                last_check: Utc::now(),
-                                response_time_ms: start.elapsed().as_millis() as u64,
-                                error_message: None,
-                                metadata: HashMap::new(),
-                            },
-                            Err(e) => HealthCheck {
-                                service: "redis".to_string(),
-                                status: HealthStatus::Unhealthy,
-                                last_check: Utc::now(),
-                                response_time_ms: start.elapsed().as_millis() as u64,
-                                error_message: Some(e.to_string()),
-                                metadata: HashMap::new(),
-                            },
-                        }
-                    }
+            Ok(client) => match client.get_connection() {
+                Ok(mut conn) => match redis::cmd("PING").query::<String>(&mut conn) {
+                    Ok(_) => HealthCheck {
+                        service: "redis".to_string(),
+                        status: HealthStatus::Healthy,
+                        last_check: Utc::now(),
+                        response_time_ms: start.elapsed().as_millis() as u64,
+                        error_message: None,
+                        metadata: HashMap::new(),
+                    },
                     Err(e) => HealthCheck {
                         service: "redis".to_string(),
                         status: HealthStatus::Unhealthy,
@@ -665,8 +718,16 @@ impl HealthCheckService {
                         error_message: Some(e.to_string()),
                         metadata: HashMap::new(),
                     },
-                }
-            }
+                },
+                Err(e) => HealthCheck {
+                    service: "redis".to_string(),
+                    status: HealthStatus::Unhealthy,
+                    last_check: Utc::now(),
+                    response_time_ms: start.elapsed().as_millis() as u64,
+                    error_message: Some(e.to_string()),
+                    metadata: HashMap::new(),
+                },
+            },
             Err(e) => HealthCheck {
                 service: "redis".to_string(),
                 status: HealthStatus::Unhealthy,
@@ -682,7 +743,7 @@ impl HealthCheckService {
     pub async fn check_spotify_api_health(&self) -> HealthCheck {
         let start = Instant::now();
         let client = reqwest::Client::new();
-        
+
         // Check Spotify Web API status (public endpoint)
         match client
             .get("https://api.spotify.com/v1/browse/categories?limit=1")
@@ -698,7 +759,7 @@ impl HealthCheckService {
                 } else {
                     HealthStatus::Healthy
                 };
-                
+
                 HealthCheck {
                     service: "spotify_api".to_string(),
                     status,
@@ -707,7 +768,12 @@ impl HealthCheckService {
                     error_message: None,
                     metadata: {
                         let mut metadata = HashMap::new();
-                        metadata.insert("status_code".to_string(), serde_json::Value::Number(serde_json::Number::from(response.status().as_u16())));
+                        metadata.insert(
+                            "status_code".to_string(),
+                            serde_json::Value::Number(serde_json::Number::from(
+                                response.status().as_u16(),
+                            )),
+                        );
                         metadata
                     },
                 }
@@ -727,7 +793,7 @@ impl HealthCheckService {
     pub async fn check_apple_music_api_health(&self) -> HealthCheck {
         let start = Instant::now();
         let client = reqwest::Client::new();
-        
+
         // Check Apple Music API status (public endpoint)
         match client
             .get("https://api.music.apple.com/v1/catalog/us/songs?ids=1441164670")
@@ -743,7 +809,7 @@ impl HealthCheckService {
                 } else {
                     HealthStatus::Healthy
                 };
-                
+
                 HealthCheck {
                     service: "apple_music_api".to_string(),
                     status,
@@ -752,7 +818,12 @@ impl HealthCheckService {
                     error_message: None,
                     metadata: {
                         let mut metadata = HashMap::new();
-                        metadata.insert("status_code".to_string(), serde_json::Value::Number(serde_json::Number::from(response.status().as_u16())));
+                        metadata.insert(
+                            "status_code".to_string(),
+                            serde_json::Value::Number(serde_json::Number::from(
+                                response.status().as_u16(),
+                            )),
+                        );
                         metadata
                     },
                 }
@@ -776,7 +847,7 @@ impl HealthCheckService {
             self.check_spotify_api_health().await,
             self.check_apple_music_api_health().await,
         ];
-        
+
         for check in checks {
             self.monitoring_service.update_health_check(check).await;
         }

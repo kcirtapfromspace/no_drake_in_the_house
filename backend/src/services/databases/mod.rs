@@ -46,9 +46,11 @@ impl DatabasesConfig {
     pub fn from_env() -> Self {
         Self {
             data_dir: std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string()),
-            duckdb_file: std::env::var("DUCKDB_FILE").unwrap_or_else(|_| "analytics.duckdb".to_string()),
+            duckdb_file: std::env::var("DUCKDB_FILE")
+                .unwrap_or_else(|_| "analytics.duckdb".to_string()),
             kuzu_dir: std::env::var("KUZU_DIR").unwrap_or_else(|_| "kuzu_graph".to_string()),
-            lancedb_dir: std::env::var("LANCEDB_DIR").unwrap_or_else(|_| "lancedb_vectors".to_string()),
+            lancedb_dir: std::env::var("LANCEDB_DIR")
+                .unwrap_or_else(|_| "lancedb_vectors".to_string()),
         }
     }
 
@@ -93,25 +95,28 @@ impl DatabaseClients {
     /// Create new database clients with default configuration
     pub async fn new(config: DatabasesConfig) -> Result<Self> {
         // Ensure data directory exists
-        std::fs::create_dir_all(&config.data_dir)
-            .context("Failed to create data directory")?;
+        std::fs::create_dir_all(&config.data_dir).context("Failed to create data directory")?;
 
         // Initialize DuckDB
-        let duckdb = DuckDbClient::new(&config.duckdb_path())
-            .context("Failed to create DuckDB client")?;
-        duckdb.initialize_schema().await
+        let duckdb =
+            DuckDbClient::new(&config.duckdb_path()).context("Failed to create DuckDB client")?;
+        duckdb
+            .initialize_schema()
+            .await
             .context("Failed to initialize DuckDB schema")?;
 
         // Initialize Kùzu
-        let kuzu = KuzuClient::new(&config.kuzu_path())
-            .context("Failed to create Kùzu client")?;
+        let kuzu = KuzuClient::new(&config.kuzu_path()).context("Failed to create Kùzu client")?;
         kuzu.initialize_schema()
             .context("Failed to initialize Kùzu schema")?;
 
         // Initialize LanceDB
-        let lancedb = LanceDbClient::new(&config.lancedb_path()).await
+        let lancedb = LanceDbClient::new(&config.lancedb_path())
+            .await
             .context("Failed to create LanceDB client")?;
-        lancedb.initialize_schema().await
+        lancedb
+            .initialize_schema()
+            .await
             .context("Failed to initialize LanceDB schema")?;
 
         tracing::info!(
@@ -131,20 +136,19 @@ impl DatabaseClients {
 
     /// Create in-memory clients for testing
     pub async fn in_memory() -> Result<Self> {
-        let duckdb = DuckDbClient::in_memory()
-            .context("Failed to create in-memory DuckDB")?;
+        let duckdb = DuckDbClient::in_memory().context("Failed to create in-memory DuckDB")?;
         duckdb.initialize_schema().await?;
 
-        let temp_dir = tempfile::tempdir()
-            .context("Failed to create temp directory")?;
+        let temp_dir = tempfile::tempdir().context("Failed to create temp directory")?;
 
         let kuzu_path = temp_dir.path().join("kuzu");
-        let kuzu = KuzuClient::new(kuzu_path.to_str().unwrap())
-            .context("Failed to create Kùzu client")?;
+        let kuzu =
+            KuzuClient::new(kuzu_path.to_str().unwrap()).context("Failed to create Kùzu client")?;
         kuzu.initialize_schema()?;
 
         let lance_path = temp_dir.path().join("lance");
-        let lancedb = LanceDbClient::new(lance_path.to_str().unwrap()).await
+        let lancedb = LanceDbClient::new(lance_path.to_str().unwrap())
+            .await
             .context("Failed to create LanceDB client")?;
         lancedb.initialize_schema().await?;
 

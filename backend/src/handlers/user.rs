@@ -1,11 +1,11 @@
-use axum::{
-    extract::{State, Json as ExtractJson},
-    response::Json,
-};
 use crate::{
-    AppState, Result,
-    services::user::{UpdateUserProfileRequest, AccountDeletionRequest},
     models::AuthenticatedUser,
+    services::user::{AccountDeletionRequest, UpdateUserProfileRequest},
+    AppState, Result,
+};
+use axum::{
+    extract::{Json as ExtractJson, State},
+    response::Json,
 };
 
 /// Get user profile
@@ -14,7 +14,7 @@ pub async fn get_profile_handler(
     user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     let profile = state.user_service.get_profile(user.id).await?;
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": profile
@@ -28,7 +28,7 @@ pub async fn update_profile_handler(
     ExtractJson(request): ExtractJson<UpdateUserProfileRequest>,
 ) -> Result<Json<serde_json::Value>> {
     let updated_profile = state.user_service.update_profile(user.id, request).await?;
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": updated_profile
@@ -41,7 +41,7 @@ pub async fn export_data_handler(
     user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     let export_data = state.user_service.export_user_data(user.id).await?;
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": export_data
@@ -55,7 +55,7 @@ pub async fn delete_account_handler(
     ExtractJson(request): ExtractJson<AccountDeletionRequest>,
 ) -> Result<Json<serde_json::Value>> {
     let deletion_result = state.user_service.delete_account(user.id, request).await?;
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": deletion_result

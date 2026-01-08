@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bcrypt::{hash, verify};
 use chrono::{DateTime, Utc};
 use deadpool_redis::{Config, Pool, Runtime};
 use redis::AsyncCommands;
@@ -7,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use bcrypt::{hash, verify};
 
 use crate::{AppError, Result as AppResult};
 
@@ -91,7 +91,7 @@ impl LoginPerformanceService {
         db_pool: &sqlx::PgPool,
     ) -> AppResult<Option<CachedUserLogin>> {
         let email_key = email.to_lowercase();
-        
+
         // Check in-memory cache first
         {
             let cache = self.user_cache.read().await;
@@ -107,9 +107,9 @@ impl LoginPerformanceService {
         // Try Redis cache
         let mut conn = self.redis_pool.get().await?;
         let redis_key = format!("login_user:{}", email_key);
-        
+
         let cached_user_json: Option<String> = conn.get(&redis_key).await?;
-        
+
         if let Some(user_json) = cached_user_json {
             if let Ok(cached_user) = serde_json::from_str::<CachedUserLogin>(&user_json) {
                 // Check if Redis cache is fresh (15 minutes)
@@ -152,13 +152,17 @@ impl LoginPerformanceService {
             {
                 let mut cache = self.user_cache.write().await;
                 cache.insert(email_key, cached_user.clone());
-                
+
                 // Limit cache size
                 if cache.len() > 1000 {
                     // Remove oldest entries
                     let mut entries: Vec<_> = cache.iter().collect();
                     entries.sort_by_key(|(_, user)| user.cached_at);
-                    let to_remove: Vec<_> = entries.iter().take(100).map(|(k, _)| (*k).clone()).collect();
+                    let to_remove: Vec<_> = entries
+                        .iter()
+                        .take(100)
+                        .map(|(k, _)| (*k).clone())
+                        .collect();
                     for key in to_remove {
                         cache.remove(&key);
                     }
@@ -178,30 +182,30 @@ impl LoginPerformanceService {
         password_hash: &str,
     ) -> AppResult<bool> {
         let start_time = std::time::Instant::now();
-        
+
         // Use tokio::task::spawn_blocking for CPU-intensive bcrypt operation
         let password = password.to_string();
         let password_hash = password_hash.to_string();
-        
-        let result = tokio::task::spawn_blocking(move || {
-            verify(&password, &password_hash)
-        }).await
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Password verification task failed: {}", e)) 
-        })?
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Password verification failed: {}", e)) 
-        })?;
+
+        let result = tokio::task::spawn_blocking(move || verify(&password, &password_hash))
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(format!("Password verification task failed: {}", e)),
+            })?
+            .map_err(|e| AppError::Internal {
+                message: Some(format!("Password verification failed: {}", e)),
+            })?;
 
         let verification_time = start_time.elapsed().as_millis() as f64;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             if metrics.password_verification_time_ms == 0.0 {
                 metrics.password_verification_time_ms = verification_time;
             } else {
-                metrics.password_verification_time_ms = 0.9 * metrics.password_verification_time_ms + 0.1 * verification_time;
+                metrics.password_verification_time_ms =
+                    0.9 * metrics.password_verification_time_ms + 0.1 * verification_time;
             }
         }
 
@@ -211,30 +215,32 @@ impl LoginPerformanceService {
     /// Generate optimized refresh token (lighter hashing)
     pub async fn generate_optimized_refresh_token(&self) -> AppResult<(String, String)> {
         let start_time = std::time::Instant::now();
-        
+
         // Use a lighter hash for refresh tokens (8 rounds instead of 12)
         let refresh_token_raw = format!("{}_{}", Uuid::new_v4(), rand::random::<u64>());
-        
+
         let token_raw = refresh_token_raw.clone();
         let refresh_token_hash = tokio::task::spawn_blocking(move || {
             hash(&token_raw, 8) // Reduced from 12 to 8 rounds for refresh tokens
-        }).await
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Token hashing task failed: {}", e)) 
+        })
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Token hashing task failed: {}", e)),
         })?
-        .map_err(|e| AppError::Internal { 
-            message: Some(format!("Token hashing failed: {}", e)) 
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Token hashing failed: {}", e)),
         })?;
 
         let token_time = start_time.elapsed().as_millis() as f64;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             if metrics.token_generation_time_ms == 0.0 {
                 metrics.token_generation_time_ms = token_time;
             } else {
-                metrics.token_generation_time_ms = 0.9 * metrics.token_generation_time_ms + 0.1 * token_time;
+                metrics.token_generation_time_ms =
+                    0.9 * metrics.token_generation_time_ms + 0.1 * token_time;
             }
         }
 
@@ -279,14 +285,15 @@ impl LoginPerformanceService {
         tx.commit().await?;
 
         let db_time = start_time.elapsed().as_millis() as f64;
-        
+
         // Update metrics
         {
             let mut metrics = self.metrics.write().await;
             if metrics.database_query_time_ms == 0.0 {
                 metrics.database_query_time_ms = db_time;
             } else {
-                metrics.database_query_time_ms = 0.9 * metrics.database_query_time_ms + 0.1 * db_time;
+                metrics.database_query_time_ms =
+                    0.9 * metrics.database_query_time_ms + 0.1 * db_time;
             }
         }
 
@@ -296,7 +303,7 @@ impl LoginPerformanceService {
     /// Invalidate user cache on password change
     pub async fn invalidate_user_cache(&self, email: &str) -> Result<()> {
         let email_key = email.to_lowercase();
-        
+
         // Remove from in-memory cache
         {
             let mut cache = self.user_cache.write().await;
@@ -314,7 +321,7 @@ impl LoginPerformanceService {
     /// Record login attempt metrics
     pub async fn record_login_attempt(&self, success: bool, total_time_ms: f64) -> Result<()> {
         let mut metrics = self.metrics.write().await;
-        
+
         metrics.total_logins += 1;
         if success {
             metrics.successful_logins += 1;
@@ -355,7 +362,7 @@ impl LoginPerformanceService {
         // 1. Query users with recent login activity
         // 2. Cache their login data
         // 3. Populate the in-memory cache
-        
+
         tracing::info!("Login cache preloading would happen here with database access");
         Ok(())
     }
@@ -367,7 +374,7 @@ impl LoginPerformanceService {
             let mut user_cache = self.user_cache.write().await;
             user_cache.clear();
         }
-        
+
         {
             let mut session_cache = self.session_cache.write().await;
             session_cache.clear();
@@ -377,7 +384,7 @@ impl LoginPerformanceService {
         let mut conn = self.redis_pool.get().await?;
         let pattern = "login_user:*";
         let keys: Vec<String> = conn.keys(&pattern).await?;
-        
+
         if !keys.is_empty() {
             let _: i32 = conn.del(&keys).await?;
         }
@@ -394,7 +401,7 @@ mod tests {
     async fn test_login_performance_service_creation() {
         // This would require Redis for full testing
         let redis_url = "redis://localhost:6379";
-        
+
         match LoginPerformanceService::new(redis_url) {
             Ok(service) => {
                 let metrics = service.get_metrics().await;
@@ -411,11 +418,11 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_recording() {
         let redis_url = "redis://localhost:6379";
-        
+
         if let Ok(service) = LoginPerformanceService::new(redis_url) {
             service.record_login_attempt(true, 150.0).await.unwrap();
             service.record_login_attempt(false, 200.0).await.unwrap();
-            
+
             let metrics = service.get_metrics().await;
             assert_eq!(metrics.total_logins, 2);
             assert_eq!(metrics.successful_logins, 1);
@@ -438,7 +445,7 @@ mod tests {
 
         let json = serde_json::to_string(&cached_user).unwrap();
         let deserialized: CachedUserLogin = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(cached_user.user_id, deserialized.user_id);
         assert_eq!(cached_user.email, deserialized.email);
     }

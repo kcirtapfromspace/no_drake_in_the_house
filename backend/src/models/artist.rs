@@ -74,7 +74,7 @@ impl ExternalIds {
     /// Get all non-empty IDs as a vector of (provider, id) tuples
     pub fn get_all_ids(&self) -> Vec<(String, String)> {
         let mut ids = Vec::new();
-        
+
         if let Some(ref id) = self.spotify {
             ids.push(("spotify".to_string(), id.clone()));
         }
@@ -93,7 +93,7 @@ impl ExternalIds {
         if let Some(ref id) = self.isni {
             ids.push(("isni".to_string(), id.clone()));
         }
-        
+
         ids
     }
 
@@ -238,7 +238,11 @@ impl Artist {
     /// Add an alias to this artist
     pub fn add_alias(&mut self, alias: ArtistAlias) {
         // Avoid duplicate aliases
-        if !self.aliases.iter().any(|a| a.name == alias.name && a.source == alias.source) {
+        if !self
+            .aliases
+            .iter()
+            .any(|a| a.name == alias.name && a.source == alias.source)
+        {
             self.aliases.push(alias);
             self.updated_at = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -258,9 +262,15 @@ impl Artist {
     pub fn find_best_alias_match(&self, name: &str) -> Option<&ArtistAlias> {
         self.aliases
             .iter()
-            .filter(|alias| alias.name.to_lowercase().contains(&name.to_lowercase()) 
-                         || name.to_lowercase().contains(&alias.name.to_lowercase()))
-            .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap_or(std::cmp::Ordering::Equal))
+            .filter(|alias| {
+                alias.name.to_lowercase().contains(&name.to_lowercase())
+                    || name.to_lowercase().contains(&alias.name.to_lowercase())
+            })
+            .max_by(|a, b| {
+                a.confidence
+                    .partial_cmp(&b.confidence)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
     }
 
     /// Update metadata while preserving timestamps
@@ -380,11 +390,11 @@ mod tests {
         let external_ids = ExternalIds::new()
             .with_spotify("spotify123".to_string())
             .with_apple("apple456".to_string());
-        
+
         assert_eq!(external_ids.spotify, Some("spotify123".to_string()));
         assert_eq!(external_ids.apple, Some("apple456".to_string()));
         assert!(external_ids.has_any_id());
-        
+
         let all_ids = external_ids.get_all_ids();
         assert_eq!(all_ids.len(), 2);
         assert!(all_ids.contains(&("spotify".to_string(), "spotify123".to_string())));
@@ -394,21 +404,21 @@ mod tests {
     #[test]
     fn test_artist_aliases() {
         let mut artist = Artist::new("The Beatles".to_string());
-        
+
         let alias1 = ArtistAlias::new("Beatles".to_string(), "musicbrainz".to_string(), 0.9);
         let alias2 = ArtistAlias::new("Fab Four".to_string(), "wikipedia".to_string(), 0.7);
-        
+
         artist.add_alias(alias1);
         artist.add_alias(alias2);
-        
+
         assert_eq!(artist.aliases.len(), 2);
-        
+
         let all_names = artist.get_all_names();
         assert_eq!(all_names.len(), 3);
         assert!(all_names.contains(&"The Beatles".to_string()));
         assert!(all_names.contains(&"Beatles".to_string()));
         assert!(all_names.contains(&"Fab Four".to_string()));
-        
+
         let best_match = artist.find_best_alias_match("Beatles");
         assert!(best_match.is_some());
         assert_eq!(best_match.unwrap().confidence, 0.9);
@@ -418,13 +428,13 @@ mod tests {
     fn test_merge_external_ids() {
         let mut artist = Artist::new("Test Artist".to_string());
         artist.external_ids.spotify = Some("spotify123".to_string());
-        
+
         let other_ids = ExternalIds::new()
             .with_apple("apple456".to_string())
             .with_spotify("spotify789".to_string()); // Should not overwrite existing
-        
+
         artist.merge_external_ids(&other_ids);
-        
+
         assert_eq!(artist.external_ids.spotify, Some("spotify123".to_string())); // Unchanged
         assert_eq!(artist.external_ids.apple, Some("apple456".to_string())); // Added
     }
@@ -434,7 +444,7 @@ mod tests {
         let query = ArtistSearchQuery::new("Test Artist".to_string())
             .with_provider("spotify".to_string())
             .with_limit(5);
-        
+
         assert_eq!(query.query, "Test Artist");
         assert_eq!(query.provider, Some("spotify".to_string()));
         assert_eq!(query.limit, Some(5));
@@ -443,13 +453,9 @@ mod tests {
     #[test]
     fn test_artist_resolution_result() {
         let artist = Artist::new("Test Artist".to_string());
-        let result = ArtistResolutionResult::new(
-            artist,
-            0.95,
-            MatchType::ExactName,
-            "spotify".to_string(),
-        );
-        
+        let result =
+            ArtistResolutionResult::new(artist, 0.95, MatchType::ExactName, "spotify".to_string());
+
         assert_eq!(result.confidence, 0.95);
         assert_eq!(result.match_type, MatchType::ExactName);
         assert_eq!(result.source, "spotify");

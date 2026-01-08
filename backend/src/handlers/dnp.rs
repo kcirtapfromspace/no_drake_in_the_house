@@ -1,14 +1,14 @@
-use axum::{
-    extract::{State, Query, Path},
-    response::Json,
-    http::StatusCode,
-};
-use uuid::Uuid;
-use serde::Deserialize;
 use crate::{
-    AppState, Result, AppError,
     models::{AddToDnpRequest, AuthenticatedUser, UpdateDnpEntryRequest},
+    AppError, AppState, Result,
 };
+use axum::{
+    extract::{Path, Query, State},
+    http::StatusCode,
+    response::Json,
+};
+use serde::Deserialize;
+use uuid::Uuid;
 
 #[derive(Deserialize)]
 pub struct SearchQuery {
@@ -33,7 +33,7 @@ pub async fn search_artists_handler(
         limit = query.limit,
         "Artist search request"
     );
-    
+
     // Validate search query
     if query.q.trim().is_empty() {
         return Err(AppError::InvalidFieldValue {
@@ -41,34 +41,39 @@ pub async fn search_artists_handler(
             message: "Search query cannot be empty".to_string(),
         });
     }
-    
+
     if query.q.len() > 100 {
         return Err(AppError::InvalidFieldValue {
             field: "q".to_string(),
             message: "Search query too long (max 100 characters)".to_string(),
         });
     }
-    
+
     if query.limit > 50 {
         return Err(AppError::InvalidFieldValue {
             field: "limit".to_string(),
             message: "Limit cannot exceed 50".to_string(),
         });
     }
-    
-    let search_response = state.dnp_service.search_artists(&query.q, Some(query.limit as usize)).await
+
+    let search_response = state
+        .dnp_service
+        .search_artists(&query.q, Some(query.limit as usize))
+        .await
         .map_err(|e| {
             tracing::warn!(error = %e, user_id = %user.id, "Artist search failed");
-            AppError::Internal { message: Some(e.to_string()) }
+            AppError::Internal {
+                message: Some(e.to_string()),
+            }
         })?;
-    
+
     tracing::info!(
         user_id = %user.id,
         results_count = search_response.artists.len(),
         total = search_response.total,
         "Artist search completed"
     );
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
@@ -84,19 +89,20 @@ pub async fn get_dnp_list_handler(
     user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, "DNP list request");
-    
-    let dnp_list = state.dnp_service.get_dnp_list(user.id).await
-        .map_err(|e| {
-            tracing::warn!(error = %e, user_id = %user.id, "Failed to get DNP list");
-            AppError::Internal { message: Some(e.to_string()) }
-        })?;
-    
+
+    let dnp_list = state.dnp_service.get_dnp_list(user.id).await.map_err(|e| {
+        tracing::warn!(error = %e, user_id = %user.id, "Failed to get DNP list");
+        AppError::Internal {
+            message: Some(e.to_string()),
+        }
+    })?;
+
     tracing::info!(
         user_id = %user.id,
         entries_count = dnp_list.len(),
         "DNP list retrieved"
     );
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
@@ -117,7 +123,7 @@ pub async fn add_to_dnp_handler(
         artist_id = %request.artist_id,
         "Add to DNP list request"
     );
-    
+
     // Validate tags if provided
     if let Some(ref tags) = request.tags {
         if tags.len() > 10 {
@@ -126,7 +132,7 @@ pub async fn add_to_dnp_handler(
                 message: "Maximum 10 tags allowed".to_string(),
             });
         }
-        
+
         for tag in tags {
             if tag.len() > 50 {
                 return Err(AppError::InvalidFieldValue {
@@ -136,7 +142,7 @@ pub async fn add_to_dnp_handler(
             }
         }
     }
-    
+
     // Validate note if provided
     if let Some(ref note) = request.note {
         if note.len() > 500 {
@@ -146,7 +152,7 @@ pub async fn add_to_dnp_handler(
             });
         }
     }
-    
+
     let entry = state.dnp_service.add_to_dnp_list(
         user.id,
         request.artist_id,
@@ -165,18 +171,21 @@ pub async fn add_to_dnp_handler(
                 _ => AppError::Internal { message: Some(e.to_string()) }
             }
         })?;
-    
+
     tracing::info!(
         user_id = %user.id,
         artist_id = %request.artist_id,
         "Artist added to DNP list"
     );
-    
-    Ok((StatusCode::CREATED, Json(serde_json::json!({
-        "success": true,
-        "data": entry,
-        "message": "Artist added to DNP list successfully"
-    }))))
+
+    Ok((
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "success": true,
+            "data": entry,
+            "message": "Artist added to DNP list successfully"
+        })),
+    ))
 }
 
 /// Remove artist from DNP list
@@ -190,7 +199,7 @@ pub async fn remove_from_dnp_handler(
         artist_id = %artist_id,
         "Remove from DNP list request"
     );
-    
+
     state.dnp_service.remove_from_dnp_list(user.id, artist_id).await
         .map_err(|e| {
             tracing::warn!(error = %e, user_id = %user.id, artist_id = %artist_id, "Failed to remove from DNP list");
@@ -201,13 +210,13 @@ pub async fn remove_from_dnp_handler(
                 _ => AppError::Internal { message: Some(e.to_string()) }
             }
         })?;
-    
+
     tracing::info!(
         user_id = %user.id,
         artist_id = %artist_id,
         "Artist removed from DNP list"
     );
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "Artist removed from DNP list successfully"
@@ -226,7 +235,7 @@ pub async fn update_dnp_entry_handler(
         artist_id = %artist_id,
         "Update DNP entry request"
     );
-    
+
     // Validate tags if provided
     if let Some(ref tags) = request.tags {
         if tags.len() > 10 {
@@ -235,7 +244,7 @@ pub async fn update_dnp_entry_handler(
                 message: "Maximum 10 tags allowed".to_string(),
             });
         }
-        
+
         for tag in tags {
             if tag.len() > 50 {
                 return Err(AppError::InvalidFieldValue {
@@ -245,7 +254,7 @@ pub async fn update_dnp_entry_handler(
             }
         }
     }
-    
+
     // Validate note if provided
     if let Some(ref note) = request.note {
         if note.len() > 500 {
@@ -255,14 +264,14 @@ pub async fn update_dnp_entry_handler(
             });
         }
     }
-    
+
     // Check if at least one field is being updated
     if request.tags.is_none() && request.note.is_none() {
         return Err(AppError::InvalidRequestFormat(
-            "At least one field (tags or note) must be provided for update".to_string()
+            "At least one field (tags or note) must be provided for update".to_string(),
         ));
     }
-    
+
     let entry = state.dnp_service.update_dnp_entry(
         user.id,
         artist_id,
@@ -277,13 +286,13 @@ pub async fn update_dnp_entry_handler(
                 _ => AppError::Internal { message: Some(e.to_string()) }
             }
         })?;
-    
+
     tracing::info!(
         user_id = %user.id,
         artist_id = %artist_id,
         "DNP entry updated"
     );
-    
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": entry,

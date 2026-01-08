@@ -1,7 +1,7 @@
+use crate::models::ProviderBadge;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use crate::models::ProviderBadge;
 
 /// User's personal DNP (Do Not Play) list entry
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
@@ -16,7 +16,7 @@ pub struct UserArtistBlock {
 /// Request to add an artist to DNP list
 #[derive(Debug, Deserialize)]
 pub struct AddArtistToDnpRequest {
-    pub artist_query: String, // Artist name or provider URL
+    pub artist_query: String,     // Artist name or provider URL
     pub provider: Option<String>, // "spotify", "apple", "youtube", "tidal"
     pub tags: Option<Vec<String>>,
     pub note: Option<String>,

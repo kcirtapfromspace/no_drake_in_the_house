@@ -1,26 +1,19 @@
-use axum::{
-    extract::State,
-    response::Json,
-    http::StatusCode,
-};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json;
 
-use crate::{
-    AppState, Result,
-    services::login_performance::LoginPerformanceService,
-};
+use crate::{services::login_performance::LoginPerformanceService, AppState, Result};
 
 /// Login performance metrics endpoint
 pub async fn login_performance_metrics_handler(
     State(_state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // Create login performance service
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
-    let login_service = LoginPerformanceService::new(&redis_url)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create login performance service: {}", e)) 
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
+    let login_service =
+        LoginPerformanceService::new(&redis_url).map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create login performance service: {}", e)),
         })?;
 
     let metrics = login_service.get_metrics().await;
@@ -33,83 +26,98 @@ pub async fn login_performance_metrics_handler(
         "Login performance metrics retrieved"
     );
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "timestamp": metrics.last_updated,
-        "performance": {
-            "total_logins": metrics.total_logins,
-            "successful_logins": metrics.successful_logins,
-            "failed_logins": metrics.failed_logins,
-            "success_rate_percent": if metrics.total_logins > 0 {
-                (metrics.successful_logins as f64 / metrics.total_logins as f64) * 100.0
-            } else {
-                0.0
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "timestamp": metrics.last_updated,
+            "performance": {
+                "total_logins": metrics.total_logins,
+                "successful_logins": metrics.successful_logins,
+                "failed_logins": metrics.failed_logins,
+                "success_rate_percent": if metrics.total_logins > 0 {
+                    (metrics.successful_logins as f64 / metrics.total_logins as f64) * 100.0
+                } else {
+                    0.0
+                },
+                "avg_login_time_ms": metrics.avg_login_time_ms,
+                "cache_hit_rate_percent": metrics.cache_hit_rate
             },
-            "avg_login_time_ms": metrics.avg_login_time_ms,
-            "cache_hit_rate_percent": metrics.cache_hit_rate
-        },
-        "timing_breakdown": {
-            "password_verification_ms": metrics.password_verification_time_ms,
-            "database_query_ms": metrics.database_query_time_ms,
-            "token_generation_ms": metrics.token_generation_time_ms
-        },
-        "recommendations": generate_performance_recommendations(&metrics)
-    }))))
+            "timing_breakdown": {
+                "password_verification_ms": metrics.password_verification_time_ms,
+                "database_query_ms": metrics.database_query_time_ms,
+                "token_generation_ms": metrics.token_generation_time_ms
+            },
+            "recommendations": generate_performance_recommendations(&metrics)
+        })),
+    ))
 }
 
 /// Clear login caches endpoint (for admin use)
 pub async fn clear_login_caches_handler(
     State(_state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
-    let login_service = LoginPerformanceService::new(&redis_url)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create login performance service: {}", e)) 
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
+    let login_service =
+        LoginPerformanceService::new(&redis_url).map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create login performance service: {}", e)),
         })?;
 
-    login_service.clear_caches().await
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to clear caches: {}", e)) 
+    login_service
+        .clear_caches()
+        .await
+        .map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to clear caches: {}", e)),
         })?;
 
     tracing::info!("Login caches cleared successfully");
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "message": "Login caches cleared successfully",
-        "timestamp": chrono::Utc::now()
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "message": "Login caches cleared successfully",
+            "timestamp": chrono::Utc::now()
+        })),
+    ))
 }
 
 /// Preload frequent users endpoint (for warming up cache)
 pub async fn preload_frequent_users_handler(
     State(state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    let redis_url = std::env::var("REDIS_URL")
-        .unwrap_or_else(|_| "redis://localhost:6379".to_string());
-    
-    let login_service = LoginPerformanceService::new(&redis_url)
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to create login performance service: {}", e)) 
+    let redis_url =
+        std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
+
+    let login_service =
+        LoginPerformanceService::new(&redis_url).map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to create login performance service: {}", e)),
         })?;
 
-    login_service.preload_frequent_users(&state.db_pool).await
-        .map_err(|e| crate::AppError::Internal { 
-            message: Some(format!("Failed to preload users: {}", e)) 
+    login_service
+        .preload_frequent_users(&state.db_pool)
+        .await
+        .map_err(|e| crate::AppError::Internal {
+            message: Some(format!("Failed to preload users: {}", e)),
         })?;
 
     tracing::info!("Frequent users preloaded successfully");
 
-    Ok((StatusCode::OK, Json(serde_json::json!({
-        "success": true,
-        "message": "Frequent users preloaded into cache",
-        "timestamp": chrono::Utc::now()
-    }))))
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "message": "Frequent users preloaded into cache",
+            "timestamp": chrono::Utc::now()
+        })),
+    ))
 }
 
 /// Generate performance recommendations based on metrics
-fn generate_performance_recommendations(metrics: &crate::services::login_performance::LoginPerformanceMetrics) -> Vec<serde_json::Value> {
+fn generate_performance_recommendations(
+    metrics: &crate::services::login_performance::LoginPerformanceMetrics,
+) -> Vec<serde_json::Value> {
     let mut recommendations = Vec::new();
 
     // Check average login time
@@ -208,26 +216,26 @@ mod tests {
     #[test]
     fn test_performance_recommendations() {
         let mut metrics = LoginPerformanceMetrics::default();
-        
+
         // Test slow login time
         metrics.avg_login_time_ms = 1500.0;
         metrics.total_logins = 100;
         metrics.successful_logins = 95;
-        
+
         let recommendations = generate_performance_recommendations(&metrics);
         assert!(!recommendations.is_empty());
-        
+
         // Should have a high severity recommendation for slow login
-        let has_high_severity = recommendations.iter().any(|r| {
-            r.get("severity").and_then(|s| s.as_str()) == Some("high")
-        });
+        let has_high_severity = recommendations
+            .iter()
+            .any(|r| r.get("severity").and_then(|s| s.as_str()) == Some("high"));
         assert!(has_high_severity);
     }
 
     #[test]
     fn test_healthy_recommendations() {
         let mut metrics = LoginPerformanceMetrics::default();
-        
+
         // Set optimal values
         metrics.avg_login_time_ms = 200.0;
         metrics.cache_hit_rate = 85.0;
@@ -235,13 +243,13 @@ mod tests {
         metrics.database_query_time_ms = 50.0;
         metrics.total_logins = 100;
         metrics.successful_logins = 98;
-        
+
         let recommendations = generate_performance_recommendations(&metrics);
-        
+
         // Should have a healthy status recommendation
         let has_healthy_status = recommendations.iter().any(|r| {
-            r.get("type").and_then(|t| t.as_str()) == Some("status") &&
-            r.get("status").and_then(|s| s.as_str()) == Some("healthy")
+            r.get("type").and_then(|t| t.as_str()) == Some("status")
+                && r.get("status").and_then(|s| s.as_str()) == Some("healthy")
         });
         assert!(has_healthy_status);
     }

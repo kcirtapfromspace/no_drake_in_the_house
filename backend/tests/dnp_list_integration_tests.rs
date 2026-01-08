@@ -32,10 +32,7 @@ async fn create_test_app(pool: PgPool) -> Router {
         spotify_service.clone(),
         spotify_library_service.clone(),
     ));
-    let dnp_list_service = Arc::new(DnpListService::new(
-        pool.clone(),
-        entity_service.clone(),
-    ));
+    let dnp_list_service = Arc::new(DnpListService::new(pool.clone(), entity_service.clone()));
 
     let app_state = AppState {
         auth_service: auth_service.clone(),
@@ -52,12 +49,30 @@ async fn create_test_app(pool: PgPool) -> Router {
     // Create router with DNP list routes
     Router::new()
         .route("/api/v1/dnp/list", axum::routing::get(get_dnp_list_handler))
-        .route("/api/v1/dnp/artists", axum::routing::post(add_artist_to_dnp_handler))
-        .route("/api/v1/dnp/artists/:artist_id", axum::routing::delete(remove_artist_from_dnp_handler))
-        .route("/api/v1/dnp/artists/:artist_id", axum::routing::put(update_dnp_entry_handler))
-        .route("/api/v1/dnp/search", axum::routing::get(search_artists_for_dnp_handler))
-        .route("/api/v1/dnp/import", axum::routing::post(bulk_import_dnp_handler))
-        .route("/api/v1/dnp/export", axum::routing::get(export_dnp_list_handler))
+        .route(
+            "/api/v1/dnp/artists",
+            axum::routing::post(add_artist_to_dnp_handler),
+        )
+        .route(
+            "/api/v1/dnp/artists/:artist_id",
+            axum::routing::delete(remove_artist_from_dnp_handler),
+        )
+        .route(
+            "/api/v1/dnp/artists/:artist_id",
+            axum::routing::put(update_dnp_entry_handler),
+        )
+        .route(
+            "/api/v1/dnp/search",
+            axum::routing::get(search_artists_for_dnp_handler),
+        )
+        .route(
+            "/api/v1/dnp/import",
+            axum::routing::post(bulk_import_dnp_handler),
+        )
+        .route(
+            "/api/v1/dnp/export",
+            axum::routing::get(export_dnp_list_handler),
+        )
         .with_state(app_state)
 }
 
@@ -67,7 +82,7 @@ async fn get_dnp_list_handler(
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     // For testing, use a fixed user ID
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
+
     match app_state.dnp_list_service.get_user_dnp_list(user_id).await {
         Ok(dnp_list) => Ok(axum::Json(json!({
             "success": true,
@@ -90,8 +105,12 @@ async fn add_artist_to_dnp_handler(
     axum::Json(request): axum::Json<AddArtistToDnpRequest>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
-    match app_state.dnp_list_service.add_artist_to_dnp_list(user_id, request).await {
+
+    match app_state
+        .dnp_list_service
+        .add_artist_to_dnp_list(user_id, request)
+        .await
+    {
         Ok(entry) => Ok(axum::Json(json!({
             "success": true,
             "data": entry,
@@ -105,7 +124,7 @@ async fn add_artist_to_dnp_handler(
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR
             };
-            
+
             Err((
                 status,
                 axum::Json(json!({
@@ -123,8 +142,12 @@ async fn remove_artist_from_dnp_handler(
     axum::extract::Path(artist_id): axum::extract::Path<Uuid>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
-    match app_state.dnp_list_service.remove_artist_from_dnp_list(user_id, artist_id).await {
+
+    match app_state
+        .dnp_list_service
+        .remove_artist_from_dnp_list(user_id, artist_id)
+        .await
+    {
         Ok(_) => Ok(axum::Json(json!({
             "success": true,
             "data": null,
@@ -136,7 +159,7 @@ async fn remove_artist_from_dnp_handler(
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR
             };
-            
+
             Err((
                 status,
                 axum::Json(json!({
@@ -155,8 +178,12 @@ async fn update_dnp_entry_handler(
     axum::Json(request): axum::Json<UpdateDnpEntryRequest>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
-    match app_state.dnp_list_service.update_dnp_entry(user_id, artist_id, request).await {
+
+    match app_state
+        .dnp_list_service
+        .update_dnp_entry(user_id, artist_id, request)
+        .await
+    {
         Ok(entry) => Ok(axum::Json(json!({
             "success": true,
             "data": entry,
@@ -168,7 +195,7 @@ async fn update_dnp_entry_handler(
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR
             };
-            
+
             Err((
                 status,
                 axum::Json(json!({
@@ -191,7 +218,11 @@ async fn search_artists_for_dnp_handler(
     axum::extract::State(app_state): axum::extract::State<AppState>,
     axum::extract::Query(query): axum::extract::Query<SearchArtistsQuery>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
-    match app_state.dnp_list_service.search_artists(&query.q, query.limit).await {
+    match app_state
+        .dnp_list_service
+        .search_artists(&query.q, query.limit)
+        .await
+    {
         Ok(results) => Ok(axum::Json(json!({
             "success": true,
             "data": results,
@@ -213,8 +244,12 @@ async fn bulk_import_dnp_handler(
     axum::Json(request): axum::Json<BulkImportRequest>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
-    match app_state.dnp_list_service.bulk_import(user_id, request).await {
+
+    match app_state
+        .dnp_list_service
+        .bulk_import(user_id, request)
+        .await
+    {
         Ok(result) => Ok(axum::Json(json!({
             "success": true,
             "data": result,
@@ -241,7 +276,7 @@ async fn export_dnp_list_handler(
     axum::extract::Query(query): axum::extract::Query<ExportQuery>,
 ) -> Result<axum::Json<serde_json::Value>, (StatusCode, axum::Json<serde_json::Value>)> {
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-    
+
     let format = match query.format.as_deref() {
         Some("csv") => ImportFormat::Csv,
         Some("json") | None => ImportFormat::Json,
@@ -257,7 +292,11 @@ async fn export_dnp_list_handler(
         }
     };
 
-    match app_state.dnp_list_service.export_dnp_list(user_id, format).await {
+    match app_state
+        .dnp_list_service
+        .export_dnp_list(user_id, format)
+        .await
+    {
         Ok(data) => Ok(axum::Json(json!({
             "success": true,
             "data": {
@@ -297,7 +336,7 @@ struct AppState {
 #[sqlx::test]
 async fn test_get_empty_dnp_list_api(pool: PgPool) {
     let app = create_test_app(pool.clone()).await;
-    
+
     // Create test user
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     sqlx::query!(
@@ -321,10 +360,12 @@ async fn test_get_empty_dnp_list_api(pool: PgPool) {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(json["success"], true);
     assert_eq!(json["data"]["total"], 0);
     assert_eq!(json["data"]["entries"].as_array().unwrap().len(), 0);
@@ -333,11 +374,11 @@ async fn test_get_empty_dnp_list_api(pool: PgPool) {
 #[sqlx::test]
 async fn test_add_artist_to_dnp_list_api(pool: PgPool) {
     let app = create_test_app(pool.clone()).await;
-    
+
     // Create test user and artist
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -382,10 +423,12 @@ async fn test_add_artist_to_dnp_list_api(pool: PgPool) {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(json["success"], true);
     assert_eq!(json["data"]["artist_name"], "API Test Artist");
     assert_eq!(json["data"]["tags"], json!(["api", "test"]));
@@ -395,12 +438,12 @@ async fn test_add_artist_to_dnp_list_api(pool: PgPool) {
 #[sqlx::test]
 async fn test_bulk_import_json_api(pool: PgPool) {
     let app = create_test_app(pool.clone()).await;
-    
+
     // Create test user and artists
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let artist1_id = Uuid::new_v4();
     let artist2_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -459,10 +502,12 @@ async fn test_bulk_import_json_api(pool: PgPool) {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(json["success"], true);
     assert_eq!(json["data"]["total_processed"], 2);
     assert_eq!(json["data"]["successful"], 2);
@@ -472,11 +517,11 @@ async fn test_bulk_import_json_api(pool: PgPool) {
 #[sqlx::test]
 async fn test_export_dnp_list_json_api(pool: PgPool) {
     let app = create_test_app(pool.clone()).await;
-    
+
     // Create test user and artist
     let user_id = Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
     let artist_id = Uuid::new_v4();
-    
+
     sqlx::query!(
         "INSERT INTO users (id, email, password_hash) VALUES ($1, $2, $3)",
         user_id,
@@ -523,14 +568,17 @@ async fn test_export_dnp_list_json_api(pool: PgPool) {
         .unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
-    
-    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await.unwrap();
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    
+
     assert_eq!(json["success"], true);
     assert_eq!(json["data"]["format"], "json");
-    
-    let export_content: DnpListExport = serde_json::from_str(json["data"]["content"].as_str().unwrap()).unwrap();
+
+    let export_content: DnpListExport =
+        serde_json::from_str(json["data"]["content"].as_str().unwrap()).unwrap();
     assert_eq!(export_content.total_entries, 1);
     assert_eq!(export_content.entries[0].artist_name, "Export Test Artist");
 }

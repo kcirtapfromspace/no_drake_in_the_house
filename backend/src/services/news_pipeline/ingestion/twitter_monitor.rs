@@ -270,7 +270,10 @@ impl TwitterMonitor {
                     (
                         u.username.clone(),
                         u.name.clone(),
-                        u.public_metrics.as_ref().map(|m| m.followers_count).unwrap_or(0),
+                        u.public_metrics
+                            .as_ref()
+                            .map(|m| m.followers_count)
+                            .unwrap_or(0),
                         u.verified.unwrap_or(false),
                     )
                 })
@@ -291,11 +294,7 @@ impl TwitterMonitor {
             let entities = tweet.entities.as_ref();
             let linked_urls: Vec<String> = entities
                 .and_then(|e| e.urls.as_ref())
-                .map(|urls| {
-                    urls.iter()
-                        .filter_map(|u| u.expanded_url.clone())
-                        .collect()
-                })
+                .map(|urls| urls.iter().filter_map(|u| u.expanded_url.clone()).collect())
                 .unwrap_or_default();
 
             let hashtags: Vec<String> = entities
@@ -357,7 +356,10 @@ impl TwitterMonitor {
             .map(|tweet| FetchedArticle {
                 id: tweet.id,
                 source_id: Uuid::nil(),
-                url: format!("https://twitter.com/{}/status/{}", tweet.author_username, tweet.tweet_id),
+                url: format!(
+                    "https://twitter.com/{}/status/{}",
+                    tweet.author_username, tweet.tweet_id
+                ),
                 title: format!("Tweet by @{}", tweet.author_username),
                 content: Some(tweet.text),
                 published_at: tweet.created_at,

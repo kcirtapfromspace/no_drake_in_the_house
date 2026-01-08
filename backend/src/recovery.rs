@@ -144,7 +144,7 @@ where
             }
             Err(err) => {
                 last_error = Some(err);
-                
+
                 if attempt < config.max_attempts {
                     warn!(
                         operation = operation_name,
@@ -154,10 +154,12 @@ where
                         error = %last_error.as_ref().unwrap(),
                         "Database operation failed, retrying"
                     );
-                    
+
                     sleep(delay).await;
                     delay = std::cmp::min(
-                        Duration::from_millis((delay.as_millis() as f64 * config.backoff_multiplier) as u64),
+                        Duration::from_millis(
+                            (delay.as_millis() as f64 * config.backoff_multiplier) as u64,
+                        ),
                         config.max_delay,
                     );
                 } else {
@@ -202,7 +204,7 @@ where
             }
             Err(err) => {
                 last_error = Some(err);
-                
+
                 if attempt < config.max_attempts {
                     warn!(
                         operation = operation_name,
@@ -212,10 +214,12 @@ where
                         error = %last_error.as_ref().unwrap(),
                         "Redis operation failed, retrying"
                     );
-                    
+
                     sleep(delay).await;
                     delay = std::cmp::min(
-                        Duration::from_millis((delay.as_millis() as f64 * config.backoff_multiplier) as u64),
+                        Duration::from_millis(
+                            (delay.as_millis() as f64 * config.backoff_multiplier) as u64,
+                        ),
                         config.max_delay,
                     );
                 } else {
@@ -267,9 +271,7 @@ where
 }
 
 /// Health check with recovery for database connections
-pub async fn database_health_check_with_recovery(
-    pool: &sqlx::PgPool,
-) -> Result<()> {
+pub async fn database_health_check_with_recovery(pool: &sqlx::PgPool) -> Result<()> {
     retry_database_operation(
         || async {
             sqlx::query("SELECT 1")
@@ -280,30 +282,30 @@ pub async fn database_health_check_with_recovery(
         },
         RetryConfig::default(),
         "database_health_check",
-    ).await
+    )
+    .await
 }
 
 /// Health check with recovery for Redis connections
-pub async fn redis_health_check_with_recovery(
-    redis_pool: &deadpool_redis::Pool,
-) -> Result<()> {
+pub async fn redis_health_check_with_recovery(redis_pool: &deadpool_redis::Pool) -> Result<()> {
     retry_redis_operation(
         || async {
             let mut conn = redis_pool
                 .get()
                 .await
                 .map_err(|e| AppError::RedisOperationFailed(e.to_string()))?;
-            
+
             redis::cmd("PING")
                 .query_async::<_, String>(&mut conn)
                 .await
                 .map_err(|e| AppError::RedisOperationFailed(e.to_string()))?;
-            
+
             Ok(())
         },
         RetryConfig::default(),
         "redis_health_check",
-    ).await
+    )
+    .await
 }
 
 /// Graceful degradation helper for optional features
@@ -361,7 +363,8 @@ mod tests {
             },
             config,
             "test_operation",
-        ).await;
+        )
+        .await;
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "success");
@@ -381,7 +384,8 @@ mod tests {
             || async { Err(AppError::DatabaseConnectionFailed) },
             config,
             "test_operation",
-        ).await;
+        )
+        .await;
 
         assert!(result.is_err());
     }

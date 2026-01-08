@@ -297,18 +297,10 @@ impl RssFetcher {
                 .or_else(|| entry.summary.as_ref().map(|s| s.content.clone()));
 
             // Extract authors
-            let authors: Vec<String> = entry
-                .authors
-                .iter()
-                .map(|a| a.name.clone())
-                .collect();
+            let authors: Vec<String> = entry.authors.iter().map(|a| a.name.clone()).collect();
 
             // Extract categories
-            let categories: Vec<String> = entry
-                .categories
-                .iter()
-                .map(|c| c.term.clone())
-                .collect();
+            let categories: Vec<String> = entry.categories.iter().map(|c| c.term.clone()).collect();
 
             // Extract image
             let image_url = entry
@@ -321,7 +313,11 @@ impl RssFetcher {
                 id: Uuid::new_v4(),
                 source_id: source.id,
                 url: url.clone(),
-                title: entry.title.as_ref().map(|t| t.content.clone()).unwrap_or_default(),
+                title: entry
+                    .title
+                    .as_ref()
+                    .map(|t| t.content.clone())
+                    .unwrap_or_default(),
                 content,
                 published_at: entry.published.or(entry.updated),
                 fetched_at: Utc::now(),

@@ -259,7 +259,9 @@ impl CatalogSyncOrchestrator {
 
             let result = match sync_type {
                 SyncType::Full => worker.sync_full(progress_callback).await,
-                SyncType::Incremental | SyncType::Targeted => worker.sync_incremental(None, progress_callback).await,
+                SyncType::Incremental | SyncType::Targeted => {
+                    worker.sync_incremental(None, progress_callback).await
+                }
             };
 
             // Handle result
@@ -416,7 +418,10 @@ impl CatalogSyncOrchestrator {
     }
 
     /// Get platform worker
-    pub fn get_worker(&self, platform: &Platform) -> Option<Arc<dyn PlatformCatalogWorker + Send + Sync>> {
+    pub fn get_worker(
+        &self,
+        platform: &Platform,
+    ) -> Option<Arc<dyn PlatformCatalogWorker + Send + Sync>> {
         self.workers.get(platform).cloned()
     }
 
@@ -500,9 +505,9 @@ impl OrchestratorBuilder {
     }
 
     pub fn build(self) -> Result<CatalogSyncOrchestrator> {
-        let resolver = self
-            .identity_resolver
-            .unwrap_or_else(|| CrossPlatformIdentityResolver::new("NoDrake", "1.0", "admin@example.com"));
+        let resolver = self.identity_resolver.unwrap_or_else(|| {
+            CrossPlatformIdentityResolver::new("NoDrake", "1.0", "admin@example.com")
+        });
 
         let mut orchestrator = CatalogSyncOrchestrator::new(resolver);
 

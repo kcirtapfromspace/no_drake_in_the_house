@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Rate limit configuration for a provider
@@ -206,7 +206,8 @@ impl CircuitBreakerState {
             CircuitState::Open => {
                 // Extend the wait time
                 let backoff_seconds = std::cmp::min(60 * (self.failure_count - 4), 300);
-                self.next_attempt_at = Some(Utc::now() + chrono::Duration::seconds(backoff_seconds as i64));
+                self.next_attempt_at =
+                    Some(Utc::now() + chrono::Duration::seconds(backoff_seconds as i64));
             }
         }
     }
@@ -268,11 +269,7 @@ impl BatchConfig {
 }
 
 impl RateLimitedRequest {
-    pub fn new(
-        provider: String,
-        operation_type: String,
-        payload: serde_json::Value,
-    ) -> Self {
+    pub fn new(provider: String, operation_type: String, payload: serde_json::Value) -> Self {
         Self {
             id: Uuid::new_v4(),
             provider,
@@ -305,12 +302,7 @@ impl RateLimitedRequest {
 }
 
 impl BatchCheckpoint {
-    pub fn new(
-        batch_id: Uuid,
-        provider: String,
-        operation_type: String,
-        total_items: u32,
-    ) -> Self {
+    pub fn new(batch_id: Uuid, provider: String, operation_type: String, total_items: u32) -> Self {
         Self {
             batch_id,
             provider,

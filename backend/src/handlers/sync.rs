@@ -10,13 +10,12 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{AppError, AppState, Result};
 use crate::models::AuthenticatedUser;
 use crate::services::catalog_sync::{
-    Platform, SyncType, SyncStatus, PlatformArtist,
-    OverallSyncStatus, SyncTriggerRequest, SyncPriority,
-    CanonicalArtist, IdentityMatch,
+    CanonicalArtist, IdentityMatch, OverallSyncStatus, Platform, PlatformArtist, SyncPriority,
+    SyncStatus, SyncTriggerRequest, SyncType,
 };
+use crate::{AppError, AppState, Result};
 
 /// Query parameters for sync history
 #[derive(Debug, Deserialize)]
@@ -327,10 +326,11 @@ pub async fn resolve_identity_handler(
         "Identity resolution request"
     );
 
-    let platform = parse_platform(&request.platform).ok_or_else(|| AppError::InvalidFieldValue {
-        field: "platform".to_string(),
-        message: format!("Unknown platform: {}", request.platform),
-    })?;
+    let platform =
+        parse_platform(&request.platform).ok_or_else(|| AppError::InvalidFieldValue {
+            field: "platform".to_string(),
+            message: format!("Unknown platform: {}", request.platform),
+        })?;
 
     // For now, return a new artist placeholder
     let canonical_id = Uuid::new_v4();

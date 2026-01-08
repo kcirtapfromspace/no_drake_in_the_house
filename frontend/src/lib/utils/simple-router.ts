@@ -15,7 +15,10 @@ export type Route =
   | 'analytics'
   | 'graph'
   | 'oauth-callback'
-  | 'oauth-error';
+  | 'oauth-error'
+  | 'overview'
+  | 'dnp'
+  | 'enforcement';
 
 // Path mappings
 const pathToRoute: Record<string, Route> = {
@@ -32,6 +35,9 @@ const pathToRoute: Record<string, Route> = {
   '/sync': 'sync',
   '/analytics': 'analytics',
   '/graph': 'graph',
+  '/overview': 'overview',
+  '/dnp': 'dnp',
+  '/enforcement': 'enforcement',
 };
 
 const routeToPath: Record<Route, string> = {
@@ -49,6 +55,9 @@ const routeToPath: Record<Route, string> = {
   'graph': '/graph',
   'oauth-callback': '/auth/callback',
   'oauth-error': '/auth/error',
+  'overview': '/overview',
+  'dnp': '/dnp',
+  'enforcement': '/enforcement',
 };
 
 // Route metadata
@@ -67,6 +76,9 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'graph': { title: 'Graph Explorer', description: 'Explore artist collaboration networks' },
   'oauth-callback': { title: 'Connecting...', description: 'Processing authentication' },
   'oauth-error': { title: 'Connection Error', description: 'There was a problem connecting' },
+  'overview': { title: 'Overview', description: 'Dashboard overview' },
+  'dnp': { title: 'DNP List', description: 'Your Do Not Play list' },
+  'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
 };
 
 // Router store

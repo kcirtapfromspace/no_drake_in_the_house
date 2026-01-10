@@ -36,7 +36,7 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow duration-200">
+<div class="rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow duration-200" style="background: #27272a; border: 2px solid #52525b;">
   <div class="flex items-start space-x-4">
     <!-- Artist image -->
     <div class="flex-shrink-0">
@@ -47,8 +47,8 @@
           class="w-16 h-16 rounded-lg object-cover"
         />
       {:else}
-        <div class="w-16 h-16 rounded-lg bg-gray-200 flex items-center justify-center">
-          <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-16 h-16 rounded-lg flex items-center justify-center" style="background: #3f3f46;">
+          <svg class="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
           </svg>
         </div>
@@ -59,19 +59,19 @@
     <div class="flex-1 min-w-0">
       <div class="flex items-start justify-between">
         <div class="flex-1">
-          <h3 class="text-lg font-semibold text-gray-900 truncate">
+          <h3 class="text-lg font-semibold text-zinc-100 truncate">
             {artist.canonical_name}
           </h3>
           
           <!-- Genres -->
           {#if artist.metadata?.genres && artist.metadata.genres.length > 0}
-            <p class="text-sm text-gray-600 mt-1">
+            <p class="text-sm text-zinc-400 mt-1">
               {artist.metadata.genres.slice(0, 3).join(', ')}
             </p>
           {/if}
           
           <!-- Blocked date -->
-          <p class="text-xs text-gray-500 mt-2">
+          <p class="text-xs text-zinc-400 mt-2">
             Blocked {formatDate(blockedAt)}
           </p>
         </div>
@@ -97,7 +97,7 @@
       {#if tags && tags.length > 0}
         <div class="flex flex-wrap gap-1 mt-3">
           {#each tags as tag}
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-zinc-300" style="background: #3f3f46;">
               {tag}
             </span>
           {/each}
@@ -106,7 +106,7 @@
       
       <!-- Note -->
       {#if note}
-        <p class="text-sm text-gray-600 mt-2 italic">
+        <p class="text-sm text-zinc-400 mt-2 italic">
           "{note}"
         </p>
       {/if}

@@ -20,17 +20,17 @@
   function getStatusColor(status: string) {
     switch (status) {
       case 'pending':
-        return 'text-gray-600 bg-gray-100';
+        return 'text-zinc-300 bg-zinc-700';
       case 'running':
-        return 'text-blue-600 bg-blue-100';
+        return 'text-blue-400 bg-zinc-700';
       case 'completed':
-        return 'text-green-600 bg-green-100';
+        return 'text-green-400 bg-zinc-700';
       case 'failed':
-        return 'text-red-600 bg-red-100';
+        return 'text-red-400 bg-zinc-700';
       case 'cancelled':
-        return 'text-yellow-600 bg-yellow-100';
+        return 'text-yellow-400 bg-zinc-700';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-zinc-300 bg-zinc-700';
     }
   }
 
@@ -54,23 +54,23 @@
   {#if !plan}
     <!-- No Plan Available -->
     <div class="text-center py-12">
-      <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-zinc-400darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
-      <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No enforcement plan available</h3>
-      <p class="mt-1 text-uswds-sm text-uswds-base-darker">Create a plan first to execute enforcement.</p>
+      <h3 class="mt-2 text-zinc-400 font-medium text-zinc-400darker">No enforcement plan available</h3>
+      <p class="mt-1 text-zinc-400 text-zinc-400darker">Create a plan first to execute enforcement.</p>
     </div>
   {:else if currentBatch}
     <!-- Execution in Progress -->
-    <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
+    <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h3 class="text-uswds-lg font-medium text-uswds-base-darker">Enforcement Execution</h3>
-          <p class="text-uswds-sm text-uswds-base-darker">
+          <h3 class="text-zinc-400 font-medium text-zinc-400darker">Enforcement Execution</h3>
+          <p class="text-zinc-400 text-zinc-400darker">
             Batch ID: <span class="font-mono">{currentBatch.id.slice(0, 8)}...</span>
           </p>
         </div>
-        <span class="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium {getStatusColor(currentBatch.status)}">
+        <span class="flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getStatusColor(currentBatch.status)}">
           {currentBatch.status}
         </span>
       </div>
@@ -78,17 +78,17 @@
       <!-- Progress Bar -->
       {#if progress}
         <div class="mb-6">
-          <div class="flex justify-between text-uswds-sm text-uswds-base-darker mb-2">
+          <div class="flex justify-between text-zinc-400 text-zinc-400darker mb-2">
             <span>Progress</span>
             <span>{progress.processed} / {progress.total} ({progress.percentage}%)</span>
           </div>
-          <div class="w-full bg-uswds-base-lightest rounded-full h-2">
+          <div class="w-full bg-zinc-700lightest rounded-full h-2">
             <div 
               class="bg-primary h-2 rounded-full transition-all duration-300"
               style="width: {progress.percentage}%"
             ></div>
           </div>
-          <div class="flex justify-between text-uswds-xs text-uswds-base-darker mt-1">
+          <div class="flex justify-between text-zinc-400 text-zinc-400darker mt-1">
             <span>{progress.completed} completed</span>
             <span>{progress.failed} failed</span>
             <span>{progress.skipped} skipped</span>
@@ -98,52 +98,52 @@
 
       <!-- Batch Summary -->
       <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-4 mb-6">
-        <div class="bg-uswds-base-lightest rounded-uswds-lg p-uswds-3 text-center">
-          <div class="text-uswds-lg font-semibold text-uswds-base-darker">{currentBatch.summary.totalItems}</div>
-          <div class="text-uswds-xs text-uswds-base-darker">Total Items</div>
+        <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-3 text-center">
+          <div class="text-zinc-400 font-semibold text-zinc-400darker">{currentBatch.summary.totalItems}</div>
+          <div class="text-zinc-400 text-zinc-400darker">Total Items</div>
         </div>
-        <div class="bg-green-50 rounded-uswds-lg p-uswds-3 text-center">
-          <div class="text-uswds-lg font-semibold text-uswds-green-50">{currentBatch.summary.completedItems}</div>
-          <div class="text-uswds-xs text-uswds-base-darker">Completed</div>
+        <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
+          <div class="text-zinc-400 font-semibold text-zinc-400">{currentBatch.summary.completedItems}</div>
+          <div class="text-zinc-400 text-zinc-400darker">Completed</div>
         </div>
-        <div class="bg-red-50 rounded-uswds-lg p-uswds-3 text-center">
-          <div class="text-uswds-lg font-semibold text-uswds-red-50">{currentBatch.summary.failedItems}</div>
-          <div class="text-uswds-xs text-uswds-base-darker">Failed</div>
+        <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
+          <div class="text-zinc-400 font-semibold text-zinc-400">{currentBatch.summary.failedItems}</div>
+          <div class="text-zinc-400 text-zinc-400darker">Failed</div>
         </div>
-        <div class="bg-yellow-50 rounded-uswds-lg p-uswds-3 text-center">
-          <div class="text-uswds-lg font-semibold text-warning">{currentBatch.summary.skippedItems}</div>
-          <div class="text-uswds-xs text-uswds-base-darker">Skipped</div>
+        <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
+          <div class="text-zinc-400 font-semibold text-warning">{currentBatch.summary.skippedItems}</div>
+          <div class="text-zinc-400 text-zinc-400darker">Skipped</div>
         </div>
       </div>
 
       <!-- Recent Actions -->
       {#if currentBatch.items.length > 0}
         <div>
-          <h4 class="text-uswds-sm font-medium text-uswds-base-darker mb-3">Recent Actions</h4>
+          <h4 class="text-zinc-400 font-medium text-zinc-400darker mb-3">Recent Actions</h4>
           <div class="space-y-2 max-h-64 overflow-y-auto">
             {#each currentBatch.items.slice(0, 10) as item}
-              <div class="flex items-center justify-between py-2 px-3 bg-uswds-base-lightest rounded-uswds-md">
+              <div class="flex items-center justify-between py-2 px-3 bg-zinc-700lightest rounded-uswds-md">
                 <div class="flex items-center space-x-3">
-                  <svg aria-hidden="true" class="icon-uswds icon-uswds--sm text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg aria-hidden="true" class="icon-uswds icon-uswds--sm text-zinc-400darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={getActionIcon(item.action)} />
                   </svg>
                   <div>
-                    <div class="text-uswds-sm font-medium text-uswds-base-darker">
+                    <div class="text-zinc-400 font-medium text-zinc-400darker">
                       {item.action.replace(/_/g, ' ')}
                     </div>
-                    <div class="text-uswds-xs text-uswds-base-darker">
+                    <div class="text-zinc-400 text-zinc-400darker">
                       {item.entityType}: {item.entityId.slice(0, 20)}...
                     </div>
                   </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium {getStatusColor(item.status)}">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-zinc-400 font-medium {getStatusColor(item.status)}">
                     {item.status}
                   </span>
                   {#if item.status === 'failed' && item.errorMessage}
                     <button
                       title={item.errorMessage}
-                      class="text-uswds-red-50 hover:text-error"
+                      class="text-zinc-400 hover:text-error"
                     >
                       <svg aria-hidden="true" class="icon-uswds icon-uswds--sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -159,13 +159,13 @@
     </div>
   {:else}
     <!-- Ready to Execute -->
-    <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
+    <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
       <div class="text-center">
         <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 class="mt-2 text-uswds-lg font-medium text-uswds-base-darker">Ready to Execute</h3>
-        <p class="mt-1 text-uswds-sm text-uswds-base-darker">
+        <h3 class="mt-2 text-zinc-400 font-medium text-zinc-400darker">Ready to Execute</h3>
+        <p class="mt-1 text-zinc-400 text-zinc-400darker">
           Your enforcement plan is ready. Click execute to apply changes to your music library.
         </p>
         
@@ -173,7 +173,7 @@
           <button
             on:click={executePlan}
             disabled={$enforcementStore.isExecuting}
-            class="inline-flex items-center px-6 py-3 border border-transparent text-uswds-base font-medium rounded-uswds-md shadow-sm text-white bg-error hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="inline-flex items-center px-6 py-3 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-error hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {#if $enforcementStore.isExecuting}
               <svg aria-hidden="true" class="animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -190,7 +190,7 @@
           </button>
         </div>
 
-        <div class="mt-4 text-uswds-xs text-uswds-base-darker">
+        <div class="mt-4 text-zinc-400 text-zinc-400darker">
           <p>⚠️ This action will modify your music library</p>
           <p>Some changes may not be reversible</p>
         </div>
@@ -200,18 +200,18 @@
 
   <!-- Error Display -->
   {#if $enforcementStore.error}
-    <div class="bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4">
+    <div class="rounded-uswds-md p-uswds-4" style="background: #3f3f46; border: 1px solid #52525b;">
       <div class="flex">
         <div class="">
-          <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-uswds-sm text-uswds-red-50">{$enforcementStore.error}</p>
+          <p class="text-zinc-400 text-zinc-400">{$enforcementStore.error}</p>
           <button
             on:click={() => enforcementActions.clearError()}
-            class="mt-2 text-uswds-sm text-uswds-red-50 hover:text-red-500"
+            class="mt-2 text-zinc-400 text-zinc-400 hover:text-red-500"
           >
             Dismiss
           </button>

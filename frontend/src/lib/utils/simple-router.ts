@@ -19,7 +19,8 @@ export type Route =
   | 'oauth-error'
   | 'overview'
   | 'dnp'
-  | 'enforcement';
+  | 'enforcement'
+  | 'artist-profile';
 
 // Path mappings
 const pathToRoute: Record<string, Route> = {
@@ -61,6 +62,7 @@ const routeToPath: Record<Route, string> = {
   'overview': '/overview',
   'dnp': '/dnp',
   'enforcement': '/enforcement',
+  'artist-profile': '/artist',
 };
 
 // Route metadata
@@ -83,43 +85,73 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'overview': { title: 'Overview', description: 'Dashboard overview' },
   'dnp': { title: 'DNP List', description: 'Your Do Not Play list' },
   'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
+  'artist-profile': { title: 'Artist Profile', description: 'View artist details and evidence' },
 };
 
 // Router store
 export const currentRoute = writable<Route>('home');
 
+// Route params store (for dynamic routes like /artist/:id)
+export const routeParams = writable<Record<string, string>>({});
+
 // Derived store for route metadata
 export const currentRouteMeta = derived(currentRoute, $route => routeMeta[$route]);
 
 // Navigation function
-export function navigateTo(route: Route) {
+export function navigateTo(route: Route, params?: Record<string, string>) {
   currentRoute.set(route);
+  routeParams.set(params || {});
 
   if (typeof window !== 'undefined') {
-    const path = routeToPath[route] || '/';
+    let path = routeToPath[route] || '/';
+
+    // Handle dynamic routes
+    if (route === 'artist-profile' && params?.id) {
+      path = `/artist/${params.id}`;
+    }
+
     const meta = routeMeta[route];
-    window.history.pushState({ route }, meta.title, path);
+    window.history.pushState({ route, params }, meta.title, path);
     document.title = `${meta.title} - No Drake`;
   }
 }
 
-// Get route from path
-function getRouteFromPath(path: string): Route {
-  if (path.startsWith('/auth/callback')) return 'oauth-callback';
-  if (path.startsWith('/auth/error')) return 'oauth-error';
-  return pathToRoute[path] || 'home';
+// Navigate to artist profile
+export function navigateToArtist(artistId: string) {
+  navigateTo('artist-profile', { id: artistId });
+}
+
+// Parse route and extract params from path
+function parseRoute(path: string): { route: Route; params: Record<string, string> } {
+  if (path.startsWith('/auth/callback')) return { route: 'oauth-callback', params: {} };
+  if (path.startsWith('/auth/error')) return { route: 'oauth-error', params: {} };
+
+  // Handle dynamic artist profile route: /artist/:id
+  const artistMatch = path.match(/^\/artist\/([^\/]+)/);
+  if (artistMatch) {
+    return { route: 'artist-profile', params: { id: artistMatch[1] } };
+  }
+
+  return { route: pathToRoute[path] || 'home', params: {} };
 }
 
 // Initialize router
 export function initRouter() {
   if (typeof window !== 'undefined') {
     window.addEventListener('popstate', (event) => {
-      const route = event.state?.route || getRouteFromPath(window.location.pathname);
-      currentRoute.set(route);
+      if (event.state?.route) {
+        currentRoute.set(event.state.route);
+        routeParams.set(event.state.params || {});
+      } else {
+        const { route, params } = parseRoute(window.location.pathname);
+        currentRoute.set(route);
+        routeParams.set(params);
+      }
     });
 
-    const initialRoute = getRouteFromPath(window.location.pathname);
+    const { route: initialRoute, params: initialParams } = parseRoute(window.location.pathname);
     currentRoute.set(initialRoute);
+    routeParams.set(initialParams);
     document.title = `${routeMeta[initialRoute].title} - No Drake`;
   }
 }

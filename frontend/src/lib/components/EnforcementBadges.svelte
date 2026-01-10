@@ -1,0 +1,78 @@
+<script lang="ts">
+  import { blockingStore, type Platform, type EnforcementStatus } from '../stores/blocking';
+
+  export let artistId: string;
+  export let compact: boolean = false;
+
+  // Subscribe to enforcement status for this artist
+  $: enforcement = $blockingStore.artistEnforcements.get(artistId);
+
+  function getPlatformStyle(platform: Platform, status: EnforcementStatus | undefined) {
+    const baseStyles = {
+      spotify: {
+        connected: 'bg-green-500 text-white',
+        disconnected: 'bg-zinc-700 text-zinc-500',
+        icon: `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>`,
+        label: 'Spotify',
+      },
+      apple_music: {
+        connected: 'bg-rose-500 text-white',
+        disconnected: 'bg-zinc-700 text-zinc-500',
+        icon: `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.526.015-1.047.057-1.564.15-.673.121-1.303.353-1.877.727C1.307 1.624.562 2.624.245 3.934.07 4.654.005 5.386.005 6.124v11.748c0 .738.065 1.47.24 2.19.317 1.31 1.062 2.31 2.18 3.043.574.374 1.204.606 1.877.727.517.093 1.038.135 1.564.15.04.001.08.004.12.004h12.014c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.733 1.863-1.733 2.18-3.043.175-.72.24-1.452.24-2.19V6.124z"/></svg>`,
+        label: 'Apple',
+      },
+      youtube_music: {
+        connected: 'bg-red-500 text-white',
+        disconnected: 'bg-zinc-700 text-zinc-500',
+        icon: `<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`,
+        label: 'YouTube',
+      },
+    };
+
+    return baseStyles[platform];
+  }
+
+  // Get the platforms that have enforcement status
+  $: activePlatforms = enforcement
+    ? (Object.entries(enforcement.platforms)
+        .filter(([_, status]) => status === 'completed')
+        .map(([platform]) => platform as Platform))
+    : [];
+</script>
+
+{#if activePlatforms.length > 0}
+  <div class="flex items-center gap-1" title="Enforced on: {activePlatforms.map(p => getPlatformStyle(p, 'completed')?.label).join(', ')}">
+    {#each activePlatforms as platform}
+      {@const style = getPlatformStyle(platform, 'completed')}
+      {#if compact}
+        <!-- Compact: just colored dots -->
+        <div
+          class="w-2 h-2 rounded-full"
+          class:bg-green-500={platform === 'spotify'}
+          class:bg-rose-500={platform === 'apple_music'}
+          class:bg-red-500={platform === 'youtube_music'}
+          title="{style?.label} enforced"
+        ></div>
+      {:else}
+        <!-- Full: badge with icon -->
+        <span
+          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium {style?.connected}"
+        >
+          {#if platform === 'spotify'}
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+            </svg>
+          {:else if platform === 'apple_music'}
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.526.015-1.047.057-1.564.15-.673.121-1.303.353-1.877.727C1.307 1.624.562 2.624.245 3.934.07 4.654.005 5.386.005 6.124v11.748c0 .738.065 1.47.24 2.19.317 1.31 1.062 2.31 2.18 3.043.574.374 1.204.606 1.877.727.517.093 1.038.135 1.564.15.04.001.08.004.12.004h12.014c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.733 1.863-1.733 2.18-3.043.175-.72.24-1.452.24-2.19V6.124z"/>
+            </svg>
+          {:else if platform === 'youtube_music'}
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/>
+            </svg>
+          {/if}
+        </span>
+      {/if}
+    {/each}
+  </div>
+{/if}

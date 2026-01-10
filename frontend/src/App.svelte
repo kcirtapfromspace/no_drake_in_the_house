@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { isAuthenticated, authActions } from "./lib/stores/auth";
-	import { initRouter, currentRoute } from "./lib/utils/simple-router";
+	import { initRouter, currentRoute, routeParams } from "./lib/utils/simple-router";
 	import Login from "./lib/components/Login.svelte";
 	import Home from "./lib/components/Home.svelte";
 	import Settings from "./lib/components/Settings.svelte";
 	import OAuthCallback from "./lib/components/OAuthCallback.svelte";
 	import SyncDashboard from "./lib/components/SyncDashboard.svelte";
 	import AnalyticsDashboard from "./lib/components/AnalyticsDashboard.svelte";
-	import RevenueImpact from "./lib/components/RevenueImpact.svelte";
 	import GraphExplorer from "./lib/components/GraphExplorer.svelte";
+	import ArtistProfile from "./lib/components/ArtistProfile.svelte";
+	import Layout from "./lib/components/Layout.svelte";
 
 	let isInitialized = false;
 
@@ -49,18 +50,22 @@
 		</div>
 	</div>
 {:else if $isAuthenticated}
-	{#if $currentRoute === 'settings'}
-		<Settings />
-	{:else if $currentRoute === 'sync'}
-		<SyncDashboard />
-	{:else if $currentRoute === 'analytics'}
-		<AnalyticsDashboard />
-	{:else if $currentRoute === 'revenue-impact'}
-		<RevenueImpact />
-	{:else if $currentRoute === 'graph'}
-		<GraphExplorer />
+	{#if $currentRoute === 'artist-profile'}
+		<ArtistProfile artistId={$routeParams.id || ''} />
 	{:else}
-		<Home />
+		<Layout>
+			{#if $currentRoute === 'settings'}
+				<Settings />
+			{:else if $currentRoute === 'sync'}
+				<SyncDashboard />
+			{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
+				<AnalyticsDashboard />
+			{:else if $currentRoute === 'graph'}
+				<GraphExplorer />
+			{:else}
+				<Home />
+			{/if}
+		</Layout>
 	{/if}
 {:else}
 	<Login />

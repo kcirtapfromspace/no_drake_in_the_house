@@ -170,14 +170,14 @@
   $: stats = $graphStore.stats;
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-emerald-50 to-white">
+<div class="min-h-screen" style="background: #18181b;">
   <!-- Header -->
-  <div class="bg-white border-b border-gray-100">
+  <div style="background: #27272a; border-bottom: 2px solid #52525b;">
     <div class="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <button
         type="button"
         on:click={() => navigateTo('home')}
-        class="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4"
+        class="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -186,10 +186,10 @@
       </button>
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">
+          <h1 class="text-3xl font-bold text-white mb-2">
             Graph Explorer
           </h1>
-          <p class="text-lg text-gray-600">
+          <p class="text-lg text-zinc-400">
             Explore artist collaboration networks and connections.
           </p>
         </div>
@@ -197,7 +197,8 @@
           <button
             type="button"
             on:click={() => showPathFinder = !showPathFinder}
-            class="px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors flex items-center gap-2"
+            class="px-4 py-2 text-zinc-300 rounded-lg font-medium transition-colors flex items-center gap-2"
+            style="border: 2px solid #52525b; background: #3f3f46;"
           >
             <span>🔍</span> Path Finder
           </button>
@@ -218,21 +219,21 @@
     <!-- Stats Bar -->
     {#if stats}
       <div class="grid grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm text-center">
-          <div class="text-2xl font-bold text-indigo-600">{stats.artist_count.toLocaleString()}</div>
-          <div class="text-xs text-gray-500">Artists</div>
+        <div class="rounded-lg p-4 shadow-sm text-center" style="background: #27272a; border: 2px solid #52525b;">
+          <div class="text-2xl font-bold text-indigo-400">{stats.artist_count.toLocaleString()}</div>
+          <div class="text-xs text-zinc-400">Artists</div>
         </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm text-center">
-          <div class="text-2xl font-bold text-indigo-600">{stats.collaboration_count.toLocaleString()}</div>
-          <div class="text-xs text-gray-500">Collaborations</div>
+        <div class="rounded-lg p-4 shadow-sm text-center" style="background: #27272a; border: 2px solid #52525b;">
+          <div class="text-2xl font-bold text-indigo-400">{stats.collaboration_count.toLocaleString()}</div>
+          <div class="text-xs text-zinc-400">Collaborations</div>
         </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm text-center">
-          <div class="text-2xl font-bold text-indigo-600">{stats.label_count.toLocaleString()}</div>
-          <div class="text-xs text-gray-500">Labels</div>
+        <div class="rounded-lg p-4 shadow-sm text-center" style="background: #27272a; border: 2px solid #52525b;">
+          <div class="text-2xl font-bold text-indigo-400">{stats.label_count.toLocaleString()}</div>
+          <div class="text-xs text-zinc-400">Labels</div>
         </div>
-        <div class="bg-white rounded-lg p-4 border border-gray-100 shadow-sm text-center">
-          <div class="text-2xl font-bold text-indigo-600">{stats.track_count.toLocaleString()}</div>
-          <div class="text-xs text-gray-500">Tracks</div>
+        <div class="rounded-lg p-4 shadow-sm text-center" style="background: #27272a; border: 2px solid #52525b;">
+          <div class="text-2xl font-bold text-indigo-400">{stats.track_count.toLocaleString()}</div>
+          <div class="text-xs text-zinc-400">Tracks</div>
         </div>
       </div>
     {/if}
@@ -252,27 +253,29 @@
 
     <!-- Path Finder Panel -->
     {#if showPathFinder}
-      <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">Find Path Between Artists</h3>
+      <div class="rounded-xl p-6 shadow-sm mb-6" style="background: #27272a; border: 2px solid #52525b;">
+        <h3 class="text-lg font-semibold text-white mb-4">Find Path Between Artists</h3>
         <div class="grid md:grid-cols-3 gap-4">
           <div>
-            <label for="path-source" class="block text-sm font-medium text-gray-700 mb-2">Source Artist ID</label>
+            <label for="path-source" class="block text-sm font-medium text-zinc-300 mb-2">Source Artist ID</label>
             <input
               id="path-source"
               type="text"
               bind:value={pathSourceId}
               placeholder="Enter artist UUID"
-              class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              class="w-full px-4 py-2 rounded-lg text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              style="background: #3f3f46; border: 2px solid #52525b;"
             />
           </div>
           <div>
-            <label for="path-target" class="block text-sm font-medium text-gray-700 mb-2">Target Artist ID</label>
+            <label for="path-target" class="block text-sm font-medium text-zinc-300 mb-2">Target Artist ID</label>
             <input
               id="path-target"
               type="text"
               bind:value={pathTargetId}
               placeholder="Enter artist UUID"
-              class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              class="w-full px-4 py-2 rounded-lg text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              style="background: #3f3f46; border: 2px solid #52525b;"
             />
           </div>
           <div class="flex items-end">
@@ -291,11 +294,11 @@
           </div>
         </div>
         {#if pathResult}
-          <div class="mt-4 p-4 bg-green-50 rounded-lg">
-            <div class="font-medium text-green-700 mb-2">Path Found! ({pathResult.total_distance} hops)</div>
+          <div class="mt-4 p-4 bg-green-900/30 rounded-lg">
+            <div class="font-medium text-green-400 mb-2">Path Found! ({pathResult.total_distance} hops)</div>
             <div class="flex items-center gap-2 flex-wrap">
               {#each pathResult.path as node, i}
-                <span class="px-2 py-1 bg-white rounded border border-green-200 text-sm">{node.name}</span>
+                <span class="px-2 py-1 rounded text-sm text-white" style="background: #3f3f46; border: 2px solid #52525b;">{node.name}</span>
                 {#if i < pathResult.path.length - 1}
                   <span class="text-green-600">→</span>
                 {/if}
@@ -310,15 +313,16 @@
     <div class="grid lg:grid-cols-3 gap-6">
       <!-- Search & Selection Panel -->
       <div class="lg:col-span-1">
-        <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Search Artist</h3>
+        <div class="rounded-xl p-6 shadow-sm mb-6" style="background: #27272a; border: 2px solid #52525b;">
+          <h3 class="text-lg font-semibold text-white mb-4">Search Artist</h3>
           <div class="relative">
             <input
               type="text"
               bind:value={searchQuery}
               on:input={handleSearch}
               placeholder="Search for an artist..."
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              class="w-full px-4 py-3 rounded-xl text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              style="background: #3f3f46; border: 2px solid #52525b;"
             />
             {#if isSearching}
               <div class="absolute right-3 top-1/2 -translate-y-1/2">
@@ -333,11 +337,11 @@
                 <button
                   type="button"
                   on:click={() => selectArtist(artist)}
-                  class="w-full p-3 text-left hover:bg-indigo-50 rounded-lg transition-colors"
+                  class="w-full p-3 text-left hover:bg-indigo-900/30 rounded-lg transition-colors"
                 >
-                  <div class="font-medium">{artist.name}</div>
+                  <div class="font-medium text-white">{artist.name}</div>
                   {#if artist.genres?.length}
-                    <div class="text-xs text-gray-500">{artist.genres.slice(0, 3).join(', ')}</div>
+                    <div class="text-xs text-zinc-400">{artist.genres.slice(0, 3).join(', ')}</div>
                   {/if}
                 </button>
               {/each}
@@ -346,8 +350,8 @@
         </div>
 
         <!-- Depth Control -->
-        <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mb-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">Network Depth</h3>
+        <div class="rounded-xl p-6 shadow-sm mb-6" style="background: #27272a; border: 2px solid #52525b;">
+          <h3 class="text-lg font-semibold text-white mb-4">Network Depth</h3>
           <div class="flex items-center gap-4">
             <input
               type="range"
@@ -358,20 +362,20 @@
             />
             <span class="text-lg font-medium text-indigo-600 w-8">{selectedDepth}</span>
           </div>
-          <p class="text-xs text-gray-500 mt-2">Higher depth = more connections but slower loading</p>
+          <p class="text-xs text-zinc-400 mt-2">Higher depth = more connections but slower loading</p>
         </div>
 
         <!-- Collaborators List -->
         {#if selectedArtist && collaborators.length > 0}
-          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+          <div class="rounded-xl p-6 shadow-sm" style="background: #27272a; border: 2px solid #52525b;">
+            <h3 class="text-lg font-semibold text-white mb-4">
               Collaborators of {selectedArtist.name}
             </h3>
             <div class="space-y-2 max-h-80 overflow-y-auto">
               {#each collaborators as collab}
-                <div class="p-3 bg-gray-50 rounded-lg">
-                  <div class="font-medium">{collab.artist_name}</div>
-                  <div class="text-xs text-gray-500 flex items-center gap-2">
+                <div class="p-3 rounded-lg" style="background: #3f3f46;">
+                  <div class="font-medium text-white">{collab.artist_name}</div>
+                  <div class="text-xs text-zinc-400 flex items-center gap-2">
                     <span class="capitalize">{collab.collab_type}</span>
                     {#if collab.track_title}
                       <span>• {collab.track_title}</span>
@@ -389,11 +393,11 @@
 
       <!-- Network Visualization -->
       <div class="lg:col-span-2">
-        <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+        <div class="rounded-xl p-6 shadow-sm" style="background: #27272a; border: 2px solid #52525b;">
           <div class="flex items-center justify-between mb-4">
-            <h3 class="text-lg font-semibold text-gray-900">Network Visualization</h3>
+            <h3 class="text-lg font-semibold text-white">Network Visualization</h3>
             {#if currentNetwork}
-              <div class="text-sm text-gray-500">
+              <div class="text-sm text-zinc-400">
                 {$networkNodes.length} nodes • {$networkEdges.length} edges
               </div>
             {/if}
@@ -404,14 +408,15 @@
               <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
             </div>
           {:else if !currentNetwork}
-            <div class="flex flex-col items-center justify-center h-96 text-gray-400">
+            <div class="flex flex-col items-center justify-center h-96 text-zinc-400">
               <span class="text-6xl mb-4">🕸️</span>
               <p>Search for an artist to explore their network</p>
             </div>
           {:else}
             <svg
               viewBox="0 0 600 400"
-              class="w-full h-96 bg-gray-50 rounded-lg"
+              class="w-full h-96 rounded-lg"
+              style="background: #3f3f46;"
             >
               <!-- Edges -->
               {#each $networkEdges as edge}
@@ -444,7 +449,7 @@
                     y={node.id === currentNetwork.center_artist_id ? 28 : 22}
                     text-anchor="middle"
                     font-size="10"
-                    fill="#374151"
+                    fill="#a1a1aa"
                     class="pointer-events-none"
                   >
                     {node.name.length > 12 ? node.name.substring(0, 12) + '...' : node.name}
@@ -454,7 +459,7 @@
             </svg>
 
             <!-- Legend -->
-            <div class="flex items-center gap-6 mt-4 text-xs text-gray-600 justify-center">
+            <div class="flex items-center gap-6 mt-4 text-xs text-zinc-400 justify-center">
               <div class="flex items-center gap-1">
                 <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
                 <span>Artist</span>
@@ -477,38 +482,38 @@
 
         <!-- Blocked Network Analysis -->
         {#if blockedAnalysis}
-          <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mt-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Blocked Network Analysis</h3>
+          <div class="rounded-xl p-6 shadow-sm mt-6" style="background: #27272a; border: 2px solid #52525b;">
+            <h3 class="text-lg font-semibold text-white mb-4">Blocked Network Analysis</h3>
 
             <!-- Summary -->
             <div class="grid grid-cols-3 gap-4 mb-6">
-              <div class="text-center p-3 bg-red-50 rounded-lg">
-                <div class="text-2xl font-bold text-red-600">{blockedAnalysis.summary.total_blocked}</div>
-                <div class="text-xs text-gray-600">Blocked Artists</div>
+              <div class="text-center p-3 bg-red-900/30 rounded-lg">
+                <div class="text-2xl font-bold text-red-400">{blockedAnalysis.summary.total_blocked}</div>
+                <div class="text-xs text-zinc-400">Blocked Artists</div>
               </div>
-              <div class="text-center p-3 bg-yellow-50 rounded-lg">
-                <div class="text-2xl font-bold text-yellow-600">{blockedAnalysis.summary.total_at_risk}</div>
-                <div class="text-xs text-gray-600">At-Risk Artists</div>
+              <div class="text-center p-3 bg-yellow-900/30 rounded-lg">
+                <div class="text-2xl font-bold text-yellow-400">{blockedAnalysis.summary.total_at_risk}</div>
+                <div class="text-xs text-zinc-400">At-Risk Artists</div>
               </div>
-              <div class="text-center p-3 bg-gray-50 rounded-lg">
-                <div class="text-2xl font-bold text-gray-600">{blockedAnalysis.summary.avg_collaborations_per_blocked.toFixed(1)}</div>
-                <div class="text-xs text-gray-600">Avg. Collaborations</div>
+              <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+                <div class="text-2xl font-bold text-zinc-300">{blockedAnalysis.summary.avg_collaborations_per_blocked.toFixed(1)}</div>
+                <div class="text-xs text-zinc-400">Avg. Collaborations</div>
               </div>
             </div>
 
             <!-- At-Risk Artists -->
             {#if $atRiskArtists.length > 0}
-              <h4 class="font-medium text-gray-900 mb-3">At-Risk Artists</h4>
+              <h4 class="font-medium text-white mb-3">At-Risk Artists</h4>
               <div class="space-y-2 max-h-48 overflow-y-auto">
                 {#each $atRiskArtists.slice(0, 10) as item}
-                  <div class="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+                  <div class="flex items-center justify-between p-3 bg-yellow-900/30 rounded-lg">
                     <div>
-                      <div class="font-medium">{item.artist.name}</div>
-                      <div class="text-xs text-gray-500">{item.blocked_collaborators} blocked collaborators</div>
+                      <div class="font-medium text-white">{item.artist.name}</div>
+                      <div class="text-xs text-zinc-400">{item.blocked_collaborators} blocked collaborators</div>
                     </div>
                     <div class="text-right">
-                      <div class="font-medium text-yellow-600">{(item.risk_score * 100).toFixed(0)}%</div>
-                      <div class="text-xs text-gray-500">risk</div>
+                      <div class="font-medium text-yellow-400">{(item.risk_score * 100).toFixed(0)}%</div>
+                      <div class="text-xs text-zinc-400">risk</div>
                     </div>
                   </div>
                 {/each}

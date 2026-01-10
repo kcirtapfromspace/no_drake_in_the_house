@@ -154,6 +154,174 @@ impl AppleMusicSyncWorker {
             .await
             .context("Failed to parse Apple Music response")
     }
+
+    /// Fetch top chart songs/albums and extract unique artists
+    pub async fn fetch_chart_artists(
+        &self,
+        chart_type: &str,
+        limit: u32,
+        genre_id: Option<&str>,
+    ) -> Result<Vec<(String, String)>> {
+        let mut endpoint = format!(
+            "/catalog/{}/charts?types=songs,albums&chart={}&limit={}",
+            self.storefront,
+            chart_type,
+            limit.min(200)
+        );
+
+        if let Some(genre) = genre_id {
+            endpoint.push_str(&format!("&genre={}", genre));
+        }
+
+        // Include artist relationships to get artist IDs
+        endpoint.push_str("&include=artists");
+
+        let response: AppleMusicChartsResponse = self.api_request(&endpoint).await?;
+        let mut artists: HashMap<String, String> = HashMap::new();
+
+        // Extract artists from songs
+        if let Some(song_charts) = response.results.songs {
+            for chart in song_charts {
+                for item in chart.data {
+                    // Get artist from relationships if available
+                    if let Some(relationships) = &item.relationships {
+                        if let Some(artist_rel) = &relationships.artists {
+                            for artist in &artist_rel.data {
+                                if let Some(name) = &item.attributes.artist_name {
+                                    artists.insert(artist.id.clone(), name.clone());
+                                }
+                            }
+                        }
+                    }
+                    // Fallback: use artist_name from attributes
+                    if let Some(artist_name) = &item.attributes.artist_name {
+                        if !artist_name.is_empty() && !artists.values().any(|n| n == artist_name) {
+                            // We don't have the ID, will need to search later
+                            artists.insert(format!("name:{}", artist_name), artist_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Extract artists from albums
+        if let Some(album_charts) = response.results.albums {
+            for chart in album_charts {
+                for item in chart.data {
+                    if let Some(relationships) = &item.relationships {
+                        if let Some(artist_rel) = &relationships.artists {
+                            for artist in &artist_rel.data {
+                                if let Some(name) = &item.attributes.artist_name {
+                                    artists.insert(artist.id.clone(), name.clone());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(artist_name) = &item.attributes.artist_name {
+                        if !artist_name.is_empty() && !artists.values().any(|n| n == artist_name) {
+                            artists.insert(format!("name:{}", artist_name), artist_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(artists.into_iter().collect())
+    }
+
+    /// Fetch top artists in bulk from multiple genre charts
+    /// Returns deduplicated list of PlatformArtist
+    pub async fn fetch_top_artists_bulk(
+        &self,
+        target_count: usize,
+        progress_callback: impl Fn(usize, usize),
+    ) -> Result<Vec<PlatformArtist>> {
+        let mut all_artists: HashMap<String, PlatformArtist> = HashMap::new();
+        let mut names_seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // First, fetch from main charts (no genre filter)
+        tracing::info!("Fetching main charts...");
+        progress_callback(0, target_count);
+
+        let main_chart_artists = self.fetch_chart_artists("most-played", 200, None).await?;
+        for (id, name) in &main_chart_artists {
+            if !id.starts_with("name:") && !all_artists.contains_key(id) {
+                if let Ok(Some(artist)) = self.get_artist(id).await {
+                    names_seen.insert(artist.name.to_lowercase());
+                    all_artists.insert(id.clone(), artist);
+                    progress_callback(all_artists.len(), target_count);
+
+                    if all_artists.len() >= target_count {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Then fetch from genre-specific charts
+        for (genre_id, genre_name) in APPLE_MUSIC_GENRE_IDS {
+            if all_artists.len() >= target_count {
+                break;
+            }
+
+            tracing::info!(
+                "Fetching {} chart... ({}/{})",
+                genre_name,
+                all_artists.len(),
+                target_count
+            );
+
+            match self
+                .fetch_chart_artists("most-played", 200, Some(genre_id))
+                .await
+            {
+                Ok(genre_artists) => {
+                    for (id, name) in &genre_artists {
+                        if all_artists.len() >= target_count {
+                            break;
+                        }
+
+                        // Skip if we already have this artist by name
+                        if names_seen.contains(&name.to_lowercase()) {
+                            continue;
+                        }
+
+                        if !id.starts_with("name:") && !all_artists.contains_key(id) {
+                            if let Ok(Some(artist)) = self.get_artist(id).await {
+                                names_seen.insert(artist.name.to_lowercase());
+                                all_artists.insert(id.clone(), artist);
+                                progress_callback(all_artists.len(), target_count);
+                            }
+                        } else if id.starts_with("name:") {
+                            // Search for artist by name
+                            if let Ok(search_results) = self.search_artist(name, 1).await {
+                                if let Some(artist) = search_results.into_iter().next() {
+                                    if !all_artists.contains_key(&artist.platform_id)
+                                        && !names_seen.contains(&artist.name.to_lowercase())
+                                    {
+                                        names_seen.insert(artist.name.to_lowercase());
+                                        all_artists
+                                            .insert(artist.platform_id.clone(), artist);
+                                        progress_callback(all_artists.len(), target_count);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to fetch {} chart: {}", genre_name, e);
+                }
+            }
+        }
+
+        tracing::info!(
+            "Fetched {} unique artists from Apple Music charts",
+            all_artists.len()
+        );
+
+        Ok(all_artists.into_values().collect())
+    }
 }
 
 // Apple Music API response types
@@ -236,6 +404,86 @@ struct AppleMusicAlbumAttributes {
     #[allow(dead_code)]
     content_rating: Option<String>,
 }
+
+// Charts API response types
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartsResponse {
+    results: AppleMusicChartsResults,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartsResults {
+    songs: Option<Vec<AppleMusicChartData>>,
+    albums: Option<Vec<AppleMusicChartData>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartData {
+    #[allow(dead_code)]
+    name: String,
+    #[allow(dead_code)]
+    chart: String,
+    data: Vec<AppleMusicChartItem>,
+    #[allow(dead_code)]
+    next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicChartItem {
+    id: String,
+    #[serde(rename = "type")]
+    item_type: String,
+    attributes: AppleMusicChartItemAttributes,
+    relationships: Option<AppleMusicChartRelationships>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicChartItemAttributes {
+    name: String,
+    artist_name: Option<String>,
+    #[allow(dead_code)]
+    artwork: Option<AppleMusicArtwork>,
+    #[allow(dead_code)]
+    genre_names: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartRelationships {
+    artists: Option<AppleMusicRelationshipData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicRelationshipData {
+    data: Vec<AppleMusicRelationshipItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicRelationshipItem {
+    id: String,
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    item_type: String,
+}
+
+// Genre IDs for Apple Music charts
+const APPLE_MUSIC_GENRE_IDS: &[(&str, &str)] = &[
+    ("14", "Pop"),
+    ("18", "Hip-Hop/Rap"),
+    ("21", "Rock"),
+    ("15", "R&B/Soul"),
+    ("6", "Country"),
+    ("7", "Electronic"),
+    ("12", "Latin"),
+    ("11", "Jazz"),
+    ("5", "Classical"),
+    ("2", "Blues"),
+    ("24", "Reggae"),
+    ("20", "Alternative"),
+    ("17", "Dance"),
+    ("13", "World"),
+];
 
 impl From<AppleMusicArtist> for PlatformArtist {
     fn from(artist: AppleMusicArtist) -> Self {

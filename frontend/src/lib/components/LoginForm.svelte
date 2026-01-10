@@ -66,10 +66,10 @@
 
 <div class="login-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0">
   <div>
-    <h2 class="text-center text-uswds-2xl sm:text-uswds-3xl font-extrabold text-uswds-base-darker">
+    <h2 class="text-center text-zinc-4002xl sm:text-zinc-4003xl font-extrabold text-zinc-400darker">
       Sign in to your account
     </h2>
-    <p class="mt-2 text-center text-uswds-sm text-uswds-base-darker">
+    <p class="mt-2 text-center text-zinc-400 text-zinc-400darker">
       Access your music blocklist manager
     </p>
   </div>
@@ -191,7 +191,7 @@
       <button
         type="button"
         on:click={() => dispatch('switchMode')}
-        class="text-primary hover:text-indigo-500 text-uswds-sm font-medium"
+        class="text-primary hover:text-indigo-500 text-zinc-400 font-medium"
       >
         Don't have an account? Create one
       </button>

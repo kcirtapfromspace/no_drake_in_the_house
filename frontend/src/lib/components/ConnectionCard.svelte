@@ -10,10 +10,10 @@
   
   function getStatusColor(status: string) {
     switch (status) {
-      case 'connected': return 'text-green-600 bg-green-100';
-      case 'connecting': return 'text-blue-600 bg-blue-100';
-      case 'error': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'connected': return 'text-green-400 bg-green-900/50';
+      case 'connecting': return 'text-blue-400 bg-blue-900/50';
+      case 'error': return 'text-red-400 bg-red-900/50';
+      default: return 'text-zinc-400 bg-zinc-700';
     }
   }
   
@@ -52,16 +52,16 @@
   }
 </script>
 
-<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
+<div class="rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow duration-200" style="background: #27272a; border: 2px solid #52525b;">
   <!-- Header with icon and status -->
   <div class="flex items-start justify-between mb-4">
     <div class="flex items-center">
-      <div class="text-gray-700 mr-3">
+      <div class="text-zinc-300 mr-3">
         {@html getProviderIcon(provider)}
       </div>
       <div>
-        <h3 class="text-lg font-semibold text-gray-900">{displayName}</h3>
-        <p class="text-sm text-gray-600">{description}</p>
+        <h3 class="text-lg font-semibold text-white">{displayName}</h3>
+        <p class="text-sm text-zinc-400">{description}</p>
       </div>
     </div>
     
@@ -72,14 +72,14 @@
   
   <!-- Connection details -->
   {#if status === 'connected' && lastConnected}
-    <div class="mb-4 text-sm text-gray-600">
+    <div class="mb-4 text-sm text-zinc-400">
       Connected on {formatDate(lastConnected)}
     </div>
   {/if}
-  
+
   {#if status === 'error' && errorMessage}
-    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-      <p class="text-sm text-red-700">{errorMessage}</p>
+    <div class="mb-4 p-3 bg-red-900/30 rounded-lg" style="border: 2px solid #52525b;">
+      <p class="text-sm text-red-400">{errorMessage}</p>
     </div>
   {/if}
   
@@ -88,20 +88,21 @@
     {#if status === 'connected'}
       <button
         on:click={onDisconnect}
-        class="flex-1 bg-red-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+        class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
       >
         Disconnect
       </button>
       <button
         on:click={onConnect}
-        class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+        class="px-4 py-2 text-zinc-300 rounded-lg text-sm font-medium hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+        style="border: 2px solid #52525b;"
       >
         Refresh
       </button>
     {:else if status === 'connecting'}
       <button
         disabled
-        class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium opacity-75 cursor-not-allowed flex items-center justify-center"
+        class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium opacity-75 cursor-not-allowed flex items-center justify-center"
       >
         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -112,14 +113,15 @@
     {:else}
       <button
         on:click={onConnect}
-        class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+        class="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
       >
         Connect {displayName}
       </button>
       {#if status === 'error'}
         <button
           on:click={onConnect}
-          class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+          class="px-4 py-2 text-zinc-300 rounded-lg text-sm font-medium hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+          style="border: 2px solid #52525b;"
         >
           Retry
         </button>

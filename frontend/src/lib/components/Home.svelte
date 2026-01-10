@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { apiClient } from '../utils/api-client';
-  import { navigateTo } from '../utils/simple-router';
+  import { navigateTo, navigateToArtist } from '../utils/simple-router';
+  import { blockingStore, type Platform } from '../stores/blocking';
+  import { spotifyConnection, appleMusicConnection } from '../stores/connections';
+  import EnforcementBadges from './EnforcementBadges.svelte';
 
   interface CategoryList {
     id: string;
@@ -16,6 +19,15 @@
     canonical_name: string;
     genres?: string[];
     image_url?: string;
+    offense_count?: number;
+    has_offenses?: boolean;
+    source?: string;
+  }
+
+  interface SearchResponse {
+    artists: SearchArtist[];
+    total: number;
+    sources?: { local: number; catalog: number };
   }
 
   interface BlockedArtist {
@@ -25,38 +37,6 @@
     severity: string;
   }
 
-  interface ArtistOffense {
-    id: string;
-    category: string;
-    severity: string;
-    title: string;
-    description: string;
-    incident_date?: string;
-    status: string;
-    evidence: Evidence[];
-  }
-
-  interface Evidence {
-    id: string;
-    source_url: string;
-    source_name: string;
-    source_type: string;
-    title?: string;
-    excerpt?: string;
-    published_date?: string;
-    credibility_score?: number;
-  }
-
-  interface ArtistDetail {
-    id: string;
-    canonical_name: string;
-    genres?: string[];
-    image_url?: string;
-    offenses: ArtistOffense[];
-  }
-
-  type View = 'home' | 'artist';
-  let currentView: View = 'home';
 
   let searchQuery = '';
   let searchResults: SearchArtist[] = [];
@@ -72,18 +52,67 @@
   let blockedArtists: BlockedArtist[] = [];
   let isLoadingBlocked = false;
 
-  let selectedArtist: ArtistDetail | null = null;
-  let isLoadingArtistDetail = false;
-
-  let blockingArtistId: string | null = null;
   let dnpList: Set<string> = new Set();
 
-  // Triadic palette colors
-  const colors = {
-    green: { primary: '#30AF22', light: '#59BA48' },
-    blue: { primary: '#009BD7', light: '#00B4FF' },
-    pink: { primary: '#FF2C6E', light: '#FF728F' }
+  // Excepted artists - individually unblocked while categories remain subscribed
+  let exceptedArtists: Set<string> = new Set();
+
+  // Load exceptions from localStorage on init
+  function loadExceptions() {
+    try {
+      const stored = localStorage.getItem('exceptedArtists');
+      if (stored) {
+        exceptedArtists = new Set(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load exceptions:', e);
+    }
+  }
+
+  // Save exceptions to localStorage
+  function saveExceptions() {
+    try {
+      localStorage.setItem('exceptedArtists', JSON.stringify([...exceptedArtists]));
+    } catch (e) {
+      console.error('Failed to save exceptions:', e);
+    }
+  }
+
+  // Deduplicated blocked artists, excluding excepted ones
+  $: uniqueBlockedArtists = blockedArtists.reduce((acc, artist) => {
+    // Skip if already added or if excepted
+    if (!acc.some(a => a.id === artist.id) && !exceptedArtists.has(artist.id)) {
+      acc.push(artist);
+    }
+    return acc;
+  }, [] as BlockedArtist[]);
+
+  // Get excepted artists that would be blocked by current categories
+  $: exceptedFromCategories = blockedArtists.filter(a => exceptedArtists.has(a.id))
+    .reduce((acc, artist) => {
+      if (!acc.some(a => a.id === artist.id)) {
+        acc.push(artist);
+      }
+      return acc;
+    }, [] as BlockedArtist[]);
+
+  // Category-specific colors for visual differentiation
+  const categoryColors: Record<string, { icon: string; bg: string }> = {
+    domestic_violence: { icon: '#F43F5E', bg: 'rgba(244, 63, 94, 0.15)' },
+    sexual_misconduct: { icon: '#EC4899', bg: 'rgba(236, 72, 153, 0.15)' },
+    certified_creeper: { icon: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.15)' },
+    hate_speech: { icon: '#A855F7', bg: 'rgba(168, 85, 247, 0.15)' },
+    racism: { icon: '#F97316', bg: 'rgba(249, 115, 22, 0.15)' },
+    antisemitism: { icon: '#EAB308', bg: 'rgba(234, 179, 8, 0.15)' },
+    financial_crimes: { icon: '#10B981', bg: 'rgba(16, 185, 129, 0.15)' },
+    substance_abuse: { icon: '#06B6D4', bg: 'rgba(6, 182, 212, 0.15)' },
+    violence: { icon: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)' },
+    default: { icon: '#6B7280', bg: 'rgba(107, 114, 128, 0.15)' }
   };
+
+  function getCategoryColor(categoryId: string): { icon: string; bg: string } {
+    return categoryColors[categoryId] || categoryColors.default;
+  }
 
   function formatCategoryName(id: string): string {
     return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
@@ -92,17 +121,18 @@
   function getSeverityStyle(severity: string): { bg: string; text: string; label: string } {
     switch (severity) {
       case 'egregious':
-        return { bg: 'background-color: #FFE5ED;', text: 'color: #FF2C6E;', label: 'Egregious' };
+        return { bg: 'bg-rose-500/20', text: 'text-rose-300', label: 'Egregious' };
       case 'severe':
-        return { bg: 'background-color: #FFECF1;', text: 'color: #FF728F;', label: 'Severe' };
+        return { bg: 'bg-orange-500/20', text: 'text-orange-300', label: 'Severe' };
       case 'moderate':
-        return { bg: 'background-color: #E5F6FF;', text: 'color: #009BD7;', label: 'Moderate' };
+        return { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Moderate' };
       default:
-        return { bg: 'background-color: #E8F8E6;', text: 'color: #30AF22;', label: 'Minor' };
+        return { bg: 'bg-zinc-500/20', text: 'text-zinc-300', label: 'Minor' };
     }
   }
 
   onMount(async () => {
+    loadExceptions();
     await Promise.all([
       loadCategories(),
       loadBlockedArtists(),
@@ -159,18 +189,19 @@
     isSearching = true;
     searchTimeout = setTimeout(async () => {
       try {
-        const result = await apiClient.get<SearchArtist[]>(`/api/v1/artists/search?q=${encodeURIComponent(searchQuery.trim())}`);
-        if (result.success && result.data) {
-          searchResults = result.data;
+        const result = await apiClient.get<SearchResponse>(`/api/v1/dnp/search?q=${encodeURIComponent(searchQuery.trim())}&limit=20`);
+        if (result.success && result.data?.artists) {
+          searchResults = result.data.artists;
         } else {
           searchResults = [];
         }
       } catch (e) {
+        console.error('Search error:', e);
         searchResults = [];
       } finally {
         isSearching = false;
       }
-    }, 150);
+    }, 300);
   }
 
   async function toggleCategory(categoryId: string) {
@@ -212,6 +243,28 @@
         await apiClient.post(`/api/v1/categories/${category.id}/subscribe`);
       }
       await loadBlockedArtists();
+
+      // Trigger enforcement notification for category action
+      const platforms = getConnectedPlatforms();
+      if (platforms.length > 0) {
+        const action = wasSubscribed ? 'unblock' : 'block';
+        blockingStore.addToast({
+          type: 'info',
+          message: `${action === 'block' ? 'Blocking' : 'Unblocking'} ${category.artist_count} artists from ${formatCategoryName(category.id)}...`,
+          dismissible: false,
+          progress: 0,
+        });
+
+        // Simulate bulk enforcement (in production this would be a batch API call)
+        await new Promise(resolve => setTimeout(resolve, 500 + category.artist_count * 20));
+
+        blockingStore.addToast({
+          type: 'success',
+          message: `${action === 'block' ? 'Blocked' : 'Unblocked'} ${formatCategoryName(category.id)} category (${category.artist_count} artists)`,
+          dismissible: true,
+          duration: 5000,
+        });
+      }
     } catch (e) {
       categoryLists = categoryLists.map(c =>
         c.id === category.id ? { ...c, subscribed: wasSubscribed } : c
@@ -220,428 +273,441 @@
   }
 
   async function goToArtist(artistId: string, artistName: string) {
-    currentView = 'artist';
-    isLoadingArtistDetail = true;
-    selectedArtist = null;
+    navigateToArtist(artistId);
+  }
+
+  async function unblockArtist(artistId: string, event: MouseEvent | KeyboardEvent, artistName?: string) {
+    event.stopPropagation();
+    event.preventDefault();
+
+    // Get artist name for progress display
+    const name = artistName || blockedArtists.find(a => a.id === artistId)?.name || 'Artist';
+
+    // Start enforcement simulation for unblock
+    simulateEnforcement(artistId, name, 'unblock');
+
+    // Add to exceptions - artist will be excluded from category blocks
+    exceptedArtists.add(artistId);
+    exceptedArtists = exceptedArtists; // Trigger reactivity
+    saveExceptions();
+
+    // Also try to remove from individual DNP list if they were manually added
     try {
-      const result = await apiClient.get<ArtistDetail>(`/api/v1/offenses/query?artist_id=${artistId}`);
-      if (result.success && result.data) {
-        selectedArtist = result.data;
-      } else {
-        selectedArtist = { id: artistId, canonical_name: artistName, offenses: [] };
-      }
+      await apiClient.delete(`/api/v1/dnp/list/${artistId}`);
+      dnpList.delete(artistId);
+      dnpList = dnpList;
     } catch (e) {
-      selectedArtist = { id: artistId, canonical_name: artistName, offenses: [] };
-    } finally {
-      isLoadingArtistDetail = false;
+      // Ignore - they might only be blocked via category
     }
   }
 
-  function goBack() {
-    currentView = 'home';
-    selectedArtist = null;
-    searchResults = [];
-    searchQuery = '';
-  }
+  function reblockArtist(artistId: string, event: MouseEvent | KeyboardEvent, artistName?: string) {
+    event.stopPropagation();
+    event.preventDefault();
 
-  async function toggleArtistBlock(artistId: string) {
-    blockingArtistId = artistId;
-    const isCurrentlyBlocked = dnpList.has(artistId);
-    try {
-      if (isCurrentlyBlocked) {
-        await apiClient.delete(`/api/v1/dnp/list/${artistId}`);
-        dnpList.delete(artistId);
-      } else {
-        await apiClient.post('/api/v1/dnp/list', { artist_id: artistId });
-        dnpList.add(artistId);
-      }
-      dnpList = new Set(dnpList);
-    } catch (e) {
-      console.error('Failed to toggle block:', e);
-    } finally {
-      blockingArtistId = null;
-    }
+    // Get artist name for progress display
+    const name = artistName || blockedArtists.find(a => a.id === artistId)?.name || 'Artist';
+
+    // Start enforcement simulation for block
+    simulateEnforcement(artistId, name, 'block');
+
+    // Remove from exceptions - artist will be blocked again by their categories
+    exceptedArtists.delete(artistId);
+    exceptedArtists = exceptedArtists; // Trigger reactivity
+    saveExceptions();
   }
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
-      if (currentView === 'artist') {
-        goBack();
-      } else if (searchResults.length > 0) {
+      if (searchResults.length > 0) {
         searchResults = [];
         searchQuery = '';
       }
     }
   }
+
+  // Get list of connected platforms
+  function getConnectedPlatforms(): Platform[] {
+    const platforms: Platform[] = [];
+    if ($spotifyConnection?.status === 'active') platforms.push('spotify');
+    if ($appleMusicConnection?.status === 'active') platforms.push('apple_music');
+    return platforms;
+  }
+
+  // Simulate enforcement with progress (in production this would call actual APIs)
+  async function simulateEnforcement(artistId: string, artistName: string, action: 'block' | 'unblock') {
+    const platforms = getConnectedPlatforms();
+    if (platforms.length === 0) return;
+
+    // Start the operation
+    blockingStore.startOperation(artistId, artistName, action, platforms);
+
+    // Simulate each platform enforcement with delays
+    for (const platform of platforms) {
+      blockingStore.updatePlatformStatus(artistId, platform, 'in_progress');
+
+      // Simulate API call delay (300-800ms per platform)
+      await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+
+      // Simulate success (90% success rate for demo)
+      const success = Math.random() > 0.1;
+      blockingStore.updatePlatformStatus(
+        artistId,
+        platform,
+        success ? 'completed' : 'failed',
+        success ? undefined : 'API error'
+      );
+    }
+
+    // Complete the operation
+    blockingStore.completeOperation(artistId);
+  }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="min-h-screen bg-white">
-  {#if currentView === 'home'}
-    <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
-        <div>
-          <h1 class="text-xl font-semibold text-gray-900">No Drake in the House</h1>
-          <p class="text-sm" style="color: #666;">Curate your streaming</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button
-            on:click={() => navigateTo('sync')}
-            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title="Catalog Sync"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button
-            on:click={() => navigateTo('analytics')}
-            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title="Analytics"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          </button>
-          <button
-            on:click={() => navigateTo('graph')}
-            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title="Graph Explorer"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-          </button>
-          <button
-            on:click={() => navigateTo('settings')}
-            class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-            title="Settings"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </header>
+<div class="max-w-6xl mx-auto px-6 py-8">
+  <!-- Hero Search Section -->
+  <section class="mb-12">
+    <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">Clean Your Feed</h1>
+    <p class="text-zinc-300 text-lg mb-8">Search and block artists with documented misconduct</p>
 
-    <main class="max-w-3xl mx-auto px-4 py-6 space-y-8">
-      <!-- Search -->
-      <section>
-        <div class="relative">
-          <input
-            type="text"
-            bind:value={searchQuery}
-            on:input={handleSearchInput}
-            placeholder="Search artists..."
-            class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:border-transparent transition-all"
-            style="focus:ring: 2px solid {colors.blue.primary};"
-          />
-          <div class="absolute right-3 top-1/2 -translate-y-1/2">
-            {#if isSearching}
-              <div class="w-5 h-5 border-2 rounded-full animate-spin" style="border-color: {colors.blue.primary}; border-top-color: transparent;"></div>
-            {:else}
-              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            {/if}
-          </div>
-        </div>
-
-        {#if searchResults.length > 0}
-          <div class="mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
-            {#each searchResults as artist, i}
-              <button
-                type="button"
-                class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors {i > 0 ? 'border-t border-gray-100' : ''}"
-                on:click={() => goToArtist(artist.id, artist.canonical_name)}
-              >
-                <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white" style="background: linear-gradient(135deg, {colors.blue.primary}, {colors.blue.light});">
-                  {artist.canonical_name.charAt(0)}
-                </div>
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-900 truncate">{artist.canonical_name}</p>
-                  {#if artist.genres && artist.genres.length > 0}
-                    <p class="text-sm text-gray-500 truncate">{artist.genres.slice(0, 3).join(', ')}</p>
-                  {/if}
-                </div>
-                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            {/each}
-          </div>
-        {:else if searchQuery.length > 1 && !isSearching}
-          <div class="mt-2 bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
-            <p class="text-gray-500">No artists found for "<span class="font-medium text-gray-700">{searchQuery}</span>"</p>
-          </div>
-        {/if}
-      </section>
-
-      <!-- Categories -->
-      <section>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Block by Category</h2>
-
-        {#if isLoadingCategories}
-          <div class="flex justify-center py-12">
-            <div class="w-6 h-6 border-2 rounded-full animate-spin" style="border-color: {colors.blue.primary}; border-top-color: transparent;"></div>
-          </div>
+    <div class="relative max-w-2xl">
+      <div class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 z-10">
+        {#if isSearching}
+          <div class="w-5 h-5 border-2 border-zinc-600 border-t-white rounded-full animate-spin"></div>
         {:else}
-          <div class="space-y-3">
-            {#each categoryLists as category}
-              <div>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        {/if}
+      </div>
+      <input
+        type="text"
+        bind:value={searchQuery}
+        on:input={handleSearchInput}
+        placeholder="Search any artist..."
+        class="w-full pl-12 pr-4 py-4 rounded-full bg-zinc-900 border border-zinc-700 text-white placeholder-neutral-500 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all"
+      />
+
+      <!-- Search Results Dropdown -->
+      {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
+        <div class="absolute top-full left-0 right-0 mt-2 rounded-2xl bg-zinc-900 border border-zinc-700 overflow-hidden shadow-xl z-20">
+          {#if searchResults.length > 0}
+            <div class="max-h-80 overflow-y-auto">
+              {#each searchResults as artist, i}
                 <button
                   type="button"
-                  class="w-full p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-sm transition-all text-left"
-                  style="{expandedCategoryId === category.id ? `border-color: ${colors.blue.primary}; box-shadow: 0 0 0 2px ${colors.blue.primary}20;` : ''}"
-                  on:click={() => toggleCategory(category.id)}
+                  class="w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-zinc-800 {i !== searchResults.length - 1 ? 'border-b border-zinc-800' : ''}"
+                  on:click={() => goToArtist(artist.id, artist.canonical_name)}
                 >
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                      <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, {colors.pink.primary}15, {colors.pink.light}10);">
-                        <svg class="w-5 h-5" style="color: {colors.pink.primary};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p class="font-medium text-gray-900">{formatCategoryName(category.id)}</p>
-                        <p class="text-sm text-gray-500">{category.artist_count} artists</p>
-                      </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-white">{artist.canonical_name}</span>
+                      {#if artist.has_offenses}
+                        <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/20 text-rose-400">
+                          {artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}
+                        </span>
+                      {/if}
                     </div>
-                    <button
-                      type="button"
-                      class="px-4 py-2 text-sm font-medium rounded-lg transition-all"
-                      style="{category.subscribed ? `background: ${colors.pink.primary}; color: white;` : `background: white; border: 1px solid #e5e7eb; color: #374151;`}"
-                      on:click={(e) => toggleCategorySubscription(category, e)}
-                    >
-                      {category.subscribed ? 'Blocking' : 'Block All'}
-                    </button>
-                  </div>
-                </button>
-
-                {#if expandedCategoryId === category.id}
-                  <div class="mt-2 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                    {#if isLoadingCategoryArtists}
-                      <div class="flex justify-center py-6">
-                        <div class="w-5 h-5 border-2 rounded-full animate-spin" style="border-color: {colors.blue.primary}; border-top-color: transparent;"></div>
-                      </div>
-                    {:else if categoryArtists.length === 0}
-                      <p class="text-center py-6 text-gray-500">No artists in this category</p>
-                    {:else}
-                      <div class="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                        {#each categoryArtists as artist}
-                          {@const sev = getSeverityStyle(artist.severity)}
-                          <button
-                            type="button"
-                            class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                            on:click={() => goToArtist(artist.id, artist.name)}
-                          >
-                            <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
-                              {artist.name.charAt(0)}
-                            </div>
-                            <p class="flex-1 font-medium text-gray-900 truncate">{artist.name}</p>
-                            <span class="px-2 py-0.5 text-xs font-medium rounded" style="{sev.bg} {sev.text}">
-                              {sev.label}
-                            </span>
-                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </button>
-                        {/each}
-                      </div>
+                    {#if artist.genres && artist.genres.length > 0}
+                      <p class="text-sm text-zinc-400 truncate">{artist.genres.slice(0, 2).join(', ')}</p>
                     {/if}
                   </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </section>
-
-      <!-- Blocked Artists -->
-      <section>
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">
-          Your Blocked Artists
-          {#if blockedArtists.length > 0}
-            <span class="text-gray-500 font-normal">({blockedArtists.length})</span>
-          {/if}
-        </h2>
-
-        {#if isLoadingBlocked}
-          <div class="flex justify-center py-12">
-            <div class="w-6 h-6 border-2 rounded-full animate-spin" style="border-color: {colors.blue.primary}; border-top-color: transparent;"></div>
-          </div>
-        {:else if blockedArtists.length === 0}
-          <div class="bg-gray-50 border border-gray-200 rounded-lg p-10 text-center">
-            <p class="text-gray-600">No artists blocked yet</p>
-            <p class="text-sm text-gray-500 mt-1">Subscribe to categories or search for artists</p>
-          </div>
-        {:else}
-          <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div class="max-h-80 overflow-y-auto divide-y divide-gray-100">
-              {#each blockedArtists as artist}
-                {@const sev = getSeverityStyle(artist.severity)}
-                <button
-                  type="button"
-                  class="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-                  on:click={() => goToArtist(artist.id, artist.name)}
-                >
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium text-white" style="background: linear-gradient(135deg, {colors.pink.primary}, {colors.pink.light});">
-                    {artist.name.charAt(0)}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 truncate">{artist.name}</p>
-                    <p class="text-sm text-gray-500">{formatCategoryName(artist.category)}</p>
-                  </div>
-                  <span class="px-2 py-0.5 text-xs font-medium rounded" style="{sev.bg} {sev.text}">
-                    {sev.label}
-                  </span>
-                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="w-5 h-5 text-zinc-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </button>
               {/each}
             </div>
-          </div>
-        {/if}
-      </section>
-    </main>
-
-  {:else if currentView === 'artist'}
-    <header class="sticky top-0 z-50 bg-white border-b border-gray-200">
-      <div class="max-w-3xl mx-auto px-4 py-4">
-        <button
-          type="button"
-          class="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
-          on:click={goBack}
-        >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </button>
-      </div>
-    </header>
-
-    <main class="max-w-3xl mx-auto px-4 py-6">
-      {#if isLoadingArtistDetail}
-        <div class="flex justify-center py-20">
-          <div class="w-8 h-8 border-2 rounded-full animate-spin" style="border-color: {colors.blue.primary}; border-top-color: transparent;"></div>
+          {:else}
+            <div class="px-4 py-6 text-center">
+              <p class="text-zinc-400">No artists found for "<span class="text-white">{searchQuery}</span>"</p>
+            </div>
+          {/if}
         </div>
-      {:else if selectedArtist}
-        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden mb-6">
-          <div class="p-6" style="background: linear-gradient(135deg, {colors.blue.primary}08, {colors.blue.light}05);">
-            <div class="flex items-center gap-4">
-              <div class="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white" style="background: linear-gradient(135deg, {colors.blue.primary}, {colors.blue.light});">
-                {selectedArtist.canonical_name.charAt(0)}
-              </div>
-              <div>
-                <h1 class="text-2xl font-bold text-gray-900">{selectedArtist.canonical_name}</h1>
-                {#if selectedArtist.genres && selectedArtist.genres.length > 0}
-                  <p class="text-gray-500 mt-1">{selectedArtist.genres.join(', ')}</p>
-                {/if}
-              </div>
-            </div>
-          </div>
-          <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-500">Status</p>
-              <p class="font-medium" style="color: {dnpList.has(selectedArtist.id) ? colors.pink.primary : colors.green.primary};">
-                {dnpList.has(selectedArtist.id) ? 'Blocked' : 'Not Blocked'}
-              </p>
-            </div>
+      {/if}
+    </div>
+  </section>
+
+  <!-- Categories -->
+  <section class="mb-8">
+    <h2 class="text-lg font-semibold text-white mb-4">Block by Category</h2>
+
+    {#if isLoadingCategories}
+      <div class="flex justify-center py-12">
+        <div class="w-8 h-8 border-2 border-zinc-700 border-t-white rounded-full animate-spin"></div>
+      </div>
+    {:else}
+      <!-- Category Cards - Grid layout for consistent 2+ rows -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {#each categoryLists as category}
+          {@const catColor = getCategoryColor(category.id)}
+          {@const isExpanded = expandedCategoryId === category.id}
+          <div
+            class="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all font-medium"
+            style="background: {isExpanded ? '#3f3f46' : '#27272a'}; border: 2px solid {category.subscribed ? catColor.icon : isExpanded ? '#fff' : '#3f3f46'}; color: white;"
+          >
+            <!-- Toggle -->
             <button
               type="button"
-              on:click={() => selectedArtist && toggleArtistBlock(selectedArtist.id)}
-              disabled={blockingArtistId === selectedArtist?.id}
-              class="px-5 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50"
-              style="{dnpList.has(selectedArtist.id) ? 'background: #f3f4f6; color: #374151;' : `background: ${colors.pink.primary}; color: white;`}"
+              class="flex-shrink-0 flex items-center justify-center transition-all"
+              on:click={(e) => { e.stopPropagation(); toggleCategorySubscription(category, e); }}
+              title="{category.subscribed ? 'Unblock' : 'Block'} all {formatCategoryName(category.id)} artists"
             >
-              {#if blockingArtistId === selectedArtist?.id}
-                <span class="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-              {:else if dnpList.has(selectedArtist.id)}
-                Unblock
+              {#if category.subscribed}
+                <svg class="w-4 h-4" style="color: {catColor.icon};" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                </svg>
               {:else}
-                Block Artist
+                <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
+                </svg>
               {/if}
             </button>
+
+            <!-- Category Name - Click to expand -->
+            <button
+              type="button"
+              class="flex-1 flex items-center justify-between gap-2 min-w-0 text-left"
+              on:click={() => toggleCategory(category.id)}
+              title="View {formatCategoryName(category.id)} artists"
+            >
+              <span class="truncate text-sm">{formatCategoryName(category.id)}</span>
+              <span class="flex-shrink-0 text-xs opacity-50 tabular-nums">{category.artist_count}</span>
+            </button>
+          </div>
+        {/each}
+      </div>
+
+      <!-- Expanded Category Panel -->
+      {#if expandedCategoryId}
+        {@const catColor = getCategoryColor(expandedCategoryId)}
+        {@const selectedCategory = categoryLists.find(c => c.id === expandedCategoryId)}
+        {@const exceptedInCategory = categoryArtists.filter(a => exceptedArtists.has(a.id))}
+        {@const blockedInCategory = categoryArtists.filter(a => !exceptedArtists.has(a.id))}
+        <div class="mt-4 rounded-2xl overflow-hidden" style="background: #18181b; border: 2px solid {catColor.icon};">
+          <!-- Header -->
+          <div class="px-5 py-4" style="background: {catColor.icon};">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xl font-bold text-white">{formatCategoryName(expandedCategoryId)}</h3>
+                <p class="text-white/80 text-sm mt-1">
+                  {#if selectedCategory?.subscribed}
+                    {blockedInCategory.length} blocked
+                    {#if exceptedInCategory.length > 0}
+                      <span class="opacity-70">· {exceptedInCategory.length} excepted</span>
+                    {/if}
+                  {:else}
+                    {categoryArtists.length} artists available
+                  {/if}
+                </p>
+              </div>
+              <button
+                type="button"
+                on:click={() => { expandedCategoryId = null; categoryArtists = []; }}
+                class="p-2 rounded-full text-white hover:bg-black/20"
+              >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2 mt-3">
+              {#if selectedCategory}
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-full text-sm font-semibold transition-all"
+                  style="background: {selectedCategory.subscribed ? 'rgba(0,0,0,0.3)' : 'white'}; color: {selectedCategory.subscribed ? 'white' : catColor.icon};"
+                  on:click={(e) => toggleCategorySubscription(selectedCategory, e)}
+                >
+                  {selectedCategory.subscribed ? 'Unsubscribe' : 'Block All'}
+                </button>
+              {/if}
+              {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
+                <button
+                  type="button"
+                  class="px-4 py-2 rounded-full text-sm font-semibold transition-all"
+                  style="background: rgba(255,255,255,0.2); color: white;"
+                  on:click={() => {
+                    exceptedInCategory.forEach(a => exceptedArtists.delete(a.id));
+                    exceptedArtists = exceptedArtists;
+                    saveExceptions();
+                  }}
+                >
+                  Re-block All ({exceptedInCategory.length})
+                </button>
+              {/if}
+            </div>
+          </div>
+
+          <!-- Artists Grid -->
+          <div class="max-h-96 overflow-y-auto p-5">
+            {#if isLoadingCategoryArtists}
+              <div class="flex justify-center py-8">
+                <div class="w-6 h-6 border-2 border-zinc-600 border-t-white rounded-full animate-spin"></div>
+              </div>
+            {:else if categoryArtists.length > 0}
+              <!-- Blocked Artists -->
+              {#if blockedInCategory.length > 0 && selectedCategory?.subscribed}
+                <div class="mb-4">
+                  <p class="text-xs uppercase tracking-wider text-zinc-400 mb-3">Blocked</p>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {#each blockedInCategory as artist}
+                      {@const sev = getSeverityStyle(artist.severity)}
+                      <div
+                        class="group relative p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+                        style="background: rgba(0,0,0,0.3);"
+                      >
+                        <button
+                          type="button"
+                          class="w-full text-left"
+                          on:click={() => goToArtist(artist.id, artist.name)}
+                        >
+                          <div class="flex items-center gap-1.5">
+                            <p class="font-medium text-white text-sm truncate">{artist.name}</p>
+                            <EnforcementBadges artistId={artist.id} compact={true} />
+                          </div>
+                          <p class="text-xs mt-1" style="color: {artist.severity === 'egregious' ? '#fecaca' : artist.severity === 'severe' ? '#fed7aa' : artist.severity === 'moderate' ? '#fef08a' : '#a1a1aa'};">
+                            {sev.label}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          class="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          style="background: rgba(0,0,0,0.5); color: #a1a1aa;"
+                          on:click={(e) => unblockArtist(artist.id, e, artist.name)}
+                          title="Unblock this artist"
+                        >
+                          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Excepted Artists -->
+              {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
+                <div class="pt-4" style="border-top: 1px solid #3f3f46;">
+                  <p class="text-xs uppercase tracking-wider text-zinc-500 mb-3">Not Blocked (Excepted)</p>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {#each exceptedInCategory as artist}
+                      <div
+                        class="group relative p-3 rounded-xl text-left transition-all"
+                        style="background: rgba(0,0,0,0.15); border: 1px dashed #52525b;"
+                      >
+                        <button
+                          type="button"
+                          class="w-full text-left"
+                          on:click={() => goToArtist(artist.id, artist.name)}
+                        >
+                          <p class="font-medium text-zinc-400 text-sm truncate">{artist.name}</p>
+                          <p class="text-xs mt-1 text-zinc-500">Excepted</p>
+                        </button>
+                        <button
+                          type="button"
+                          class="absolute top-2 right-2 px-2 py-0.5 rounded text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity"
+                          style="background: {catColor.icon}; color: white;"
+                          on:click={(e) => reblockArtist(artist.id, e, artist.name)}
+                          title="Re-block this artist"
+                        >
+                          Block
+                        </button>
+                      </div>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              <!-- Not Subscribed - Show all artists -->
+              {#if !selectedCategory?.subscribed}
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {#each categoryArtists as artist}
+                    {@const sev = getSeverityStyle(artist.severity)}
+                    <button
+                      type="button"
+                      class="p-3 rounded-xl text-left transition-all hover:scale-[1.02]"
+                      style="background: rgba(0,0,0,0.3);"
+                      on:click={() => goToArtist(artist.id, artist.name)}
+                    >
+                      <p class="font-medium text-white text-sm truncate">{artist.name}</p>
+                      <p class="text-xs mt-1" style="color: {artist.severity === 'egregious' ? '#fecaca' : artist.severity === 'severe' ? '#fed7aa' : artist.severity === 'moderate' ? '#fef08a' : '#a1a1aa'};">
+                        {sev.label}
+                      </p>
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            {:else}
+              <p class="text-center text-zinc-400 py-8">No artists in this category yet</p>
+            {/if}
           </div>
         </div>
-
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Documented Incidents</h2>
-
-        {#if selectedArtist.offenses && selectedArtist.offenses.length > 0}
-          <div class="space-y-4">
-            {#each selectedArtist.offenses as offense}
-              {@const sev = getSeverityStyle(offense.severity)}
-              <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <div class="p-5">
-                  <div class="flex items-center gap-2 mb-3">
-                    <span class="px-2.5 py-1 text-xs font-medium rounded bg-gray-100 text-gray-700">
-                      {formatCategoryName(offense.category)}
-                    </span>
-                    <span class="px-2.5 py-1 text-xs font-medium rounded" style="{sev.bg} {sev.text}">
-                      {sev.label}
-                    </span>
-                  </div>
-                  <h3 class="text-lg font-semibold text-gray-900 mb-2">{offense.title}</h3>
-                  <p class="text-gray-600 leading-relaxed">{offense.description}</p>
-
-                  {#if offense.incident_date}
-                    <p class="text-sm text-gray-500 mt-4">
-                      {new Date(offense.incident_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
-                  {/if}
-
-                  {#if offense.evidence && offense.evidence.length > 0}
-                    <div class="mt-5 pt-5 border-t border-gray-100">
-                      <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">
-                        Sources ({offense.evidence.length})
-                      </p>
-                      <div class="space-y-2">
-                        {#each offense.evidence as evidence}
-                          <a
-                            href={evidence.source_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                          >
-                            <svg class="w-4 h-4 flex-shrink-0" style="color: {colors.blue.primary};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                            <div class="flex-1 min-w-0">
-                              <p class="text-sm font-medium text-gray-900 truncate">
-                                {evidence.title || evidence.source_name || 'View Source'}
-                              </p>
-                              {#if evidence.source_name && evidence.title}
-                                <p class="text-xs text-gray-500">{evidence.source_name}</p>
-                              {/if}
-                            </div>
-                            {#if evidence.credibility_score}
-                              <div class="flex gap-0.5" style="color: {colors.green.light};">
-                                {#each Array(evidence.credibility_score) as _}
-                                  <span class="text-xs">★</span>
-                                {/each}
-                              </div>
-                            {/if}
-                          </a>
-                        {/each}
-                      </div>
-                    </div>
-                  {/if}
-                </div>
-              </div>
-            {/each}
-          </div>
-        {:else}
-          <div class="bg-gray-50 border border-gray-200 rounded-lg p-10 text-center">
-            <p class="text-gray-600">No documented incidents</p>
-            <p class="text-sm text-gray-500 mt-1">No offense records found for this artist</p>
-          </div>
-        {/if}
       {/if}
-    </main>
-  {/if}
+    {/if}
+  </section>
+
+  <!-- Your Blocked Artists -->
+  <section class="mb-8">
+    <h2 class="text-lg font-semibold text-white mb-4">
+      Your Blocked Artists
+      {#if uniqueBlockedArtists.length > 0}
+        <span class="text-zinc-400 font-normal">({uniqueBlockedArtists.length})</span>
+      {/if}
+    </h2>
+
+    {#if isLoadingBlocked}
+      <div class="flex justify-center py-8">
+        <div class="w-6 h-6 border-2 border-zinc-700 border-t-white rounded-full animate-spin"></div>
+      </div>
+    {:else if uniqueBlockedArtists.length === 0}
+      <div class="text-center py-6 px-4 rounded-2xl bg-zinc-900 border border-zinc-800">
+        <p class="text-zinc-300">No artists blocked yet</p>
+        <p class="text-zinc-400 text-sm mt-1">Toggle categories above to start blocking</p>
+      </div>
+    {:else}
+      <div class="flex flex-wrap gap-2">
+        {#each uniqueBlockedArtists as artist}
+          <button
+            type="button"
+            class="group flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full transition-all hover:bg-zinc-700/50"
+            style="background: transparent; border: 1px solid #52525b;"
+            data-testid="blocked-artist-chip"
+            on:click={() => goToArtist(artist.id, artist.name)}
+            title="View artist profile"
+          >
+            <span
+              class="text-sm font-medium"
+              style="color: #e4e4e7;"
+              data-testid="blocked-artist-name"
+            >
+              {artist.name}
+            </span>
+            <!-- Enforcement badges -->
+            <EnforcementBadges artistId={artist.id} compact={true} />
+            <span
+              role="button"
+              tabindex="0"
+              class="flex items-center justify-center w-4 h-4 rounded-full opacity-40 hover:opacity-100 hover:bg-zinc-600 transition-all"
+              style="color: #a1a1aa;"
+              on:click={(e) => unblockArtist(artist.id, e, artist.name)}
+              on:keydown={(e) => e.key === 'Enter' && unblockArtist(artist.id, e, artist.name)}
+              title="Remove from blocklist"
+              data-testid="unblock-artist-button"
+            >
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </span>
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+  </section>
 </div>

@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
+use crate::services::news_pipeline::{ArticleFilters, NewsRepository};
 use crate::{AppError, AppState, Result};
 
 /// Query parameters for listing articles
@@ -170,7 +171,7 @@ pub struct OffenseInfo {
 
 /// List articles with filtering
 pub async fn list_articles_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
     Query(query): Query<ListArticlesQuery>,
 ) -> Result<Json<serde_json::Value>> {
@@ -192,12 +193,52 @@ pub async fn list_articles_handler(
         });
     }
 
-    // Return empty list for now (data comes from news pipeline)
+    // Query database
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let filters = ArticleFilters {
+        artist_id: query.artist_id,
+        offense_category: query.offense_category.clone(),
+        ..Default::default()
+    };
+
+    let articles = repository
+        .get_articles(&filters, query.limit, query.offset)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to fetch articles: {}", e)),
+        })?;
+
+    let total = repository
+        .get_article_count()
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to count articles: {}", e)),
+        })?;
+
+    // Convert to response format
+    let article_summaries: Vec<serde_json::Value> = articles
+        .into_iter()
+        .map(|a| {
+            serde_json::json!({
+                "id": a.id,
+                "url": a.url,
+                "title": a.title,
+                "source_type": "rss",
+                "source_name": a.source_name,
+                "published_at": a.published_at,
+                "fetched_at": a.published_at,
+                "entity_count": a.entity_count,
+                "offense_count": a.offense_count,
+                "top_offense": null
+            })
+        })
+        .collect();
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "articles": [],
-            "total": 0,
+            "articles": article_summaries,
+            "total": total,
             "limit": query.limit,
             "offset": query.offset
         }
@@ -206,16 +247,39 @@ pub async fn list_articles_handler(
 
 /// Get article detail with entities and offenses
 pub async fn get_article_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(article_id): Path<Uuid>,
     _user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(article_id = %article_id, "Get article detail request");
 
-    // Return not found for now
-    Err(AppError::NotFound {
-        resource: "Article".to_string(),
-    })
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let article = repository
+        .get_article_by_id(article_id)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to fetch article: {}", e)),
+        })?;
+
+    match article {
+        Some(a) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "id": a.id,
+                "url": a.url,
+                "title": a.title,
+                "excerpt": a.excerpt,
+                "source_name": a.source_name,
+                "published_at": a.published_at,
+                "entity_count": a.entity_count,
+                "offense_count": a.offense_count,
+                "processing_status": a.processing_status
+            }
+        }))),
+        None => Err(AppError::NotFound {
+            resource: "Article".to_string(),
+        }),
+    }
 }
 
 /// Get news mentions for a specific artist
@@ -286,7 +350,7 @@ pub async fn semantic_search_handler(
 
 /// Get recent offense detections
 pub async fn get_offenses_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
     Query(query): Query<ListArticlesQuery>,
 ) -> Result<Json<serde_json::Value>> {
@@ -297,12 +361,26 @@ pub async fn get_offenses_handler(
         "Get offenses request"
     );
 
-    // Return empty list for now
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let offenses = repository
+        .get_recent_offenses(query.limit)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to fetch offenses: {}", e)),
+        })?;
+
+    let total = repository
+        .get_offense_count()
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to count offenses: {}", e)),
+        })?;
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "offenses": [],
-            "total": 0,
+            "offenses": offenses,
+            "total": total,
             "limit": query.limit,
             "offset": query.offset
         }
@@ -382,25 +460,28 @@ pub async fn verify_offense_handler(
 
 /// Get pipeline status and statistics
 pub async fn get_pipeline_status_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Pipeline status request");
 
-    // Return placeholder status
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let article_count = repository.get_article_count().await.unwrap_or(0);
+    let offense_count = repository.get_offense_count().await.unwrap_or(0);
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
             "is_running": false,
             "stats": {
-                "articles_fetched": 0,
-                "rss_articles": 0,
+                "articles_fetched": article_count,
+                "rss_articles": article_count,
                 "newsapi_articles": 0,
                 "twitter_posts": 0,
                 "reddit_posts": 0,
                 "articles_scraped": 0,
                 "entities_extracted": 0,
-                "offenses_detected": 0,
+                "offenses_detected": offense_count,
                 "embeddings_generated": 0,
                 "errors": 0,
                 "last_run": null,

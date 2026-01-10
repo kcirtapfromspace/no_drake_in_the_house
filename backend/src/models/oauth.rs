@@ -115,6 +115,8 @@ pub struct AccountLinkRequest {
     pub provider: OAuthProviderType,
     pub code: String,
     pub state: String,
+    /// Redirect URI used during OAuth initiation (must match for token exchange)
+    pub redirect_uri: String,
 }
 
 /// Account merge audit entry

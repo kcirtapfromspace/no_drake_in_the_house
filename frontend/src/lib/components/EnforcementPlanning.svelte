@@ -34,15 +34,15 @@
 
 <div class="px-4 py-6 sm:px-0">
   <div class="mb-6">
-    <h2 class="text-uswds-2xl font-bold text-uswds-base-darker">Enforcement Planning</h2>
-    <p class="mt-1 text-uswds-sm text-uswds-base-darker">
+    <h2 class="text-zinc-4002xl font-bold text-zinc-400darker">Enforcement Planning</h2>
+    <p class="mt-1 text-zinc-400 text-zinc-400darker">
       Plan and execute blocklist enforcement across your connected streaming services.
     </p>
   </div>
 
   <!-- Prerequisites Check -->
   {#if !$hasActiveSpotifyConnection || $dnpCount === 0}
-    <div class="mb-6 bg-yellow-50 border border-yellow-200 rounded-uswds-md p-uswds-4">
+    <div class="mb-6 rounded-uswds-md p-uswds-4" style="background: #3f3f46; border: 1px solid #52525b;">
       <div class="flex">
         <div class="">
           <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
@@ -50,10 +50,10 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-uswds-sm font-medium text-yellow-800">
+          <h3 class="text-zinc-400 font-medium text-yellow-400">
             Setup Required
           </h3>
-          <div class="mt-2 text-uswds-sm text-yellow-700">
+          <div class="mt-2 text-zinc-400 text-zinc-300">
             <p>Before you can plan enforcement, you need:</p>
             <ul class="list-disc list-inside mt-1 space-y-1">
               {#if !$hasActiveSpotifyConnection}
@@ -70,24 +70,24 @@
   {/if}
 
   <!-- Tab Navigation -->
-  <div class="bg-white shadow-sm rounded-uswds-lg mb-6">
+  <div class="shadow-sm rounded-uswds-lg mb-6" style="background: #27272a;">
     <nav class="flex space-x-8 px-6" aria-label="Tabs">
       <button
         on:click={() => setActiveTab('plan')}
-        class="py-4 px-1 border-b-2 font-medium text-uswds-sm {activeTab === 'plan' ? 'border-indigo-500 text-primary' : 'border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'plan' ? 'border-indigo-500 text-primary' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Plan Enforcement
       </button>
       <button
         on:click={() => setActiveTab('execute')}
-        class="py-4 px-1 border-b-2 font-medium text-uswds-sm {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
         disabled={!$hasActivePlan}
       >
         Execute Plan
       </button>
       <button
         on:click={() => setActiveTab('history')}
-        class="py-4 px-1 border-b-2 font-medium text-uswds-sm {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-uswds-base-darker hover:text-gray-700 hover:border-gray-300'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Action History
       </button>
@@ -98,19 +98,19 @@
   {#if activeTab === 'plan'}
     <div class="space-y-6">
       <!-- Enforcement Options -->
-      <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
-        <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">Enforcement Options</h3>
+      <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
+        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">Enforcement Options</h3>
         <EnforcementOptions />
       </div>
 
       <!-- Current Plan Preview -->
       {#if $hasActivePlan}
-        <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
+        <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-uswds-lg font-medium text-uswds-base-darker">Enforcement Preview</h3>
+            <h3 class="text-zinc-400 font-medium text-zinc-400darker">Enforcement Preview</h3>
             <button
               on:click={() => enforcementActions.clearPlan()}
-              class="text-uswds-sm text-uswds-base-darker hover:text-gray-700"
+              class="text-zinc-400 text-zinc-400darker hover:text-zinc-300"
             >
               Clear Plan
             </button>
@@ -119,16 +119,16 @@
         </div>
       {:else}
         <!-- Create Plan -->
-        <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
-          <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">Create Enforcement Plan</h3>
-          <p class="text-uswds-sm text-uswds-base-darker mb-4">
+        <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
+          <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">Create Enforcement Plan</h3>
+          <p class="text-zinc-400 text-zinc-400darker mb-4">
             Generate a dry-run preview to see what changes will be made to your music library.
           </p>
           
           <button
             on:click={createPlan}
             disabled={$enforcementStore.isPlanning || !$hasActiveSpotifyConnection || $dnpCount === 0}
-            class="flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex items-center px-4 py-2 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {#if $enforcementStore.isPlanning}
               <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -148,18 +148,18 @@
 
       <!-- Error Display -->
       {#if $enforcementStore.error}
-        <div class="bg-red-50 border border-red-200 rounded-uswds-md p-uswds-4">
+        <div class="rounded-uswds-md p-uswds-4" style="background: #3f3f46; border: 1px solid #52525b;">
           <div class="flex">
             <div class="flex-shrink-0">
-              <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor">
+              <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
               </svg>
             </div>
             <div class="ml-3">
-              <p class="text-uswds-sm text-uswds-red-50">{$enforcementStore.error}</p>
+              <p class="text-zinc-400 text-zinc-400">{$enforcementStore.error}</p>
               <button
                 on:click={() => enforcementActions.clearError()}
-                class="mt-2 text-uswds-sm text-uswds-red-50 hover:text-red-500"
+                class="mt-2 text-zinc-400 text-zinc-400 hover:text-red-500"
               >
                 Dismiss
               </button>

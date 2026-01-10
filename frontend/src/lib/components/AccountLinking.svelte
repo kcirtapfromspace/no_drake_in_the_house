@@ -2,11 +2,11 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { currentUser } from '../stores/auth';
   import { api } from '../utils/api';
-  
+
   const dispatch = createEventDispatcher();
-  
+
   export let isVisible = false;
-  
+
   let linkedAccounts: LinkedAccount[] = [];
   let availableProviders: string[] = ['google', 'apple', 'github'];
   let isLoading = false;
@@ -40,13 +40,13 @@
 
   async function loadLinkedAccounts() {
     if (!$currentUser) return;
-    
+
     isLoading = true;
     error = '';
-    
+
     try {
       const result = await api.get<LinkedAccount[]>('/auth/oauth/accounts');
-      
+
       if (result.success) {
         linkedAccounts = result.data;
       } else {
@@ -61,38 +61,38 @@
 
   async function linkAccount(provider: string) {
     if (linkingProvider) return;
-    
+
     linkingProvider = provider;
     error = '';
     success = '';
-    
+
     try {
       const result = await api.post<LinkAccountResponse>(`/auth/oauth/${provider}/link`);
-      
+
       if (result.success) {
         // Store state for validation when callback returns
         sessionStorage.setItem(`oauth_link_state_${provider}`, result.data.state);
-        
+
         // Open OAuth flow in popup window
         const popup = window.open(
           result.data.authorization_url,
           `link_${provider}`,
           'width=500,height=600,scrollbars=yes,resizable=yes'
         );
-        
+
         // Listen for popup completion
         const checkClosed = setInterval(() => {
           if (popup?.closed) {
             clearInterval(checkClosed);
             linkingProvider = null;
-            
+
             // Check if linking was successful by reloading accounts
             setTimeout(() => {
               loadLinkedAccounts();
             }, 1000);
           }
         }, 1000);
-        
+
       } else {
         error = result.message || `Failed to initiate ${provider} linking`;
         linkingProvider = null;
@@ -107,14 +107,14 @@
     if (!confirm(`Are you sure you want to unlink your ${getProviderName(provider)} account?`)) {
       return;
     }
-    
+
     isLoading = true;
     error = '';
     success = '';
-    
+
     try {
       const result = await api.delete(`/auth/oauth/${provider}/unlink`);
-      
+
       if (result.success) {
         success = `Successfully unlinked ${getProviderName(provider)} account`;
         await loadLinkedAccounts();
@@ -183,21 +183,21 @@
 {#if isVisible}
   <!-- Modal backdrop -->
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" on:click={closeModal}>
+  <div class="fixed inset-0 overflow-y-auto h-full w-full z-50" style="background: rgba(0, 0, 0, 0.85);" on:click={closeModal}>
     <!-- Modal content -->
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 xl:w-2/5 shadow-lg rounded-md bg-white" on:click|stopPropagation>
+    <div class="relative top-20 mx-auto p-5 w-11/12 md:w-3/4 lg:w-1/2 xl:w-2/5 shadow-lg rounded-lg" style="background: #27272a; border: 2px solid #52525b;" on:click|stopPropagation>
       <!-- Modal header -->
-      <div class="flex items-center justify-between pb-4 border-b">
-        <h3 class="text-lg font-semibold text-gray-900">
+      <div class="flex items-center justify-between pb-4" style="border-bottom: 1px solid #3f3f46;">
+        <h3 class="text-lg font-semibold text-white">
           Linked Accounts
         </h3>
         <button
           type="button"
           on:click={closeModal}
-          class="text-gray-400 hover:text-gray-600 focus:outline-none"
+          class="text-zinc-400 hover:text-white transition-colors focus:outline-none"
         >
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
@@ -205,35 +205,35 @@
 
       <!-- Modal body -->
       <div class="mt-4">
-        <p class="text-sm text-gray-600 mb-6">
+        <p class="text-sm text-zinc-400 mb-6">
           Link your social accounts to sign in more easily and keep your profile information up to date.
         </p>
 
         {#if error}
-          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <div class="mb-4 p-3 rounded-lg" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4);">
             <div class="flex">
               <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                 </svg>
               </div>
               <div class="ml-3">
-                <p class="text-sm text-red-800">{error}</p>
+                <p class="text-sm text-red-200">{error}</p>
               </div>
             </div>
           </div>
         {/if}
 
         {#if success}
-          <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+          <div class="mb-4 p-3 rounded-lg" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4);">
             <div class="flex">
               <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                 </svg>
               </div>
               <div class="ml-3">
-                <p class="text-sm text-green-800">{success}</p>
+                <p class="text-sm text-green-200">{success}</p>
               </div>
             </div>
           </div>
@@ -241,7 +241,7 @@
 
         {#if isLoading}
           <div class="flex justify-center py-4">
-            <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-6 w-6 text-rose-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
@@ -251,38 +251,39 @@
             {#each availableProviders as provider}
               {@const linked = isProviderLinked(provider)}
               {@const account = getLinkedAccount(provider)}
-              
-              <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+
+              <div class="flex items-center justify-between p-4 rounded-lg" style="background: #3f3f46; border: 1px solid #52525b;">
                 <div class="flex items-center space-x-3">
-                  <div class="flex-shrink-0">
+                  <div class="flex-shrink-0 text-zinc-300">
                     {@html getProviderIcon(provider)}
                   </div>
                   <div>
-                    <h4 class="text-sm font-medium text-gray-900">
+                    <h4 class="text-sm font-medium text-white">
                       {getProviderName(provider)}
                     </h4>
                     {#if linked && account}
-                      <p class="text-sm text-gray-500">
+                      <p class="text-sm text-zinc-300">
                         {account.display_name || account.email || 'Connected'}
                       </p>
-                      <p class="text-xs text-gray-400">
+                      <p class="text-xs text-zinc-500">
                         Linked on {formatDate(account.linked_at)}
                       </p>
                     {:else}
-                      <p class="text-sm text-gray-500">
+                      <p class="text-sm text-zinc-400">
                         Not connected
                       </p>
                     {/if}
                   </div>
                 </div>
-                
+
                 <div class="flex-shrink-0">
                   {#if linked}
                     <button
                       type="button"
                       on:click={() => unlinkAccount(provider)}
                       disabled={isLoading}
-                      class="px-3 py-1 text-sm text-red-600 hover:text-red-800 border border-red-300 hover:border-red-400 rounded-md transition-colors duration-200 disabled:opacity-50"
+                      class="px-3 py-1.5 text-sm text-red-400 hover:text-red-300 rounded-md transition-colors duration-200 disabled:opacity-50"
+                      style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4);"
                     >
                       Unlink
                     </button>
@@ -291,7 +292,8 @@
                       type="button"
                       on:click={() => linkAccount(provider)}
                       disabled={isLoading || linkingProvider === provider}
-                      class="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 border border-blue-300 hover:border-blue-400 rounded-md transition-colors duration-200 disabled:opacity-50"
+                      class="px-3 py-1.5 text-sm text-rose-400 hover:text-rose-300 rounded-md transition-colors duration-200 disabled:opacity-50"
+                      style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.4);"
                     >
                       {#if linkingProvider === provider}
                         Linking...
@@ -308,11 +310,12 @@
       </div>
 
       <!-- Modal footer -->
-      <div class="flex justify-end pt-4 border-t mt-6">
+      <div class="flex justify-end pt-4 mt-6" style="border-top: 1px solid #3f3f46;">
         <button
           type="button"
           on:click={closeModal}
-          class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          class="px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white rounded-lg transition-colors focus:outline-none"
+          style="background: #3f3f46; border: 1px solid #52525b;"
         >
           Close
         </button>

@@ -553,6 +553,31 @@ pub fn create_router(state: AppState) -> Router {
             "/enforcement/apple-music/capabilities",
             get(handlers::enforcement::get_apple_music_capabilities),
         )
+        // Spotify enforcement routes
+        .route(
+            "/enforcement/spotify/run",
+            post(handlers::spotify_enforcement::run_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/preview",
+            post(handlers::spotify_enforcement::preview_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/rollback/:batch_id",
+            post(handlers::spotify_enforcement::rollback_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/history",
+            get(handlers::spotify_enforcement::get_spotify_enforcement_history),
+        )
+        .route(
+            "/enforcement/spotify/capabilities",
+            get(handlers::spotify_enforcement::get_spotify_capabilities),
+        )
+        .route(
+            "/enforcement/spotify/progress/:batch_id",
+            get(handlers::spotify_enforcement::get_spotify_enforcement_progress),
+        )
         // Apple Music auth routes (connect/disconnect Apple Music account)
         .route(
             "/apple-music/auth/connect",

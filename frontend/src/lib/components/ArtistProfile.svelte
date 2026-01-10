@@ -49,6 +49,23 @@
   // Expandable albums state for catalog view
   let expandedCatalogAlbums: Set<string> = new Set();
 
+  // Album cover modal state
+  let showAlbumCoverModal = false;
+  let selectedAlbumCover: { url: string; name: string } | null = null;
+
+  // Blocking options dropdown state
+  let showBlockingOptions = false;
+
+  function openAlbumCover(url: string, name: string) {
+    selectedAlbumCover = { url, name };
+    showAlbumCoverModal = true;
+  }
+
+  function closeAlbumCoverModal() {
+    showAlbumCoverModal = false;
+    selectedAlbumCover = null;
+  }
+
   function toggleCatalogAlbum(albumName: string) {
     if (expandedCatalogAlbums.has(albumName)) {
       expandedCatalogAlbums.delete(albumName);
@@ -929,10 +946,10 @@
           <!-- Artist Info -->
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-3 mb-3">
-              <!-- Status Badge -->
+              <!-- Status Badge - Made larger and more prominent -->
               <span
-                class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
-                style="background: {statusColor?.bg}; color: {statusColor?.text};"
+                class="px-4 py-2 rounded-full text-sm font-extrabold uppercase tracking-wider shadow-lg"
+                style="background: {statusColor?.bg}; color: {statusColor?.text}; text-shadow: 0 1px 2px rgba(0,0,0,0.3);"
               >
                 {statusLabel}
               </span>
@@ -975,7 +992,8 @@
                 </svg>
               </a>
               <a href="https://twitter.com/Drake" target="_blank" rel="noopener noreferrer"
-                 class="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-800 transition-all hover:scale-110 hover:bg-zinc-700"
+                 class="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                 style="background: #000000; border: 1px solid #333;"
                  title="X (Twitter)">
                 <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
@@ -1008,30 +1026,115 @@
 
             <!-- Action Buttons -->
             <div class="flex-shrink-0 flex flex-col gap-2 pb-2">
-              <!-- Primary Block Button -->
-              <button
-                type="button"
-                on:click={toggleBlock}
-                disabled={isBlockingInProgress}
-                class="px-8 py-3 rounded-full font-bold text-lg transition-all disabled:opacity-50 hover:scale-105 flex items-center gap-2"
-                style="{isBlocked
-                  ? 'background: rgba(255,255,255,0.15); color: white; border: 2px solid rgba(255,255,255,0.3);'
-                  : 'background: #DC2626; color: white;'}"
-              >
-                {#if isBlockingInProgress}
-                  <div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                {:else if isBlocked}
-                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
-                  </svg>
-                  Blocked
-                {:else}
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  Block Artist
+              <!-- Primary Block Button with Dropdown -->
+              <div class="relative">
+                <div class="flex">
+                  <button
+                    type="button"
+                    on:click={toggleBlock}
+                    disabled={isBlockingInProgress}
+                    class="px-6 py-3 rounded-l-full font-bold text-lg transition-all disabled:opacity-50 hover:opacity-90 flex items-center gap-2"
+                    style="{isBlocked
+                      ? 'background: rgba(34, 197, 94, 0.2); color: #22C55E; border: 2px solid rgba(34, 197, 94, 0.4); border-right: none;'
+                      : 'background: #DC2626; color: white; border-right: none;'}"
+                  >
+                    {#if isBlockingInProgress}
+                      <div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                    {:else if isBlocked}
+                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                      </svg>
+                      Blocked
+                    {:else}
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                      Block
+                    {/if}
+                  </button>
+                  <button
+                    type="button"
+                    on:click={() => showBlockingOptions = !showBlockingOptions}
+                    class="px-3 py-3 rounded-r-full font-bold transition-all hover:opacity-90 flex items-center"
+                    style="{isBlocked
+                      ? 'background: rgba(34, 197, 94, 0.2); color: #22C55E; border: 2px solid rgba(34, 197, 94, 0.4); border-left: 1px solid rgba(34, 197, 94, 0.3);'
+                      : 'background: #DC2626; color: white; border-left: 1px solid rgba(255,255,255,0.2);'}"
+                  >
+                    <svg class="w-4 h-4 transition-transform {showBlockingOptions ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <!-- Blocking Options Dropdown -->
+                {#if showBlockingOptions}
+                  <div
+                    class="absolute right-0 mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden"
+                    style="background: #27272a; border: 1px solid #3f3f46;"
+                  >
+                    <div class="p-2">
+                      <div class="text-xs text-zinc-500 px-3 py-2 font-medium uppercase tracking-wider">Blocking Options</div>
+                      <button
+                        type="button"
+                        on:click={() => { toggleRoleBlocking('main', true); showBlockingOptions = false; }}
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                      >
+                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                        Block All Main Tracks
+                      </button>
+                      <button
+                        type="button"
+                        on:click={() => { toggleRoleBlocking('featured', true); showBlockingOptions = false; }}
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                      >
+                        <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Block Collaborations
+                      </button>
+                      <button
+                        type="button"
+                        on:click={() => { toggleRoleBlocking('producer', true); showBlockingOptions = false; }}
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                      >
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                        </svg>
+                        Block Producer Credits
+                      </button>
+                      <button
+                        type="button"
+                        on:click={() => { toggleRoleBlocking('writer', true); showBlockingOptions = false; }}
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                      >
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                        Block Writer Credits
+                      </button>
+                      <div class="my-2 border-t border-zinc-700"></div>
+                      <button
+                        type="button"
+                        on:click={() => {
+                          toggleRoleBlocking('main', true);
+                          toggleRoleBlocking('featured', true);
+                          toggleRoleBlocking('producer', true);
+                          toggleRoleBlocking('writer', true);
+                          showBlockingOptions = false;
+                        }}
+                        class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 rounded-lg flex items-center gap-3 font-medium"
+                      >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                        </svg>
+                        Block Everything
+                      </button>
+                    </div>
+                  </div>
                 {/if}
-              </button>
+              </div>
 
               <!-- Secondary Actions -->
               <div class="flex gap-2">
@@ -1496,29 +1599,49 @@
                     class="w-full p-4 flex items-center gap-4 hover:bg-zinc-700/50 transition-colors text-left"
                     on:click={() => toggleCatalogAlbum(album.name)}
                   >
-                    <!-- Block Icon (left side) - Prohibition Sign -->
+                    <!-- Block Icon (left side) - Prohibition Sign with clear color states -->
                     <button
                       type="button"
                       on:click|stopPropagation={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)}
-                      class="flex-shrink-0 transition-all hover:scale-110"
+                      class="flex-shrink-0 transition-all hover:scale-110 p-1 rounded-full"
+                      style="background: {album.blockedCount === album.totalCount ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)'};"
                       title={album.blockedCount === album.totalCount ? 'Unblock all tracks' : 'Block all tracks'}
                     >
-                      <svg class="w-6 h-6 {album.blockedCount === album.totalCount ? 'text-red-500' : 'text-zinc-600'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M5.5 5.5l13 13" />
-                      </svg>
+                      {#if album.blockedCount === album.totalCount}
+                        <!-- Blocked state: Red prohibition sign -->
+                        <svg class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M5.5 5.5l13 13" />
+                        </svg>
+                      {:else}
+                        <!-- Unblocked state: Green checkmark circle -->
+                        <svg class="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      {/if}
                     </button>
 
-                    <!-- Album Art (thumbnail) -->
+                    <!-- Album Art (thumbnail) - Clickable for larger view -->
                     {#if album.cover && !album.cover.includes('data:image')}
-                    <div class="flex-shrink-0">
+                    <button
+                      type="button"
+                      class="flex-shrink-0 group relative"
+                      on:click|stopPropagation={() => openAlbumCover(album.cover, album.name)}
+                      title="Click to enlarge"
+                    >
                       <img
                         src={album.cover}
                         alt={album.name}
-                        class="w-10 h-10 rounded object-cover bg-zinc-700"
+                        class="w-10 h-10 rounded object-cover bg-zinc-700 transition-all group-hover:ring-2 group-hover:ring-white/30"
                         on:error={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
                       />
-                    </div>
+                      <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                        </svg>
+                      </div>
+                    </button>
                     {/if}
 
                     <!-- Album Info -->
@@ -1569,13 +1692,23 @@
                                 <button
                                   type="button"
                                   on:click|stopPropagation={() => toggleTrackBlock(track.id)}
-                                  class="transition-all hover:scale-110"
+                                  class="transition-all hover:scale-110 p-0.5 rounded-full"
+                                  style="background: {track.isBlocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)'};"
                                   title={track.isBlocked ? 'Click to unblock' : 'Click to block'}
                                 >
-                                  <svg class="w-5 h-5 {track.isBlocked ? 'text-red-500' : 'text-zinc-600'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <circle cx="12" cy="12" r="9" />
-                                    <path d="M5.5 5.5l13 13" />
-                                  </svg>
+                                  {#if track.isBlocked}
+                                    <!-- Blocked: Red prohibition sign -->
+                                    <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                      <circle cx="12" cy="12" r="9" />
+                                      <path d="M5.5 5.5l13 13" />
+                                    </svg>
+                                  {:else}
+                                    <!-- Unblocked: Green checkmark -->
+                                    <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                      <circle cx="12" cy="12" r="9" />
+                                      <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                                    </svg>
+                                  {/if}
                                 </button>
                               </td>
                               <td class="py-2 px-4 text-zinc-500">{idx + 1}</td>
@@ -2088,6 +2221,41 @@
                 Submit Report
               </button>
             </div>
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    <!-- Album Cover Modal -->
+    {#if showAlbumCoverModal && selectedAlbumCover}
+      <div
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="background: rgba(0,0,0,0.9);"
+        on:click={closeAlbumCoverModal}
+        on:keydown={(e) => e.key === 'Escape' && closeAlbumCoverModal()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Album cover preview"
+        tabindex="-1"
+      >
+        <div class="relative max-w-2xl max-h-[80vh]" on:click|stopPropagation>
+          <button
+            type="button"
+            on:click={closeAlbumCoverModal}
+            class="absolute -top-12 right-0 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+            aria-label="Close"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={selectedAlbumCover.url}
+            alt={selectedAlbumCover.name}
+            class="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
+          />
+          <div class="text-center mt-4">
+            <p class="text-white font-semibold text-lg">{selectedAlbumCover.name}</p>
           </div>
         </div>
       </div>

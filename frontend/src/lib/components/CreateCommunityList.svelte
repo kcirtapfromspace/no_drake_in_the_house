@@ -1,9 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { communityActions } from '../stores/community';
-  
+
   const dispatch = createEventDispatcher();
-  
+
   let name = '';
   let description = '';
   let criteria = '';
@@ -51,7 +51,7 @@
 <form on:submit|preventDefault={handleSubmit} class="space-y-6">
   <!-- Name -->
   <div>
-    <label for="name" class="block text-uswds-sm font-medium text-uswds-base-darker">
+    <label for="name" class="block text-sm font-medium text-white">
       List Name *
     </label>
     <input
@@ -59,14 +59,15 @@
       type="text"
       bind:value={name}
       placeholder="e.g., Controversial Artists List"
-      class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
+      class="mt-1 block w-full rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
+      style="background: #3f3f46; border: 1px solid #52525b;"
       required
     />
   </div>
 
   <!-- Description -->
   <div>
-    <label for="description" class="block text-uswds-sm font-medium text-uswds-base-darker">
+    <label for="description" class="block text-sm font-medium text-white">
       Description *
     </label>
     <textarea
@@ -74,14 +75,15 @@
       bind:value={description}
       rows="3"
       placeholder="Describe the purpose and scope of this list..."
-      class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
+      class="mt-1 block w-full rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
+      style="background: #3f3f46; border: 1px solid #52525b;"
       required
     ></textarea>
   </div>
 
   <!-- Criteria -->
   <div>
-    <label for="criteria" class="block text-uswds-sm font-medium text-uswds-base-darker">
+    <label for="criteria" class="block text-sm font-medium text-white">
       Inclusion Criteria *
     </label>
     <textarea
@@ -89,17 +91,18 @@
       bind:value={criteria}
       rows="4"
       placeholder="Define clear, neutral criteria for including artists in this list. Avoid subjective language or personal opinions."
-      class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
+      class="mt-1 block w-full rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
+      style="background: #3f3f46; border: 1px solid #52525b;"
       required
     ></textarea>
-    <p class="mt-1 text-uswds-xs text-uswds-base-darker">
+    <p class="mt-1 text-xs text-zinc-400">
       Criteria must be factual and neutral. Avoid subjective terms or personal opinions.
     </p>
   </div>
 
   <!-- Governance URL -->
   <div>
-    <label for="governance-url" class="block text-uswds-sm font-medium text-uswds-base-darker">
+    <label for="governance-url" class="block text-sm font-medium text-white">
       Governance Documentation URL
     </label>
     <input
@@ -107,22 +110,24 @@
       type="url"
       bind:value={governanceUrl}
       placeholder="https://example.com/governance-process"
-      class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 placeholder-gray-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
+      class="mt-1 block w-full rounded-lg px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
+      style="background: #3f3f46; border: 1px solid #52525b;"
     />
-    <p class="mt-1 text-uswds-xs text-uswds-base-darker">
+    <p class="mt-1 text-xs text-zinc-400">
       Link to documentation explaining your list's governance process and appeals procedure.
     </p>
   </div>
 
   <!-- Update Cadence -->
   <div>
-    <label for="update-cadence" class="block text-uswds-sm font-medium text-uswds-base-darker">
+    <label for="update-cadence" class="block text-sm font-medium text-white">
       Update Cadence
     </label>
     <select
       id="update-cadence"
       bind:value={updateCadence}
-      class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-uswds-sm"
+      class="mt-1 block w-full rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
+      style="background: #3f3f46; border: 1px solid #52525b;"
     >
       <option value="daily">Daily</option>
       <option value="weekly">Weekly</option>
@@ -133,7 +138,7 @@
 
   <!-- Visibility -->
   <div>
-    <h4 class="block text-uswds-sm font-medium text-uswds-base-darker">Visibility</h4>
+    <h4 class="block text-sm font-medium text-white">Visibility</h4>
     <div class="mt-2 space-y-2">
       <div class="flex items-center">
         <input
@@ -141,9 +146,10 @@
           type="radio"
           bind:group={visibility}
           value="public"
-          class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300"
+          class="focus:ring-rose-500 h-4 w-4 text-rose-500"
+          style="background: #3f3f46; border: 1px solid #52525b;"
         />
-        <label for="public" class="ml-3 block text-uswds-sm text-uswds-base-darker">
+        <label for="public" class="ml-3 block text-sm text-zinc-300">
           Public - Anyone can discover and subscribe
         </label>
       </div>
@@ -153,9 +159,10 @@
           type="radio"
           bind:group={visibility}
           value="private"
-          class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"
+          class="focus:ring-rose-500 h-4 w-4 text-rose-500"
+          style="background: #3f3f46; border: 1px solid #52525b;"
         />
-        <label for="private" class="ml-3 block text-uswds-sm text-uswds-base-darker">
+        <label for="private" class="ml-3 block text-sm text-zinc-300">
           Private - Only you can manage, others need direct link
         </label>
       </div>
@@ -163,7 +170,7 @@
   </div>
 
   {#if error}
-    <div class="text-uswds-red-50 text-uswds-sm">
+    <div class="text-red-400 text-sm">
       {error}
     </div>
   {/if}
@@ -173,17 +180,18 @@
     <button
       type="button"
       on:click={() => dispatch('listCreated')}
-      class="px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+      class="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
+      style="background: #3f3f46; border: 1px solid #52525b;"
     >
       Cancel
     </button>
     <button
       type="submit"
       disabled={isCreating || !name.trim() || !description.trim() || !criteria.trim()}
-      class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+      class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {#if isCreating}
-        <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 w-4 h-4 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
@@ -195,18 +203,18 @@
   </div>
 
   <!-- Guidelines -->
-  <div class="bg-yellow-50 border border-yellow-200 rounded-uswds-md p-uswds-4">
+  <div class="rounded-lg p-4" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4);">
     <div class="flex">
-      <div class="">
-        <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+      <div class="flex-shrink-0">
+        <svg aria-hidden="true" class="w-5 h-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
         </svg>
       </div>
       <div class="ml-3">
-        <h3 class="text-uswds-sm font-medium text-yellow-800">
+        <h3 class="text-sm font-medium text-yellow-300">
           Community List Guidelines
         </h3>
-        <div class="mt-2 text-uswds-sm text-yellow-700">
+        <div class="mt-2 text-sm text-yellow-200">
           <ul class="list-disc list-inside space-y-1">
             <li>Use neutral, factual language in criteria</li>
             <li>Provide clear governance and appeals processes</li>

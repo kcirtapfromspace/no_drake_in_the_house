@@ -8,12 +8,17 @@
 //! - Artist trouble scores
 //! - Revenue tracking and distribution
 
+pub mod category_revenue;
 pub mod dashboard;
 pub mod reporting;
 pub mod revenue;
 pub mod trends;
 pub mod trouble_score;
 
+pub use category_revenue::{
+    ArtistDiscographyRevenue, AlbumRevenue, CategoryArtistRevenue, CategoryRevenue,
+    CategoryRevenueService, GlobalCategoryRevenue, OffenseCategory, SimulationParams,
+};
 pub use dashboard::{DashboardMetrics, DashboardService, TimeRange};
 pub use reporting::{Report, ReportType, ReportingService};
 pub use revenue::{

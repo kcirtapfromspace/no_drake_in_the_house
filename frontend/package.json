@@ -15,6 +15,14 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:chromium": "playwright test --project=chromium",
+    "test:e2e:firefox": "playwright test --project=firefox",
+    "test:e2e:webkit": "playwright test --project=webkit",
+    "playwright:install": "playwright install",
     "icons:validate": "node scripts/validate-icons.js",
     "icons:validate:strict": "node scripts/validate-icons.js --strict",
     "icons:migrate": "node scripts/migrate-icons.js",
@@ -25,6 +33,7 @@
     "design-system:showcase": "echo 'Visit /showcase to see the USWDS + Skeleton UI design system'"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
     "@rollup/plugin-commonjs": "^25.0.0",
     "@rollup/plugin-node-resolve": "^15.0.0",
     "@rollup/plugin-replace": "^6.0.2",

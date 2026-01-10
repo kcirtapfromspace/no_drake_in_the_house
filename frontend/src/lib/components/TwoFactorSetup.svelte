@@ -39,10 +39,10 @@
 
 <div class="max-w-md mx-auto space-y-6">
   <div class="text-center">
-    <h2 class="text-uswds-2xl font-bold text-uswds-base-darker">
+    <h2 class="text-zinc-4002xl font-bold text-zinc-400darker">
       Set up Two-Factor Authentication
     </h2>
-    <p class="mt-2 text-uswds-sm text-uswds-base-darker">
+    <p class="mt-2 text-zinc-400 text-zinc-400darker">
       Add an extra layer of security to your account
     </p>
   </div>
@@ -50,13 +50,13 @@
   {#if step === 1}
     <!-- QR Code Setup Step -->
     <div class="space-y-4">
-      <div class="bg-uswds-base-lightest rounded-uswds-lg p-uswds-6 text-center">
-        <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">
+      <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-6 text-center">
+        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">
           Step 1: Scan QR Code
         </h3>
         
         {#if qrCodeUrl}
-          <div class="bg-white p-uswds-4 rounded-uswds-lg inline-block">
+          <div class="p-uswds-4 rounded-uswds-lg inline-block" style="background: #3f3f46;">
             <img 
               src={qrCodeUrl} 
               alt="2FA QR Code" 
@@ -64,29 +64,29 @@
             />
           </div>
         {:else}
-          <div class="w-48 h-48 mx-auto bg-uswds-base-lightest rounded-uswds-lg flex items-center justify-center">
+          <div class="w-48 h-48 mx-auto bg-zinc-700lightest rounded-uswds-lg flex items-center justify-center">
             <div class="animate-spin rounded-full icon icon-xl  border-b-2 border-indigo-600"></div>
           </div>
         {/if}
         
-        <p class="mt-4 text-uswds-sm text-uswds-base-darker">
+        <p class="mt-4 text-zinc-400 text-zinc-400darker">
           Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
         </p>
       </div>
 
       <!-- Manual Entry Option -->
-      <div class="bg-uswds-blue-50 rounded-uswds-lg p-uswds-4">
-        <h4 class="text-uswds-sm font-medium text-uswds-blue-50 mb-2">
+      <div class="bg-zinc-700 rounded-uswds-lg p-uswds-4">
+        <h4 class="text-zinc-400 font-medium text-zinc-400 mb-2">
           Can't scan? Enter manually:
         </h4>
         <div class="flex items-center space-x-2">
-          <code class="flex-1 bg-white px-3 py-2 rounded border text-uswds-sm font-mono">
+          <code class="flex-1 px-3 py-2 rounded-lg text-zinc-400 font-mono text-zinc-300" style="background: #3f3f46; border: 1px solid #52525b;">
             {secret}
           </code>
           <button
             type="button"
             on:click={copySecret}
-            class="px-3 py-2 text-uswds-sm bg-uswds-blue-50 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="px-3 py-2 text-zinc-400 bg-zinc-700 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Copy
           </button>
@@ -96,7 +96,7 @@
       <button
         type="button"
         on:click={() => step = 2}
-        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         I've added the account to my app
       </button>
@@ -105,12 +105,12 @@
   {:else if step === 2}
     <!-- Verification Step -->
     <div class="space-y-4">
-      <div class="bg-uswds-base-lightest rounded-uswds-lg p-uswds-6 text-center">
-        <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">
+      <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-6 text-center">
+        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">
           Step 2: Verify Setup
         </h3>
         
-        <p class="text-uswds-sm text-uswds-base-darker mb-4">
+        <p class="text-zinc-400 text-zinc-400darker mb-4">
           Enter the 6-digit code from your authenticator app to complete setup
         </p>
         
@@ -121,11 +121,12 @@
             maxlength="6"
             pattern="[0-9]{6}"
             placeholder="000000"
-            class="block w-full text-center text-uswds-2xl font-mono px-3 py-3 border border-gray-300 rounded-uswds-md placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            class="block w-full text-center text-zinc-4002xl font-mono px-3 py-3 rounded-lg text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             class:border-red-300={verificationCode.length > 0 && !codeValid}
+            style="background: #3f3f46; border: 1px solid #52525b;"
           />
           {#if verificationCode.length > 0 && !codeValid}
-            <p class="mt-1 text-uswds-sm text-uswds-red-50">Please enter a 6-digit code</p>
+            <p class="mt-1 text-zinc-400 text-zinc-400">Please enter a 6-digit code</p>
           {/if}
         </div>
       </div>
@@ -134,12 +135,12 @@
         <div class="rounded-uswds-md bg-red-50 p-uswds-4">
           <div class="flex">
             <div class="">
-              <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-red-50" viewBox="0 0 20 20" fill="currentColor">
+              <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
               </svg>
             </div>
             <div class="ml-3">
-              <p class="text-uswds-sm text-uswds-red-50">{error}</p>
+              <p class="text-zinc-400 text-zinc-400">{error}</p>
             </div>
           </div>
         </div>
@@ -149,7 +150,7 @@
         <button
           type="button"
           on:click={() => step = 1}
-          class="flex-1 py-2 px-4 border border-gray-300 rounded-uswds-md shadow-sm text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="flex-1 py-2 px-4 rounded-lg shadow-sm text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" style="background: #3f3f46; border: 1px solid #52525b;"
         >
           Back
         </button>
@@ -157,7 +158,7 @@
           type="button"
           on:click={handleVerify}
           disabled={!codeValid || isLoading}
-          class="flex-1 py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {#if isLoading}
             <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -176,16 +177,16 @@
     <!-- Success Step -->
     <div class="text-center space-y-4">
       <div class="mx-auto avatar avatar--xl bg-green-100">
-        <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-green-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
       </div>
       
       <div>
-        <h3 class="text-uswds-lg font-medium text-uswds-base-darker">
+        <h3 class="text-zinc-400 font-medium text-zinc-400darker">
           Two-Factor Authentication Enabled!
         </h3>
-        <p class="mt-2 text-uswds-sm text-uswds-base-darker">
+        <p class="mt-2 text-zinc-400 text-zinc-400darker">
           Your account is now protected with 2FA. You'll need to enter a code from your authenticator app each time you sign in.
         </p>
       </div>
@@ -198,7 +199,7 @@
             </svg>
           </div>
           <div class="ml-3">
-            <p class="text-uswds-sm text-yellow-800">
+            <p class="text-zinc-400 text-yellow-800">
               <strong>Important:</strong> Save your recovery codes in a safe place. You'll need them if you lose access to your authenticator app.
             </p>
           </div>
@@ -208,7 +209,7 @@
       <button
         type="button"
         on:click={() => dispatch('complete')}
-        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         Continue to Dashboard
       </button>
@@ -221,7 +222,7 @@
       <button
         type="button"
         on:click={handleCancel}
-        class="text-uswds-sm text-uswds-base-darker hover:text-gray-700"
+        class="text-zinc-400 text-zinc-400 hover:text-zinc-300"
       >
         Skip for now
       </button>

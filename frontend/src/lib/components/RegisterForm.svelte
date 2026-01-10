@@ -61,10 +61,10 @@
 
 <div class="register-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0">
   <div>
-    <h2 class="text-center text-uswds-2xl sm:text-uswds-3xl font-extrabold text-uswds-base-darker">
+    <h2 class="text-center text-zinc-4002xl sm:text-zinc-4003xl font-extrabold text-zinc-400darker">
       Create your account
     </h2>
-    <p class="mt-2 text-center text-uswds-sm text-uswds-base-darker">
+    <p class="mt-2 text-center text-zinc-400 text-zinc-400darker">
       Join the music blocklist community
     </p>
   </div>
@@ -292,11 +292,11 @@
           type="checkbox"
           required
           bind:checked={termsAccepted}
-          class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300 rounded transition-colors duration-200"
+          class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary rounded transition-colors duration-200" style="border: 1px solid #52525b;"
         />
       </div>
-      <div class="flex-1 text-uswds-sm">
-        <label for="terms-accepted" class="text-uswds-base-darker leading-relaxed cursor-pointer">
+      <div class="flex-1 text-zinc-400">
+        <label for="terms-accepted" class="text-zinc-400darker leading-relaxed cursor-pointer">
           I agree to the 
           <a href="/terms" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline font-medium">
             Terms of Service
@@ -307,9 +307,9 @@
           </a>
         </label>
         {#if fieldErrors.terms_accepted}
-          <p class="mt-1 text-uswds-sm text-uswds-red-50">{fieldErrors.terms_accepted}</p>
+          <p class="mt-1 text-zinc-400 text-zinc-400">{fieldErrors.terms_accepted}</p>
         {:else if !termsAccepted && formValid === false}
-          <p class="mt-1 text-uswds-sm text-uswds-red-50">You must accept the terms to continue</p>
+          <p class="mt-1 text-zinc-400 text-zinc-400">You must accept the terms to continue</p>
         {/if}
       </div>
     </div>
@@ -366,7 +366,7 @@
       <button
         type="button"
         on:click={() => dispatch('switchMode')}
-        class="text-indigo-600 hover:text-indigo-500 text-uswds-sm font-medium"
+        class="text-indigo-600 hover:text-indigo-500 text-zinc-400 font-medium"
       >
         Already have an account? Sign in
       </button>

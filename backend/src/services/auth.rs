@@ -928,11 +928,10 @@ impl AuthService {
             });
         }
 
-        // Exchange code for tokens
-        let redirect_uri = std::env::var("OAUTH_REDIRECT_URI")
-            .unwrap_or_else(|_| "http://localhost:3000/auth/callback".to_string());
+        // Exchange code for tokens using the redirect_uri from the request
+        // (must match the redirect_uri used during OAuth flow initiation)
         let tokens = provider
-            .exchange_code(&request.code, &request.state, &redirect_uri)
+            .exchange_code(&request.code, &request.state, &request.redirect_uri)
             .await?;
 
         // Get user info from provider

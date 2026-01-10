@@ -373,11 +373,11 @@ SELECT
     urd.period_start,
     urd.period_end,
     (
-        SELECT COUNT(DISTINCT artist_id)
-        FROM user_artist_playcounts pc
-        INNER JOIN artist_trouble_scores ts ON ts.artist_id = pc.artist_id
-        WHERE pc.user_id = u.id
-        AND ts.trouble_tier IN ('moderate', 'high', 'critical')
+        SELECT COUNT(DISTINCT sub_pc.artist_id)
+        FROM user_artist_playcounts sub_pc
+        INNER JOIN artist_trouble_scores sub_ts ON sub_ts.artist_id = sub_pc.artist_id
+        WHERE sub_pc.user_id = u.id
+        AND sub_ts.trouble_tier IN ('moderate', 'high', 'critical')
     ) as problematic_artist_count
 FROM users u
 LEFT JOIN user_revenue_distribution urd ON urd.user_id = u.id;

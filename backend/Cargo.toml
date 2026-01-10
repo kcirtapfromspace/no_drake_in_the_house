@@ -36,6 +36,9 @@ rand = "0.8"
 # Date/time handling
 chrono = { version = "0.4", features = ["serde"] }
 
+# Environment
+dotenvy = "0.15"
+
 # Logging and tracing
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

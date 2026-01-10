@@ -10,7 +10,7 @@ use music_streaming_blocklist_backend::services::{
     AppleMusicService, AppleMusicConfig,
 };
 use music_streaming_blocklist_backend::services::catalog_sync::{
-    AppleMusicSyncWorker, DeezerSyncWorker, CrossPlatformIdentityResolver,
+    AppleMusicSyncWorker, DeezerSyncWorker, SpotifySyncWorker, CrossPlatformIdentityResolver,
 };
 use music_streaming_blocklist_backend::services::stubs::TokenVaultService;
 use chrono::Duration;
@@ -138,12 +138,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None
     };
 
-    // TODO: Add other platform workers when credentials are available
-    // if let Some(spotify_creds) = &platform_config.spotify {
-    //     orchestrator_builder = orchestrator_builder.with_worker(
-    //         SpotifySyncWorker::new(spotify_creds.client_id.clone(), spotify_creds.client_secret.clone())
-    //     );
-    // }
+    // Add Spotify worker if credentials are available
+    if let Some(spotify_creds) = &platform_config.spotify {
+        orchestrator_builder = orchestrator_builder.with_worker(
+            SpotifySyncWorker::new(spotify_creds.client_id.clone(), spotify_creds.client_secret.clone())
+        );
+        tracing::info!("Spotify sync worker registered");
+    }
 
     let catalog_sync = Arc::new(
         orchestrator_builder

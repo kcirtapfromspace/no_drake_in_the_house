@@ -229,28 +229,49 @@ export const enforcementActions = {
   },
 
   pollProgress: async (batchId: string) => {
-    const pollInterval = setInterval(async () => {
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 5;
+    const baseInterval = 2000; // 2 seconds
+    const maxInterval = 30000; // 30 seconds max backoff
+    let currentInterval = baseInterval;
+    let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
       try {
         const token = localStorage.getItem('auth_token');
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
         const response = await fetch(`http://localhost:3000/api/v1/spotify/enforcement/progress/${batchId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
+          signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
         const result = await response.json();
-        
+
         if (result.success) {
           const batch = result.data;
+
+          // Reset error state on success
+          consecutiveErrors = 0;
+          currentInterval = baseInterval;
+
           enforcementStore.update(state => ({
             ...state,
             currentBatch: batch,
+            error: null, // Clear any previous polling errors
           }));
-          
+
           // Stop polling if batch is complete
           if (batch.status === 'completed' || batch.status === 'failed' || batch.status === 'cancelled') {
-            clearInterval(pollInterval);
-            
             // Move to history
             enforcementStore.update(state => ({
               ...state,
@@ -258,12 +279,46 @@ export const enforcementActions = {
               currentBatch: null,
               currentPlan: null,
             }));
+            return; // Stop polling
           }
+        } else {
+          throw new Error(result.message || 'Failed to get progress');
         }
+
+        // Schedule next poll
+        pollTimeoutId = setTimeout(poll, currentInterval);
       } catch (error) {
-        console.error('Failed to poll progress:', error);
+        consecutiveErrors++;
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+        console.error(`Failed to poll progress (attempt ${consecutiveErrors}/${maxConsecutiveErrors}):`, errorMessage);
+
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          // Max retries exceeded - stop polling and show error to user
+          enforcementStore.update(state => ({
+            ...state,
+            error: `Connection lost: Unable to get enforcement progress after ${maxConsecutiveErrors} attempts. Please check your connection and refresh.`,
+            isExecuting: false,
+          }));
+          return; // Stop polling
+        }
+
+        // Exponential backoff: 2s -> 4s -> 8s -> 16s -> 30s (capped)
+        currentInterval = Math.min(currentInterval * 2, maxInterval);
+
+        // Update store with recoverable error (not blocking)
+        enforcementStore.update(state => ({
+          ...state,
+          error: `Retrying in ${currentInterval / 1000}s... (${consecutiveErrors}/${maxConsecutiveErrors} attempts)`,
+        }));
+
+        // Schedule retry with backoff
+        pollTimeoutId = setTimeout(poll, currentInterval);
       }
-    }, 2000); // Poll every 2 seconds
+    };
+
+    // Start polling
+    poll();
   },
 
   rollbackBatch: async (batchId: string) => {

@@ -705,6 +705,70 @@ pub async fn get_network_stats_handler(
     })))
 }
 
+/// Query for artist search
+#[derive(Debug, Deserialize)]
+pub struct ArtistSearchQuery {
+    pub q: String,
+    #[serde(default = "default_search_limit")]
+    pub limit: i32,
+}
+
+fn default_search_limit() -> i32 {
+    20
+}
+
+/// Search for artists in local database (for graph explorer)
+pub async fn search_artists_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+    Query(query): Query<ArtistSearchQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(query = %query.q, "Graph artist search request");
+
+    if query.q.trim().is_empty() {
+        return Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artists": []
+            }
+        })));
+    }
+
+    // Search local database for artists
+    let artists: Vec<(Uuid, String, Option<Vec<String>>, Option<String>)> = sqlx::query_as(r#"
+        SELECT id, canonical_name, genres, metadata->>'image_url'
+        FROM artists
+        WHERE canonical_name ILIKE $1
+        ORDER BY
+            CASE WHEN canonical_name ILIKE $2 THEN 0 ELSE 1 END,
+            canonical_name
+        LIMIT $3
+    "#)
+    .bind(format!("%{}%", query.q))
+    .bind(format!("{}%", query.q))  // Prioritize prefix matches
+    .bind(query.limit)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    let artist_list: Vec<serde_json::Value> = artists.iter().map(|(id, name, genres, image_url)| {
+        serde_json::json!({
+            "id": id,
+            "name": name,
+            "genres": genres.clone().unwrap_or_default(),
+            "is_blocked": false,
+            "image_url": image_url
+        })
+    }).collect();
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "artists": artist_list
+        }
+    })))
+}
+
 /// Get global graph statistics
 pub async fn get_global_stats_handler(
     State(state): State<AppState>,

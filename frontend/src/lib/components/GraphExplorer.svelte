@@ -43,10 +43,15 @@
 
     isSearching = true;
     try {
-      // Use the sync service for artist search
-      const response = await fetch(`/api/v1/sync/search?q=${encodeURIComponent(searchQuery)}`);
+      // Use the graph search endpoint for local database search
+      const token = localStorage.getItem('auth_token');
+      const response = await fetch(`http://localhost:3000/api/v1/graph/search?q=${encodeURIComponent(searchQuery)}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       const data = await response.json();
-      searchResults = data.artists || [];
+      searchResults = data.data?.artists || [];
     } catch (e) {
       console.error('Search failed:', e);
       searchResults = [];

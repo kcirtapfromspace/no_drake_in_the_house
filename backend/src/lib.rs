@@ -315,6 +315,10 @@ pub fn create_router(state: AppState) -> Router {
         )
         // Graph routes (artist networks)
         .route(
+            "/graph/search",
+            get(handlers::graph::search_artists_handler),
+        )
+        .route(
             "/graph/stats",
             get(handlers::graph::get_global_stats_handler),
         )

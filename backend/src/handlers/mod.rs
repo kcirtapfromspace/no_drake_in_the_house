@@ -10,5 +10,6 @@ pub mod news;
 pub mod oauth;
 pub mod offense;
 pub mod registration_health;
+pub mod spotify_enforcement;
 pub mod sync;
 pub mod user;

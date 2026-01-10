@@ -931,6 +931,151 @@ pub async fn get_global_problematic_revenue_handler(
 }
 
 // ============================================================================
+// Category Revenue Endpoints (Simulated by Offense Category)
+// ============================================================================
+
+/// Query parameters for category revenue requests
+#[derive(Debug, Deserialize)]
+pub struct CategoryRevenueQuery {
+    /// Top N artists per category
+    #[serde(default = "default_top_n")]
+    pub top_n: i32,
+}
+
+fn default_top_n() -> i32 {
+    10
+}
+
+/// Get global revenue distribution across offense categories
+pub async fn get_global_category_revenue_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Get global category revenue request");
+
+    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+
+    match service.get_global_category_revenue().await {
+        Ok(revenue) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": revenue
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get global category revenue: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get revenue breakdown for a specific offense category
+pub async fn get_category_revenue_handler(
+    State(state): State<AppState>,
+    Path(category): Path<String>,
+    _user: AuthenticatedUser,
+    Query(query): Query<CategoryRevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(category = %category, "Get category revenue request");
+
+    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+    let offense_category = crate::services::OffenseCategory::from_str(&category);
+
+    match service.get_category_revenue(offense_category, query.top_n).await {
+        Ok(revenue) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": revenue
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get category revenue: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get artist discography with simulated revenue
+pub async fn get_artist_discography_revenue_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(artist_id = %artist_id, "Get artist discography revenue request");
+
+    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+
+    match service.get_artist_discography_revenue(artist_id).await {
+        Ok(discography) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": discography
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get artist discography revenue: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get user's revenue exposure to offense categories
+pub async fn get_user_category_exposure_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<RevenueQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(user_id = %user.id, days = query.days, "Get user category exposure request");
+
+    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+
+    match service.get_user_category_exposure(user.id, query.days).await {
+        Ok(exposure) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "categories": exposure,
+                "period_days": query.days
+            }
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get user category exposure: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+/// Get all offense categories with descriptions
+pub async fn get_offense_categories_handler(
+    State(_state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Get offense categories request");
+
+    let categories: Vec<serde_json::Value> = crate::services::OffenseCategory::all()
+        .into_iter()
+        .map(|c| {
+            serde_json::json!({
+                "id": c.as_str(),
+                "display_name": c.display_name()
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "categories": categories
+        }
+    })))
+}
+
+// ============================================================================
 // Metrics Endpoints (Prometheus-compatible)
 // ============================================================================
 

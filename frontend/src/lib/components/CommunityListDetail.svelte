@@ -1,9 +1,9 @@
 <script lang="ts">
   import { communityActions, communityStore, subscribedListIds } from '../stores/community';
-  
+
   $: list = $communityStore.currentList;
   $: isSubscribed = list ? $subscribedListIds.has(list.id) : false;
-  
+
   let showSubscriptionOptions = false;
   let versionPinned: number | null = null;
   let autoUpdate = true;
@@ -14,7 +14,7 @@
 
   async function toggleSubscription() {
     if (!list) return;
-    
+
     if (isSubscribed) {
       const result = await communityActions.unsubscribe(list.id);
       if (!result.success) {
@@ -27,7 +27,7 @@
 
   async function confirmSubscription() {
     if (!list) return;
-    
+
     // Get impact preview
     const impact = await communityActions.getSubscriptionImpact(list.id);
     if (impact.success) {
@@ -36,8 +36,8 @@
       );
       if (confirmed) {
         const result = await communityActions.subscribe(
-          list.id, 
-          versionPinned || undefined, 
+          list.id,
+          versionPinned || undefined,
           autoUpdate
         );
         if (result.success) {
@@ -55,9 +55,9 @@
 
   function getProviderBadges(artist: any) {
     const badges = [];
-    if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-100 text-green-800' });
-    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-gray-100 text-gray-800' });
-    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-blue-100 text-blue-800' });
+    if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'text-green-400 bg-green-400/15' });
+    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'text-zinc-300 bg-zinc-300/15' });
+    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'text-blue-400 bg-blue-400/15' });
     return badges;
   }
 </script>
@@ -65,63 +65,66 @@
 {#if list}
   <div class="space-y-6">
     <!-- Header -->
-    <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
+    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
       <div class="flex items-center justify-between mb-4">
         <button
+          type="button"
           on:click={goBack}
-          class="flex items-center text-uswds-sm text-uswds-base-darker hover:text-gray-700"
+          class="flex items-center text-sm text-zinc-400 hover:text-white transition-colors"
         >
-          <svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" class="-ml-1 mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
           Back to lists
         </button>
-        
+
         <div class="flex items-center space-x-2">
           {#if isSubscribed}
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium text-uswds-green-50 bg-green-100">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-green-400 bg-green-400/15">
               Subscribed
             </span>
           {/if}
-          <span class="text-uswds-sm text-uswds-base-darker">v{list.version}</span>
+          <span class="text-sm text-zinc-400">v{list.version}</span>
         </div>
       </div>
-      
+
       <div class="flex justify-between items-start">
         <div class="flex-1">
-          <h1 class="text-uswds-2xl font-bold text-uswds-base-darker">{list.name}</h1>
-          <p class="mt-2 text-uswds-base-darker">{list.description}</p>
-          
-          <div class="mt-4 grid grid-cols-1 gap-uswds-4 sm:grid-cols-3">
-            <div class="text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg">
-              <div class="text-uswds-lg font-semibold text-uswds-base-darker">{list.artists?.length || 0}</div>
-              <div class="text-uswds-sm text-uswds-base-darker">Artists</div>
+          <h1 class="text-2xl font-bold text-white">{list.name}</h1>
+          <p class="mt-2 text-zinc-300">{list.description}</p>
+
+          <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+              <div class="text-lg font-semibold text-white">{list.artists?.length || 0}</div>
+              <div class="text-sm text-zinc-400">Artists</div>
             </div>
-            <div class="text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg">
-              <div class="text-uswds-lg font-semibold text-uswds-base-darker">{list.subscriber_count || 0}</div>
-              <div class="text-uswds-sm text-uswds-base-darker">Subscribers</div>
+            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+              <div class="text-lg font-semibold text-white">{list.subscriber_count || 0}</div>
+              <div class="text-sm text-zinc-400">Subscribers</div>
             </div>
-            <div class="text-center p-uswds-3 bg-uswds-base-lightest rounded-uswds-lg">
-              <div class="text-uswds-lg font-semibold text-uswds-base-darker">{list.update_cadence}</div>
-              <div class="text-uswds-sm text-uswds-base-darker">Updates</div>
+            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+              <div class="text-lg font-semibold text-white">{list.update_cadence}</div>
+              <div class="text-sm text-zinc-400">Updates</div>
             </div>
           </div>
         </div>
-        
+
         <div class="ml-6">
           <button
+            type="button"
             on:click={toggleSubscription}
-            class="inline-flex items-center px-4 py-2 border border-transparent text-uswds-sm font-medium rounded-uswds-md shadow-sm {isSubscribed 
-              ? 'text-uswds-red-50 bg-red-100 hover:bg-red-200 focus:ring-red-500' 
-              : 'text-white bg-primary hover:bg-indigo-700 focus:ring-indigo-500'} focus:outline-none focus:ring-2 focus:ring-offset-2"
+            class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 {isSubscribed
+              ? 'text-red-400 hover:text-red-300 focus:ring-red-500'
+              : 'text-white bg-rose-500 hover:bg-rose-600 focus:ring-rose-500'}"
+            style={isSubscribed ? 'background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4);' : ''}
           >
             {#if isSubscribed}
-              <svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-hidden="true" class="-ml-1 mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
               Unsubscribe
             {:else}
-              <svg aria-hidden="true" class="-ml-1 mr-2 icon-uswds icon-uswds--md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg aria-hidden="true" class="-ml-1 mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
               Subscribe
@@ -133,12 +136,12 @@
 
     <!-- Subscription Options Modal -->
     {#if showSubscriptionOptions}
-      <div class="bg-white shadow rounded-uswds-lg p-uswds-6 border-2 border-indigo-200">
-        <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">Subscription Options</h3>
-        
+      <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #f43f5e;">
+        <h3 class="text-lg font-medium text-white mb-4">Subscription Options</h3>
+
         <div class="space-y-4">
           <div>
-            <h4 class="block text-uswds-sm font-medium text-uswds-base-darker">Version Pinning</h4>
+            <h4 class="block text-sm font-medium text-white">Version Pinning</h4>
             <div class="mt-2 space-y-2">
               <div class="flex items-center">
                 <input
@@ -146,9 +149,9 @@
                   type="radio"
                   bind:group={versionPinned}
                   value={null}
-                  class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-gray-300"
+                  class="focus:ring-rose-500 w-4 h-4 text-rose-500"
                 />
-                <label for="auto-update" class="ml-3 block text-uswds-sm text-uswds-base-darker">
+                <label for="auto-update" class="ml-3 block text-sm text-zinc-300">
                   Auto-update to latest version (recommended)
                 </label>
               </div>
@@ -158,45 +161,48 @@
                   type="radio"
                   bind:group={versionPinned}
                   value={list.version}
-                  class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300"
+                  class="focus:ring-rose-500 w-4 h-4 text-rose-500"
                 />
-                <label for="pin-version" class="ml-3 block text-uswds-sm text-uswds-base-darker">
+                <label for="pin-version" class="ml-3 block text-sm text-zinc-300">
                   Pin to current version (v{list.version})
                 </label>
               </div>
             </div>
           </div>
-          
+
           <div class="flex items-start">
-            <div class="flex items-center icon icon-md">
+            <div class="flex items-center h-5">
               <input
                 id="auto-update-checkbox"
                 type="checkbox"
                 bind:checked={autoUpdate}
-                class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-gray-300 rounded"
+                class="focus:ring-rose-500 w-4 h-4 text-rose-500 rounded"
               />
             </div>
-            <div class="ml-3 text-uswds-sm">
-              <label for="auto-update-checkbox" class="font-medium text-uswds-base-darker">
+            <div class="ml-3 text-sm">
+              <label for="auto-update-checkbox" class="font-medium text-zinc-300">
                 Enable automatic updates
               </label>
-              <p class="text-uswds-base-darker">
+              <p class="text-zinc-400">
                 Receive notifications when the list is updated and apply changes automatically.
               </p>
             </div>
           </div>
         </div>
-        
+
         <div class="mt-6 flex justify-end space-x-3">
           <button
+            type="button"
             on:click={() => showSubscriptionOptions = false}
-            class="px-4 py-2 border border-gray-300 rounded-uswds-md text-uswds-sm font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            class="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
+            style="background: #3f3f46; border: 1px solid #52525b;"
           >
             Cancel
           </button>
           <button
+            type="button"
             on:click={confirmSubscription}
-            class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-uswds-sm font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            class="px-4 py-2 rounded-lg text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
           >
             Subscribe
           </button>
@@ -205,33 +211,34 @@
     {/if}
 
     <!-- Criteria and Governance -->
-    <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
-      <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">List Criteria & Governance</h3>
-      
+    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+      <h3 class="text-lg font-medium text-white mb-4">List Criteria & Governance</h3>
+
       <div class="space-y-4">
         <div>
-          <h4 class="text-uswds-sm font-medium text-uswds-base-darker">Inclusion Criteria</h4>
-          <p class="mt-1 text-uswds-sm text-uswds-base-darker">{list.criteria}</p>
+          <h4 class="text-sm font-medium text-zinc-300">Inclusion Criteria</h4>
+          <p class="mt-1 text-sm text-zinc-400">{list.criteria}</p>
         </div>
-        
-        <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-2">
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <h4 class="text-uswds-sm font-medium text-uswds-base-darker">Update Cadence</h4>
-            <p class="mt-1 text-uswds-sm text-uswds-base-darker capitalize">{list.update_cadence}</p>
+            <h4 class="text-sm font-medium text-zinc-300">Update Cadence</h4>
+            <p class="mt-1 text-sm text-zinc-400 capitalize">{list.update_cadence}</p>
           </div>
           <div>
-            <h4 class="text-uswds-sm font-medium text-uswds-base-darker">Last Updated</h4>
-            <p class="mt-1 text-uswds-sm text-uswds-base-darker">{formatDate(list.updated_at)}</p>
+            <h4 class="text-sm font-medium text-zinc-300">Last Updated</h4>
+            <p class="mt-1 text-sm text-zinc-400">{formatDate(list.updated_at)}</p>
           </div>
         </div>
-        
+
         {#if list.governance_url}
           <div>
-            <h4 class="text-uswds-sm font-medium text-uswds-base-darker">Governance Process</h4>
-            <a 
-              href={list.governance_url} 
-              target="_blank" 
-              class="mt-1 text-uswds-sm text-indigo-600 hover:text-indigo-500"
+            <h4 class="text-sm font-medium text-zinc-300">Governance Process</h4>
+            <a
+              href={list.governance_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="mt-1 text-sm text-rose-400 hover:text-rose-300 transition-colors"
             >
               View governance documentation →
             </a>
@@ -241,66 +248,67 @@
     </div>
 
     <!-- Artists List -->
-    <div class="bg-white shadow rounded-uswds-lg p-uswds-6">
-      <h3 class="text-uswds-lg font-medium text-uswds-base-darker mb-4">
+    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+      <h3 class="text-lg font-medium text-white mb-4">
         Artists ({list.artists?.length || 0})
       </h3>
-      
+
       {#if $communityStore.isLoadingList}
         <div class="text-center py-6">
-          <svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24">
+          <svg aria-hidden="true" class="animate-spin mx-auto w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          <p class="mt-2 text-uswds-sm text-uswds-base-darker">Loading artists...</p>
+          <p class="mt-2 text-sm text-zinc-400">Loading artists...</p>
         </div>
       {:else if list.artists && list.artists.length > 0}
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {#each list.artists as item}
-            <div class="flex items-center justify-between py-3 px-4 bg-uswds-base-lightest rounded-uswds-lg">
+            <div class="flex items-center justify-between py-3 px-4 rounded-lg" style="background: #3f3f46;">
               <div class="flex items-center space-x-3">
                 {#if item.artist.metadata.image}
                   <img
                     src={item.artist.metadata.image}
                     alt={item.artist.canonical_name}
-                    class="avatar avatar--lg object-cover"
+                    class="w-10 h-10 rounded-full object-cover"
                   />
                 {:else}
-                  <div class="icon-uswds icon-uswds--xl rounded-full bg-uswds-base-lightest flex items-center justify-center">
-                    <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: #52525b;">
+                    <svg aria-hidden="true" class="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
                 {/if}
-                
+
                 <div>
-                  <div class="text-uswds-sm font-medium text-uswds-base-darker">
+                  <div class="text-sm font-medium text-white">
                     {item.artist.canonical_name}
                   </div>
                   {#if item.artist.metadata.genres && item.artist.metadata.genres.length > 0}
-                    <div class="text-uswds-xs text-uswds-base-darker">
+                    <div class="text-xs text-zinc-400">
                       {item.artist.metadata.genres.slice(0, 2).join(', ')}
                     </div>
                   {/if}
                   <div class="flex space-x-1 mt-1">
                     {#each getProviderBadges(item.artist) as badge}
-                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-uswds-xs font-medium {badge.color}">
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium {badge.color}">
                         {badge.name}
                       </span>
                     {/each}
                   </div>
                 </div>
               </div>
-              
+
               <div class="text-right">
-                <div class="text-uswds-xs text-uswds-base-darker">
+                <div class="text-xs text-zinc-500">
                   Added {formatDate(item.added_at)}
                 </div>
                 {#if item.rationale_link}
-                  <a 
-                    href={item.rationale_link} 
-                    target="_blank" 
-                    class="text-uswds-xs text-indigo-600 hover:text-indigo-500"
+                  <a
+                    href={item.rationale_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-xs text-rose-400 hover:text-rose-300 transition-colors"
                   >
                     View rationale
                   </a>
@@ -311,20 +319,20 @@
         </div>
       {:else}
         <div class="text-center py-6">
-          <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--lg text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg aria-hidden="true" class="mx-auto w-12 h-12 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          <p class="mt-2 text-uswds-sm text-uswds-base-darker">No artists in this list yet.</p>
+          <p class="mt-2 text-sm text-zinc-400">No artists in this list yet.</p>
         </div>
       {/if}
     </div>
   </div>
 {:else}
   <div class="text-center py-12">
-    <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg aria-hidden="true" class="mx-auto w-16 h-16 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
     </svg>
-    <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No list selected</h3>
-    <p class="mt-1 text-uswds-sm text-uswds-base-darker">Select a list to view its details.</p>
+    <h3 class="mt-2 text-sm font-medium text-white">No list selected</h3>
+    <p class="mt-1 text-sm text-zinc-400">Select a list to view its details.</p>
   </div>
 {/if}

@@ -72,7 +72,7 @@
   function getProviderBadges(artist: any) {
     const badges = [];
     if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-100 text-green-800' });
-    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-gray-100 text-gray-800' });
+    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
     if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-blue-100 text-blue-800' });
     return badges;
   }
@@ -82,7 +82,7 @@
   }
 </script>
 
-<li class="px-4 py-4 sm:px-6 {selected ? 'bg-indigo-50' : 'hover:bg-uswds-base-lightest'}">
+<li class="px-4 py-4 sm:px-6 {selected ? 'bg-indigo-50' : 'hover:bg-zinc-700lightest'}">
   <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
     <!-- Mobile: Checkbox and Actions Row -->
     <div class="flex items-center justify-between sm:hidden">
@@ -90,20 +90,21 @@
         type="checkbox"
         checked={selected}
         on:change={toggleSelect}
-        class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 border-gray-300 rounded"
+        class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 rounded-lg"
+        style="border: 2px solid #52525b;"
       />
       <div class="flex items-center space-x-2">
         {#if !isEditing}
           <button
             on:click={startEdit}
-            class="text-indigo-600 hover:text-indigo-900 text-uswds-sm"
+            class="text-indigo-600 hover:text-indigo-900 text-zinc-400"
           >
             Edit
           </button>
           <button
             on:click={removeArtist}
             disabled={isRemoving}
-            class="text-uswds-red-50 hover:text-red-900 text-uswds-sm disabled:opacity-50"
+            class="text-zinc-400 hover:text-red-900 text-zinc-400 disabled:opacity-50"
           >
             {isRemoving ? 'Removing...' : 'Remove'}
           </button>
@@ -116,7 +117,8 @@
       type="checkbox"
       checked={selected}
       on:change={toggleSelect}
-      class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded "
+      class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg"
+      style="border: 2px solid #52525b;"
     />
 
     <!-- Artist Image -->
@@ -128,8 +130,8 @@
           class="avatar avatar--xl sm:avatar--lg object-cover"
         />
       {:else}
-        <div class="avatar avatar--xl sm:avatar--lg bg-uswds-base-lightest avatar__placeholder">
-          <svg aria-hidden="true" class="icon-uswds icon-uswds--lg sm:icon icon-md sm: text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="avatar avatar--xl sm:avatar--lg bg-zinc-700lightest avatar__placeholder">
+          <svg aria-hidden="true" class="icon-uswds icon-uswds--lg sm:icon icon-md sm: text-zinc-400darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         </div>
@@ -140,12 +142,12 @@
     <div class="flex-1 min-w-0">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div class="flex-1 min-w-0">
-          <p class="text-uswds-sm font-medium text-uswds-base-darker truncate">
+          <p class="text-zinc-400 font-medium text-zinc-400darker truncate">
             {entry.artist.canonical_name}
           </p>
           
           {#if entry.artist.metadata.genres && entry.artist.metadata.genres.length > 0}
-            <p class="text-uswds-xs text-uswds-base-darker truncate">
+            <p class="text-zinc-400 text-zinc-400darker truncate">
               {entry.artist.metadata.genres.slice(0, 2).join(', ')}
             </p>
           {/if}
@@ -154,14 +156,14 @@
             <!-- Provider Badges -->
             <div class="flex flex-wrap gap-uswds-1">
               {#each getProviderBadges(entry.artist) as badge}
-                <span class="flex items-center px-2 py-0.5 rounded text-uswds-xs font-medium {badge.color}">
+                <span class="flex items-center px-2 py-0.5 rounded text-zinc-400 font-medium {badge.color}">
                   {badge.name}
                 </span>
               {/each}
             </div>
             
             <!-- Added Date -->
-            <span class="text-uswds-xs text-uswds-base-darker whitespace-nowrap">
+            <span class="text-zinc-400 text-zinc-400darker whitespace-nowrap">
               Added {formatDate(entry.created_at)}
             </span>
           </div>
@@ -172,14 +174,14 @@
           {#if !isEditing}
             <button
               on:click={startEdit}
-              class="text-indigo-600 hover:text-indigo-900 text-uswds-sm whitespace-nowrap"
+              class="text-indigo-600 hover:text-indigo-900 text-zinc-400 whitespace-nowrap"
             >
               Edit
             </button>
             <button
               on:click={removeArtist}
               disabled={isRemoving}
-              class="text-uswds-red-50 hover:text-red-900 text-uswds-sm disabled:opacity-50 whitespace-nowrap"
+              class="text-zinc-400 hover:text-red-900 text-zinc-400 disabled:opacity-50 whitespace-nowrap"
             >
               {isRemoving ? 'Removing...' : 'Remove'}
             </button>
@@ -193,7 +195,7 @@
           {#if entry.tags.length > 0}
             <div class="flex flex-wrap gap-uswds-1 mb-2">
               {#each entry.tags as tag}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-uswds-xs font-medium bg-uswds-base-lightest text-uswds-base-darker">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-zinc-400 font-medium bg-zinc-700lightest text-zinc-400darker">
                   {tag}
                 </span>
               {/each}
@@ -201,7 +203,7 @@
           {/if}
           
           {#if entry.note}
-            <p class="text-uswds-sm text-uswds-base-darker italic">
+            <p class="text-zinc-400 text-zinc-400darker italic">
               "{entry.note}"
             </p>
           {/if}
@@ -213,37 +215,40 @@
         <div class="mt-3 space-y-3 sm:mt-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-uswds-3">
             <div>
-              <label for="edit-tags-{entry.artist.id}" class="block text-uswds-xs font-medium text-uswds-base-darker">Tags</label>
+              <label for="edit-tags-{entry.artist.id}" class="block text-zinc-400 font-medium text-zinc-300">Tags</label>
               <input
                 id="edit-tags-{entry.artist.id}"
                 type="text"
                 bind:value={editTags}
                 placeholder="comma-separated tags"
-                class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-2 py-1 text-uswds-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-400 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                style="background: #3f3f46; border: 2px solid #52525b;"
               />
             </div>
             
             <div class="sm:col-span-2">
-              <label for="edit-note-{entry.artist.id}" class="block text-uswds-xs font-medium text-uswds-base-darker">Note</label>
+              <label for="edit-note-{entry.artist.id}" class="block text-zinc-400 font-medium text-zinc-300">Note</label>
               <textarea
                 id="edit-note-{entry.artist.id}"
                 bind:value={editNote}
                 rows="2"
                 placeholder="Personal note..."
-                class="mt-1 block w-full border border-gray-300 rounded-uswds-md px-2 py-1 text-uswds-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-400 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                style="background: #3f3f46; border: 2px solid #52525b;"
               ></textarea>
             </div>
           </div>
 
           {#if error}
-            <p class="text-uswds-xs text-uswds-red-50">{error}</p>
+            <p class="text-zinc-400 text-zinc-400">{error}</p>
           {/if}
 
           <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
             <button
               type="button"
               on:click={cancelEdit}
-              class="w-full sm:w-auto px-3 py-2 sm:py-1 border border-gray-300 rounded-uswds-md text-uswds-sm sm:text-uswds-xs font-medium text-uswds-base-darker bg-white hover:bg-uswds-base-lightest"
+              class="w-full sm:w-auto px-3 py-2 sm:py-1 rounded-lg text-zinc-400 sm:text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700"
+              style="background: #3f3f46; border: 2px solid #52525b;"
             >
               Cancel
             </button>
@@ -251,7 +256,7 @@
               type="button"
               on:click={saveEdit}
               disabled={isUpdating}
-              class="w-full sm:w-auto px-3 py-2 sm:py-1 border border-transparent rounded-uswds-md text-uswds-sm sm:text-uswds-xs font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"
+              class="w-full sm:w-auto px-3 py-2 sm:py-1 border border-transparent rounded-lg text-zinc-400 sm:text-zinc-400 font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"
             >
               {isUpdating ? 'Saving...' : 'Save'}
             </button>

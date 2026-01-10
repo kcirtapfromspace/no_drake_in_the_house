@@ -126,11 +126,24 @@
 .font-medium { font-weight: 500; }
 .font-semibold { font-weight: 600; }
 .text-center { text-align: center; }
-.truncate { 
+.truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Line Height / Leading */
+.leading-tight { line-height: 1.25; }
+.leading-snug { line-height: 1.375; }
+.leading-normal { line-height: 1.5; }
+.leading-relaxed { line-height: 1.625; }
+.leading-loose { line-height: 2; }
+
+/* Letter Spacing / Tracking */
+.tracking-tight { letter-spacing: -0.025em; }
+.tracking-normal { letter-spacing: 0; }
+.tracking-wide { letter-spacing: 0.025em; }
+.tracking-wider { letter-spacing: 0.05em; }
 
 /* Colors */
 .text-gray-500 { color: var(--color-gray-500); }
@@ -302,29 +315,29 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
 	padding: 0;
 	box-sizing: border-box;
 	font-family: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-	background-color: #f9fafb;
-	color: #111827;
+	background-color: #000000;
+	color: #ffffff;
 	line-height: 1.5;
 }
 
 /* Global link styles */
 :global(a) {
-	color: #005ea2;
+	color: #f43f5e;
 	text-decoration: underline;
 	text-underline-offset: 0.125rem;
 }
 
 :global(a:hover) {
-	color: #0050d8;
+	color: #fb7185;
 	text-decoration: underline;
 }
 
 :global(a:visited) {
-	color: #1a4480;
+	color: #e11d48;
 }
 
 :global(a:focus) {
-	outline: 0.25rem solid #005ea2;
+	outline: 0.25rem solid #f43f5e;
 	outline-offset: 0.125rem;
 }
 
@@ -334,7 +347,7 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
 }
 
 :global(button:focus) {
-	outline: 0.25rem solid #005ea2;
+	outline: 0.25rem solid #f43f5e;
 	outline-offset: 0.125rem;
 }
 
@@ -342,7 +355,7 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
 :global(input:focus),
 :global(textarea:focus),
 :global(select:focus) {
-	outline: 0.25rem solid #005ea2;
+	outline: 0.25rem solid #f43f5e;
 	outline-offset: 0.125rem;
 }
 

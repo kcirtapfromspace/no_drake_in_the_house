@@ -644,6 +644,7 @@ pub async fn oauth_link_callback_handler(
         provider: provider_type.clone(),
         code: request.code.clone(),
         state: request.state.clone(),
+        redirect_uri: request.redirect_uri.clone(),
     };
 
     match state

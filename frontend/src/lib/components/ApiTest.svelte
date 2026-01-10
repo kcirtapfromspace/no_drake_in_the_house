@@ -71,17 +71,17 @@
   
   function getStatusColor(status: string) {
     switch (status) {
-      case 'success': return 'text-green-600 bg-green-100';
-      case 'error': return 'text-red-600 bg-red-100';
-      case 'skipped': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'success': return 'text-green-400 bg-green-900/50';
+      case 'error': return 'text-red-400 bg-red-900/50';
+      case 'skipped': return 'text-yellow-400 bg-yellow-900/50';
+      default: return 'text-zinc-400 bg-zinc-700';
     }
   }
 </script>
 
-<div class="bg-white shadow rounded-lg p-6 mb-6">
+<div class="shadow rounded-lg p-6 mb-6" style="background: #27272a; border: 1px solid #52525b;">
   <div class="flex justify-between items-center mb-4">
-    <h3 class="text-lg font-medium text-gray-900">API Endpoint Tests</h3>
+    <h3 class="text-lg font-medium text-white">API Endpoint Tests</h3>
     <button
       on:click={runTests}
       disabled={isRunning}
@@ -99,9 +99,9 @@
     </button>
   </div>
   
-  <div class="text-sm text-gray-600 mb-4">
-    Authentication Status: 
-    <span class="font-medium {$isAuthenticated ? 'text-green-600' : 'text-red-600'}">
+  <div class="text-sm text-zinc-400 mb-4">
+    Authentication Status:
+    <span class="font-medium {$isAuthenticated ? 'text-green-400' : 'text-red-400'}">
       {$isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
     </span>
   </div>
@@ -109,28 +109,28 @@
   {#if testResults.length > 0}
     <div class="space-y-3">
       {#each testResults as result}
-        <div class="border rounded-lg p-4">
+        <div class="rounded-lg p-4" style="background: #3f3f46; border: 1px solid #52525b;">
           <div class="flex items-center justify-between mb-2">
-            <h4 class="font-medium text-gray-900">{result.name}</h4>
+            <h4 class="font-medium text-white">{result.name}</h4>
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusColor(result.status)}">
               {result.status}
             </span>
           </div>
           
-          <p class="text-sm text-gray-600 mb-2">{result.message}</p>
-          
+          <p class="text-sm text-zinc-400 mb-2">{result.message}</p>
+
           {#if result.data}
             <details class="mt-2">
-              <summary class="cursor-pointer text-sm text-indigo-600 hover:text-indigo-500">
+              <summary class="cursor-pointer text-sm text-indigo-400 hover:text-indigo-300">
                 Show Response Data
               </summary>
-              <pre class="mt-2 text-xs bg-gray-50 p-2 rounded overflow-x-auto">{result.data}</pre>
+              <pre class="mt-2 text-xs p-2 rounded overflow-x-auto text-zinc-300" style="background: #27272a;">{result.data}</pre>
             </details>
           {/if}
         </div>
       {/each}
     </div>
   {:else}
-    <p class="text-gray-500 text-center py-8">Click "Run Tests" to check API connectivity</p>
+    <p class="text-zinc-400 text-center py-8">Click "Run Tests" to check API connectivity</p>
   {/if}
 </div>

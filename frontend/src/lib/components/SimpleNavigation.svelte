@@ -44,7 +44,7 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<nav class="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
+<nav class="shadow-sm sticky top-0 z-50" style="background: #27272a; border-bottom: 1px solid #52525b;">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
       <!-- Logo and main navigation -->
@@ -56,7 +56,7 @@
           class="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity"
         >
           <span class="text-2xl mr-2" role="img" aria-label="No Drake">🚫🦆</span>
-          <h1 class="text-lg font-bold text-gray-900 hidden sm:block">No Drake</h1>
+          <h1 class="text-lg font-bold text-white hidden sm:block">No Drake</h1>
         </button>
 
         <!-- Desktop navigation -->
@@ -67,8 +67,8 @@
               on:click={() => handleNavigation(item.route)}
               class="inline-flex items-center px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 {
                 $currentRoute === item.route
-                  ? 'bg-indigo-50 text-indigo-700'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'bg-indigo-900 text-indigo-300'
+                  : 'text-zinc-300 hover:text-white hover:bg-zinc-700'
               }"
             >
               {#if item.icon === 'home'}
@@ -113,10 +113,10 @@
           <button
             type="button"
             on:click|stopPropagation={toggleUserMenu}
-            class="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
+            class="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-700 transition-colors"
           >
-            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-              <span class="text-indigo-700 font-medium text-sm">
+            <div class="w-8 h-8 rounded-full bg-indigo-900 flex items-center justify-center">
+              <span class="text-indigo-300 font-medium text-sm">
                 {$currentUser?.email?.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>
@@ -126,14 +126,14 @@
           </button>
 
           {#if userMenuOpen}
-            <div class="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 py-1 z-50">
-              <div class="px-4 py-2 border-b border-gray-100">
-                <p class="text-sm font-medium text-gray-900 truncate">{$currentUser?.email || 'User'}</p>
+            <div class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-50" style="background: #27272a; border: 1px solid #52525b;">
+              <div class="px-4 py-2" style="border-bottom: 1px solid #52525b;">
+                <p class="text-sm font-medium text-white truncate">{$currentUser?.email || 'User'}</p>
               </div>
               <button
                 type="button"
                 on:click={() => { handleNavigation('profile'); userMenuOpen = false; }}
-                class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                class="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700 flex items-center"
               >
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -158,7 +158,7 @@
         <button
           type="button"
           on:click={toggleMobileMenu}
-          class="md:hidden p-2 rounded-md text-gray-500 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+          class="md:hidden p-2 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
           aria-expanded={mobileMenuOpen}
           aria-label="Toggle navigation menu"
         >
@@ -178,7 +178,7 @@
 
   <!-- Mobile navigation -->
   {#if mobileMenuOpen}
-    <div class="md:hidden border-t border-gray-200 bg-white">
+    <div class="md:hidden" style="border-top: 1px solid #52525b; background: #27272a;">
       <div class="px-2 pt-2 pb-3 space-y-1">
         {#each navItems as item}
           <button
@@ -186,8 +186,8 @@
             on:click={() => handleNavigation(item.route)}
             class="w-full flex items-center px-3 py-3 rounded-md text-base font-medium transition-colors {
               $currentRoute === item.route
-                ? 'bg-indigo-50 text-indigo-700'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                ? 'bg-indigo-900 text-indigo-300'
+                : 'text-zinc-300 hover:text-white hover:bg-zinc-700'
             }"
           >
             {#if item.icon === 'home'}
@@ -225,22 +225,22 @@
       </div>
 
       <!-- Mobile user section -->
-      <div class="border-t border-gray-200 px-4 py-4">
+      <div class="px-4 py-4" style="border-top: 1px solid #52525b;">
         <div class="flex items-center mb-3">
-          <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
-            <span class="text-indigo-700 font-medium">
+          <div class="w-10 h-10 rounded-full bg-indigo-900 flex items-center justify-center">
+            <span class="text-indigo-300 font-medium">
               {$currentUser?.email?.charAt(0).toUpperCase() || 'U'}
             </span>
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900 truncate">{$currentUser?.email || 'User'}</p>
+            <p class="text-sm font-medium text-white truncate">{$currentUser?.email || 'User'}</p>
           </div>
         </div>
         <div class="space-y-1">
           <button
             type="button"
             on:click={() => handleNavigation('profile')}
-            class="w-full flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+            class="w-full flex items-center px-3 py-2 rounded-md text-base font-medium text-zinc-300 hover:text-white hover:bg-zinc-700"
           >
             <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

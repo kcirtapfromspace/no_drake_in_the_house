@@ -3,9 +3,10 @@
 //! Coordinates all news ingestion sources and processing components.
 //! Manages scheduling, deduplication, and the overall processing pipeline.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -15,10 +16,12 @@ use super::ingestion::{
     FetchedArticle, NewsApiClient, NewsApiConfig, RedditConfig, RedditMonitor, RssFetcher,
     RssFetcherConfig, TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig,
 };
+use super::offense_creator::OffenseCreator;
 use super::processing::{
     ArticleEmbedding, EmbeddingConfig, EmbeddingGenerator, EntityExtractor, EntityExtractorConfig,
     ExtractedEntity, OffenseClassification, OffenseClassifier, OffenseClassifierConfig,
 };
+use super::repository::NewsRepository;
 
 /// Overall pipeline configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,10 +134,14 @@ pub struct NewsPipelineOrchestrator {
     stats: Arc<RwLock<PipelineStats>>,
     /// Processing state
     is_running: Arc<RwLock<bool>>,
+    /// Database repository for persistence (optional)
+    repository: Option<NewsRepository>,
+    /// Offense creator for auto-creating artist_offenses (optional)
+    offense_creator: Option<OffenseCreator>,
 }
 
 impl NewsPipelineOrchestrator {
-    /// Create a new pipeline orchestrator
+    /// Create a new pipeline orchestrator without database persistence
     pub fn new(config: NewsPipelineConfig) -> Self {
         Self {
             rss_fetcher: RssFetcher::new(config.rss.clone()),
@@ -149,6 +156,29 @@ impl NewsPipelineOrchestrator {
             seen_urls: Arc::new(RwLock::new(HashSet::new())),
             stats: Arc::new(RwLock::new(PipelineStats::default())),
             is_running: Arc::new(RwLock::new(false)),
+            repository: None,
+            offense_creator: None,
+        }
+    }
+
+    /// Create a new pipeline orchestrator with database persistence
+    /// This enables automatic persistence of articles and creation of artist_offenses
+    pub fn with_database(config: NewsPipelineConfig, db_pool: PgPool) -> Self {
+        Self {
+            rss_fetcher: RssFetcher::new(config.rss.clone()),
+            newsapi_client: NewsApiClient::new(config.newsapi.clone()),
+            twitter_monitor: TwitterMonitor::new(config.twitter.clone()),
+            reddit_monitor: RedditMonitor::new(config.reddit.clone()),
+            web_scraper: WebScraper::new(config.scraper.clone()),
+            entity_extractor: EntityExtractor::new(config.entity_extractor.clone()),
+            offense_classifier: OffenseClassifier::new(config.offense_classifier.clone()),
+            embedding_generator: EmbeddingGenerator::new(config.embedding.clone()),
+            config,
+            seen_urls: Arc::new(RwLock::new(HashSet::new())),
+            stats: Arc::new(RwLock::new(PipelineStats::default())),
+            is_running: Arc::new(RwLock::new(false)),
+            repository: Some(NewsRepository::new(db_pool.clone())),
+            offense_creator: Some(OffenseCreator::new(db_pool)),
         }
     }
 
@@ -444,6 +474,46 @@ impl NewsPipelineOrchestrator {
             };
 
             let duration = start.elapsed().as_millis() as u64;
+
+            // Persist to database if repository is configured
+            if let Some(ref repository) = self.repository {
+                if let Err(e) = repository.insert_article(&article, &entities, &offenses).await {
+                    tracing::warn!(url = %article.url, error = %e, "Failed to persist article");
+                } else {
+                    // Create artist_offenses from detected offenses
+                    if let Some(ref offense_creator) = self.offense_creator {
+                        let results = offense_creator
+                            .process_article_offenses(
+                                article.id,
+                                &article.title,
+                                &article.url,
+                                article.published_at,
+                                &offenses,
+                            )
+                            .await;
+
+                        match results {
+                            Ok(creation_results) => {
+                                let created = creation_results.iter().filter(|r| r.created).count();
+                                if created > 0 {
+                                    tracing::info!(
+                                        article_id = %article.id,
+                                        offenses_created = created,
+                                        "Auto-created artist offenses from news"
+                                    );
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    article_id = %article.id,
+                                    error = %e,
+                                    "Failed to create artist offenses"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
 
             processed.push(ProcessedArticle {
                 article,

@@ -48,6 +48,10 @@ pub mod apple_music_enforcement;
 pub mod stubs;
 
 // Disabled services - require significant fixes before re-enabling:
+// Spotify services (need model/method alignment):
+// pub mod spotify;
+// pub mod spotify_library;
+// pub mod spotify_enforcement;
 // - Missing model types (ArtistAlias, ArtistResolutionResult, MatchType)
 // - Trait method mismatches (JobHandler::max_execution_time)
 // - Constructor/struct issues
@@ -56,9 +60,6 @@ pub mod stubs;
 // pub mod external_apis;
 // pub mod token_vault;
 // pub mod token_vault_background;
-// pub mod spotify;
-// pub mod spotify_library;
-// pub mod spotify_enforcement;
 // pub mod apple_music_library;
 // pub mod community_list;
 // pub mod rate_limiting;

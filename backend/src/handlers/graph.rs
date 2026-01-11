@@ -99,9 +99,9 @@ pub async fn get_artist_network_handler(
         });
     }
 
-    // Get center artist
-    let center_artist: Option<(String, Option<String>, Option<Vec<String>>)> = sqlx::query_as(
-        r#"SELECT canonical_name, metadata->>'image_url', genres FROM artists WHERE id = $1"#
+    // Get center artist (genres is in metadata JSONB)
+    let center_artist: Option<(String, Option<String>, Option<serde_json::Value>)> = sqlx::query_as(
+        r#"SELECT canonical_name, metadata->>'image', metadata->'genres' FROM artists WHERE id = $1"#
     )
     .bind(artist_id)
     .fetch_optional(&state.db_pool)
@@ -123,7 +123,8 @@ pub async fn get_artist_network_handler(
     .unwrap_or(false);
 
     // Get collaborators using recursive CTE for depth traversal
-    let network_artists: Vec<(Uuid, String, Option<String>, Option<Vec<String>>, i32, String, i32, bool)> = sqlx::query_as(r#"
+    // Note: genres is in metadata JSONB field
+    let network_artists: Vec<(Uuid, String, Option<String>, Option<serde_json::Value>, i32, String, i32, bool)> = sqlx::query_as(r#"
         WITH RECURSIVE network AS (
             -- Start from the center artist
             SELECT
@@ -152,15 +153,15 @@ pub async fn get_artist_network_handler(
         SELECT DISTINCT ON (a.id)
             a.id,
             a.canonical_name,
-            a.metadata->>'image_url' as image_url,
-            a.genres,
+            a.metadata->>'image' as image_url,
+            a.metadata->'genres' as genres,
             n.distance,
             n.connection_type,
             n.collab_count,
             EXISTS(SELECT 1 FROM user_artist_blocks uab WHERE uab.user_id = $3 AND uab.artist_id = a.id) as is_blocked
         FROM network n
         JOIN artists a ON a.id = n.artist_id
-        WHERE n.distance > 0
+        WHERE n.distance > 0 AND a.id != $1
         ORDER BY a.id, n.distance ASC
         LIMIT $4
     "#)
@@ -172,23 +173,32 @@ pub async fn get_artist_network_handler(
     .await
     .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
 
-    // Build nodes
+    // Build nodes - convert genres from JSON Value to Vec<String>
+    let center_genres: Vec<String> = center.2
+        .as_ref()
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
     let mut nodes = vec![serde_json::json!({
         "id": artist_id,
         "name": center.0,
         "type": "artist",
         "is_blocked": center_blocked,
-        "genres": center.2.unwrap_or_default(),
+        "genres": center_genres,
         "image_url": center.1
     })];
 
-    for (id, name, image_url, genres, _distance, _conn_type, _collab_count, is_blocked) in &network_artists {
+    for (id, name, image_url, genres_json, _distance, _conn_type, _collab_count, is_blocked) in &network_artists {
+        let genres: Vec<String> = genres_json
+            .as_ref()
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
         nodes.push(serde_json::json!({
             "id": id,
             "name": name,
             "type": "artist",
             "is_blocked": is_blocked,
-            "genres": genres.clone().unwrap_or_default(),
+            "genres": genres,
             "image_url": image_url
         }));
     }
@@ -735,8 +745,9 @@ pub async fn search_artists_handler(
     }
 
     // Search local database for artists
-    let artists: Vec<(Uuid, String, Option<Vec<String>>, Option<String>)> = sqlx::query_as(r#"
-        SELECT id, canonical_name, genres, metadata->>'image_url'
+    // Note: genres is stored in metadata JSONB field
+    let artists: Vec<(Uuid, String, Option<serde_json::Value>, Option<String>)> = sqlx::query_as(r#"
+        SELECT id, canonical_name, metadata->'genres', metadata->>'image'
         FROM artists
         WHERE canonical_name ILIKE $1
         ORDER BY
@@ -749,13 +760,20 @@ pub async fn search_artists_handler(
     .bind(query.limit)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| {
+        tracing::error!(error = %e, "Graph search SQL error");
+        AppError::Internal { message: Some(e.to_string()) }
+    })?;
 
-    let artist_list: Vec<serde_json::Value> = artists.iter().map(|(id, name, genres, image_url)| {
+    let artist_list: Vec<serde_json::Value> = artists.iter().map(|(id, name, genres_json, image_url)| {
+        let genres: Vec<String> = genres_json
+            .as_ref()
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
         serde_json::json!({
             "id": id,
             "name": name,
-            "genres": genres.clone().unwrap_or_default(),
+            "genres": genres,
             "is_blocked": false,
             "image_url": image_url
         })

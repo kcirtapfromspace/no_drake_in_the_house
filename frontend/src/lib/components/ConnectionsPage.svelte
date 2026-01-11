@@ -268,24 +268,24 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-green-50 to-white">
+<div class="min-h-screen" style="background: #18181b;">
   <!-- Header -->
-  <div class="bg-white border-b border-gray-100">
+  <div style="background: #27272a; border-bottom: 2px solid #52525b;">
     <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <button
         type="button"
         on:click={() => navigateTo('dashboard')}
-        class="text-gray-500 hover:text-gray-700 mb-4 flex items-center text-sm"
+        class="text-zinc-400 hover:text-zinc-300 mb-4 flex items-center text-sm"
       >
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg>
         Back to Dashboard
       </button>
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <h1 class="text-3xl font-bold text-white mb-2">
         Connect Your Music
       </h1>
-      <p class="text-lg text-gray-600">
+      <p class="text-lg text-zinc-400">
         Link your music data so we can scan for problematic artists.
       </p>
     </div>
@@ -293,15 +293,16 @@
 
   <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
     <!-- Tabs -->
-    <div class="flex space-x-1 bg-gray-100 rounded-xl p-1 mb-8">
+    <div class="flex space-x-1 rounded-xl p-1 mb-8" style="background: #3f3f46;">
       <button
         type="button"
         on:click={() => activeTab = 'services'}
         class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all {
           activeTab === 'services'
-            ? 'bg-white text-gray-900 shadow-sm'
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'text-white shadow-sm'
+            : 'text-zinc-400 hover:text-zinc-300'
         }"
+        style={activeTab === 'services' ? 'background: #27272a;' : ''}
       >
         Streaming Services
       </button>
@@ -310,9 +311,10 @@
         on:click={() => activeTab = 'import'}
         class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all {
           activeTab === 'import'
-            ? 'bg-white text-gray-900 shadow-sm'
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'text-white shadow-sm'
+            : 'text-zinc-400 hover:text-zinc-300'
         }"
+        style={activeTab === 'import' ? 'background: #27272a;' : ''}
       >
         Import Data
       </button>
@@ -321,9 +323,10 @@
         on:click={() => activeTab = 'extension'}
         class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all {
           activeTab === 'extension'
-            ? 'bg-white text-gray-900 shadow-sm'
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'text-white shadow-sm'
+            : 'text-zinc-400 hover:text-zinc-300'
         }"
+        style={activeTab === 'extension' ? 'background: #27272a;' : ''}
       >
         Browser Extension
       </button>
@@ -333,9 +336,9 @@
       <!-- Streaming Services -->
       <div class="space-y-4">
         <!-- Last.fm - Best option -->
-        <div class="bg-white rounded-2xl shadow-lg border-2 border-red-200 p-6">
+        <div class="rounded-xl shadow-lg p-6" style="background: #27272a; border: 2px solid #dc2626;">
           <div class="flex items-center mb-2">
-            <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+            <span class="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs font-medium rounded-full">
               Recommended
             </span>
           </div>
@@ -345,14 +348,14 @@
             </div>
             <div class="flex-1">
               <div class="flex items-center mb-2">
-                <h3 class="text-xl font-bold text-gray-900">Last.fm</h3>
+                <h3 class="text-xl font-bold text-white">Last.fm</h3>
                 {#if connections.lastfm.connected}
-                  <span class="ml-3 px-3 py-1 bg-green-100 text-green-800 text-sm font-medium rounded-full">
+                  <span class="ml-3 px-3 py-1 bg-green-900/50 text-green-400 text-sm font-medium rounded-full">
                     Connected
                   </span>
                 {/if}
               </div>
-              <p class="text-gray-600 mb-4">
+              <p class="text-zinc-400 mb-4">
                 {#if connections.lastfm.connected}
                   Connected as @{connections.lastfm.username}. We can see your complete listening history.
                 {:else}
@@ -366,14 +369,15 @@
                   <button
                     type="button"
                     on:click={() => navigateTo('library-scan')}
-                    class="px-5 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium transition-colors"
+                    class="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors"
                   >
                     Scan Library
                   </button>
                   <button
                     type="button"
                     on:click={() => connections.lastfm = { connected: false, username: '' }}
-                    class="px-5 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                    class="px-5 py-2.5 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium transition-colors"
+                    style="border: 2px solid #52525b;"
                   >
                     Disconnect
                   </button>
@@ -381,7 +385,7 @@
                   <button
                     type="button"
                     on:click={connectLastFm}
-                    class="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors"
+                    class="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
                   >
                     Connect Last.fm
                   </button>
@@ -390,13 +394,13 @@
             </div>
           </div>
 
-          <div class="mt-5 pt-5 border-t border-gray-100">
-            <p class="text-sm text-gray-500">
-              <strong>Don't have Last.fm?</strong> It's free!
-              <a href="https://www.last.fm/join" target="_blank" rel="noopener" class="text-red-600 hover:underline">
+          <div class="mt-5 pt-5" style="border-top: 1px solid #3f3f46;">
+            <p class="text-sm text-zinc-400">
+              <strong class="text-zinc-300">Don't have Last.fm?</strong> It's free!
+              <a href="https://www.last.fm/join" target="_blank" rel="noopener" class="text-red-400 hover:underline">
                 Create an account
               </a> and install the
-              <a href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noopener" class="text-red-600 hover:underline">
+              <a href="https://www.last.fm/about/trackmymusic" target="_blank" rel="noopener" class="text-red-400 hover:underline">
                 scrobbler
               </a> to automatically track what you listen to.
             </p>
@@ -404,7 +408,7 @@
         </div>
 
         <!-- YouTube Music -->
-        <div class="bg-white rounded-2xl border border-gray-100 p-6">
+        <div class="rounded-xl p-6" style="background: #27272a; border: 2px solid #52525b;">
           <div class="flex items-start">
             <div class="w-14 h-14 bg-red-600 rounded-2xl flex items-center justify-center mr-5 flex-shrink-0">
               <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
@@ -412,14 +416,15 @@
               </svg>
             </div>
             <div class="flex-1">
-              <h3 class="text-xl font-bold text-gray-900 mb-2">YouTube Music</h3>
-              <p class="text-gray-600 mb-4">
+              <h3 class="text-xl font-bold text-white mb-2">YouTube Music</h3>
+              <p class="text-zinc-400 mb-4">
                 Connect with your Google account to scan your YouTube Music library.
               </p>
               <button
                 type="button"
                 on:click={connectYouTube}
-                class="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium transition-colors"
+                class="px-6 py-3 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium transition-colors"
+                style="background: #3f3f46;"
               >
                 Coming Soon
               </button>
@@ -428,14 +433,14 @@
         </div>
 
         <!-- Note about Spotify -->
-        <div class="bg-yellow-50 rounded-2xl p-5">
+        <div class="rounded-xl p-5" style="background: #422006; border: 2px solid #854d0e;">
           <div class="flex items-start">
-            <svg class="w-6 h-6 text-yellow-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <svg class="w-6 h-6 text-yellow-500 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
             </svg>
             <div>
-              <h4 class="font-medium text-yellow-900 mb-1">About Spotify</h4>
-              <p class="text-sm text-yellow-800">
+              <h4 class="font-medium text-yellow-400 mb-1">About Spotify</h4>
+              <p class="text-sm text-yellow-300">
                 Spotify is currently not accepting new developer applications.
                 Use Last.fm (works with Spotify!) or import your Spotify data export instead.
               </p>
@@ -446,50 +451,50 @@
 
     {:else if activeTab === 'import'}
       <!-- Import Data -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-4">Import Your Music Data</h2>
-        <p class="text-gray-600 mb-6">
+      <div class="rounded-xl shadow-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+        <h2 class="text-xl font-bold text-white mb-4">Import Your Music Data</h2>
+        <p class="text-zinc-400 mb-6">
           Export your data from streaming services and upload it here. We'll scan it for
           artists with documented misconduct.
         </p>
 
         <!-- Supported formats -->
         <div class="grid sm:grid-cols-2 gap-4 mb-6">
-          <div class="border border-gray-200 rounded-xl p-4">
+          <div class="rounded-xl p-4" style="border: 2px solid #52525b;">
             <div class="flex items-center mb-2">
               <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center mr-3">
                 <span class="text-white text-sm font-bold">S</span>
               </div>
-              <h4 class="font-medium text-gray-900">Spotify</h4>
+              <h4 class="font-medium text-white">Spotify</h4>
             </div>
-            <p class="text-sm text-gray-500 mb-3">
+            <p class="text-sm text-zinc-400 mb-3">
               Upload StreamingHistory.json or YourLibrary.json
             </p>
             <a
               href="https://www.spotify.com/account/privacy/"
               target="_blank"
               rel="noopener"
-              class="text-sm text-green-600 hover:underline"
+              class="text-sm text-green-400 hover:underline"
             >
               Request your data
             </a>
           </div>
 
-          <div class="border border-gray-200 rounded-xl p-4">
+          <div class="rounded-xl p-4" style="border: 2px solid #52525b;">
             <div class="flex items-center mb-2">
               <div class="w-8 h-8 bg-gradient-to-br from-pink-500 to-red-500 rounded-lg flex items-center justify-center mr-3">
                 <span class="text-white text-sm font-bold">A</span>
               </div>
-              <h4 class="font-medium text-gray-900">Apple Music</h4>
+              <h4 class="font-medium text-white">Apple Music</h4>
             </div>
-            <p class="text-sm text-gray-500 mb-3">
+            <p class="text-sm text-zinc-400 mb-3">
               Upload Apple Music Library Tracks.csv
             </p>
             <a
               href="https://privacy.apple.com/"
               target="_blank"
               rel="noopener"
-              class="text-sm text-pink-600 hover:underline"
+              class="text-sm text-pink-400 hover:underline"
             >
               Request your data
             </a>
@@ -497,30 +502,31 @@
         </div>
 
         <!-- Upload area -->
-        <div class="border-2 border-dashed border-gray-300 rounded-xl p-8">
+        <div class="border-2 border-dashed rounded-xl p-8" style="border-color: #52525b;">
           {#if parseStep === 'done'}
             <div class="text-center">
-              <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-16 h-16 bg-green-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 class="font-medium text-lg text-gray-900 mb-2">Import Complete!</h3>
-              <p class="text-gray-600 mb-4">
+              <h3 class="font-medium text-lg text-white mb-2">Import Complete!</h3>
+              <p class="text-zinc-400 mb-4">
                 Successfully imported {importedCount.toLocaleString()} tracks from {detectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}.
               </p>
               <div class="flex justify-center gap-3">
                 <button
                   type="button"
                   on:click={() => navigateTo('library-scan')}
-                  class="px-6 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-medium"
+                  class="px-6 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium"
                 >
                   Scan Library
                 </button>
                 <button
                   type="button"
                   on:click={resetImport}
-                  class="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+                  class="px-6 py-2.5 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium"
+                  style="border: 2px solid #52525b;"
                 >
                   Import More
                 </button>
@@ -530,27 +536,27 @@
           {:else if parseStep === 'importing'}
             <div class="text-center">
               <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p class="text-gray-600">Uploading {parsedTracks.length.toLocaleString()} tracks...</p>
+              <p class="text-zinc-400">Uploading {parsedTracks.length.toLocaleString()} tracks...</p>
             </div>
 
           {:else if parseStep === 'parsing'}
             <div class="text-center">
               <div class="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p class="text-gray-600">Parsing file...</p>
+              <p class="text-zinc-400">Parsing file...</p>
             </div>
 
           {:else if parseStep === 'ready'}
             <div class="text-center">
-              <div class="w-16 h-16 {detectedProvider === 'spotify' ? 'bg-green-100' : 'bg-pink-100'} rounded-full flex items-center justify-center mx-auto mb-4">
+              <div class="w-16 h-16 {detectedProvider === 'spotify' ? 'bg-green-900/50' : 'bg-pink-900/50'} rounded-full flex items-center justify-center mx-auto mb-4">
                 <span class="text-2xl">{detectedProvider === 'spotify' ? '🎵' : '🍎'}</span>
               </div>
-              <h3 class="font-medium text-lg text-gray-900 mb-2">
+              <h3 class="font-medium text-lg text-white mb-2">
                 Ready to Import
               </h3>
-              <p class="text-gray-600 mb-2">
-                Found <strong>{parsedTracks.length.toLocaleString()}</strong> tracks from <strong>{detectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}</strong>
+              <p class="text-zinc-400 mb-2">
+                Found <strong class="text-zinc-300">{parsedTracks.length.toLocaleString()}</strong> tracks from <strong class="text-zinc-300">{detectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}</strong>
               </p>
-              <p class="text-sm text-gray-500 mb-4">
+              <p class="text-sm text-zinc-400 mb-4">
                 File: {importFile?.name}
               </p>
 
@@ -558,14 +564,15 @@
                 <button
                   type="button"
                   on:click={importLibrary}
-                  class="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium"
+                  class="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
                 >
                   Import {parsedTracks.length.toLocaleString()} Tracks
                 </button>
                 <button
                   type="button"
                   on:click={resetImport}
-                  class="px-6 py-2.5 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium"
+                  class="px-6 py-2.5 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium"
+                  style="border: 2px solid #52525b;"
                 >
                   Cancel
                 </button>
@@ -582,18 +589,18 @@
                 id="file-upload"
               />
               <label for="file-upload" class="cursor-pointer block">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: #3f3f46;">
+                  <svg class="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                 </div>
-                <h3 class="font-medium text-gray-900 mb-2">
+                <h3 class="font-medium text-white mb-2">
                   Drop your export file here
                 </h3>
-                <p class="text-sm text-gray-500 mb-4">
+                <p class="text-sm text-zinc-400 mb-4">
                   JSON (Spotify) or CSV (Apple Music)
                 </p>
-                <span class="inline-block px-6 py-2.5 bg-indigo-100 text-indigo-700 rounded-xl font-medium hover:bg-indigo-200 transition-colors">
+                <span class="inline-block px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
                   Choose File
                 </span>
               </label>
@@ -601,17 +608,17 @@
           {/if}
 
           {#if importError}
-            <div class="mt-4 p-4 bg-red-50 rounded-xl">
+            <div class="mt-4 p-4 bg-red-900/30 rounded-xl">
               <div class="flex items-start">
-                <svg class="w-5 h-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-5 h-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                 </svg>
                 <div>
-                  <p class="text-red-800">{importError}</p>
+                  <p class="text-red-400">{importError}</p>
                   <button
                     type="button"
                     on:click={resetImport}
-                    class="text-red-600 underline text-sm mt-1"
+                    class="text-red-400 underline text-sm mt-1"
                   >
                     Try again
                   </button>
@@ -622,11 +629,11 @@
         </div>
 
         <!-- Instructions -->
-        <div class="mt-6 bg-blue-50 rounded-xl p-5">
-          <h4 class="font-medium text-blue-900 mb-3">How to get your data:</h4>
-          <div class="space-y-4 text-sm text-blue-800">
+        <div class="mt-6 rounded-xl p-5" style="background: #1e3a5f;">
+          <h4 class="font-medium text-blue-300 mb-3">How to get your data:</h4>
+          <div class="space-y-4 text-sm text-blue-200">
             <div>
-              <strong class="text-blue-900">Spotify:</strong>
+              <strong class="text-blue-300">Spotify:</strong>
               <ol class="list-decimal list-inside ml-2 mt-1 space-y-1">
                 <li>Go to your <a href="https://www.spotify.com/account/privacy/" target="_blank" class="underline">Privacy Settings</a></li>
                 <li>Click "Request" under "Download your data"</li>
@@ -635,7 +642,7 @@
               </ol>
             </div>
             <div>
-              <strong class="text-blue-900">Apple Music:</strong>
+              <strong class="text-blue-300">Apple Music:</strong>
               <ol class="list-decimal list-inside ml-2 mt-1 space-y-1">
                 <li>Go to <a href="https://privacy.apple.com/" target="_blank" class="underline">privacy.apple.com</a></li>
                 <li>Sign in and select "Request a copy of your data"</li>
@@ -649,68 +656,68 @@
 
     {:else if activeTab === 'extension'}
       <!-- Browser Extension -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+      <div class="rounded-xl shadow-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
         <div class="text-center mb-8">
-          <div class="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="w-20 h-20 bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg class="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
             </svg>
           </div>
-          <h2 class="text-2xl font-bold text-gray-900 mb-2">Browser Extension</h2>
-          <p class="text-gray-600 max-w-lg mx-auto">
+          <h2 class="text-2xl font-bold text-white mb-2">Browser Extension</h2>
+          <p class="text-zinc-400 max-w-lg mx-auto">
             Our browser extension works with any web-based music player and blocks
             artists in real-time as you browse.
           </p>
         </div>
 
         <div class="grid sm:grid-cols-2 gap-4 mb-8">
-          <div class="border border-gray-200 rounded-xl p-5 text-center">
-            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="currentColor">
+          <div class="rounded-xl p-5 text-center" style="border: 2px solid #52525b;">
+            <div class="w-12 h-12 bg-blue-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 0C8.21 0 4.831 1.757 2.632 4.501l3.953 6.848A5.454 5.454 0 0 1 12 6.545h10.691A12 12 0 0 0 12 0zM1.931 5.47A11.943 11.943 0 0 0 0 12c0 6.627 5.373 12 12 12 1.118 0 2.201-.153 3.229-.439l-4.311-7.469a5.455 5.455 0 0 1-5.016-2.895L1.931 5.47zM21.5 8.182H12a5.455 5.455 0 0 1-.019 10.909l4.316 7.479A12 12 0 0 0 21.5 8.182z"/>
               </svg>
             </div>
-            <h4 class="font-medium text-gray-900 mb-2">Chrome</h4>
-            <span class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm inline-block">
+            <h4 class="font-medium text-white mb-2">Chrome</h4>
+            <span class="px-4 py-2 text-zinc-400 rounded-lg text-sm inline-block" style="background: #3f3f46;">
               Coming Soon
             </span>
           </div>
-          <div class="border border-gray-200 rounded-xl p-5 text-center">
-            <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg class="w-6 h-6 text-orange-600" viewBox="0 0 24 24" fill="currentColor">
+          <div class="rounded-xl p-5 text-center" style="border: 2px solid #52525b;">
+            <div class="w-12 h-12 bg-orange-900/50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-6 h-6 text-orange-400" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M23.442 10.037c-.097-.104-.224-.185-.366-.235l-9.197-3.283a.89.89 0 0 0-.576 0l-9.197 3.283c-.142.05-.269.131-.366.235-.097.104-.168.231-.205.371-.037.14-.04.288-.008.43.032.141.098.273.191.385l5.55 6.673c.117.141.278.243.457.29a.89.89 0 0 0 .529-.044l3.193-1.285v4.68c0 .248.098.486.272.661a.93.93 0 0 0 .66.274.93.93 0 0 0 .66-.274.934.934 0 0 0 .273-.661v-4.68l3.193 1.285a.89.89 0 0 0 .529.044c.179-.047.34-.149.457-.29l5.55-6.673c.093-.112.159-.244.191-.385a.867.867 0 0 0-.008-.43.862.862 0 0 0-.205-.371z"/>
               </svg>
             </div>
-            <h4 class="font-medium text-gray-900 mb-2">Firefox</h4>
-            <span class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm inline-block">
+            <h4 class="font-medium text-white mb-2">Firefox</h4>
+            <span class="px-4 py-2 text-zinc-400 rounded-lg text-sm inline-block" style="background: #3f3f46;">
               Coming Soon
             </span>
           </div>
         </div>
 
-        <div class="bg-indigo-50 rounded-xl p-5">
-          <h4 class="font-medium text-indigo-900 mb-2">How the extension works:</h4>
-          <ul class="text-sm text-indigo-800 space-y-2">
+        <div class="rounded-xl p-5" style="background: #312e81;">
+          <h4 class="font-medium text-indigo-300 mb-2">How the extension works:</h4>
+          <ul class="text-sm text-indigo-200 space-y-2">
             <li class="flex items-start">
-              <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg class="w-5 h-5 text-indigo-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
               Runs on Spotify Web Player, YouTube Music, SoundCloud, etc.
             </li>
             <li class="flex items-start">
-              <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg class="w-5 h-5 text-indigo-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
               Highlights or hides tracks from blocked artists
             </li>
             <li class="flex items-start">
-              <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg class="w-5 h-5 text-indigo-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
               Shows warnings before playing flagged content
             </li>
             <li class="flex items-start">
-              <svg class="w-5 h-5 text-indigo-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <svg class="w-5 h-5 text-indigo-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
               </svg>
               Syncs with your blocklist in real-time
@@ -721,16 +728,16 @@
     {/if}
 
     <!-- Help text -->
-    <div class="mt-8 bg-gray-50 rounded-2xl p-6">
+    <div class="mt-8 rounded-xl p-6" style="background: #3f3f46;">
       <div class="flex items-start">
-        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-          <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-12 h-12 rounded-full flex items-center justify-center mr-4 flex-shrink-0" style="background: #52525b;">
+          <svg class="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
         </div>
         <div>
-          <h4 class="font-medium text-gray-900 mb-1">Why connect your music?</h4>
-          <p class="text-sm text-gray-600">
+          <h4 class="font-medium text-white mb-1">Why connect your music?</h4>
+          <p class="text-sm text-zinc-400">
             When you connect your music data, we can scan your library and identify artists
             with documented harmful behavior. You'll see exactly how much of your music
             is affected and can choose to block them.

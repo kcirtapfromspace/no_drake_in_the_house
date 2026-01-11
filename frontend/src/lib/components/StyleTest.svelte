@@ -2,11 +2,11 @@
   // Simple test component to verify styles are working
 </script>
 
-<div class="min-h-screen bg-gray-50 flex items-center justify-center">
-  <div class="max-w-md w-full bg-white rounded-lg shadow p-6">
-    <h1 class="text-2xl font-bold text-gray-900 mb-4">Style Test</h1>
-    <p class="text-gray-600 mb-4">If you can see this styled properly, the CSS is working!</p>
-    
+<div class="min-h-screen flex items-center justify-center" style="background: #27272a;">
+  <div class="max-w-md w-full rounded-lg shadow p-6" style="background: #3f3f46;">
+    <h1 class="text-2xl font-bold text-zinc-300 mb-4">Style Test</h1>
+    <p class="text-zinc-400 mb-4">If you can see this styled properly, the CSS is working!</p>
+
     <div class="flex gap-4 mb-4">
       <div class="icon icon-md icon-primary">
         <svg viewBox="0 0 20 20" fill="currentColor">
@@ -15,7 +15,7 @@
       </div>
       <span class="text-success">Icons working</span>
     </div>
-    
+
     <button class="btn btn-primary w-full">
       Test Button
     </button>

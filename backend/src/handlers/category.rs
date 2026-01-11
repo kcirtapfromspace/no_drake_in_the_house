@@ -122,6 +122,7 @@ fn validate_category(category_id: &str) -> Result<String> {
         "sexual_misconduct",
         "sexual_assault",
         "child_abuse",
+        "certified_creeper",
         "hate_speech",
         "racism",
         "homophobia",
@@ -165,6 +166,11 @@ async fn get_categories_with_status(pool: &PgPool, user_id: Uuid) -> Result<Vec<
             "child_abuse",
             "Child Abuse",
             "Artists convicted or accused of child abuse",
+        ),
+        (
+            "certified_creeper",
+            "Certified Creeper",
+            "Inappropriate behavior with minors or grooming allegations",
         ),
         (
             "violent_crime",

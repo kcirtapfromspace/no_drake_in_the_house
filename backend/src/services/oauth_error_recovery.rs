@@ -635,7 +635,7 @@ mod tests {
         let attempt_count = Arc::new(AtomicU32::new(0));
         let attempt_count_clone = Arc::clone(&attempt_count);
 
-        let result = recovery_service
+        let result: Result<()> = recovery_service
             .execute_with_recovery(OAuthProviderType::Google, "test_operation", move || {
                 attempt_count_clone.fetch_add(1, Ordering::SeqCst);
                 Box::pin(async move {

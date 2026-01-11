@@ -34,9 +34,11 @@
 
     try {
       // Complete the OAuth link flow
+      // Include redirect_uri to match the backend's OAuthCallbackRequest
       const result = await apiClient.post(`/api/v1/auth/oauth/${provider}/link-callback`, {
         code,
-        state
+        state,
+        redirect_uri: window.location.origin + window.location.pathname
       });
 
       if (result.success) {
@@ -74,14 +76,14 @@
   }
 </script>
 
-<div class="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-  <div class="bg-gray-800 rounded-xl border border-gray-600 p-8 max-w-md w-full text-center">
+<div class="min-h-screen text-white flex items-center justify-center p-4" style="background: #27272a;">
+  <div class="rounded-xl p-8 max-w-md w-full text-center" style="background: #3f3f46; border: 1px solid #52525b;">
     {#if status === 'loading'}
       <div class="mb-6">
         <div class="w-16 h-16 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
       </div>
       <h1 class="text-xl font-bold mb-2">Connecting {getProviderName(provider)}</h1>
-      <p class="text-gray-400">Please wait while we complete the connection...</p>
+      <p class="text-zinc-400">Please wait while we complete the connection...</p>
     {:else if status === 'success'}
       <div class="mb-6">
         <div class="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto">
@@ -91,7 +93,7 @@
         </div>
       </div>
       <h1 class="text-xl font-bold mb-2 text-green-400">Connected!</h1>
-      <p class="text-gray-400 mb-6">Your {getProviderName(provider)} account has been linked successfully.</p>
+      <p class="text-zinc-400 mb-6">Your {getProviderName(provider)} account has been linked successfully.</p>
       <button
         on:click={goToSettings}
         class="px-6 py-3 bg-rose-600 hover:bg-rose-700 rounded-lg font-medium transition-colors"
@@ -107,11 +109,11 @@
         </div>
       </div>
       <h1 class="text-xl font-bold mb-2 text-red-400">Connection Failed</h1>
-      <p class="text-gray-400 mb-6">{errorMessage}</p>
+      <p class="text-zinc-400 mb-6">{errorMessage}</p>
       <div class="flex gap-3 justify-center">
         <button
           on:click={goToSettings}
-          class="px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium transition-colors"
+          class="px-6 py-3 rounded-lg font-medium transition-colors" style="background: #3f3f46; border: 1px solid #52525b;"
         >
           Try Again
         </button>

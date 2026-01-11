@@ -266,21 +266,21 @@
   }
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-amber-50 to-white">
+<div class="min-h-screen" style="background: linear-gradient(to bottom, #27272a, #18181b);">
   <!-- Header -->
-  <div class="bg-white border-b border-gray-100">
+  <div style="background: #27272a; border-bottom: 1px solid #52525b;">
     <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <button
         type="button"
         on:click={() => viewMode === 'browse' ? navigateTo('dashboard') : goBack()}
-        class="text-gray-500 hover:text-gray-700 mb-4 flex items-center text-sm"
+        class="text-zinc-400 hover:text-white mb-4 flex items-center text-sm"
       >
         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg>
         {viewMode === 'browse' ? 'Back to Dashboard' : 'Back'}
       </button>
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">
+      <h1 class="text-3xl font-bold text-white mb-2">
         {#if viewMode === 'browse'}
           Offense Database
         {:else if viewMode === 'detail'}
@@ -291,7 +291,7 @@
           Add Evidence
         {/if}
       </h1>
-      <p class="text-lg text-gray-600">
+      <p class="text-lg text-zinc-400">
         {#if viewMode === 'browse'}
           Browse documented cases of artist misconduct with verified evidence.
         {:else if viewMode === 'detail'}
@@ -326,11 +326,11 @@
         <!-- Action bar -->
         <div class="flex items-center justify-between flex-wrap gap-4">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-sm text-gray-500">Filter by severity:</span>
+            <span class="text-sm text-zinc-400">Filter by severity:</span>
             <button
               type="button"
               on:click={() => handleSeverityFilter(null)}
-              class="px-3 py-1.5 text-sm rounded-lg transition-colors {severityFilter === null ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+              class="px-3 py-1.5 text-sm rounded-lg transition-colors {severityFilter === null ? 'bg-zinc-700 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}"
             >
               All
             </button>
@@ -338,7 +338,7 @@
               <button
                 type="button"
                 on:click={() => handleSeverityFilter(sev.value)}
-                class="px-3 py-1.5 text-sm rounded-lg transition-colors {severityFilter === sev.value ? severityConfig[sev.value].color + ' text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+                class="px-3 py-1.5 text-sm rounded-lg transition-colors {severityFilter === sev.value ? severityConfig[sev.value].color + ' text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}"
               >
                 {sev.label}
               </button>
@@ -359,19 +359,19 @@
 
         <!-- Artists list -->
         {#if loading}
-          <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+          <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
             <div class="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <p class="mt-4 text-gray-600">Loading offense database...</p>
+            <p class="mt-4 text-zinc-300">Loading offense database...</p>
           </div>
         {:else if flaggedArtists.length === 0}
-          <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
-            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
+            <div class="w-16 h-16 bg-zinc-700 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg class="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">No records found</h3>
-            <p class="text-gray-600 mb-4">Be the first to document artist misconduct.</p>
+            <h3 class="text-lg font-semibold text-white mb-2">No records found</h3>
+            <p class="text-zinc-400 mb-4">Be the first to document artist misconduct.</p>
             <button
               type="button"
               on:click={openSubmitOffenseForm}
@@ -383,18 +383,18 @@
         {:else}
           <div class="space-y-4">
             {#each flaggedArtists as artist}
-              <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div class="rounded-2xl shadow-sm overflow-hidden" style="background: #27272a; border: 1px solid #52525b;">
                 <div class="p-5">
                   <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center">
-                      <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-xl mr-4">
-                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                      <div class="w-12 h-12 bg-zinc-700 rounded-full flex items-center justify-center text-xl mr-4">
+                        <svg class="w-6 h-6 text-zinc-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
                         </svg>
                       </div>
                       <div>
-                        <h4 class="font-bold text-gray-900">{artist.name}</h4>
-                        <p class="text-sm text-gray-500">
+                        <h4 class="font-bold text-white">{artist.name}</h4>
+                        <p class="text-sm text-zinc-400">
                           {artist.offenses.length} documented offense{artist.offenses.length !== 1 ? 's' : ''}
                         </p>
                       </div>
@@ -406,14 +406,14 @@
 
                   <div class="space-y-2">
                     {#each artist.offenses as offense}
-                      <div class="bg-gray-50 rounded-xl p-4">
+                      <div class="rounded-xl p-4" style="background: #3f3f46;">
                         <div class="flex items-start justify-between">
                           <div class="flex-1">
-                            <span class="text-xs font-medium text-amber-700 uppercase tracking-wide">
+                            <span class="text-xs font-medium text-amber-400 uppercase tracking-wide">
                               {categoryLabels[offense.category]}
                             </span>
-                            <h5 class="font-medium text-gray-900 mt-1">{offense.title}</h5>
-                            <p class="text-sm text-gray-500 mt-1">
+                            <h5 class="font-medium text-white mt-1">{offense.title}</h5>
+                            <p class="text-sm text-zinc-400 mt-1">
                               {offense.date} - {offense.evidence_count} evidence source{offense.evidence_count !== 1 ? 's' : ''}
                             </p>
                           </div>
@@ -435,16 +435,16 @@
         {/if}
 
         <!-- Info card -->
-        <div class="bg-amber-50 rounded-2xl p-6 mt-8">
+        <div class="bg-amber-900/30 rounded-2xl p-6 mt-8 border border-amber-800">
           <div class="flex items-start">
-            <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
-              <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="w-12 h-12 bg-amber-800 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+              <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
             <div>
-              <h4 class="font-medium text-amber-900 mb-1">About This Database</h4>
-              <p class="text-sm text-amber-800">
+              <h4 class="font-medium text-amber-400 mb-1">About This Database</h4>
+              <p class="text-sm text-amber-300">
                 All entries require documented evidence from reputable sources. Reports are reviewed
                 before being marked as verified. Please submit only factual information with proper citations.
               </p>
@@ -456,49 +456,49 @@
     {:else if viewMode === 'detail'}
       <!-- Detail view -->
       {#if loadingDetail}
-        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
+        <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
           <div class="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p class="mt-4 text-gray-600">Loading offense details...</p>
+          <p class="mt-4 text-zinc-300">Loading offense details...</p>
         </div>
       {:else if selectedOffense}
         <div class="space-y-6">
-          <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+          <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
             <div class="flex items-start justify-between mb-6">
               <div>
-                <span class="text-xs font-medium text-amber-700 uppercase tracking-wide">
+                <span class="text-xs font-medium text-amber-400 uppercase tracking-wide">
                   {categoryLabels[selectedOffense.offense.category]}
                 </span>
-                <h2 class="text-xl font-bold text-gray-900 mt-1">{selectedOffense.offense.title}</h2>
-                <p class="text-gray-500">Artist: {selectedOffense.artist_name}</p>
+                <h2 class="text-xl font-bold text-white mt-1">{selectedOffense.offense.title}</h2>
+                <p class="text-zinc-400">Artist: {selectedOffense.artist_name}</p>
               </div>
               <span class="px-3 py-1 {severityConfig[selectedOffense.offense.severity].color} text-white text-xs font-medium rounded-full">
                 {severityConfig[selectedOffense.offense.severity].label}
               </span>
             </div>
 
-            <div class="prose prose-sm max-w-none text-gray-700 mb-6">
+            <div class="prose prose-sm max-w-none text-zinc-300 mb-6">
               <p>{selectedOffense.offense.description}</p>
             </div>
 
             <div class="flex flex-wrap gap-2 text-sm">
               {#if selectedOffense.offense.incident_date}
-                <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
+                <span class="px-3 py-1 bg-zinc-700 text-zinc-300 rounded-full">
                   Date: {selectedOffense.offense.incident_date} {selectedOffense.offense.incident_date_approximate ? '(approx)' : ''}
                 </span>
               {/if}
               {#if selectedOffense.offense.arrested}
-                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full">Arrested</span>
+                <span class="px-3 py-1 bg-red-900/50 text-red-400 rounded-full">Arrested</span>
               {/if}
               {#if selectedOffense.offense.charged}
-                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full">Charged</span>
+                <span class="px-3 py-1 bg-red-900/50 text-red-400 rounded-full">Charged</span>
               {/if}
               {#if selectedOffense.offense.convicted}
-                <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full">Convicted</span>
+                <span class="px-3 py-1 bg-red-900/50 text-red-400 rounded-full">Convicted</span>
               {/if}
               {#if selectedOffense.offense.settled}
-                <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full">Settled</span>
+                <span class="px-3 py-1 bg-yellow-900/50 text-yellow-400 rounded-full">Settled</span>
               {/if}
-              <span class="px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
+              <span class="px-3 py-1 bg-zinc-700 text-zinc-300 rounded-full">
                 Status: {selectedOffense.offense.status}
               </span>
             </div>
@@ -506,7 +506,7 @@
 
           <!-- Evidence section -->
           <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900">Evidence ({selectedOffense.evidence.length})</h3>
+            <h3 class="text-lg font-semibold text-white">Evidence ({selectedOffense.evidence.length})</h3>
             <button
               type="button"
               on:click={() => openAddEvidenceForm(selectedOffense?.offense.id ?? '')}
@@ -520,8 +520,8 @@
           </div>
 
           {#if selectedOffense.evidence.length === 0}
-            <div class="bg-gray-50 rounded-xl p-6 text-center">
-              <p class="text-gray-600">No evidence has been submitted yet.</p>
+            <div class="rounded-xl p-6 text-center" style="background: #3f3f46;">
+              <p class="text-zinc-300">No evidence has been submitted yet.</p>
               <button
                 type="button"
                 on:click={() => openAddEvidenceForm(selectedOffense?.offense.id ?? '')}
@@ -533,23 +533,23 @@
           {:else}
             <div class="space-y-4">
               {#each selectedOffense.evidence as ev}
-                <div class="bg-white rounded-xl border border-gray-200 p-4">
+                <div class="rounded-xl p-4" style="background: #27272a; border: 1px solid #52525b;">
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center gap-2 mb-2">
                         {#if ev.is_primary_source}
-                          <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Primary Source</span>
+                          <span class="px-2 py-0.5 bg-green-900/50 text-green-400 text-xs font-medium rounded">Primary Source</span>
                         {/if}
                         {#if ev.source_type}
-                          <span class="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded capitalize">{ev.source_type.replace('_', ' ')}</span>
+                          <span class="px-2 py-0.5 bg-zinc-700 text-zinc-300 text-xs rounded capitalize">{ev.source_type.replace('_', ' ')}</span>
                         {/if}
                       </div>
-                      <h5 class="font-medium text-gray-900">{ev.title || ev.source_name || 'Evidence Link'}</h5>
+                      <h5 class="font-medium text-white">{ev.title || ev.source_name || 'Evidence Link'}</h5>
                       {#if ev.excerpt}
-                        <p class="text-sm text-gray-600 mt-2 italic">"{ev.excerpt}"</p>
+                        <p class="text-sm text-zinc-400 mt-2 italic">"{ev.excerpt}"</p>
                       {/if}
                       {#if ev.published_date}
-                        <p class="text-xs text-gray-500 mt-2">Published: {ev.published_date}</p>
+                        <p class="text-xs text-zinc-500 mt-2">Published: {ev.published_date}</p>
                       {/if}
                     </div>
                     <a
@@ -576,11 +576,11 @@
 
     {:else if viewMode === 'submit-offense'}
       <!-- Submit offense form -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+      <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
         <form on:submit|preventDefault={submitOffense} class="space-y-6">
           <!-- Artist search -->
           <div>
-            <label for="artist-search" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="artist-search" class="block text-sm font-medium text-zinc-300 mb-2">
               Artist Name <span class="text-red-500">*</span>
             </label>
             <div class="relative">
@@ -590,15 +590,16 @@
                 bind:value={artistSearchQuery}
                 on:input={handleArtistSearch}
                 placeholder="Search for artist..."
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+                style="border: 1px solid #52525b;"
               />
               {#if artistSearchResults.length > 0}
-                <div class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-auto">
+                <div class="absolute z-10 w-full mt-1 rounded-xl shadow-lg max-h-60 overflow-auto" style="background: #3f3f46; border: 1px solid #52525b;">
                   {#each artistSearchResults as result}
                     <button
                       type="button"
                       on:click={() => selectArtist(result)}
-                      class="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-0"
+                      class="w-full px-4 py-3 text-left text-zinc-300 hover:bg-zinc-600 border-b border-zinc-600 last:border-0"
                     >
                       {result.name}
                     </button>
@@ -613,13 +614,14 @@
 
           <!-- Category -->
           <div>
-            <label for="category" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="category" class="block text-sm font-medium text-zinc-300 mb-2">
               Category <span class="text-red-500">*</span>
             </label>
             <select
               id="category"
               bind:value={offenseForm.category}
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             >
               {#each categories as cat}
                 <option value={cat.value}>{cat.label}</option>
@@ -629,7 +631,7 @@
 
           <!-- Severity -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
+            <label class="block text-sm font-medium text-zinc-300 mb-2">
               Severity <span class="text-red-500">*</span>
             </label>
             <div class="grid grid-cols-2 gap-3">
@@ -642,9 +644,9 @@
                     bind:group={offenseForm.severity}
                     class="sr-only peer"
                   />
-                  <div class="p-4 border-2 rounded-xl peer-checked:border-amber-500 peer-checked:bg-amber-50 hover:bg-gray-50 transition-colors">
-                    <div class="font-medium text-gray-900">{sev.label}</div>
-                    <div class="text-xs text-gray-500 mt-1">{sev.description}</div>
+                  <div class="p-4 border-2 rounded-xl peer-checked:border-amber-500 peer-checked:bg-amber-900/30 hover:bg-zinc-700 transition-colors border-zinc-600">
+                    <div class="font-medium text-white">{sev.label}</div>
+                    <div class="text-xs text-zinc-400 mt-1">{sev.description}</div>
                   </div>
                 </label>
               {/each}
@@ -653,7 +655,7 @@
 
           <!-- Title -->
           <div>
-            <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="title" class="block text-sm font-medium text-zinc-300 mb-2">
               Title <span class="text-red-500">*</span>
             </label>
             <input
@@ -661,13 +663,14 @@
               type="text"
               bind:value={offenseForm.title}
               placeholder="Brief description of the offense"
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             />
           </div>
 
           <!-- Description -->
           <div>
-            <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="description" class="block text-sm font-medium text-zinc-300 mb-2">
               Description <span class="text-red-500">*</span>
             </label>
             <textarea
@@ -675,21 +678,23 @@
               bind:value={offenseForm.description}
               rows="4"
               placeholder="Provide a factual summary of the incident..."
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             ></textarea>
           </div>
 
           <!-- Incident date -->
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="incident-date" class="block text-sm font-medium text-gray-700 mb-2">
+              <label for="incident-date" class="block text-sm font-medium text-zinc-300 mb-2">
                 Incident Date
               </label>
               <input
                 id="incident-date"
                 type="date"
                 bind:value={offenseForm.incident_date}
-                class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+                style="border: 1px solid #52525b;"
               />
             </div>
             <div class="flex items-end">
@@ -697,32 +702,32 @@
                 <input
                   type="checkbox"
                   bind:checked={offenseForm.incident_date_approximate}
-                  class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                  class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800"
                 />
-                <span class="ml-2 text-sm text-gray-600">Date is approximate</span>
+                <span class="ml-2 text-sm text-zinc-400">Date is approximate</span>
               </label>
             </div>
           </div>
 
           <!-- Legal status checkboxes -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Legal Status</label>
+            <label class="block text-sm font-medium text-zinc-300 mb-2">Legal Status</label>
             <div class="flex flex-wrap gap-4">
               <label class="flex items-center">
-                <input type="checkbox" bind:checked={offenseForm.arrested} class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <span class="ml-2 text-sm text-gray-600">Arrested</span>
+                <input type="checkbox" bind:checked={offenseForm.arrested} class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800" />
+                <span class="ml-2 text-sm text-zinc-400">Arrested</span>
               </label>
               <label class="flex items-center">
-                <input type="checkbox" bind:checked={offenseForm.charged} class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <span class="ml-2 text-sm text-gray-600">Charged</span>
+                <input type="checkbox" bind:checked={offenseForm.charged} class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800" />
+                <span class="ml-2 text-sm text-zinc-400">Charged</span>
               </label>
               <label class="flex items-center">
-                <input type="checkbox" bind:checked={offenseForm.convicted} class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <span class="ml-2 text-sm text-gray-600">Convicted</span>
+                <input type="checkbox" bind:checked={offenseForm.convicted} class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800" />
+                <span class="ml-2 text-sm text-zinc-400">Convicted</span>
               </label>
               <label class="flex items-center">
-                <input type="checkbox" bind:checked={offenseForm.settled} class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500" />
-                <span class="ml-2 text-sm text-gray-600">Settled</span>
+                <input type="checkbox" bind:checked={offenseForm.settled} class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800" />
+                <span class="ml-2 text-sm text-zinc-400">Settled</span>
               </label>
             </div>
           </div>
@@ -739,9 +744,9 @@
 
     {:else if viewMode === 'add-evidence'}
       <!-- Add evidence form -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-        <div class="mb-6 p-4 bg-amber-50 rounded-xl">
-          <p class="text-sm text-amber-800">
+      <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
+        <div class="mb-6 p-4 bg-amber-900/30 rounded-xl border border-amber-800">
+          <p class="text-sm text-amber-300">
             Evidence should be from reputable sources: news articles, court documents, police reports, or official statements.
           </p>
         </div>
@@ -749,7 +754,7 @@
         <form on:submit|preventDefault={submitEvidence} class="space-y-6">
           <!-- URL -->
           <div>
-            <label for="evidence-url" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="evidence-url" class="block text-sm font-medium text-zinc-300 mb-2">
               Source URL <span class="text-red-500">*</span>
             </label>
             <input
@@ -757,13 +762,14 @@
               type="url"
               bind:value={evidenceForm.url}
               placeholder="https://..."
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             />
           </div>
 
           <!-- Source name -->
           <div>
-            <label for="source-name" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="source-name" class="block text-sm font-medium text-zinc-300 mb-2">
               Source Name
             </label>
             <input
@@ -771,19 +777,21 @@
               type="text"
               bind:value={evidenceForm.source_name}
               placeholder="e.g., New York Times, AP News"
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             />
           </div>
 
           <!-- Source type -->
           <div>
-            <label for="source-type" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="source-type" class="block text-sm font-medium text-zinc-300 mb-2">
               Source Type
             </label>
             <select
               id="source-type"
               bind:value={evidenceForm.source_type}
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             >
               {#each sourceTypes as st}
                 <option value={st.value}>{st.label}</option>
@@ -793,7 +801,7 @@
 
           <!-- Title -->
           <div>
-            <label for="evidence-title" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="evidence-title" class="block text-sm font-medium text-zinc-300 mb-2">
               Article/Document Title
             </label>
             <input
@@ -801,13 +809,14 @@
               type="text"
               bind:value={evidenceForm.title}
               placeholder="Title of the article or document"
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             />
           </div>
 
           <!-- Excerpt -->
           <div>
-            <label for="excerpt" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="excerpt" class="block text-sm font-medium text-zinc-300 mb-2">
               Key Excerpt
             </label>
             <textarea
@@ -815,20 +824,22 @@
               bind:value={evidenceForm.excerpt}
               rows="3"
               placeholder="Quote a relevant passage from the source..."
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             ></textarea>
           </div>
 
           <!-- Published date -->
           <div>
-            <label for="published-date" class="block text-sm font-medium text-gray-700 mb-2">
+            <label for="published-date" class="block text-sm font-medium text-zinc-300 mb-2">
               Published Date
             </label>
             <input
               id="published-date"
               type="date"
               bind:value={evidenceForm.published_date}
-              class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
+              style="border: 1px solid #52525b;"
             />
           </div>
 
@@ -838,9 +849,9 @@
               <input
                 type="checkbox"
                 bind:checked={evidenceForm.is_primary_source}
-                class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                class="w-4 h-4 text-amber-600 border-zinc-600 rounded focus:ring-amber-500 bg-zinc-800"
               />
-              <span class="ml-2 text-sm text-gray-600">This is a primary source (court document, police report, direct video)</span>
+              <span class="ml-2 text-sm text-zinc-400">This is a primary source (court document, police report, direct video)</span>
             </label>
           </div>
 
@@ -855,7 +866,8 @@
             <button
               type="button"
               on:click={goBack}
-              class="px-6 py-3 border border-gray-200 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+              class="px-6 py-3 text-zinc-300 font-medium rounded-xl hover:bg-zinc-700 transition-colors"
+              style="border: 1px solid #52525b;"
             >
               Done
             </button>

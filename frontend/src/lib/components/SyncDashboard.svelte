@@ -27,11 +27,11 @@
 
   function getStatusColor(status: string): string {
     switch (status) {
-      case 'running': return 'bg-blue-100 text-blue-700';
-      case 'completed': return 'bg-green-100 text-green-700';
-      case 'error': case 'failed': return 'bg-red-100 text-red-700';
-      case 'cancelled': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-600';
+      case 'running': return 'bg-blue-500/20 text-blue-400';
+      case 'completed': return 'bg-green-500/20 text-green-400';
+      case 'error': case 'failed': return 'bg-red-500/20 text-red-400';
+      case 'cancelled': return 'bg-zinc-500/20 text-zinc-300';
+      default: return 'bg-zinc-500/20 text-zinc-300';
     }
   }
 
@@ -107,14 +107,14 @@
                    healthStatus === 'degraded' ? 'text-yellow-600' : 'text-red-600';
 </script>
 
-<div class="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+<div class="min-h-screen" style="background: linear-gradient(to bottom, #27272a, #18181b);">
   <!-- Header -->
-  <div class="bg-white border-b border-gray-100">
+  <div class="bg-zinc-900" style="border-bottom: 1px solid #52525b;">
     <div class="max-w-6xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <button
         type="button"
         on:click={() => navigateTo('home')}
-        class="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors mb-4"
+        class="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4"
       >
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -123,10 +123,10 @@
       </button>
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-3xl font-bold text-gray-900 mb-2">
+          <h1 class="text-3xl font-bold text-white mb-2">
             Catalog Sync
           </h1>
-          <p class="text-lg text-gray-600">
+          <p class="text-lg text-zinc-400">
             Synchronize artist catalogs across streaming platforms.
           </p>
         </div>
@@ -150,18 +150,18 @@
   <div class="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
     <!-- Health Status -->
     {#if $syncStore.health}
-      <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm mb-6">
+      <div class="bg-zinc-900 rounded-xl p-4 shadow-sm mb-6" style="border: 1px solid #52525b;">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <span class="text-2xl">
               {healthStatus === 'healthy' ? '💚' : healthStatus === 'degraded' ? '💛' : '❤️'}
             </span>
             <div>
-              <span class="font-medium text-gray-900">Overall Health:</span>
+              <span class="font-medium text-white">Overall Health:</span>
               <span class="{healthColor} font-semibold ml-2 capitalize">{healthStatus}</span>
             </div>
           </div>
-          <div class="flex items-center gap-4 text-sm text-gray-500">
+          <div class="flex items-center gap-4 text-sm text-zinc-400">
             {#each $syncStore.health.platforms as platform}
               <div class="flex items-center gap-1">
                 <span class={platform.is_healthy ? 'text-green-500' : 'text-red-500'}>
@@ -190,28 +190,28 @@
 
     <!-- Platform Status Grid -->
     <div class="mb-8">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">Platform Status</h2>
+      <h2 class="text-xl font-semibold text-white mb-4">Platform Status</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {#each platforms as platform}
           {@const status = $platformsStatus.find(s => s.platform === platform.id)}
-          <div class="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+          <div class="bg-zinc-900 rounded-xl p-5 shadow-sm" style="border: 1px solid #52525b;">
             <div class="flex items-start justify-between mb-3">
               <div class="flex items-center gap-3">
                 <span class="text-2xl">{platform.icon}</span>
                 <div>
-                  <div class="font-medium text-gray-900">{platform.name}</div>
+                  <div class="font-medium text-white">{platform.name}</div>
                   {#if status}
                     <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {getStatusColor(status.status)}">
                       {getStatusIcon(status.status)} {status.status}
                     </span>
                   {:else}
-                    <span class="text-xs text-gray-400">Not synced</span>
+                    <span class="text-xs text-zinc-300">Not synced</span>
                   {/if}
                 </div>
               </div>
             </div>
             {#if status}
-              <div class="space-y-1 text-sm text-gray-600">
+              <div class="space-y-1 text-sm text-zinc-400">
                 <div class="flex justify-between">
                   <span>Artists:</span>
                   <span class="font-medium">{status.artists_count?.toLocaleString() ?? 0}</span>
@@ -235,7 +235,7 @@
     <!-- Recent Sync Runs -->
     <div>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold text-gray-900">Recent Sync Runs</h2>
+        <h2 class="text-xl font-semibold text-white">Recent Sync Runs</h2>
         <button
           type="button"
           on:click={() => syncActions.fetchRuns()}
@@ -250,27 +250,27 @@
           <div class="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       {:else if $recentRuns.length === 0}
-        <div class="bg-gray-50 rounded-xl p-8 text-center">
+        <div class="rounded-xl p-8 text-center" style="background: #3f3f46;">
           <span class="text-4xl mb-3 block">📭</span>
-          <p class="text-gray-600">No sync runs yet. Trigger your first sync above.</p>
+          <p class="text-zinc-300">No sync runs yet. Trigger your first sync above.</p>
         </div>
       {:else}
-        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="bg-zinc-900 rounded-xl shadow-sm overflow-hidden" style="border: 1px solid #52525b;">
           <table class="w-full">
-            <thead class="bg-gray-50 border-b border-gray-100">
+            <thead style="background: #3f3f46; border-bottom: 1px solid #52525b;">
               <tr>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Platform</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Artists</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Started</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Platform</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Type</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Status</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Artists</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Duration</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Started</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody style="border-top: 1px solid #52525b;">
               {#each $recentRuns as run}
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-zinc-800">
                   <td class="px-4 py-3">
                     <span class="capitalize font-medium">{run.platform}</span>
                   </td>
@@ -284,16 +284,16 @@
                       {getStatusIcon(run.status)} {run.status}
                     </span>
                   </td>
-                  <td class="px-4 py-3 text-gray-600">
+                  <td class="px-4 py-3 text-zinc-300">
                     {run.artists_processed.toLocaleString()}
                     {#if run.errors_count > 0}
                       <span class="text-red-500 ml-1">({run.errors_count} errors)</span>
                     {/if}
                   </td>
-                  <td class="px-4 py-3 text-gray-600">
+                  <td class="px-4 py-3 text-zinc-300">
                     {formatDuration(run.duration_ms)}
                   </td>
-                  <td class="px-4 py-3 text-gray-600">
+                  <td class="px-4 py-3 text-zinc-300">
                     {formatDate(run.started_at)}
                   </td>
                   <td class="px-4 py-3">
@@ -330,29 +330,29 @@
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" on:click={closeTriggerModal} role="dialog" aria-modal="true">
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl" on:click|stopPropagation role="document">
+    <div class="bg-zinc-900 rounded-2xl max-w-lg w-full p-6 shadow-xl" on:click|stopPropagation role="document">
       <div class="flex items-center mb-6">
         <div class="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center text-2xl mr-4">
           🔄
         </div>
         <div>
-          <h3 class="text-xl font-bold text-gray-900">Trigger Catalog Sync</h3>
-          <p class="text-gray-600">Select platforms and sync options</p>
+          <h3 class="text-xl font-bold text-white">Trigger Catalog Sync</h3>
+          <p class="text-zinc-400">Select platforms and sync options</p>
         </div>
       </div>
 
       <!-- Platform Selection -->
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-3">Platforms</label>
+        <label class="block text-sm font-medium text-white mb-3">Platforms</label>
         <div class="grid grid-cols-2 gap-2">
           {#each platforms as platform}
             <button
               type="button"
               on:click={() => togglePlatform(platform.id)}
-              class="p-3 rounded-xl border-2 transition-all text-left flex items-center gap-2 {
+              class="p-3 rounded-xl border-2 transition-all text-left flex items-center gap-2 text-zinc-300 {
                 selectedPlatforms.includes(platform.id)
-                  ? 'border-indigo-500 bg-indigo-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-indigo-500 bg-indigo-900'
+                  : 'border-zinc-600 hover:border-zinc-500'
               }"
             >
               <span class="text-xl">{platform.icon}</span>
@@ -364,38 +364,39 @@
 
       <!-- Sync Type -->
       <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-3">Sync Type</label>
+        <label class="block text-sm font-medium text-white mb-3">Sync Type</label>
         <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
             on:click={() => syncType = 'incremental'}
-            class="p-3 rounded-xl border-2 transition-all text-left {
-              syncType === 'incremental' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+            class="p-3 rounded-xl border-2 transition-all text-left text-zinc-300 {
+              syncType === 'incremental' ? 'border-indigo-500 bg-indigo-900' : 'border-zinc-600 hover:border-zinc-500'
             }"
           >
             <div class="font-medium">Incremental</div>
-            <div class="text-xs text-gray-500">Only new/changed artists</div>
+            <div class="text-xs text-zinc-400">Only new/changed artists</div>
           </button>
           <button
             type="button"
             on:click={() => syncType = 'full'}
-            class="p-3 rounded-xl border-2 transition-all text-left {
-              syncType === 'full' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+            class="p-3 rounded-xl border-2 transition-all text-left text-zinc-300 {
+              syncType === 'full' ? 'border-indigo-500 bg-indigo-900' : 'border-zinc-600 hover:border-zinc-500'
             }"
           >
             <div class="font-medium">Full</div>
-            <div class="text-xs text-gray-500">Complete catalog refresh</div>
+            <div class="text-xs text-zinc-400">Complete catalog refresh</div>
           </button>
         </div>
       </div>
 
       <!-- Priority -->
       <div class="mb-6">
-        <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+        <label for="priority" class="block text-sm font-medium text-white mb-2">Priority</label>
         <select
           id="priority"
           bind:value={priority}
-          class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+          class="w-full px-4 py-3 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-zinc-300 bg-zinc-800"
+          style="border: 1px solid #52525b;"
         >
           <option value="low">Low</option>
           <option value="normal">Normal</option>
@@ -409,7 +410,8 @@
         <button
           type="button"
           on:click={closeTriggerModal}
-          class="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+          class="flex-1 px-4 py-3 text-white rounded-xl hover:bg-zinc-700 font-medium transition-colors"
+          style="border: 1px solid #52525b;"
         >
           Cancel
         </button>

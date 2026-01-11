@@ -26,30 +26,26 @@ pub fn create_cors_layer() -> CorsLayer {
 
 /// Development CORS configuration - permissive for local development
 fn create_development_cors() -> CorsLayer {
-    debug!("Configuring CORS for development environment");
+    debug!("Configuring CORS for development environment - allowing any localhost origin");
 
-    let allowed_origins = get_allowed_origins_from_env().unwrap_or_else(|| {
-        vec![
-            "http://localhost:3000".to_string(),
-            "http://localhost:5000".to_string(),
-            "http://localhost:8080".to_string(),
-            "http://localhost:53136".to_string(),
-            "http://127.0.0.1:3000".to_string(),
-            "http://127.0.0.1:5000".to_string(),
-            "http://127.0.0.1:8080".to_string(),
-            "http://127.0.0.1:53136".to_string(),
-        ]
-    });
-
-    debug!("Development CORS allowed origins: {:?}", allowed_origins);
-
+    // In development, allow any localhost/127.0.0.1 origin (Vite uses random ports)
     CorsLayer::new()
-        .allow_origin(
-            allowed_origins
-                .iter()
-                .filter_map(|origin| origin.parse::<HeaderValue>().ok())
-                .collect::<Vec<_>>(),
-        )
+        .allow_origin(tower_http::cors::AllowOrigin::predicate(
+            |origin: &HeaderValue, _request_parts: &axum::http::request::Parts| {
+                if let Ok(origin_str) = origin.to_str() {
+                    let is_localhost = origin_str.starts_with("http://localhost:")
+                        || origin_str.starts_with("http://127.0.0.1:")
+                        || origin_str == "http://localhost"
+                        || origin_str == "http://127.0.0.1";
+                    if is_localhost {
+                        debug!("Allowing development origin: {}", origin_str);
+                    }
+                    is_localhost
+                } else {
+                    false
+                }
+            },
+        ))
         .allow_methods([
             Method::GET,
             Method::POST,

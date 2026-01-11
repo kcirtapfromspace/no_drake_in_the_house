@@ -18,6 +18,9 @@ pub mod graph_service;
 // Analytics service (dashboard metrics, trend analysis, reporting)
 pub mod analytics_service;
 
+// Backfill orchestrator (offense discovery for artists)
+pub mod backfill_orchestrator;
+
 pub mod audit_logging;
 pub mod dnp_list;
 pub mod login_performance;
@@ -38,6 +41,10 @@ pub mod registration_monitoring;
 pub mod registration_performance;
 pub mod user;
 
+// Apple Music services
+pub mod apple_music;
+pub mod apple_music_enforcement;
+
 pub mod stubs;
 
 // Disabled services - require significant fixes before re-enabling:
@@ -52,7 +59,6 @@ pub mod stubs;
 // pub mod spotify;
 // pub mod spotify_library;
 // pub mod spotify_enforcement;
-// pub mod apple_music;
 // pub mod apple_music_library;
 // pub mod community_list;
 // pub mod rate_limiting;
@@ -163,6 +169,15 @@ pub use analytics_service::{
     RevenueService,
     UserPlaycount,
     UserRevenueDistribution,
+    // Category revenue (simulated by offense category)
+    AlbumRevenue,
+    ArtistDiscographyRevenue,
+    CategoryArtistRevenue,
+    CategoryRevenue,
+    CategoryRevenueService,
+    GlobalCategoryRevenue,
+    OffenseCategory,
+    SimulationParams,
     // Trends
     TimeRange,
     TrendAnalysisService,
@@ -179,3 +194,13 @@ pub use analytics_service::{
     TroubleScoreService,
     TroubleTier,
 };
+
+// Export backfill orchestrator components
+pub use backfill_orchestrator::{BackfillOrchestrator, BackfillProgress, BackfillResult, BackfillStats};
+
+// Export MusicBrainz importer
+pub use catalog_sync::{MusicBrainzImportStats, MusicBrainzImporter};
+
+// Export Apple Music services
+pub use apple_music::{AppleMusicConfig, AppleMusicService, RATING_DISLIKE, RATING_LIKE};
+pub use apple_music_enforcement::{AppleMusicEnforcementService, EnforcementHistoryItem};

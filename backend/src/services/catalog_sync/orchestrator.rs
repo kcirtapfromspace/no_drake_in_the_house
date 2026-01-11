@@ -6,11 +6,13 @@
 //! - Progress tracking and checkpointing
 //! - Identity resolution coordination
 
+use super::artist_repository::ArtistRepository;
 use super::identity_resolver::{CanonicalArtist, CrossPlatformIdentityResolver, IdentityMatch};
 use super::traits::*;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -28,6 +30,8 @@ pub struct CatalogSyncOrchestrator {
     progress_tx: broadcast::Sender<SyncProgress>,
     /// Canonical artist cache
     canonical_artists: Arc<RwLock<Vec<CanonicalArtist>>>,
+    /// Database pool for persistence (optional)
+    db_pool: Option<PgPool>,
 }
 
 /// State of a sync run
@@ -114,7 +118,27 @@ impl CatalogSyncOrchestrator {
             active_runs: Arc::new(RwLock::new(HashMap::new())),
             progress_tx,
             canonical_artists: Arc::new(RwLock::new(Vec::new())),
+            db_pool: None,
         }
+    }
+
+    /// Create a new orchestrator with database persistence
+    pub fn with_db_pool(identity_resolver: CrossPlatformIdentityResolver, db_pool: PgPool) -> Self {
+        let (progress_tx, _) = broadcast::channel(100);
+
+        Self {
+            workers: HashMap::new(),
+            identity_resolver: Arc::new(identity_resolver),
+            active_runs: Arc::new(RwLock::new(HashMap::new())),
+            progress_tx,
+            canonical_artists: Arc::new(RwLock::new(Vec::new())),
+            db_pool: Some(db_pool),
+        }
+    }
+
+    /// Set database pool for persistence
+    pub fn set_db_pool(&mut self, db_pool: PgPool) {
+        self.db_pool = Some(db_pool);
     }
 
     /// Register a platform worker
@@ -356,6 +380,124 @@ impl CatalogSyncOrchestrator {
         Ok(identity_match)
     }
 
+    /// Persist a platform artist to the database
+    /// Resolves identity first, then upserts to artists table
+    pub async fn persist_platform_artist(
+        &self,
+        platform_artist: &PlatformArtist,
+        sync_run_id: Option<Uuid>,
+    ) -> Result<Uuid> {
+        let db_pool = self
+            .db_pool
+            .as_ref()
+            .context("Database pool not configured for persistence")?;
+
+        let repository = ArtistRepository::new(db_pool.clone());
+
+        // Resolve identity
+        let identity_match = self.resolve_and_add_artist(platform_artist).await?;
+
+        // Persist to database
+        let artist_id = repository.upsert_artist(&identity_match.artist).await?;
+
+        // Persist platform ID mapping
+        repository
+            .upsert_platform_id(
+                artist_id,
+                &platform_artist.platform,
+                &platform_artist.platform_id,
+                sync_run_id,
+                identity_match.confidence,
+            )
+            .await?;
+
+        Ok(artist_id)
+    }
+
+    /// Search and persist artists from a query
+    /// Returns the number of artists persisted
+    pub async fn search_and_persist(
+        &self,
+        platform: &Platform,
+        query: &str,
+        limit: u32,
+        sync_run_id: Option<Uuid>,
+    ) -> Result<u64> {
+        let worker = self
+            .workers
+            .get(platform)
+            .context(format!("No worker registered for platform {:?}", platform))?;
+
+        let artists = worker.search_artist(query, limit).await?;
+        let mut persisted = 0u64;
+
+        for artist in &artists {
+            match self.persist_platform_artist(artist, sync_run_id).await {
+                Ok(_) => persisted += 1,
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to persist artist '{}' from {:?}: {}",
+                        artist.name,
+                        platform,
+                        e
+                    );
+                }
+            }
+        }
+
+        tracing::info!(
+            "Persisted {}/{} artists from {:?} search for '{}'",
+            persisted,
+            artists.len(),
+            platform,
+            query
+        );
+
+        Ok(persisted)
+    }
+
+    /// Create a sync run record in the database
+    pub async fn create_sync_run(&self, platform: &Platform, sync_type: &str) -> Result<Uuid> {
+        let db_pool = self
+            .db_pool
+            .as_ref()
+            .context("Database pool not configured")?;
+
+        let repository = ArtistRepository::new(db_pool.clone());
+        repository.create_sync_run(platform, sync_type).await
+    }
+
+    /// Complete a sync run record
+    pub async fn complete_sync_run(
+        &self,
+        run_id: Uuid,
+        artists_processed: u64,
+        artists_created: u64,
+        artists_updated: u64,
+        errors: u64,
+    ) -> Result<()> {
+        let db_pool = self
+            .db_pool
+            .as_ref()
+            .context("Database pool not configured")?;
+
+        let repository = ArtistRepository::new(db_pool.clone());
+        repository
+            .complete_sync_run(run_id, artists_processed, artists_created, artists_updated, errors)
+            .await
+    }
+
+    /// Get artist count from database
+    pub async fn get_persisted_artist_count(&self) -> Result<i64> {
+        let db_pool = self
+            .db_pool
+            .as_ref()
+            .context("Database pool not configured")?;
+
+        let repository = ArtistRepository::new(db_pool.clone());
+        repository.get_artist_count().await
+    }
+
     /// Get all canonical artists
     pub async fn get_canonical_artists(&self) -> Vec<CanonicalArtist> {
         self.canonical_artists.read().await.clone()
@@ -481,6 +623,7 @@ impl CatalogSyncOrchestrator {
 pub struct OrchestratorBuilder {
     identity_resolver: Option<CrossPlatformIdentityResolver>,
     workers: Vec<Box<dyn PlatformCatalogWorker + Send + Sync>>,
+    db_pool: Option<PgPool>,
 }
 
 impl OrchestratorBuilder {
@@ -488,6 +631,7 @@ impl OrchestratorBuilder {
         Self {
             identity_resolver: None,
             workers: Vec::new(),
+            db_pool: None,
         }
     }
 
@@ -504,12 +648,21 @@ impl OrchestratorBuilder {
         self
     }
 
+    pub fn with_db_pool(mut self, db_pool: PgPool) -> Self {
+        self.db_pool = Some(db_pool);
+        self
+    }
+
     pub fn build(self) -> Result<CatalogSyncOrchestrator> {
         let resolver = self.identity_resolver.unwrap_or_else(|| {
             CrossPlatformIdentityResolver::new("NoDrake", "1.0", "admin@example.com")
         });
 
-        let mut orchestrator = CatalogSyncOrchestrator::new(resolver);
+        let mut orchestrator = if let Some(db_pool) = self.db_pool {
+            CatalogSyncOrchestrator::with_db_pool(resolver, db_pool)
+        } else {
+            CatalogSyncOrchestrator::new(resolver)
+        };
 
         for worker in self.workers {
             let platform = worker.platform();

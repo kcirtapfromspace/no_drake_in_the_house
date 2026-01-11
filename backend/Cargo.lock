@@ -6112,6 +6112,7 @@ dependencies = [
  "dashmap",
  "deadpool 0.10.0",
  "deadpool-redis",
+ "dotenvy",
  "duckdb",
  "fake",
  "fastembed",

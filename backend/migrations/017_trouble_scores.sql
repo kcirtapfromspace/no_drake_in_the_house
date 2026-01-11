@@ -184,7 +184,7 @@ BEGIN
         RETURN 0;
     END IF;
 
-    years_ago := EXTRACT(EPOCH FROM (CURRENT_DATE - most_recent)) / (365.25 * 24 * 60 * 60);
+    years_ago := (CURRENT_DATE - most_recent)::FLOAT / 365.25;
 
     -- Decay: 1.0 if <1yr, 0.75 if <3yr, 0.5 if <5yr, 0.25 if <10yr, 0.1 if older
     RETURN CASE

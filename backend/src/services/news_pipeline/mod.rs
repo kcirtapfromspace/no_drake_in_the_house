@@ -8,10 +8,13 @@
 //! - Entity extraction (NER) for artist identification
 //! - Offense classification
 //! - Vector embeddings for semantic search
+//! - Automatic offense creation from news detections
 
 pub mod ingestion;
+pub mod offense_creator;
 pub mod orchestrator;
 pub mod processing;
+pub mod repository;
 
 // Re-export main types
 pub use ingestion::{
@@ -28,3 +31,7 @@ pub use orchestrator::{
     NewsPipelineConfig, NewsPipelineOrchestrator, PipelineStats, ProcessedArticle,
     ScheduledPipelineHandle, ScheduledPipelineRunner,
 };
+
+pub use repository::{ArticleFilters, ArticleSummary, NewsRepository};
+
+pub use offense_creator::{OffenseCreationResult, OffenseCreator};

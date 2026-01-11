@@ -1,0 +1,53 @@
+# Ignore files that don't affect the build for faster context transfer
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+*.pdb
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Test files
+tests/
+benches/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Docker files (except the one being used)
+Dockerfile
+Dockerfile.prod
+!Dockerfile.dev
+!Dockerfile.fast
+
+# Scripts
+scripts/
+
+# CI/CD
+.github/

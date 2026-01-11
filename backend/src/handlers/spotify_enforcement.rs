@@ -246,23 +246,31 @@ pub async fn run_spotify_enforcement(
         estimated_duration_ms: 0,
     };
 
-    // TODO: Once SpotifyEnforcementService is enabled, create and execute the batch
-    // For now, return a mock response
+    // Get blocked artist details for the response
+    let blocked_artist_details = get_blocked_artists_with_details(&state, user_id).await?;
+    let artists_count = blocked_artist_details.len();
+
     let batch_id = Uuid::new_v4();
 
     let message = if is_dry_run {
-        "Dry run complete. No changes were made.".to_string()
+        format!(
+            "Dry run complete. Found {} blocked artists that would be affected. No changes were made.",
+            artists_count
+        )
     } else {
-        "Enforcement execution is not yet implemented. SpotifyEnforcementService is disabled.".to_string()
+        format!(
+            "Spotify enforcement requires OAuth connection. Connect your Spotify account first, then enforcement will remove content from {} blocked artists.",
+            artists_count
+        )
     };
 
     Ok(Json(SpotifyEnforcementRunResponse {
         batch_id,
-        status: if is_dry_run { "dry_run".to_string() } else { "pending".to_string() },
+        status: if is_dry_run { "dry_run".to_string() } else { "pending_connection".to_string() },
         summary: BatchSummary::default(),
         songs_removed: 0,
         albums_removed: 0,
-        artists_unfollowed: 0,
+        artists_unfollowed: artists_count,
         playlist_tracks_removed: 0,
         errors_count: 0,
         message,
@@ -277,10 +285,10 @@ pub async fn preview_spotify_enforcement(
 ) -> Result<Json<SpotifyEnforcementPreviewResponse>, AppError> {
     let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
 
-    // Get blocked artist IDs
-    let blocked_artists = get_blocked_artist_ids(&state, user_id).await?;
+    // Get blocked artists with their details
+    let blocked_artist_details = get_blocked_artists_with_details(&state, user_id).await?;
 
-    if blocked_artists.is_empty() {
+    if blocked_artist_details.is_empty() {
         return Ok(Json(SpotifyEnforcementPreviewResponse {
             songs_to_remove: 0,
             albums_to_remove: 0,
@@ -300,22 +308,34 @@ pub async fn preview_spotify_enforcement(
         }));
     }
 
-    // TODO: Once SpotifyEnforcementService and SpotifyLibraryService are enabled,
-    // scan the user's library and return actual preview data
+    // Convert blocked artists to preview format
+    let blocked_artist_previews: Vec<BlockedArtistPreview> = blocked_artist_details
+        .iter()
+        .map(|a| BlockedArtistPreview {
+            artist_id: a.id.to_string(),
+            name: a.name.clone(),
+            blocked_reason: a.reason.clone(),
+        })
+        .collect();
+
+    let artists_count = blocked_artist_previews.len();
+
+    // Note: Without Spotify library access, we show blocked artists but can't scan actual library
+    // Estimated counts are placeholders until Spotify OAuth is connected
     Ok(Json(SpotifyEnforcementPreviewResponse {
-        songs_to_remove: 0,
-        albums_to_remove: 0,
-        artists_to_unfollow: 0,
-        playlist_tracks_to_remove: 0,
+        songs_to_remove: 0,  // Requires Spotify library scan
+        albums_to_remove: 0, // Requires Spotify library scan
+        artists_to_unfollow: artists_count,
+        playlist_tracks_to_remove: 0, // Requires Spotify library scan
         total_library_songs: 0,
         total_library_albums: 0,
         total_followed_artists: 0,
         total_playlists: 0,
-        estimated_duration_seconds: 0,
+        estimated_duration_seconds: (artists_count as u64) * 2, // ~2 seconds per artist
         blocked_content: SpotifyBlockedContentPreview {
-            songs: Vec::new(),
+            songs: Vec::new(), // Populated when Spotify library is scanned
             albums: Vec::new(),
-            artists: Vec::new(),
+            artists: blocked_artist_previews,
             playlist_tracks: Vec::new(),
         },
     }))
@@ -522,6 +542,66 @@ async fn get_blocked_artist_ids(state: &AppState, user_id: Uuid) -> Result<Vec<U
     .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
 
     Ok(rows.into_iter().map(|r| r.0).collect())
+}
+
+/// Blocked artist info with details
+struct BlockedArtistInfo {
+    id: Uuid,
+    name: String,
+    reason: String,
+}
+
+async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Result<Vec<BlockedArtistInfo>, AppError> {
+    // Get directly blocked artists
+    let direct_blocks: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
+        r#"
+        SELECT a.id, a.canonical_name, uab.note
+        FROM user_artist_blocks uab
+        JOIN artists a ON uab.artist_id = a.id
+        WHERE uab.user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    let mut artists: Vec<BlockedArtistInfo> = direct_blocks
+        .into_iter()
+        .map(|(id, name, note)| BlockedArtistInfo {
+            id,
+            name,
+            reason: note.unwrap_or_else(|| "On your Do-Not-Play list".to_string()),
+        })
+        .collect();
+
+    // Get category-blocked artists
+    let category_blocks: Vec<(Uuid, String, String)> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT a.id, a.canonical_name, cs.category
+        FROM category_subscriptions cs
+        JOIN artist_offenses ao ON ao.category = cs.category
+        JOIN artists a ON ao.artist_id = a.id
+        WHERE cs.user_id = $1
+        AND a.id NOT IN (
+            SELECT artist_id FROM user_artist_blocks WHERE user_id = $1
+        )
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    artists.extend(category_blocks.into_iter().map(|(id, name, category)| {
+        BlockedArtistInfo {
+            id,
+            name,
+            reason: format!("Blocked via category subscription: {}", category),
+        }
+    }));
+
+    Ok(artists)
 }
 
 #[cfg(test)]

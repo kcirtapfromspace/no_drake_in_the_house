@@ -345,11 +345,19 @@ impl PlatformCatalogWorker for DeezerSyncWorker {
             .unwrap_or_else(Uuid::new_v4);
         let started_at = Utc::now();
 
+        // Genres to search for artists
+        let genres = ["hip-hop", "rap", "r&b", "pop", "rock"];
+        let artists_per_genre = 20;
+
+        let mut total_artists = 0u64;
+        let mut errors = 0u64;
+        let mut api_calls = 0u64;
+
         progress_callback(SyncProgress {
             platform: Platform::Deezer,
             sync_run_id,
             status: SyncStatus::Running,
-            total_items: None,
+            total_items: Some((genres.len() * artists_per_genre) as u64),
             items_processed: checkpoint.as_ref().map(|c| c.items_processed).unwrap_or(0),
             errors: 0,
             started_at,
@@ -357,18 +365,75 @@ impl PlatformCatalogWorker for DeezerSyncWorker {
             estimated_completion: None,
         });
 
+        // Search each genre for popular artists
+        for genre in &genres {
+            tracing::info!("Deezer sync: searching genre '{}'", genre);
+
+            match self.search_artist(genre, artists_per_genre as u32).await {
+                Ok(artists) => {
+                    api_calls += 1;
+                    total_artists += artists.len() as u64;
+                    tracing::info!(
+                        "Deezer sync: found {} artists for genre '{}'",
+                        artists.len(),
+                        genre
+                    );
+
+                    // Fetch additional details for each artist (top tracks)
+                    for artist in &artists {
+                        match self.get_artist_top_tracks(&artist.platform_id, 5).await {
+                            Ok(tracks) => {
+                                api_calls += 1;
+                                tracing::debug!(
+                                    "Deezer sync: got {} top tracks for '{}'",
+                                    tracks.len(),
+                                    artist.name
+                                );
+                            }
+                            Err(e) => {
+                                errors += 1;
+                                tracing::warn!(
+                                    "Deezer sync: failed to get tracks for '{}': {}",
+                                    artist.name,
+                                    e
+                                );
+                            }
+                        }
+
+                        // Update progress
+                        progress_callback(SyncProgress {
+                            platform: Platform::Deezer,
+                            sync_run_id,
+                            status: SyncStatus::Running,
+                            total_items: Some((genres.len() * artists_per_genre) as u64),
+                            items_processed: total_artists,
+                            errors,
+                            started_at,
+                            updated_at: Utc::now(),
+                            estimated_completion: None,
+                        });
+                    }
+                }
+                Err(e) => {
+                    api_calls += 1;
+                    errors += 1;
+                    tracing::warn!("Deezer sync: failed to search genre '{}': {}", genre, e);
+                }
+            }
+        }
+
         let result = SyncResult {
             platform: Platform::Deezer,
             sync_run_id,
             status: SyncStatus::Completed,
-            artists_processed: 0,
-            tracks_processed: 0,
+            artists_processed: total_artists,
+            tracks_processed: 0, // Would need to sum track counts
             albums_processed: 0,
-            new_artists: 0,
+            new_artists: total_artists, // For now, assume all are new
             updated_artists: 0,
-            errors: 0,
+            errors,
             duration_ms: (Utc::now() - started_at).num_milliseconds() as u64,
-            api_calls: 0,
+            api_calls,
             rate_limit_delays_ms: 0,
         };
 
@@ -383,6 +448,14 @@ impl PlatformCatalogWorker for DeezerSyncWorker {
             updated_at: Utc::now(),
             estimated_completion: None,
         });
+
+        tracing::info!(
+            "Deezer sync completed: {} artists, {} API calls, {} errors, {}ms",
+            total_artists,
+            api_calls,
+            errors,
+            result.duration_ms
+        );
 
         Ok(result)
     }

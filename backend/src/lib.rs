@@ -5,7 +5,7 @@
 use axum::{
     extract::State,
     response::Json,
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -57,7 +57,11 @@ pub use monitoring::{
 pub use recovery::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
 pub use services::dnp_list::DnpListService;
 pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
+pub use services::catalog_sync::{CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder};
+pub use services::news_pipeline::{NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner, ScheduledPipelineHandle};
+pub use services::backfill_orchestrator::BackfillOrchestrator;
 pub use validation::{validate_email, validate_password, validate_totp_code, ValidatedJson};
+pub use config::{PlatformSyncConfig, SpotifyCredentials, AppleMusicCredentials, TidalCredentials, YouTubeCredentials, DeezerConfig};
 
 // Re-export stub services for testing
 #[cfg(test)]
@@ -75,6 +79,13 @@ pub struct AppState {
     pub user_service: Arc<UserService>,
     pub monitoring: Arc<MonitoringSystem>,
     pub metrics: Arc<MetricsCollector>,
+    pub catalog_sync: Arc<CatalogSyncOrchestrator>,
+    pub platform_config: PlatformSyncConfig,
+    pub credits_sync: Option<Arc<CreditsSyncService>>,
+    pub backfill_orchestrator: Option<Arc<services::BackfillOrchestrator>>,
+    pub apple_music_service: Arc<services::AppleMusicService>,
+    /// Test user ID for development (will be removed in production auth)
+    pub test_user_id: Option<uuid::Uuid>,
 }
 
 // Health check response structure
@@ -168,6 +179,43 @@ pub fn create_router(state: AppState) -> Router {
             "/dnp/list/:artist_id",
             put(handlers::dnp::update_dnp_entry_handler),
         )
+        // Track-level blocking routes
+        .route("/dnp/tracks", post(handlers::dnp::add_track_block_handler))
+        .route("/dnp/tracks", get(handlers::dnp::get_track_blocks_handler))
+        .route(
+            "/dnp/tracks/:track_id",
+            delete(handlers::dnp::remove_track_block_handler),
+        )
+        .route(
+            "/dnp/tracks/batch",
+            post(handlers::dnp::batch_track_blocks_handler),
+        )
+        // Deep blocking routes - block tracks/albums where blocked artists have any credit
+        .route(
+            "/dnp/blocked-tracks",
+            get(handlers::dnp::get_blocked_tracks_handler),
+        )
+        .route(
+            "/dnp/blocked-albums",
+            get(handlers::dnp::get_blocked_albums_handler),
+        )
+        .route(
+            "/dnp/block-summary",
+            get(handlers::dnp::get_block_summary_handler),
+        )
+        .route(
+            "/dnp/revenue-impact",
+            get(handlers::dnp::get_revenue_impact_handler),
+        )
+        .route(
+            "/dnp/revenue-by-category",
+            get(handlers::dnp::get_revenue_by_category_handler),
+        )
+        // Artist analytics
+        .route(
+            "/artists/:artist_id/analytics",
+            get(handlers::dnp::get_artist_analytics_handler),
+        )
         // Library routes
         .route("/library/import", post(handlers::offense::import_library))
         .route("/library/scan", get(handlers::offense::scan_library))
@@ -234,7 +282,46 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::sync::get_canonical_artist_handler),
         )
         .route("/sync/health", get(handlers::sync::platform_health_handler))
+        // Credits sync routes
+        .route(
+            "/sync/credits",
+            post(handlers::sync::trigger_credits_sync_handler),
+        )
+        .route(
+            "/sync/credits/status",
+            get(handlers::sync::get_credits_sync_status_handler),
+        )
+        .route(
+            "/sync/credits/:artist_id",
+            post(handlers::sync::trigger_artist_credits_sync_handler),
+        )
+        // Bulk import routes
+        .route(
+            "/sync/import-charts",
+            post(handlers::sync::import_charts_handler),
+        )
+        .route(
+            "/sync/import-musicbrainz",
+            post(handlers::sync::import_musicbrainz_handler),
+        )
+        // Offense backfill routes
+        .route(
+            "/sync/backfill-offenses",
+            post(handlers::sync::backfill_offenses_handler),
+        )
+        .route(
+            "/sync/backfill-status",
+            get(handlers::sync::backfill_status_handler),
+        )
         // Graph routes (artist networks)
+        .route(
+            "/graph/search",
+            get(handlers::graph::search_artists_handler),
+        )
+        .route(
+            "/graph/stats",
+            get(handlers::graph::get_global_stats_handler),
+        )
         .route(
             "/graph/artists/:artist_id/network",
             get(handlers::graph::get_artist_network_handler),
@@ -272,6 +359,10 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::graph::get_at_risk_artists_handler),
         )
         .route(
+            "/graph/offense-radius",
+            get(handlers::graph::get_offense_radius_handler),
+        )
+        .route(
             "/graph/sync/status",
             get(handlers::graph::get_sync_status_handler),
         )
@@ -282,6 +373,15 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/graph/health",
             get(handlers::graph::get_graph_health_handler),
+        )
+        // Offense network routes (connections to problematic artists)
+        .route(
+            "/graph/offense-network",
+            get(handlers::graph::get_offense_network_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/offense-connections",
+            get(handlers::graph::get_artist_offense_connections_handler),
         )
         // Analytics routes (dashboard, trends, reports)
         .route(
@@ -382,6 +482,127 @@ pub fn create_router(state: AppState) -> Router {
             "/analytics/payout-rates",
             get(handlers::analytics_v2::get_payout_rates_handler),
         )
+        // Category revenue routes (simulated by offense category)
+        .route(
+            "/analytics/category-revenue",
+            get(handlers::analytics_v2::get_global_category_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/categories",
+            get(handlers::analytics_v2::get_offense_categories_handler),
+        )
+        .route(
+            "/analytics/category-revenue/:category",
+            get(handlers::analytics_v2::get_category_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/artist/:artist_id/discography",
+            get(handlers::analytics_v2::get_artist_discography_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/user/exposure",
+            get(handlers::analytics_v2::get_user_category_exposure_handler),
+        )
+        // News pipeline routes
+        .route("/news/articles", get(handlers::news::list_articles_handler))
+        .route(
+            "/news/articles/:article_id",
+            get(handlers::news::get_article_handler),
+        )
+        .route(
+            "/news/artists/:artist_id/mentions",
+            get(handlers::news::get_artist_mentions_handler),
+        )
+        .route(
+            "/news/search",
+            post(handlers::news::semantic_search_handler),
+        )
+        .route("/news/offenses", get(handlers::news::get_offenses_handler))
+        .route(
+            "/news/offenses/:offense_id",
+            get(handlers::news::get_offense_handler),
+        )
+        .route(
+            "/news/offenses/:offense_id/verify",
+            post(handlers::news::verify_offense_handler),
+        )
+        .route(
+            "/news/pipeline/status",
+            get(handlers::news::get_pipeline_status_handler),
+        )
+        .route(
+            "/news/pipeline/trigger",
+            post(handlers::news::trigger_pipeline_handler),
+        )
+        .route("/news/sources", get(handlers::news::get_sources_handler))
+        .route("/news/trending", get(handlers::news::get_trending_handler))
+        .route(
+            "/news/categories",
+            get(handlers::news::get_offense_categories_handler),
+        )
+        // Apple Music enforcement routes
+        .route(
+            "/enforcement/apple-music/run",
+            post(handlers::enforcement::run_apple_music_enforcement),
+        )
+        .route(
+            "/enforcement/apple-music/preview",
+            post(handlers::enforcement::preview_apple_music_enforcement),
+        )
+        .route(
+            "/enforcement/apple-music/rollback/:run_id",
+            post(handlers::enforcement::rollback_apple_music_enforcement),
+        )
+        .route(
+            "/enforcement/apple-music/history",
+            get(handlers::enforcement::get_apple_music_enforcement_history),
+        )
+        .route(
+            "/enforcement/apple-music/capabilities",
+            get(handlers::enforcement::get_apple_music_capabilities),
+        )
+        // Spotify enforcement routes
+        .route(
+            "/enforcement/spotify/run",
+            post(handlers::spotify_enforcement::run_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/preview",
+            post(handlers::spotify_enforcement::preview_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/rollback/:batch_id",
+            post(handlers::spotify_enforcement::rollback_spotify_enforcement),
+        )
+        .route(
+            "/enforcement/spotify/history",
+            get(handlers::spotify_enforcement::get_spotify_enforcement_history),
+        )
+        .route(
+            "/enforcement/spotify/capabilities",
+            get(handlers::spotify_enforcement::get_spotify_capabilities),
+        )
+        .route(
+            "/enforcement/spotify/progress/:batch_id",
+            get(handlers::spotify_enforcement::get_spotify_enforcement_progress),
+        )
+        // Apple Music auth routes (connect/disconnect Apple Music account)
+        .route(
+            "/apple-music/auth/connect",
+            post(handlers::apple_music_auth::connect_apple_music),
+        )
+        .route(
+            "/apple-music/auth/status",
+            get(handlers::apple_music_auth::get_connection_status),
+        )
+        .route(
+            "/apple-music/auth/disconnect",
+            delete(handlers::apple_music_auth::disconnect_apple_music),
+        )
+        .route(
+            "/apple-music/auth/verify",
+            post(handlers::apple_music_auth::verify_connection),
+        )
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
             crate::middleware::auth::auth_middleware,
@@ -427,6 +648,11 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/api/v1/auth", auth_routes)
         // Public offense browsing routes
         .nest("/api/v1/offenses", offense_public_routes)
+        // Public Apple Music auth route (developer token needed before user auth)
+        .route(
+            "/api/v1/apple-music/auth/developer-token",
+            get(handlers::apple_music_auth::get_developer_token),
+        )
         // Protected API routes
         .nest("/api/v1", protected_routes)
         .layer(

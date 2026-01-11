@@ -128,6 +128,71 @@ export interface TierDistribution {
   total: number;
 }
 
+// Category Revenue Types (Simulated by Offense Category)
+export interface CategoryArtistRevenue {
+  artist_id: string;
+  artist_name: string;
+  offense_count: number;
+  severity: string;
+  simulated_streams: number;
+  simulated_revenue: string;
+}
+
+export interface CategoryRevenue {
+  category: string;
+  display_name: string;
+  artist_count: number;
+  offense_count: number;
+  simulated_streams: number;
+  simulated_revenue: string;
+  percentage_of_total: number;
+  top_artists: CategoryArtistRevenue[];
+}
+
+export interface GlobalCategoryRevenue {
+  period: string;
+  total_simulated_revenue: string;
+  total_artists_with_offenses: number;
+  clean_artist_revenue: string;
+  problematic_artist_revenue: string;
+  problematic_percentage: number;
+  by_category: CategoryRevenue[];
+  generated_at: string;
+}
+
+export interface AlbumRevenue {
+  album_id: string | null;
+  title: string;
+  release_year: number | null;
+  track_count: number;
+  simulated_monthly_streams: number;
+  simulated_monthly_revenue: string;
+}
+
+export interface ArtistOffenseSummary {
+  category: string;
+  severity: string;
+  title: string;
+  date: string | null;
+}
+
+export interface ArtistDiscographyRevenue {
+  artist_id: string;
+  artist_name: string;
+  offenses: ArtistOffenseSummary[];
+  total_albums: number;
+  total_tracks: number;
+  simulated_monthly_streams: number;
+  simulated_monthly_revenue: string;
+  simulated_yearly_revenue: string;
+  albums: AlbumRevenue[];
+}
+
+export interface OffenseCategoryInfo {
+  id: string;
+  display_name: string;
+}
+
 // Revenue Types
 export interface PayoutRate {
   platform: string;
@@ -195,6 +260,11 @@ export interface AnalyticsState {
   topArtistsByRevenue: ArtistRevenueBreakdown[];
   problematicArtistRevenue: ArtistRevenueBreakdown[];
   payoutRates: PayoutRate[];
+  // Category Revenue (Simulated)
+  globalCategoryRevenue: GlobalCategoryRevenue | null;
+  offenseCategories: OffenseCategoryInfo[];
+  selectedCategoryRevenue: CategoryRevenue | null;
+  artistDiscographyRevenue: ArtistDiscographyRevenue | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -220,6 +290,11 @@ const initialState: AnalyticsState = {
   topArtistsByRevenue: [],
   problematicArtistRevenue: [],
   payoutRates: [],
+  // Category Revenue (Simulated)
+  globalCategoryRevenue: null,
+  offenseCategories: [],
+  selectedCategoryRevenue: null,
+  artistDiscographyRevenue: null,
   isLoading: false,
   error: null,
 };
@@ -633,5 +708,129 @@ export const analyticsActions = {
     } catch (error: any) {
       return { success: false, message: error.message };
     }
+  },
+
+  // Category Revenue Actions (Simulated by Offense Category)
+  fetchGlobalCategoryRevenue: async () => {
+    analyticsStore.update(s => ({ ...s, isLoading: true, error: null }));
+
+    try {
+      const result = await apiClient.authenticatedRequest<GlobalCategoryRevenue>(
+        'GET',
+        '/api/v1/analytics/category-revenue'
+      );
+
+      if (result.success && result.data) {
+        analyticsStore.update(s => ({
+          ...s,
+          globalCategoryRevenue: result.data!,
+          isLoading: false,
+        }));
+        return { success: true, data: result.data };
+      } else {
+        analyticsStore.update(s => ({
+          ...s,
+          isLoading: false,
+          error: result.message || 'Failed to fetch category revenue',
+        }));
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      analyticsStore.update(s => ({
+        ...s,
+        isLoading: false,
+        error: error.message || 'Network error',
+      }));
+      return { success: false, message: error.message };
+    }
+  },
+
+  fetchOffenseCategories: async () => {
+    try {
+      const result = await apiClient.authenticatedRequest<{ categories: OffenseCategoryInfo[] }>(
+        'GET',
+        '/api/v1/analytics/category-revenue/categories'
+      );
+
+      if (result.success && result.data) {
+        analyticsStore.update(s => ({
+          ...s,
+          offenseCategories: result.data!.categories,
+        }));
+        return { success: true, categories: result.data.categories };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  fetchCategoryRevenue: async (category: string, topN: number = 10) => {
+    try {
+      const result = await apiClient.authenticatedRequest<CategoryRevenue>(
+        'GET',
+        `/api/v1/analytics/category-revenue/${category}?top_n=${topN}`
+      );
+
+      if (result.success && result.data) {
+        analyticsStore.update(s => ({
+          ...s,
+          selectedCategoryRevenue: result.data!,
+        }));
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  fetchArtistDiscographyRevenue: async (artistId: string) => {
+    try {
+      const result = await apiClient.authenticatedRequest<ArtistDiscographyRevenue>(
+        'GET',
+        `/api/v1/analytics/category-revenue/artist/${artistId}/discography`
+      );
+
+      if (result.success && result.data) {
+        analyticsStore.update(s => ({
+          ...s,
+          artistDiscographyRevenue: result.data!,
+        }));
+        return { success: true, data: result.data };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  fetchUserCategoryExposure: async (days: number = 30) => {
+    try {
+      const result = await apiClient.authenticatedRequest<{ categories: CategoryRevenue[] }>(
+        'GET',
+        `/api/v1/analytics/category-revenue/user/exposure?days=${days}`
+      );
+
+      if (result.success && result.data) {
+        return { success: true, categories: result.data.categories };
+      } else {
+        return { success: false, message: result.message };
+      }
+    } catch (error: any) {
+      return { success: false, message: error.message };
+    }
+  },
+
+  clearCategoryRevenue: () => {
+    analyticsStore.update(s => ({
+      ...s,
+      globalCategoryRevenue: null,
+      selectedCategoryRevenue: null,
+      artistDiscographyRevenue: null,
+    }));
   },
 };

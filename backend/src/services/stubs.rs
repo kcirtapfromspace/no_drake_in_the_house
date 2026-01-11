@@ -22,11 +22,25 @@ impl TokenVaultService {
 
     pub async fn store_token(
         &self,
-        _user_id: Uuid,
-        _provider: &str,
-        _token: &str,
-    ) -> Result<(), AppError> {
-        Ok(())
+        request: StoreTokenRequest,
+    ) -> Result<Connection, AppError> {
+        // Return a mock connection
+        Ok(Connection {
+            id: Uuid::new_v4(),
+            user_id: request.user_id,
+            provider: request.provider,
+            provider_user_id: request.provider_user_id,
+            scopes: request.scopes,
+            access_token_encrypted: None,
+            refresh_token_encrypted: None,
+            token_version: 1,
+            expires_at: request.expires_at,
+            status: ConnectionStatus::Active,
+            last_health_check: Some(chrono::Utc::now()),
+            error_code: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        })
     }
 
     pub async fn get_token(
@@ -35,6 +49,47 @@ impl TokenVaultService {
         _provider: &str,
     ) -> Result<Option<String>, AppError> {
         Ok(Some("mock_token".to_string()))
+    }
+
+    pub async fn get_decrypted_token(
+        &self,
+        _connection_id: Uuid,
+    ) -> Result<DecryptedToken, AppError> {
+        Ok(DecryptedToken {
+            access_token: "mock_access_token".to_string(),
+            refresh_token: Some("mock_refresh_token".to_string()),
+            expires_at: Some(chrono::Utc::now() + chrono::Duration::hours(1)),
+            scopes: vec!["library.read".to_string()],
+        })
+    }
+
+    pub async fn get_user_connections(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<Connection>, AppError> {
+        Ok(vec![Connection {
+            id: Uuid::new_v4(),
+            user_id,
+            provider: StreamingProvider::AppleMusic,
+            provider_user_id: "mock_user".to_string(),
+            scopes: vec!["library.read".to_string()],
+            access_token_encrypted: None,
+            refresh_token_encrypted: None,
+            token_version: 1,
+            expires_at: None,
+            status: ConnectionStatus::Active,
+            last_health_check: Some(chrono::Utc::now()),
+            error_code: None,
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+        }])
+    }
+
+    pub async fn delete_connection(
+        &self,
+        _connection_id: Uuid,
+    ) -> Result<(), AppError> {
+        Ok(())
     }
 }
 

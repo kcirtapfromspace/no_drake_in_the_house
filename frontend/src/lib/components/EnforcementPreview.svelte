@@ -23,13 +23,13 @@
   function getCapabilityColor(capability: string) {
     switch (capability) {
       case 'SUPPORTED':
-        return 'text-green-600 bg-green-100';
+        return 'text-green-400 bg-zinc-700';
       case 'LIMITED':
-        return 'text-yellow-600 bg-yellow-100';
+        return 'text-yellow-400 bg-zinc-700';
       case 'UNSUPPORTED':
-        return 'text-red-600 bg-red-100';
+        return 'text-red-400 bg-zinc-700';
       default:
-        return 'text-gray-600 bg-gray-100';
+        return 'text-zinc-300 bg-zinc-700';
     }
   }
 </script>
@@ -37,11 +37,11 @@
 {#if plan}
   <div class="space-y-6">
     <!-- Plan Summary -->
-    <div class="bg-uswds-base-lightest rounded-uswds-lg p-uswds-4">
+    <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-4">
       <div class="flex items-center justify-between">
         <div>
-          <h4 class="text-uswds-sm font-medium text-uswds-base-darker">Plan Summary</h4>
-          <p class="text-uswds-sm text-uswds-base-darker">
+          <h4 class="text-zinc-400 font-medium text-zinc-400darker">Plan Summary</h4>
+          <p class="text-zinc-400 text-zinc-400darker">
             Estimated duration: {formatDuration(plan.estimatedDuration)}
             {#if plan.resumable}
               • Resumable if interrupted
@@ -49,43 +49,43 @@
           </p>
         </div>
         <div class="text-right">
-          <div class="text-uswds-sm font-medium text-uswds-base-darker">Plan ID</div>
-          <div class="text-uswds-xs text-uswds-base-darker font-mono">{plan.planId.slice(0, 8)}...</div>
+          <div class="text-zinc-400 font-medium text-zinc-400darker">Plan ID</div>
+          <div class="text-zinc-400 text-zinc-400darker font-mono">{plan.planId.slice(0, 8)}...</div>
         </div>
       </div>
     </div>
 
     <!-- Provider Impact -->
     {#each Object.entries(plan.impact) as [provider, impact]}
-      <div class="border border-gray-200 rounded-uswds-lg p-uswds-6">
+      <div class="rounded-uswds-lg p-uswds-6" style="border: 1px solid #52525b;">
         <div class="flex items-center mb-4">
           <div class="">
-            <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-green-50" fill="currentColor" viewBox="0 0 24 24">
+            <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-zinc-400" fill="currentColor" viewBox="0 0 24 24">
               <path d={getProviderIcon(provider)} />
             </svg>
           </div>
           <div class="ml-3">
-            <h4 class="text-uswds-lg font-medium text-uswds-base-darker capitalize">{provider}</h4>
-            <p class="text-uswds-sm text-uswds-base-darker">Impact preview for your {provider} library</p>
+            <h4 class="text-zinc-400 font-medium text-zinc-400darker capitalize">{provider}</h4>
+            <p class="text-zinc-400 text-zinc-400darker">Impact preview for your {provider} library</p>
           </div>
         </div>
 
         <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-2 lg:grid-cols-4">
           <!-- Liked Songs -->
           {#if impact.likedSongs}
-            <div class="bg-white border border-gray-200 rounded-uswds-lg p-uswds-4">
+            <div class="rounded-uswds-lg p-uswds-4" style="background: #27272a; border: 1px solid #52525b;">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
-                  <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-red-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-uswds-sm font-medium text-uswds-base-darker">Liked Songs</p>
-                  <p class="text-uswds-sm text-uswds-base-darker">
+                  <p class="text-zinc-400 font-medium text-zinc-400darker">Liked Songs</p>
+                  <p class="text-zinc-400 text-zinc-400darker">
                     {impact.likedSongs.toRemove} to remove
                     {#if impact.likedSongs.collabsFound > 0}
-                      <br /><span class="text-uswds-xs">({impact.likedSongs.collabsFound} collaborations)</span>
+                      <br /><span class="text-zinc-400">({impact.likedSongs.collabsFound} collaborations)</span>
                     {/if}
                   </p>
                 </div>
@@ -95,20 +95,20 @@
 
           <!-- Playlists -->
           {#if impact.playlists}
-            <div class="bg-white border border-gray-200 rounded-uswds-lg p-uswds-4">
+            <div class="rounded-uswds-lg p-uswds-4" style="background: #27272a; border: 1px solid #52525b;">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
-                  <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-uswds-blue-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-uswds-sm font-medium text-uswds-base-darker">Playlists</p>
-                  <p class="text-uswds-sm text-uswds-base-darker">
+                  <p class="text-zinc-400 font-medium text-zinc-400darker">Playlists</p>
+                  <p class="text-zinc-400 text-zinc-400darker">
                     {impact.playlists.toScrub} playlists affected
-                    <br /><span class="text-uswds-xs">{impact.playlists.tracksToRemove} tracks to remove</span>
+                    <br /><span class="text-zinc-400">{impact.playlists.tracksToRemove} tracks to remove</span>
                     {#if impact.playlists.featuringFound > 0}
-                      <br /><span class="text-uswds-xs">({impact.playlists.featuringFound} featuring)</span>
+                      <br /><span class="text-zinc-400">({impact.playlists.featuringFound} featuring)</span>
                     {/if}
                   </p>
                 </div>
@@ -118,7 +118,7 @@
 
           <!-- Following -->
           {#if impact.following}
-            <div class="bg-white border border-gray-200 rounded-uswds-lg p-uswds-4">
+            <div class="rounded-uswds-lg p-uswds-4" style="background: #27272a; border: 1px solid #52525b;">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
                   <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -126,8 +126,8 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-uswds-sm font-medium text-uswds-base-darker">Following</p>
-                  <p class="text-uswds-sm text-uswds-base-darker">
+                  <p class="text-zinc-400 font-medium text-zinc-400darker">Following</p>
+                  <p class="text-zinc-400 text-zinc-400darker">
                     {impact.following.toUnfollow} to unfollow
                   </p>
                 </div>
@@ -137,7 +137,7 @@
 
           <!-- Radio Seeds -->
           {#if impact.radioSeeds}
-            <div class="bg-white border border-gray-200 rounded-uswds-lg p-uswds-4">
+            <div class="rounded-uswds-lg p-uswds-4" style="background: #27272a; border: 1px solid #52525b;">
               <div class="flex items-center">
                 <div class="flex-shrink-0">
                   <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -145,8 +145,8 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-uswds-sm font-medium text-uswds-base-darker">Radio Seeds</p>
-                  <p class="text-uswds-sm text-uswds-base-darker">
+                  <p class="text-zinc-400 font-medium text-zinc-400darker">Radio Seeds</p>
+                  <p class="text-zinc-400 text-zinc-400darker">
                     {impact.radioSeeds.toFilter} to filter
                   </p>
                 </div>
@@ -157,11 +157,11 @@
 
         <!-- Capabilities -->
         {#if plan.capabilities[provider]}
-          <div class="mt-4 pt-4 border-t border-gray-200">
-            <h5 class="text-uswds-sm font-medium text-uswds-base-darker mb-2">Platform Capabilities</h5>
+          <div class="mt-4 pt-4" style="border-top: 1px solid #52525b;">
+            <h5 class="text-zinc-400 font-medium text-zinc-400darker mb-2">Platform Capabilities</h5>
             <div class="flex flex-wrap gap-uswds-2">
               {#each Object.entries(plan.capabilities[provider]) as [capability, support]}
-                <span class="flex items-center px-2.5 py-0.5 rounded-full text-uswds-xs font-medium {getCapabilityColor(support)}">
+                <span class="flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getCapabilityColor(support)}">
                   {capability.replace(/_/g, ' ').toLowerCase()}
                 </span>
               {/each}
@@ -172,18 +172,18 @@
     {/each}
 
     <!-- Important Notes -->
-    <div class="bg-uswds-blue-50 border border-blue-200 rounded-uswds-md p-uswds-4">
+    <div class="rounded-uswds-md p-uswds-4" style="background: #3f3f46; border: 1px solid #52525b;">
       <div class="flex">
         <div class="flex-shrink-0">
-          <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-uswds-blue-50" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-uswds-sm font-medium text-uswds-blue-50">
+          <h3 class="text-zinc-400 font-medium text-zinc-400">
             Before You Execute
           </h3>
-          <div class="mt-2 text-uswds-sm text-uswds-blue-50">
+          <div class="mt-2 text-zinc-400 text-zinc-400">
             <ul class="list-disc list-inside space-y-1">
               <li>This is a preview - no changes have been made yet</li>
               <li>Execution will modify your actual music library</li>
@@ -197,10 +197,10 @@
   </div>
 {:else}
   <div class="text-center py-6">
-    <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-uswds-base-darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-zinc-400darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <h3 class="mt-2 text-uswds-sm font-medium text-uswds-base-darker">No enforcement plan</h3>
-    <p class="mt-1 text-uswds-sm text-uswds-base-darker">Create a plan to see the preview.</p>
+    <h3 class="mt-2 text-zinc-400 font-medium text-zinc-400darker">No enforcement plan</h3>
+    <p class="mt-1 text-zinc-400 text-zinc-400darker">Create a plan to see the preview.</p>
   </div>
 {/if}

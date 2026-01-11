@@ -17,8 +17,13 @@ use crate::models::{
     AppleMusicPlaylist, AppleMusicLibraryTrack, AppleMusicLibraryAlbum, AppleMusicLibraryPlaylist,
     AppleMusicSearchRequest, AppleMusicSearchResponse, AppleMusicTokenInfo,
     AppleMusicDeveloperToken, AppleMusicUserTokenResponse, AppleMusicErrorResponse,
+    BatchRatingResult, RatingError,
 };
 use crate::services::TokenVaultService;
+
+/// Rating value constants for Apple Music API
+pub const RATING_LIKE: i8 = 1;
+pub const RATING_DISLIKE: i8 = -1;
 
 /// Apple Music API configuration
 #[derive(Debug, Clone)]
@@ -32,15 +37,26 @@ pub struct AppleMusicConfig {
 
 impl Default for AppleMusicConfig {
     fn default() -> Self {
+        // Try to read private key from file path first, then fall back to direct env var
+        let private_key = if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
+            std::fs::read_to_string(&key_path)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to read Apple Music private key from {}: {}", key_path, e);
+                    "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
+                })
+        } else {
+            std::env::var("APPLE_MUSIC_PRIVATE_KEY")
+                .unwrap_or_else(|_| "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string())
+        };
+
         Self {
             team_id: std::env::var("APPLE_MUSIC_TEAM_ID")
                 .unwrap_or_else(|_| "YOUR_TEAM_ID".to_string()),
             key_id: std::env::var("APPLE_MUSIC_KEY_ID")
                 .unwrap_or_else(|_| "YOUR_KEY_ID".to_string()),
-            private_key: std::env::var("APPLE_MUSIC_PRIVATE_KEY")
-                .unwrap_or_else(|_| "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()),
+            private_key,
             bundle_id: std::env::var("APPLE_MUSIC_BUNDLE_ID")
-                .unwrap_or_else(|_| "com.yourapp.musicblocklist".to_string()),
+                .unwrap_or_else(|_| "com.nodrakeinthehouse".to_string()),
             api_base_url: "https://api.music.apple.com".to_string(),
         }
     }
@@ -114,10 +130,16 @@ impl AppleMusicService {
         };
 
         let encoding_key = EncodingKey::from_ec_pem(self.config.private_key.as_bytes())
-            .map_err(|e| anyhow!("Failed to parse private key: {}", e))?;
+            .map_err(|e| {
+                tracing::error!("Failed to parse private key: {}. Key starts with: {:?}", e, &self.config.private_key.chars().take(50).collect::<String>());
+                anyhow!("Failed to parse private key: {}", e)
+            })?;
 
         let token = encode(&header, &claims, &encoding_key)
-            .map_err(|e| anyhow!("Failed to generate JWT: {}", e))?;
+            .map_err(|e| {
+                tracing::error!("Failed to generate JWT: {}", e);
+                anyhow!("Failed to generate JWT: {}", e)
+            })?;
 
         let developer_token = AppleMusicDeveloperToken {
             token,
@@ -173,7 +195,10 @@ impl AppleMusicService {
             expires_at: None, // Apple Music user tokens don't expire
         };
 
-        self.token_vault.store_token(store_request).await
+        self.token_vault
+            .store_token(store_request)
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))
     }
 
     /// Check token health and validity
@@ -181,7 +206,8 @@ impl AppleMusicService {
         let decrypted_token = self
             .token_vault
             .get_decrypted_token(connection.id)
-            .await?;
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let developer_token = self.generate_developer_token().await?;
 
@@ -274,7 +300,8 @@ impl AppleMusicService {
         let decrypted_token = self
             .token_vault
             .get_decrypted_token(connection.id)
-            .await?;
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
 
         let developer_token = self.generate_developer_token().await?;
 
@@ -552,7 +579,10 @@ impl AppleMusicService {
 
     /// Get current connection for a user
     pub async fn get_user_connection(&self, user_id: Uuid) -> Result<Option<Connection>> {
-        let connections = self.token_vault.get_user_connections(user_id).await;
+        let connections = self.token_vault
+            .get_user_connections(user_id)
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         Ok(connections
             .into_iter()
             .find(|c| c.provider == StreamingProvider::AppleMusic))
@@ -563,7 +593,10 @@ impl AppleMusicService {
         if let Some(connection) = self.get_user_connection(user_id).await? {
             // Apple Music doesn't have a token revocation endpoint
             // Just remove from token vault
-            self.token_vault.delete_connection(connection.id).await?;
+            self.token_vault
+                .delete_connection(connection.id)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
         }
         Ok(())
     }
@@ -587,6 +620,329 @@ impl AppleMusicService {
             .to_string();
 
         Ok(storefront)
+    }
+
+    // ============================================
+    // Rating Methods for Enforcement
+    // ============================================
+
+    /// Rate a catalog song (like: 1, dislike: -1)
+    pub async fn rate_song(
+        &self,
+        connection: &Connection,
+        song_id: &str,
+        value: i8,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
+        let body = serde_json::json!({
+            "type": "rating",
+            "attributes": {
+                "value": value
+            }
+        });
+
+        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to rate song {}: {} - {}", song_id, status, error_text));
+        }
+
+        tracing::debug!("Rated song {} with value {}", song_id, value);
+        Ok(())
+    }
+
+    /// Rate a library song (like: 1, dislike: -1)
+    pub async fn rate_library_song(
+        &self,
+        connection: &Connection,
+        library_song_id: &str,
+        value: i8,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/library-songs/{}", library_song_id);
+        let body = serde_json::json!({
+            "type": "rating",
+            "attributes": {
+                "value": value
+            }
+        });
+
+        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to rate library song {}: {} - {}", library_song_id, status, error_text));
+        }
+
+        tracing::debug!("Rated library song {} with value {}", library_song_id, value);
+        Ok(())
+    }
+
+    /// Rate a catalog album (like: 1, dislike: -1)
+    pub async fn rate_album(
+        &self,
+        connection: &Connection,
+        album_id: &str,
+        value: i8,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/albums/{}", album_id);
+        let body = serde_json::json!({
+            "type": "rating",
+            "attributes": {
+                "value": value
+            }
+        });
+
+        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to rate album {}: {} - {}", album_id, status, error_text));
+        }
+
+        tracing::debug!("Rated album {} with value {}", album_id, value);
+        Ok(())
+    }
+
+    /// Rate a library album (like: 1, dislike: -1)
+    pub async fn rate_library_album(
+        &self,
+        connection: &Connection,
+        library_album_id: &str,
+        value: i8,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/library-albums/{}", library_album_id);
+        let body = serde_json::json!({
+            "type": "rating",
+            "attributes": {
+                "value": value
+            }
+        });
+
+        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to rate library album {}: {} - {}", library_album_id, status, error_text));
+        }
+
+        tracing::debug!("Rated library album {} with value {}", library_album_id, value);
+        Ok(())
+    }
+
+    /// Get current rating for a song
+    pub async fn get_song_rating(
+        &self,
+        connection: &Connection,
+        song_id: &str,
+    ) -> Result<Option<i8>> {
+        let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
+        let response = self.make_api_request(connection, "GET", &endpoint, None).await?;
+
+        if response.status() == StatusCode::NOT_FOUND {
+            return Ok(None);
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to get song rating {}: {} - {}", song_id, status, error_text));
+        }
+
+        let response_data: serde_json::Value = response.json().await?;
+        let value = response_data
+            .get("data")
+            .and_then(|data| data.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|item| item.get("attributes"))
+            .and_then(|attrs| attrs.get("value"))
+            .and_then(|v| v.as_i64())
+            .map(|v| v as i8);
+
+        Ok(value)
+    }
+
+    /// Delete a song rating (removes like/dislike)
+    pub async fn delete_song_rating(
+        &self,
+        connection: &Connection,
+        song_id: &str,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
+        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+
+        // 204 No Content is success, 404 means no rating existed
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+            return Ok(());
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to delete song rating {}: {} - {}", song_id, status, error_text));
+        }
+
+        tracing::debug!("Deleted rating for song {}", song_id);
+        Ok(())
+    }
+
+    /// Delete a library song rating
+    pub async fn delete_library_song_rating(
+        &self,
+        connection: &Connection,
+        library_song_id: &str,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/library-songs/{}", library_song_id);
+        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+            return Ok(());
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to delete library song rating {}: {} - {}", library_song_id, status, error_text));
+        }
+
+        tracing::debug!("Deleted rating for library song {}", library_song_id);
+        Ok(())
+    }
+
+    /// Delete an album rating
+    pub async fn delete_album_rating(
+        &self,
+        connection: &Connection,
+        album_id: &str,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/albums/{}", album_id);
+        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+            return Ok(());
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to delete album rating {}: {} - {}", album_id, status, error_text));
+        }
+
+        tracing::debug!("Deleted rating for album {}", album_id);
+        Ok(())
+    }
+
+    /// Delete a library album rating
+    pub async fn delete_library_album_rating(
+        &self,
+        connection: &Connection,
+        library_album_id: &str,
+    ) -> Result<()> {
+        let endpoint = format!("/v1/me/ratings/library-albums/{}", library_album_id);
+        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+            return Ok(());
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            return Err(anyhow!("Failed to delete library album rating {}: {} - {}", library_album_id, status, error_text));
+        }
+
+        tracing::debug!("Deleted rating for library album {}", library_album_id);
+        Ok(())
+    }
+
+    /// Batch dislike multiple library songs (with rate limiting)
+    pub async fn batch_dislike_library_songs<F>(
+        &self,
+        connection: &Connection,
+        song_ids: Vec<String>,
+        progress_callback: F,
+    ) -> Result<BatchRatingResult>
+    where
+        F: Fn(usize, usize),
+    {
+        let total = song_ids.len();
+        let mut successful = 0;
+        let mut failed = 0;
+        let mut errors = Vec::new();
+
+        for (idx, song_id) in song_ids.iter().enumerate() {
+            match self.rate_library_song(connection, song_id, RATING_DISLIKE).await {
+                Ok(()) => {
+                    successful += 1;
+                }
+                Err(e) => {
+                    failed += 1;
+                    errors.push(RatingError {
+                        resource_id: song_id.clone(),
+                        resource_type: "library-song".to_string(),
+                        error_message: e.to_string(),
+                    });
+                }
+            }
+            progress_callback(idx + 1, total);
+
+            // Small delay to respect rate limits (~20 req/sec)
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+
+        Ok(BatchRatingResult {
+            total,
+            successful,
+            failed,
+            errors,
+        })
+    }
+
+    /// Batch dislike multiple library albums (with rate limiting)
+    pub async fn batch_dislike_library_albums<F>(
+        &self,
+        connection: &Connection,
+        album_ids: Vec<String>,
+        progress_callback: F,
+    ) -> Result<BatchRatingResult>
+    where
+        F: Fn(usize, usize),
+    {
+        let total = album_ids.len();
+        let mut successful = 0;
+        let mut failed = 0;
+        let mut errors = Vec::new();
+
+        for (idx, album_id) in album_ids.iter().enumerate() {
+            match self.rate_library_album(connection, album_id, RATING_DISLIKE).await {
+                Ok(()) => {
+                    successful += 1;
+                }
+                Err(e) => {
+                    failed += 1;
+                    errors.push(RatingError {
+                        resource_id: album_id.clone(),
+                        resource_type: "library-album".to_string(),
+                        error_message: e.to_string(),
+                    });
+                }
+            }
+            progress_callback(idx + 1, total);
+
+            // Small delay to respect rate limits
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+
+        Ok(BatchRatingResult {
+            total,
+            successful,
+            failed,
+            errors,
+        })
     }
 }
 

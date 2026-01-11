@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE platform_sync_runs\n            SET status = 'completed',\n                completed_at = NOW(),\n                artists_processed = $2,\n                artists_created = $3,\n                artists_updated = $4,\n                errors_count = $5\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f42b7327a9717b6631e01f96db14d5e5b530b478589776231e71b89473a08892"
+}

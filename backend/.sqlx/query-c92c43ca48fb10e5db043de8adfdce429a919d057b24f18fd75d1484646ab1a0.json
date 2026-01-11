@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO artist_platform_ids (artist_id, platform, platform_id, confidence_score, sync_run_id, verification_status)\n            VALUES ($1, $2, $3, $4, $5, 'verified')\n            ON CONFLICT (platform, platform_id) DO UPDATE SET\n                artist_id = EXCLUDED.artist_id,\n                confidence_score = EXCLUDED.confidence_score,\n                sync_run_id = EXCLUDED.sync_run_id,\n                last_verified_at = NOW(),\n                updated_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Float8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c92c43ca48fb10e5db043de8adfdce429a919d057b24f18fd75d1484646ab1a0"
+}

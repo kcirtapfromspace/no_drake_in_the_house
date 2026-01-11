@@ -328,6 +328,69 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 30
 
+  # Apple Music API Sandbox Tests
+  # Validates Apple Music API interactions against real Apple Music API
+  # Only runs when Apple Music secrets are configured
+  apple-music-sandbox:
+    name: Apple Music Sandbox Tests
+    runs-on: ubuntu-latest
+    needs: [backend-test]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Apple Music credentials
+        id: check-creds
+        run: |
+          if [[ -n "${{ secrets.APPLE_MUSIC_TEAM_ID }}" ]] && \
+             [[ -n "${{ secrets.APPLE_MUSIC_KEY_ID }}" ]] && \
+             [[ -n "${{ secrets.APPLE_MUSIC_PRIVATE_KEY }}" ]]; then
+            echo "has_credentials=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_credentials=false" >> $GITHUB_OUTPUT
+            echo "::warning::Apple Music credentials not configured. Skipping sandbox tests."
+          fi
+
+      - name: Install Rust toolchain
+        if: steps.check-creds.outputs.has_credentials == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        if: steps.check-creds.outputs.has_credentials == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup Apple Music private key
+        if: steps.check-creds.outputs.has_credentials == 'true'
+        run: |
+          echo "${{ secrets.APPLE_MUSIC_PRIVATE_KEY }}" > /tmp/apple_music_key.p8
+
+      - name: Run Apple Music sandbox tests
+        if: steps.check-creds.outputs.has_credentials == 'true'
+        working-directory: backend
+        env:
+          APPLE_MUSIC_TEAM_ID: ${{ secrets.APPLE_MUSIC_TEAM_ID }}
+          APPLE_MUSIC_KEY_ID: ${{ secrets.APPLE_MUSIC_KEY_ID }}
+          APPLE_MUSIC_KEY_PATH: /tmp/apple_music_key.p8
+          APPLE_MUSIC_SANDBOX_TEST: "1"
+        run: |
+          cargo test --test apple_music_sandbox_tests -- --ignored --nocapture
+
+      - name: Cleanup private key
+        if: always()
+        run: rm -f /tmp/apple_music_key.p8
+
   # Summary job
   ci-success:
     name: CI Success

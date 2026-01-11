@@ -13,7 +13,7 @@ use crate::error::AppError;
 use crate::models::{
     ActionBatchStatus, BatchExecutionResult, BatchProgress, BatchSummary,
     EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
-    RollbackInfo, AggressivenessLevel,
+    RollbackInfo, AggressivenessLevel, AuthenticatedUser,
 };
 use crate::AppState;
 
@@ -213,10 +213,10 @@ pub struct SpotifyCapabilitiesResponse {
 /// POST /api/v1/enforcement/spotify/run
 pub async fn run_spotify_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Json(request): Json<SpotifyRunEnforcementRequest>,
 ) -> Result<Json<SpotifyEnforcementRunResponse>, AppError> {
-    // For now, use a hardcoded user_id - in production this would come from auth middleware
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = user.id;
 
     // Get blocked artist IDs from DNP list
     let blocked_artists = get_blocked_artist_ids(&state, user_id).await?;
@@ -282,8 +282,9 @@ pub async fn run_spotify_enforcement(
 /// POST /api/v1/enforcement/spotify/preview
 pub async fn preview_spotify_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<SpotifyEnforcementPreviewResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = user.id;
 
     // Get blocked artists with their details
     let blocked_artist_details = get_blocked_artists_with_details(&state, user_id).await?;
@@ -345,11 +346,12 @@ pub async fn preview_spotify_enforcement(
 ///
 /// POST /api/v1/enforcement/spotify/rollback/{batch_id}
 pub async fn rollback_spotify_enforcement(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
+    user: AuthenticatedUser,
     Path(batch_id): Path<Uuid>,
     Json(request): Json<SpotifyRollbackRequest>,
 ) -> Result<Json<RollbackInfo>, AppError> {
-    let _user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let _user_id = user.id;
 
     // TODO: Once SpotifyEnforcementService is enabled, perform the rollback
     // For now, return an error indicating rollback is not yet available
@@ -366,8 +368,9 @@ pub async fn rollback_spotify_enforcement(
 /// GET /api/v1/enforcement/spotify/history
 pub async fn get_spotify_enforcement_history(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<SpotifyEnforcementHistoryResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = user.id;
 
     // Query enforcement history from database using runtime query
     let rows: Vec<SpotifyEnforcementHistoryItemRow> = sqlx::query_as(
@@ -464,9 +467,9 @@ pub async fn get_spotify_capabilities(
 /// GET /api/v1/enforcement/spotify/progress/{batch_id}
 pub async fn get_spotify_enforcement_progress(
     State(state): State<AppState>,
+    _user: AuthenticatedUser,
     Path(batch_id): Path<Uuid>,
 ) -> Result<Json<BatchProgress>, AppError> {
-    let _user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
 
     // Query batch progress from database using runtime query
     let batch: Option<BatchProgressRow> = sqlx::query_as(

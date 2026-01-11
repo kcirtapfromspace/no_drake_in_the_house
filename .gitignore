@@ -1,58 +1,19 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Production builds
-/frontend/public/build/
-/frontend/dist/
-build/
-dist/
-
-# Environment variables
+# ===================
+# Environment & Secrets
+# ===================
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+*.pem
+*.p8
+*.p12
+*.key
+**/credentials.json
+**/secrets.json
 
-# Logs
-logs
-*.log
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# Dependency directories
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Rust
-/backend/target/
-**/*.rs.bk
-Cargo.lock
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+# ===================
+# OS Generated
+# ===================
 .DS_Store
 .DS_Store?
 ._*
@@ -60,20 +21,108 @@ Cargo.lock
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.swp
+*.swo
+*~
 
-# Database
+# ===================
+# IDE & Editors
+# ===================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.project
+.classpath
+.settings/
+
+# ===================
+# Dependencies
+# ===================
+node_modules/
+jspm_packages/
+.npm
+.pnpm-store/
+
+# ===================
+# Rust / Backend
+# ===================
+target/
+**/*.rs.bk
+*.pdb
+.cargo/
+!.cargo/config.toml
+
+# ===================
+# Frontend Build
+# ===================
+/frontend/public/build/
+/frontend/dist/
+/frontend/.svelte-kit/
+build/
+dist/
+
+# ===================
+# Testing
+# ===================
+coverage/
+*.lcov
+.nyc_output/
+playwright-report/
+test-results/
+
+# ===================
+# Logs
+# ===================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===================
+# Database / Local Data
+# ===================
 *.db
 *.sqlite
 *.sqlite3
-
-# Temporary files
-*.tmp
-*.temp
-
-# Docker
-.dockerignore
-
-# Local data
 /data/*
 !/data/.gitkeep
-.DS_Store
+*.duckdb
+*.duckdb.wal
+
+# ===================
+# Caches
+# ===================
+.cache/
+.parcel-cache/
+.eslintcache
+.fastembed_cache/
+*.tsbuildinfo
+
+# ===================
+# Runtime / Temp
+# ===================
+pids/
+*.pid
+*.seed
+*.pid.lock
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ===================
+# Kubernetes / Docker
+# ===================
+*.kubeconfig
+kubeconfig
+.helm/
+
+# ===================
+# Misc
+# ===================
+.claude/
+*.bak
+.sqlx.bak/

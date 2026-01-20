@@ -1,0 +1,733 @@
+//! Apple Music Catalog Sync Worker
+//!
+//! Implements catalog synchronization for Apple Music using their MusicKit API.
+//! Rate limit: 1000 requests/hour
+
+use super::traits::*;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
+use chrono::Utc;
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use tokio::time::{sleep, Duration};
+use uuid::Uuid;
+
+/// Apple Music API base URL
+const APPLE_MUSIC_API_BASE: &str = "https://api.music.apple.com/v1";
+
+/// Apple Music sync worker
+pub struct AppleMusicSyncWorker {
+    client: Client,
+    /// Developer token (JWT)
+    developer_token: Arc<RwLock<Option<String>>>,
+    /// Team ID from Apple Developer account
+    team_id: String,
+    /// Key ID from Apple Developer account
+    key_id: String,
+    /// Private key (PEM format)
+    private_key: String,
+    /// Default storefront (country code)
+    storefront: String,
+    /// Rate limiter state
+    rate_limiter: Arc<RwLock<RateLimiterState>>,
+}
+
+struct RateLimiterState {
+    requests_this_window: u32,
+    window_start: std::time::Instant,
+}
+
+impl AppleMusicSyncWorker {
+    /// Create a new Apple Music sync worker
+    pub fn new(team_id: String, key_id: String, private_key: String, storefront: String) -> Self {
+        Self {
+            client: Client::new(),
+            developer_token: Arc::new(RwLock::new(None)),
+            team_id,
+            key_id,
+            private_key,
+            storefront,
+            rate_limiter: Arc::new(RwLock::new(RateLimiterState {
+                requests_this_window: 0,
+                window_start: std::time::Instant::now(),
+            })),
+        }
+    }
+
+    /// Generate a new developer token (JWT)
+    fn generate_token(&self) -> Result<String> {
+        #[derive(Serialize)]
+        struct Claims {
+            iss: String,
+            iat: i64,
+            exp: i64,
+        }
+
+        let now = Utc::now().timestamp();
+        let claims = Claims {
+            iss: self.team_id.clone(),
+            iat: now,
+            exp: now + 15777000, // 6 months
+        };
+
+        let mut header = Header::new(Algorithm::ES256);
+        header.kid = Some(self.key_id.clone());
+
+        let key = EncodingKey::from_ec_pem(self.private_key.as_bytes())
+            .context("Invalid Apple Music private key")?;
+
+        encode(&header, &claims, &key).context("Failed to generate Apple Music token")
+    }
+
+    /// Get or refresh developer token
+    async fn ensure_token(&self) -> Result<String> {
+        {
+            let token = self.developer_token.read().await;
+            if let Some(t) = token.as_ref() {
+                return Ok(t.clone());
+            }
+        }
+
+        let token = self.generate_token()?;
+        {
+            let mut token_lock = self.developer_token.write().await;
+            *token_lock = Some(token.clone());
+        }
+        Ok(token)
+    }
+
+    /// Wait for rate limit if needed
+    async fn wait_for_rate_limit(&self) {
+        let config = self.rate_limit_config();
+        let mut state = self.rate_limiter.write().await;
+
+        let elapsed = state.window_start.elapsed();
+        if elapsed.as_secs() >= config.window_seconds as u64 {
+            state.requests_this_window = 0;
+            state.window_start = std::time::Instant::now();
+        }
+
+        if state.requests_this_window >= config.requests_per_window {
+            let wait_time = Duration::from_secs(config.window_seconds as u64) - elapsed;
+            tracing::debug!("Apple Music rate limit hit, waiting {:?}", wait_time);
+            drop(state);
+            sleep(wait_time).await;
+
+            let mut state = self.rate_limiter.write().await;
+            state.requests_this_window = 0;
+            state.window_start = std::time::Instant::now();
+        } else {
+            state.requests_this_window += 1;
+        }
+    }
+
+    /// Make an authenticated API request
+    async fn api_request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
+        self.wait_for_rate_limit().await;
+        let token = self.ensure_token().await?;
+
+        let url = format!("{}{}", APPLE_MUSIC_API_BASE, endpoint);
+        let response = self
+            .client
+            .get(&url)
+            .bearer_auth(&token)
+            .send()
+            .await
+            .context("Apple Music API request failed")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(anyhow::anyhow!(
+                "Apple Music API error: {} - {}",
+                status,
+                body
+            ));
+        }
+
+        response
+            .json()
+            .await
+            .context("Failed to parse Apple Music response")
+    }
+
+    /// Fetch top chart songs/albums and extract unique artists
+    pub async fn fetch_chart_artists(
+        &self,
+        chart_type: &str,
+        limit: u32,
+        genre_id: Option<&str>,
+    ) -> Result<Vec<(String, String)>> {
+        let mut endpoint = format!(
+            "/catalog/{}/charts?types=songs,albums&chart={}&limit={}",
+            self.storefront,
+            chart_type,
+            limit.min(200)
+        );
+
+        if let Some(genre) = genre_id {
+            endpoint.push_str(&format!("&genre={}", genre));
+        }
+
+        // Include artist relationships to get artist IDs
+        endpoint.push_str("&include=artists");
+
+        let response: AppleMusicChartsResponse = self.api_request(&endpoint).await?;
+        let mut artists: HashMap<String, String> = HashMap::new();
+
+        // Extract artists from songs
+        if let Some(song_charts) = response.results.songs {
+            for chart in song_charts {
+                for item in chart.data {
+                    // Get artist from relationships if available
+                    if let Some(relationships) = &item.relationships {
+                        if let Some(artist_rel) = &relationships.artists {
+                            for artist in &artist_rel.data {
+                                if let Some(name) = &item.attributes.artist_name {
+                                    artists.insert(artist.id.clone(), name.clone());
+                                }
+                            }
+                        }
+                    }
+                    // Fallback: use artist_name from attributes
+                    if let Some(artist_name) = &item.attributes.artist_name {
+                        if !artist_name.is_empty() && !artists.values().any(|n| n == artist_name) {
+                            // We don't have the ID, will need to search later
+                            artists.insert(format!("name:{}", artist_name), artist_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Extract artists from albums
+        if let Some(album_charts) = response.results.albums {
+            for chart in album_charts {
+                for item in chart.data {
+                    if let Some(relationships) = &item.relationships {
+                        if let Some(artist_rel) = &relationships.artists {
+                            for artist in &artist_rel.data {
+                                if let Some(name) = &item.attributes.artist_name {
+                                    artists.insert(artist.id.clone(), name.clone());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(artist_name) = &item.attributes.artist_name {
+                        if !artist_name.is_empty() && !artists.values().any(|n| n == artist_name) {
+                            artists.insert(format!("name:{}", artist_name), artist_name.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(artists.into_iter().collect())
+    }
+
+    /// Fetch top artists in bulk from multiple genre charts
+    /// Returns deduplicated list of PlatformArtist
+    pub async fn fetch_top_artists_bulk(
+        &self,
+        target_count: usize,
+        progress_callback: impl Fn(usize, usize),
+    ) -> Result<Vec<PlatformArtist>> {
+        let mut all_artists: HashMap<String, PlatformArtist> = HashMap::new();
+        let mut names_seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        // First, fetch from main charts (no genre filter)
+        tracing::info!("Fetching main charts...");
+        progress_callback(0, target_count);
+
+        let main_chart_artists = self.fetch_chart_artists("most-played", 200, None).await?;
+        for (id, name) in &main_chart_artists {
+            if !id.starts_with("name:") && !all_artists.contains_key(id) {
+                if let Ok(Some(artist)) = self.get_artist(id).await {
+                    names_seen.insert(artist.name.to_lowercase());
+                    all_artists.insert(id.clone(), artist);
+                    progress_callback(all_artists.len(), target_count);
+
+                    if all_artists.len() >= target_count {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Then fetch from genre-specific charts
+        for (genre_id, genre_name) in APPLE_MUSIC_GENRE_IDS {
+            if all_artists.len() >= target_count {
+                break;
+            }
+
+            tracing::info!(
+                "Fetching {} chart... ({}/{})",
+                genre_name,
+                all_artists.len(),
+                target_count
+            );
+
+            match self
+                .fetch_chart_artists("most-played", 200, Some(genre_id))
+                .await
+            {
+                Ok(genre_artists) => {
+                    for (id, name) in &genre_artists {
+                        if all_artists.len() >= target_count {
+                            break;
+                        }
+
+                        // Skip if we already have this artist by name
+                        if names_seen.contains(&name.to_lowercase()) {
+                            continue;
+                        }
+
+                        if !id.starts_with("name:") && !all_artists.contains_key(id) {
+                            if let Ok(Some(artist)) = self.get_artist(id).await {
+                                names_seen.insert(artist.name.to_lowercase());
+                                all_artists.insert(id.clone(), artist);
+                                progress_callback(all_artists.len(), target_count);
+                            }
+                        } else if id.starts_with("name:") {
+                            // Search for artist by name
+                            if let Ok(search_results) = self.search_artist(name, 1).await {
+                                if let Some(artist) = search_results.into_iter().next() {
+                                    if !all_artists.contains_key(&artist.platform_id)
+                                        && !names_seen.contains(&artist.name.to_lowercase())
+                                    {
+                                        names_seen.insert(artist.name.to_lowercase());
+                                        all_artists
+                                            .insert(artist.platform_id.clone(), artist);
+                                        progress_callback(all_artists.len(), target_count);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to fetch {} chart: {}", genre_name, e);
+                }
+            }
+        }
+
+        tracing::info!(
+            "Fetched {} unique artists from Apple Music charts",
+            all_artists.len()
+        );
+
+        Ok(all_artists.into_values().collect())
+    }
+}
+
+// Apple Music API response types
+#[derive(Debug, Deserialize)]
+struct AppleMusicResponse<T> {
+    data: Vec<T>,
+    #[allow(dead_code)]
+    next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicArtist {
+    id: String,
+    attributes: AppleMusicArtistAttributes,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicArtistAttributes {
+    name: String,
+    genre_names: Vec<String>,
+    url: String,
+    #[allow(dead_code)]
+    artwork: Option<AppleMusicArtwork>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicArtwork {
+    url: String,
+    #[allow(dead_code)]
+    width: u32,
+    #[allow(dead_code)]
+    height: u32,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicSearchResponse {
+    results: AppleMusicSearchResults,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicSearchResults {
+    artists: Option<AppleMusicResponse<AppleMusicArtist>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicSong {
+    id: String,
+    attributes: AppleMusicSongAttributes,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicSongAttributes {
+    name: String,
+    isrc: Option<String>,
+    duration_in_millis: Option<u64>,
+    release_date: Option<String>,
+    preview_url: Option<String>,
+    #[allow(dead_code)]
+    content_rating: Option<String>,
+    album_name: Option<String>,
+    artist_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicAlbum {
+    id: String,
+    attributes: AppleMusicAlbumAttributes,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicAlbumAttributes {
+    name: String,
+    upc: Option<String>,
+    release_date: Option<String>,
+    track_count: u32,
+    artwork: Option<AppleMusicArtwork>,
+    #[allow(dead_code)]
+    content_rating: Option<String>,
+}
+
+// Charts API response types
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartsResponse {
+    results: AppleMusicChartsResults,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartsResults {
+    songs: Option<Vec<AppleMusicChartData>>,
+    albums: Option<Vec<AppleMusicChartData>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartData {
+    #[allow(dead_code)]
+    name: String,
+    #[allow(dead_code)]
+    chart: String,
+    data: Vec<AppleMusicChartItem>,
+    #[allow(dead_code)]
+    next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicChartItem {
+    id: String,
+    #[serde(rename = "type")]
+    item_type: String,
+    attributes: AppleMusicChartItemAttributes,
+    relationships: Option<AppleMusicChartRelationships>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AppleMusicChartItemAttributes {
+    name: String,
+    artist_name: Option<String>,
+    #[allow(dead_code)]
+    artwork: Option<AppleMusicArtwork>,
+    #[allow(dead_code)]
+    genre_names: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicChartRelationships {
+    artists: Option<AppleMusicRelationshipData>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicRelationshipData {
+    data: Vec<AppleMusicRelationshipItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AppleMusicRelationshipItem {
+    id: String,
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    item_type: String,
+}
+
+// Genre IDs for Apple Music charts
+const APPLE_MUSIC_GENRE_IDS: &[(&str, &str)] = &[
+    ("14", "Pop"),
+    ("18", "Hip-Hop/Rap"),
+    ("21", "Rock"),
+    ("15", "R&B/Soul"),
+    ("6", "Country"),
+    ("7", "Electronic"),
+    ("12", "Latin"),
+    ("11", "Jazz"),
+    ("5", "Classical"),
+    ("2", "Blues"),
+    ("24", "Reggae"),
+    ("20", "Alternative"),
+    ("17", "Dance"),
+    ("13", "World"),
+];
+
+impl From<AppleMusicArtist> for PlatformArtist {
+    fn from(artist: AppleMusicArtist) -> Self {
+        let mut external_urls = HashMap::new();
+        external_urls.insert("apple_music".to_string(), artist.attributes.url);
+
+        PlatformArtist {
+            platform_id: artist.id,
+            platform: Platform::AppleMusic,
+            name: artist.attributes.name,
+            genres: artist.attributes.genre_names,
+            popularity: None, // Apple Music doesn't expose this
+            image_url: artist
+                .attributes
+                .artwork
+                .map(|a| a.url.replace("{w}", "300").replace("{h}", "300")),
+            external_urls,
+            metadata: HashMap::new(),
+        }
+    }
+}
+
+impl AppleMusicSong {
+    fn into_platform_track(
+        self,
+        artist_ids: Vec<String>,
+        album_id: Option<String>,
+    ) -> PlatformTrack {
+        PlatformTrack {
+            platform_id: self.id,
+            platform: Platform::AppleMusic,
+            title: self.attributes.name,
+            isrc: self.attributes.isrc,
+            duration_ms: self.attributes.duration_in_millis,
+            artist_ids,
+            album_id,
+            release_date: self.attributes.release_date,
+            preview_url: self.attributes.preview_url,
+            explicit: self.attributes.content_rating.as_deref() == Some("explicit"),
+        }
+    }
+}
+
+impl AppleMusicAlbum {
+    fn into_platform_album(self, artist_ids: Vec<String>) -> PlatformAlbum {
+        PlatformAlbum {
+            platform_id: self.id,
+            platform: Platform::AppleMusic,
+            title: self.attributes.name,
+            upc: self.attributes.upc,
+            artist_ids,
+            release_date: self.attributes.release_date,
+            album_type: "album".to_string(), // Apple Music doesn't distinguish types the same way
+            total_tracks: self.attributes.track_count,
+            image_url: self
+                .attributes
+                .artwork
+                .map(|a| a.url.replace("{w}", "300").replace("{h}", "300")),
+        }
+    }
+}
+
+#[async_trait]
+impl PlatformCatalogWorker for AppleMusicSyncWorker {
+    fn platform(&self) -> Platform {
+        Platform::AppleMusic
+    }
+
+    fn rate_limit_config(&self) -> RateLimitConfig {
+        RateLimitConfig::apple_music()
+    }
+
+    async fn health_check(&self) -> Result<bool> {
+        match self.ensure_token().await {
+            Ok(_) => Ok(true),
+            Err(e) => {
+                tracing::warn!("Apple Music health check failed: {}", e);
+                Ok(false)
+            }
+        }
+    }
+
+    async fn search_artist(&self, query: &str, limit: u32) -> Result<Vec<PlatformArtist>> {
+        let encoded_query = urlencoding::encode(query);
+        let endpoint = format!(
+            "/catalog/{}/search?term={}&types=artists&limit={}",
+            self.storefront,
+            encoded_query,
+            limit.min(25)
+        );
+
+        let response: AppleMusicSearchResponse = self.api_request(&endpoint).await?;
+
+        Ok(response
+            .results
+            .artists
+            .map(|a| a.data.into_iter().map(Into::into).collect())
+            .unwrap_or_default())
+    }
+
+    async fn get_artist(&self, platform_id: &str) -> Result<Option<PlatformArtist>> {
+        let endpoint = format!("/catalog/{}/artists/{}", self.storefront, platform_id);
+
+        match self
+            .api_request::<AppleMusicResponse<AppleMusicArtist>>(&endpoint)
+            .await
+        {
+            Ok(response) => Ok(response.data.into_iter().next().map(Into::into)),
+            Err(e) if e.to_string().contains("404") => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn get_artist_top_tracks(
+        &self,
+        platform_id: &str,
+        limit: u32,
+    ) -> Result<Vec<PlatformTrack>> {
+        let endpoint = format!(
+            "/catalog/{}/artists/{}/songs?limit={}",
+            self.storefront,
+            platform_id,
+            limit.min(100)
+        );
+
+        let response: AppleMusicResponse<AppleMusicSong> = self.api_request(&endpoint).await?;
+
+        Ok(response
+            .data
+            .into_iter()
+            .map(|s| s.into_platform_track(vec![platform_id.to_string()], None))
+            .collect())
+    }
+
+    async fn get_artist_albums(
+        &self,
+        platform_id: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Vec<PlatformAlbum>> {
+        let endpoint = format!(
+            "/catalog/{}/artists/{}/albums?limit={}&offset={}",
+            self.storefront,
+            platform_id,
+            limit.min(100),
+            offset
+        );
+
+        let response: AppleMusicResponse<AppleMusicAlbum> = self.api_request(&endpoint).await?;
+
+        Ok(response
+            .data
+            .into_iter()
+            .map(|a| a.into_platform_album(vec![platform_id.to_string()]))
+            .collect())
+    }
+
+    async fn get_album_tracks(&self, album_id: &str) -> Result<Vec<PlatformTrack>> {
+        let endpoint = format!("/catalog/{}/albums/{}/tracks", self.storefront, album_id);
+
+        let response: AppleMusicResponse<AppleMusicSong> = self.api_request(&endpoint).await?;
+
+        Ok(response
+            .data
+            .into_iter()
+            .map(|s| s.into_platform_track(vec![], Some(album_id.to_string())))
+            .collect())
+    }
+
+    async fn get_related_artists(&self, platform_id: &str) -> Result<Vec<PlatformArtist>> {
+        // Apple Music doesn't have a direct related artists endpoint
+        // We could use recommendations or return empty
+        tracing::debug!(
+            "Apple Music doesn't support related artists directly for {}",
+            platform_id
+        );
+        Ok(vec![])
+    }
+
+    async fn sync_incremental(
+        &self,
+        checkpoint: Option<SyncCheckpoint>,
+        progress_callback: Box<dyn Fn(SyncProgress) + Send + Sync>,
+    ) -> Result<SyncResult> {
+        let sync_run_id = checkpoint
+            .as_ref()
+            .map(|c| c.sync_run_id)
+            .unwrap_or_else(Uuid::new_v4);
+        let started_at = Utc::now();
+
+        progress_callback(SyncProgress {
+            platform: Platform::AppleMusic,
+            sync_run_id,
+            status: SyncStatus::Running,
+            total_items: None,
+            items_processed: checkpoint.as_ref().map(|c| c.items_processed).unwrap_or(0),
+            errors: 0,
+            started_at,
+            updated_at: Utc::now(),
+            estimated_completion: None,
+        });
+
+        let result = SyncResult {
+            platform: Platform::AppleMusic,
+            sync_run_id,
+            status: SyncStatus::Completed,
+            artists_processed: 0,
+            tracks_processed: 0,
+            albums_processed: 0,
+            new_artists: 0,
+            updated_artists: 0,
+            errors: 0,
+            duration_ms: (Utc::now() - started_at).num_milliseconds() as u64,
+            api_calls: 0,
+            rate_limit_delays_ms: 0,
+        };
+
+        progress_callback(SyncProgress {
+            platform: Platform::AppleMusic,
+            sync_run_id,
+            status: SyncStatus::Completed,
+            total_items: Some(result.artists_processed),
+            items_processed: result.artists_processed,
+            errors: result.errors,
+            started_at,
+            updated_at: Utc::now(),
+            estimated_completion: None,
+        });
+
+        Ok(result)
+    }
+
+    async fn sync_full(
+        &self,
+        progress_callback: Box<dyn Fn(SyncProgress) + Send + Sync>,
+    ) -> Result<SyncResult> {
+        self.sync_incremental(None, progress_callback).await
+    }
+
+    async fn get_checkpoint(&self, _sync_run_id: Uuid) -> Result<Option<SyncCheckpoint>> {
+        Ok(None)
+    }
+
+    async fn save_checkpoint(&self, _checkpoint: &SyncCheckpoint) -> Result<()> {
+        Ok(())
+    }
+}

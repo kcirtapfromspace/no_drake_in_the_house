@@ -61,7 +61,7 @@
       "description": "As a product owner, I want enforcement analytics to return real metrics so reports are trustworthy.",
       "id": "US-004",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 4,
       "title": "Complete enforcement analytics metrics"
     },

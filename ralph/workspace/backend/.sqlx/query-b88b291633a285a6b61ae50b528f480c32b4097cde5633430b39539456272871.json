@@ -1,0 +1,58 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                uab.artist_id,\n                uab.tags,\n                uab.note,\n                uab.created_at,\n                a.canonical_name,\n                a.external_ids,\n                a.metadata\n            FROM user_artist_blocks uab\n            JOIN artists a ON uab.artist_id = a.id\n            WHERE uab.user_id = $1\n            ORDER BY uab.created_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "artist_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 2,
+        "name": "note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 4,
+        "name": "canonical_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "external_ids",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 6,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b88b291633a285a6b61ae50b528f480c32b4097cde5633430b39539456272871"
+}

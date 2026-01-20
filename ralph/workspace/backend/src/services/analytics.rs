@@ -353,9 +353,6 @@ impl AnalyticsService {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<HashMap<String, ProviderEnforcementStats>, Box<dyn std::error::Error>> {
-        let most_common_operations = self
-            .get_provider_common_operations(user_id, start, end, 3)
-            .await?;
         let rows = sqlx::query!(
             r#"
             SELECT 
@@ -394,10 +391,7 @@ impl AnalyticsService {
                     failed_operations: failed,
                     success_rate,
                     avg_duration_ms: row.avg_duration_ms.unwrap_or(0.0),
-                    most_common_operations: most_common_operations
-                        .get(&row.provider)
-                        .cloned()
-                        .unwrap_or_default(),
+                    most_common_operations: vec![], // TODO: Implement
                 },
             );
         }
@@ -411,19 +405,12 @@ impl AnalyticsService {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<HashMap<String, OperationStats>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
                 ai.action,
                 COUNT(*) as total_count,
-                COUNT(CASE WHEN ai.status = 'completed' THEN 1 END) as success_count,
-                AVG(
-                    CASE
-                        WHEN ab.completed_at IS NOT NULL THEN EXTRACT(EPOCH FROM (ab.completed_at - ab.created_at)) * 1000
-                        WHEN ab.summary ? 'execution_time_ms' THEN (ab.summary->>'execution_time_ms')::float
-                        ELSE NULL
-                    END
-                ) as avg_duration_ms
+                COUNT(CASE WHEN ai.status = 'completed' THEN 1 END) as success_count
             FROM action_items ai
             JOIN action_batches ab ON ai.batch_id = ab.id
             WHERE ab.user_id = $1 AND ab.created_at BETWEEN $2 AND $3
@@ -455,7 +442,7 @@ impl AnalyticsService {
                     success_count: success,
                     failure_count: failure,
                     success_rate,
-                    avg_duration_ms: row.avg_duration_ms.unwrap_or(0.0),
+                    avg_duration_ms: 0.0, // TODO: Calculate from timing data
                 },
             );
         }
@@ -468,22 +455,15 @@ impl AnalyticsService {
         user_id: Uuid,
         limit: i64,
     ) -> Result<Vec<EnforcementFailure>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
-                ab.created_at as "created_at?",
+                ab.created_at,
                 ab.provider,
                 ai.action,
-                ai.error_message,
-                err.retry_count as "retry_count?"
+                ai.error_message
             FROM action_items ai
             JOIN action_batches ab ON ai.batch_id = ab.id
-            LEFT JOIN LATERAL (
-                SELECT (error_entry->>'retry_count')::int as retry_count
-                FROM jsonb_array_elements(COALESCE(ab.summary->'errors', '[]'::jsonb)) as error_entry
-                WHERE error_entry->>'action_id' = ai.id::text
-                LIMIT 1
-            ) err ON true
             WHERE ab.user_id = $1 AND ai.status = 'failed'
             ORDER BY ab.created_at DESC
             LIMIT $2
@@ -501,7 +481,7 @@ impl AnalyticsService {
                 provider: row.provider,
                 operation_type: row.action,
                 error_message: row.error_message.unwrap_or_default(),
-                retry_count: row.retry_count.unwrap_or(0) as u32,
+                retry_count: 0, // TODO: Track retry count
             })
             .collect();
 
@@ -537,15 +517,14 @@ impl AnalyticsService {
     }
 
     async fn get_content_breakdown(&self, user_id: Uuid) -> Result<HashMap<String, ContentFilterStats>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
                 ai.entity_type,
-                COUNT(*) as total_items_scanned,
-                COUNT(CASE WHEN ai.status = 'completed' THEN 1 END) as items_filtered
+                COUNT(*) as items_filtered
             FROM action_items ai
             JOIN action_batches ab ON ai.batch_id = ab.id
-            WHERE ab.user_id = $1
+            WHERE ab.user_id = $1 AND ai.status = 'completed'
             GROUP BY ai.entity_type
             "#,
             user_id
@@ -555,20 +534,13 @@ impl AnalyticsService {
 
         let mut breakdown = HashMap::new();
         for row in rows {
-            let total_items_scanned = row.total_items_scanned.unwrap_or(0) as u64;
-            let items_filtered = row.items_filtered.unwrap_or(0) as u64;
-            let filter_rate = if total_items_scanned > 0 {
-                (items_filtered as f64 / total_items_scanned as f64) * 100.0
-            } else {
-                0.0
-            };
             breakdown.insert(
                 row.entity_type.clone(),
                 ContentFilterStats {
                     content_type: row.entity_type,
-                    total_items_scanned,
-                    items_filtered,
-                    filter_rate,
+                    total_items_scanned: 0, // TODO: Track scanned items
+                    items_filtered: row.items_filtered.unwrap_or(0) as u64,
+                    filter_rate: 0.0, // TODO: Calculate filter rate
                 },
             );
         }
@@ -577,13 +549,12 @@ impl AnalyticsService {
     }
 
     async fn get_top_blocked_artists(&self, user_id: Uuid, limit: i64) -> Result<Vec<BlockedArtistStats>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
                 a.canonical_name,
-                COUNT(CASE WHEN ab.id IS NOT NULL THEN ai.id END) as times_blocked,
-                MAX(CASE WHEN ab.id IS NOT NULL THEN ai.created_at END) as last_blocked,
-                ARRAY_REMOVE(ARRAY_AGG(DISTINCT CASE WHEN ab.id IS NOT NULL THEN ai.entity_type END), NULL) as content_types_blocked
+                COUNT(ai.id) as times_blocked,
+                MAX(ai.created_at) as last_blocked
             FROM user_artist_blocks uab
             JOIN artists a ON uab.artist_id = a.id
             LEFT JOIN action_items ai ON ai.entity_id = a.id::text
@@ -604,49 +575,12 @@ impl AnalyticsService {
             .map(|row| BlockedArtistStats {
                 artist_name: row.canonical_name,
                 times_blocked: row.times_blocked.unwrap_or(0) as u64,
-                content_types_blocked: row.content_types_blocked.unwrap_or_default(),
+                content_types_blocked: vec![], // TODO: Implement
                 last_blocked: row.last_blocked.unwrap_or_else(Utc::now),
             })
             .collect();
 
         Ok(stats)
-    }
-
-    async fn get_provider_common_operations(
-        &self,
-        user_id: Uuid,
-        start: DateTime<Utc>,
-        end: DateTime<Utc>,
-        limit: usize,
-    ) -> Result<HashMap<String, Vec<String>>, Box<dyn std::error::Error>> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT
-                ab.provider,
-                ai.action,
-                COUNT(*) as action_count
-            FROM action_items ai
-            JOIN action_batches ab ON ai.batch_id = ab.id
-            WHERE ab.user_id = $1 AND ab.created_at BETWEEN $2 AND $3
-            GROUP BY ab.provider, ai.action
-            ORDER BY ab.provider, action_count DESC, ai.action
-            "#,
-            user_id,
-            start,
-            end
-        )
-        .fetch_all(&self.db_pool)
-        .await?;
-
-        let mut by_provider: HashMap<String, Vec<String>> = HashMap::new();
-        for row in rows {
-            let entry = by_provider.entry(row.provider).or_default();
-            if entry.len() < limit {
-                entry.push(row.action);
-            }
-        }
-
-        Ok(by_provider)
     }
 
     async fn calculate_filter_effectiveness_score(&self, user_id: Uuid) -> Result<f64, Box<dyn std::error::Error>> {

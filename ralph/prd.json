@@ -76,7 +76,7 @@
       "description": "As a product owner, I want community list analytics to reflect actual impact and growth metrics so list owners get real insights.",
       "id": "US-005",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 5,
       "title": "Complete community list analytics metrics"
     },

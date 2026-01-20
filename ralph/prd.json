@@ -14,7 +14,7 @@
       "description": "As a platform owner, I want sensitive analytics and moderation endpoints to enforce role and ownership checks so that data is not exposed or actions are not performed by unauthorized users.",
       "id": "US-001",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 1,
       "title": "Enforce authorization on sensitive endpoints"
     },

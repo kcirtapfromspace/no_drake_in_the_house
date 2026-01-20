@@ -9,3 +9,16 @@
 - **Learnings for future iterations:**
 - Story completed successfully via automated execution
 ---
+
+## 2026-01-20 13:59 - US-001
+- **What was implemented**: Enforce authorization on sensitive endpoints
+- **Files changed**:
+  - alph/prd.json
+  - ralph/US-003-lancedb.patch
+  - ralph/progress.txt
+  - ralph/us-001.patch
+  - ralph/workspace/
+- **Iterations used**: 1
+- **Learnings for future iterations:**
+- Story completed successfully via automated execution
+---

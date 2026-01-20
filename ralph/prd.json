@@ -1,12 +1,9 @@
 {
-  "project": "No Drake in the House",
   "branchName": "ralph/platform-hardening",
   "description": "Platform Hardening closes security gaps, removes placeholder analytics, and restores incomplete backend features and contract tests.",
+  "project": "No Drake in the House",
   "userStories": [
     {
-      "id": "US-001",
-      "title": "Enforce authorization on sensitive endpoints",
-      "description": "As a platform owner, I want sensitive analytics and moderation endpoints to enforce role and ownership checks so that data is not exposed or actions are not performed by unauthorized users.",
       "acceptanceCriteria": [
         "Community list impact endpoints restrict access to list owners or public lists",
         "Offense verification requires a moderator role",
@@ -14,28 +11,28 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 1,
+      "description": "As a platform owner, I want sensitive analytics and moderation endpoints to enforce role and ownership checks so that data is not exposed or actions are not performed by unauthorized users.",
+      "id": "US-001",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 1,
+      "title": "Enforce authorization on sensitive endpoints"
     },
     {
-      "id": "US-002",
-      "title": "Replace ad-hoc admin checks with role permissions",
-      "description": "As a platform owner, I want admin-only endpoints to use a real role or permission check so that admin access is not based on email patterns.",
       "acceptanceCriteria": [
         "Admin-only analytics endpoints check a role or permission source of truth",
         "Non-admin requests return 403 with a consistent error shape",
         "Typecheck passes",
         "Tests pass"
       ],
+      "description": "As a platform owner, I want admin-only endpoints to use a real role or permission check so that admin access is not based on email patterns.",
+      "id": "US-002",
+      "notes": "",
+      "passes": true,
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "title": "Replace ad-hoc admin checks with role permissions"
     },
     {
-      "id": "US-003",
-      "title": "Implement LanceDB client operations",
-      "description": "As a platform owner, I want vector DB operations to actually insert, search, and delete embeddings so features using semantic search behave correctly.",
       "acceptanceCriteria": [
         "News and artist embedding insert operations persist records",
         "Similarity search returns results for seeded embeddings",
@@ -44,14 +41,14 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 3,
+      "description": "As a platform owner, I want vector DB operations to actually insert, search, and delete embeddings so features using semantic search behave correctly.",
+      "id": "US-003",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 3,
+      "title": "Implement LanceDB client operations"
     },
     {
-      "id": "US-004",
-      "title": "Complete enforcement analytics metrics",
-      "description": "As a product owner, I want enforcement analytics to return real metrics so reports are trustworthy.",
       "acceptanceCriteria": [
         "Provider breakdown includes most common operations",
         "Operation breakdown includes avg duration computed from stored timing",
@@ -61,14 +58,14 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 4,
+      "description": "As a product owner, I want enforcement analytics to return real metrics so reports are trustworthy.",
+      "id": "US-004",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 4,
+      "title": "Complete enforcement analytics metrics"
     },
     {
-      "id": "US-005",
-      "title": "Complete community list analytics metrics",
-      "description": "As a product owner, I want community list analytics to reflect actual impact and growth metrics so list owners get real insights.",
       "acceptanceCriteria": [
         "Content filtered by community lists is tracked and returned",
         "Subscriber satisfaction and impact metrics are computed from stored signals",
@@ -76,14 +73,14 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 5,
+      "description": "As a product owner, I want community list analytics to reflect actual impact and growth metrics so list owners get real insights.",
+      "id": "US-005",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 5,
+      "title": "Complete community list analytics metrics"
     },
     {
-      "id": "US-006",
-      "title": "Complete system performance analytics",
-      "description": "As a platform owner, I want the system performance analytics to report real health and performance metrics.",
       "acceptanceCriteria": [
         "Overall health aggregates configured health signals",
         "API performance metrics are populated from available telemetry",
@@ -92,14 +89,14 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 6,
+      "description": "As a platform owner, I want the system performance analytics to report real health and performance metrics.",
+      "id": "US-006",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 6,
+      "title": "Complete system performance analytics"
     },
     {
-      "id": "US-007",
-      "title": "Populate user profile correctness fields",
-      "description": "As a product owner, I want user profile responses to reflect real email verification status, OAuth accounts, and last login so clients show accurate data.",
       "acceptanceCriteria": [
         "Email verification status is sourced from stored data",
         "OAuth accounts are loaded from persistence and returned",
@@ -107,37 +104,40 @@
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 7,
+      "description": "As a product owner, I want user profile responses to reflect real email verification status, OAuth accounts, and last login so clients show accurate data.",
+      "id": "US-007",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 7,
+      "title": "Populate user profile correctness fields"
     },
     {
-      "id": "US-008",
-      "title": "Restore or explicitly gate account merge",
-      "description": "As a platform owner, I want account merge to either work or return a stable, explicit not available response that clients can handle.",
       "acceptanceCriteria": [
         "Account merge requests return real functionality or a stable feature-unavailable error code and message",
         "API contract is documented for the chosen behavior",
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 8,
+      "description": "As a platform owner, I want account merge to either work or return a stable, explicit not available response that clients can handle.",
+      "id": "US-008",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 8,
+      "title": "Restore or explicitly gate account merge"
     },
     {
-      "id": "US-009",
-      "title": "Strengthen contract tests for API parsing",
-      "description": "As an engineer, I want contract tests to verify rate limit and pagination parsing so regressions are caught.",
       "acceptanceCriteria": [
         "Rate limit parsing is asserted in tests with expected state changes",
         "Pagination parsing is asserted for supported formats",
         "Typecheck passes",
         "Tests pass"
       ],
-      "priority": 9,
+      "description": "As an engineer, I want contract tests to verify rate limit and pagination parsing so regressions are caught.",
+      "id": "US-009",
+      "notes": "",
       "passes": false,
-      "notes": ""
+      "priority": 9,
+      "title": "Strengthen contract tests for API parsing"
     }
   ]
 }

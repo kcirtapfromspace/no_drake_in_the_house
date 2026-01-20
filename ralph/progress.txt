@@ -1,0 +1,11 @@
+
+## 2026-01-20 13:51 - US-002
+- **What was implemented**: Replace ad-hoc admin checks with role permissions
+- **Files changed**:
+  - docs/PRD_UNFINISHED_FEATURES.md
+  - ralph/
+  - tasks/
+- **Iterations used**: 1
+- **Learnings for future iterations:**
+- Story completed successfully via automated execution
+---

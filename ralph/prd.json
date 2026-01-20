@@ -1,0 +1,143 @@
+{
+  "project": "No Drake in the House",
+  "branchName": "ralph/platform-hardening",
+  "description": "Platform Hardening closes security gaps, removes placeholder analytics, and restores incomplete backend features and contract tests.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Enforce authorization on sensitive endpoints",
+      "description": "As a platform owner, I want sensitive analytics and moderation endpoints to enforce role and ownership checks so that data is not exposed or actions are not performed by unauthorized users.",
+      "acceptanceCriteria": [
+        "Community list impact endpoints restrict access to list owners or public lists",
+        "Offense verification requires a moderator role",
+        "Unauthorized requests return 403 with a consistent error shape",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Replace ad-hoc admin checks with role permissions",
+      "description": "As a platform owner, I want admin-only endpoints to use a real role or permission check so that admin access is not based on email patterns.",
+      "acceptanceCriteria": [
+        "Admin-only analytics endpoints check a role or permission source of truth",
+        "Non-admin requests return 403 with a consistent error shape",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement LanceDB client operations",
+      "description": "As a platform owner, I want vector DB operations to actually insert, search, and delete embeddings so features using semantic search behave correctly.",
+      "acceptanceCriteria": [
+        "News and artist embedding insert operations persist records",
+        "Similarity search returns results for seeded embeddings",
+        "Delete operations remove embeddings by ID",
+        "Dimension mismatch returns a clear error",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Complete enforcement analytics metrics",
+      "description": "As a product owner, I want enforcement analytics to return real metrics so reports are trustworthy.",
+      "acceptanceCriteria": [
+        "Provider breakdown includes most common operations",
+        "Operation breakdown includes avg duration computed from stored timing",
+        "Recent failures include retry count from stored data",
+        "Content breakdown includes scanned totals and filter rate",
+        "Blocked artist stats include content types blocked",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Complete community list analytics metrics",
+      "description": "As a product owner, I want community list analytics to reflect actual impact and growth metrics so list owners get real insights.",
+      "acceptanceCriteria": [
+        "Content filtered by community lists is tracked and returned",
+        "Subscriber satisfaction and impact metrics are computed from stored signals",
+        "Growth metrics include subscriber growth rate and engagement score",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Complete system performance analytics",
+      "description": "As a platform owner, I want the system performance analytics to report real health and performance metrics.",
+      "acceptanceCriteria": [
+        "Overall health aggregates configured health signals",
+        "API performance metrics are populated from available telemetry",
+        "Enforcement performance metrics are populated from stored data",
+        "System resource and alert tracking is reported if data exists",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Populate user profile correctness fields",
+      "description": "As a product owner, I want user profile responses to reflect real email verification status, OAuth accounts, and last login so clients show accurate data.",
+      "acceptanceCriteria": [
+        "Email verification status is sourced from stored data",
+        "OAuth accounts are loaded from persistence and returned",
+        "Last login is populated from a stored source of truth",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Restore or explicitly gate account merge",
+      "description": "As a platform owner, I want account merge to either work or return a stable, explicit not available response that clients can handle.",
+      "acceptanceCriteria": [
+        "Account merge requests return real functionality or a stable feature-unavailable error code and message",
+        "API contract is documented for the chosen behavior",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Strengthen contract tests for API parsing",
+      "description": "As an engineer, I want contract tests to verify rate limit and pagination parsing so regressions are caught.",
+      "acceptanceCriteria": [
+        "Rate limit parsing is asserted in tests with expected state changes",
+        "Pagination parsing is asserted for supported formats",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

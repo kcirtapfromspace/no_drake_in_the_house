@@ -92,7 +92,7 @@
       "description": "As a platform owner, I want the system performance analytics to report real health and performance metrics.",
       "id": "US-006",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 6,
       "title": "Complete system performance analytics"
     },

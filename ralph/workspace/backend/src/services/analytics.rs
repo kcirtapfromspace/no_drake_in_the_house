@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap};
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use sysinfo::System;
+use sysinfo::{Disks, System};
 use uuid::Uuid;
 
 use crate::metrics::MetricsCollector;
@@ -728,10 +728,15 @@ impl AnalyticsService {
 
         if let Some(monitoring_service) = &self.monitoring_service {
             let health_checks = monitoring_service.get_health_checks().await;
-            if health_checks.is_empty() {
-                // No explicit health checks configured, avoid defaulting to "Healthy".
-            } else {
+            if !health_checks.is_empty() {
                 signals.extend(health_checks.values().map(|check| check.status.clone()));
+            }
+
+            let slos = monitoring_service.get_slos().await;
+            for slo in slos.values() {
+                if let Some(status) = health_from_slo(slo) {
+                    signals.push(status);
+                }
             }
 
             let alerts = monitoring_service.get_recent_alerts(10).await;
@@ -767,8 +772,15 @@ impl AnalyticsService {
     async fn get_api_performance_metrics(&self) -> Result<ApiPerformanceMetrics, Box<dyn std::error::Error>> {
         if let Some(snapshot) = self.telemetry_snapshot().await {
             let total_requests = snapshot.total_requests;
-            let uptime_minutes = if snapshot.uptime_seconds > 0.0 {
-                snapshot.uptime_seconds / 60.0
+            let uptime_seconds = if snapshot.uptime_seconds > 0.0 {
+                snapshot.uptime_seconds
+            } else if let Some(monitoring_service) = &self.monitoring_service {
+                monitoring_service.uptime_seconds()
+            } else {
+                0.0
+            };
+            let uptime_minutes = if uptime_seconds > 0.0 {
+                uptime_seconds / 60.0
             } else {
                 0.0
             };
@@ -792,7 +804,7 @@ impl AnalyticsService {
             } else {
                 0.0
             };
-            let uptime_percentage = if snapshot.uptime_seconds > 0.0 {
+            let uptime_percentage = if uptime_seconds > 0.0 {
                 100.0
             } else {
                 0.0
@@ -919,6 +931,7 @@ impl AnalyticsService {
         let mut cpu_usage_percent = 0.0;
         let mut memory_usage_percent = 0.0;
         let mut disk_usage_percent = 0.0;
+        let mut redis_memory_usage_mb = 0.0;
 
         if let Some(snapshot) = self.telemetry_snapshot().await {
             if let Some(cpu) = snapshot.cpu_usage_percent {
@@ -937,9 +950,12 @@ impl AnalyticsService {
             if let Some(disk_percent) = snapshot.disk_usage_percent {
                 disk_usage_percent = disk_percent;
             }
+            if let Some(redis_bytes) = snapshot.redis_memory_bytes {
+                redis_memory_usage_mb = redis_bytes / (1024.0 * 1024.0);
+            }
         }
 
-        if cpu_usage_percent == 0.0 || memory_usage_percent == 0.0 {
+        if cpu_usage_percent == 0.0 || memory_usage_percent == 0.0 || disk_usage_percent == 0.0 {
             let mut system = System::new_all();
             system.refresh_all();
             if cpu_usage_percent == 0.0 {
@@ -952,6 +968,9 @@ impl AnalyticsService {
                         (system.used_memory() as f64 / total_memory) * 100.0;
                 }
             }
+            if disk_usage_percent == 0.0 {
+                disk_usage_percent = compute_disk_usage_percent();
+            }
         }
 
         let database_connections = (self.db_pool.size() as u64)
@@ -962,7 +981,7 @@ impl AnalyticsService {
             memory_usage_percent,
             disk_usage_percent,
             database_connections,
-            redis_memory_usage_mb: 0.0,
+            redis_memory_usage_mb,
         })
     }
 
@@ -1018,6 +1037,7 @@ struct TelemetrySnapshot {
     memory_usage_bytes: Option<f64>,
     memory_usage_percent: Option<f64>,
     disk_usage_percent: Option<f64>,
+    redis_memory_bytes: Option<f64>,
 }
 
 fn parse_prometheus_metrics(metrics: &str) -> TelemetrySnapshot {
@@ -1090,6 +1110,10 @@ fn parse_prometheus_metrics(metrics: &str) -> TelemetrySnapshot {
             "system_disk_usage_percent" => {
                 snapshot.disk_usage_percent = Some(value);
             }
+            "redis_memory_used_bytes" | "redis_memory_usage_bytes" => {
+                let entry = snapshot.redis_memory_bytes.get_or_insert(0.0);
+                *entry += value;
+            }
             "kiro_memory_usage_bytes" => {
                 snapshot.memory_usage_bytes = Some(value);
             }
@@ -1155,6 +1179,42 @@ fn aggregate_health_status(statuses: &[HealthStatus]) -> Option<HealthStatus> {
     }
 
     Some(HealthStatus::Healthy)
+}
+
+fn health_from_slo(slo: &crate::services::monitoring::SLO) -> Option<HealthStatus> {
+    if slo.target_percentage <= 0.0 {
+        return None;
+    }
+
+    if slo.current_percentage < slo.target_percentage {
+        if slo.error_budget_remaining <= 0.0
+            || slo.current_percentage < (slo.target_percentage * 0.9)
+        {
+            Some(HealthStatus::Unhealthy)
+        } else {
+            Some(HealthStatus::Degraded)
+        }
+    } else {
+        Some(HealthStatus::Healthy)
+    }
+}
+
+fn compute_disk_usage_percent() -> f64 {
+    let disks = Disks::new_with_refreshed_list();
+    let mut total_space = 0u64;
+    let mut available_space = 0u64;
+
+    for disk in disks.list() {
+        total_space = total_space.saturating_add(disk.total_space());
+        available_space = available_space.saturating_add(disk.available_space());
+    }
+
+    if total_space > 0 {
+        let used = total_space.saturating_sub(available_space);
+        (used as f64 / total_space as f64) * 100.0
+    } else {
+        0.0
+    }
 }
 
 fn health_from_telemetry(snapshot: &TelemetrySnapshot) -> Option<HealthStatus> {

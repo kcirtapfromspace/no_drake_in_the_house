@@ -117,6 +117,7 @@ pub struct SLO {
 pub struct MonitoringService {
     registry: Registry,
     system: Arc<RwLock<System>>,
+    start_time: Instant,
     health_checks: Arc<RwLock<HashMap<String, HealthCheck>>>,
     alerts: Arc<RwLock<Vec<Alert>>>,
     slos: Arc<RwLock<HashMap<String, SLO>>>,
@@ -145,6 +146,7 @@ impl MonitoringService {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let registry = Registry::new();
         let system = Arc::new(RwLock::new(System::new_all()));
+        let start_time = Instant::now();
 
         // Initialize Prometheus metrics
         let http_requests_total = IntCounterVec::new(
@@ -261,6 +263,7 @@ impl MonitoringService {
         Ok(Self {
             registry,
             system,
+            start_time,
             health_checks: Arc::new(RwLock::new(HashMap::new())),
             alerts: Arc::new(RwLock::new(Vec::new())),
             slos: Arc::new(RwLock::new(HashMap::new())),
@@ -282,6 +285,11 @@ impl MonitoringService {
             dnp_list_size,
             community_list_subscriptions,
         })
+    }
+
+    /// Return uptime in seconds since the monitoring service started.
+    pub fn uptime_seconds(&self) -> f64 {
+        self.start_time.elapsed().as_secs_f64()
     }
 
     /// Record HTTP request metrics
@@ -637,6 +645,7 @@ impl Clone for MonitoringService {
         Self {
             registry: self.registry.clone(),
             system: self.system.clone(),
+            start_time: self.start_time,
             health_checks: self.health_checks.clone(),
             alerts: self.alerts.clone(),
             slos: self.slos.clone(),

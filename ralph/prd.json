@@ -135,7 +135,7 @@
       "description": "As an engineer, I want contract tests to verify rate limit and pagination parsing so regressions are caught.",
       "id": "US-009",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 9,
       "title": "Strengthen contract tests for API parsing"
     }

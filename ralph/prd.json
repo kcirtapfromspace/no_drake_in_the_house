@@ -44,7 +44,7 @@
       "description": "As a platform owner, I want vector DB operations to actually insert, search, and delete embeddings so features using semantic search behave correctly.",
       "id": "US-003",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 3,
       "title": "Implement LanceDB client operations"
     },

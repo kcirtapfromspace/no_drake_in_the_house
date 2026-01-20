@@ -17,6 +17,7 @@ use arrow_schema::{DataType, Field, Schema, SchemaRef};
 use futures::TryStreamExt;
 use lancedb::connect;
 use lancedb::query::{ExecutableQuery, QueryBase, Select};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -453,6 +454,172 @@ pub struct VectorDbStats {
     pub tables: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ListContentTracking {
+    ordered: Vec<Uuid>,
+    seen: HashSet<Uuid>,
+}
+
+impl ListContentTracking {
+    fn new() -> Self {
+        Self {
+            ordered: Vec::new(),
+            seen: HashSet::new(),
+        }
+    }
+
+    fn track(&mut self, content_id: Uuid) {
+        if self.seen.insert(content_id) {
+            self.ordered.push(content_id);
+        }
+    }
+
+    fn content(&self) -> Vec<Uuid> {
+        self.ordered.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SubscriberSignal {
+    pub subscriber_id: Uuid,
+    pub satisfaction: f32,
+    pub impact: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct EngagementSignal {
+    pub subscriber_id: Uuid,
+    pub score: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct SubscriberCountSnapshot {
+    pub recorded_at: u64,
+    pub count: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommunityListMetrics {
+    pub list_id: Uuid,
+    pub filtered_content: Vec<Uuid>,
+    pub subscriber_satisfaction: f32,
+    pub impact_score: f32,
+    pub subscriber_growth_rate: f32,
+    pub engagement_score: f32,
+}
+
+#[derive(Debug, Default)]
+pub struct CommunityListAnalyticsStore {
+    filtered_content: HashMap<Uuid, ListContentTracking>,
+    subscriber_signals: HashMap<Uuid, Vec<SubscriberSignal>>,
+    engagement_signals: HashMap<Uuid, Vec<EngagementSignal>>,
+    subscriber_counts: HashMap<Uuid, Vec<SubscriberCountSnapshot>>,
+}
+
+impl CommunityListAnalyticsStore {
+    pub fn track_filtered_content(&mut self, list_id: Uuid, content_id: Uuid) {
+        self.filtered_content
+            .entry(list_id)
+            .or_insert_with(ListContentTracking::new)
+            .track(content_id);
+    }
+
+    pub fn filtered_content(&self, list_id: Uuid) -> Vec<Uuid> {
+        self.filtered_content
+            .get(&list_id)
+            .map(ListContentTracking::content)
+            .unwrap_or_default()
+    }
+
+    pub fn record_subscriber_signal(&mut self, list_id: Uuid, signal: SubscriberSignal) {
+        self.subscriber_signals
+            .entry(list_id)
+            .or_default()
+            .push(signal);
+    }
+
+    pub fn record_engagement_signal(&mut self, list_id: Uuid, signal: EngagementSignal) {
+        self.engagement_signals
+            .entry(list_id)
+            .or_default()
+            .push(signal);
+    }
+
+    pub fn record_subscriber_count(&mut self, list_id: Uuid, snapshot: SubscriberCountSnapshot) {
+        self.subscriber_counts
+            .entry(list_id)
+            .or_default()
+            .push(snapshot);
+    }
+
+    pub fn metrics(&self, list_id: Uuid) -> CommunityListMetrics {
+        let filtered_content = self.filtered_content(list_id);
+        let (subscriber_satisfaction, impact_score) =
+            aggregate_subscriber_signals(self.subscriber_signals.get(&list_id));
+        let engagement_score = aggregate_engagement_score(self.engagement_signals.get(&list_id));
+        let subscriber_growth_rate =
+            aggregate_growth_rate(self.subscriber_counts.get(&list_id));
+
+        CommunityListMetrics {
+            list_id,
+            filtered_content,
+            subscriber_satisfaction,
+            impact_score,
+            subscriber_growth_rate,
+            engagement_score,
+        }
+    }
+}
+
+fn aggregate_subscriber_signals(
+    signals: Option<&Vec<SubscriberSignal>>,
+) -> (f32, f32) {
+    let Some(signals) = signals else {
+        return (0.0, 0.0);
+    };
+    if signals.is_empty() {
+        return (0.0, 0.0);
+    }
+    let mut satisfaction_total = 0.0;
+    let mut impact_total = 0.0;
+    for signal in signals {
+        satisfaction_total += signal.satisfaction;
+        impact_total += signal.impact;
+    }
+    let count = signals.len() as f32;
+    (satisfaction_total / count, impact_total / count)
+}
+
+fn aggregate_engagement_score(signals: Option<&Vec<EngagementSignal>>) -> f32 {
+    let Some(signals) = signals else {
+        return 0.0;
+    };
+    if signals.is_empty() {
+        return 0.0;
+    }
+    let total: f32 = signals.iter().map(|signal| signal.score).sum();
+    total / signals.len() as f32
+}
+
+fn aggregate_growth_rate(
+    snapshots: Option<&Vec<SubscriberCountSnapshot>>,
+) -> f32 {
+    let Some(snapshots) = snapshots else {
+        return 0.0;
+    };
+    if snapshots.len() < 2 {
+        return 0.0;
+    }
+    let mut ordered = snapshots.clone();
+    ordered.sort_by_key(|snapshot| snapshot.recorded_at);
+    let earliest = ordered.first().map(|snapshot| snapshot.count).unwrap_or(0);
+    let latest = ordered.last().map(|snapshot| snapshot.count).unwrap_or(0);
+    if earliest == 0 {
+        return 0.0;
+    }
+    (latest as f32 - earliest as f32) / earliest as f32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -550,5 +717,74 @@ mod tests {
         assert!(err
             .to_string()
             .contains("Embedding dimension mismatch"));
+    }
+
+    #[test]
+    fn test_community_list_analytics_metrics() {
+        let list_id = Uuid::new_v4();
+        let content_a = Uuid::new_v4();
+        let content_b = Uuid::new_v4();
+        let mut store = CommunityListAnalyticsStore::default();
+
+        store.track_filtered_content(list_id, content_a);
+        store.track_filtered_content(list_id, content_b);
+        store.track_filtered_content(list_id, content_a);
+
+        store.record_subscriber_signal(
+            list_id,
+            SubscriberSignal {
+                subscriber_id: Uuid::new_v4(),
+                satisfaction: 0.8,
+                impact: 0.6,
+            },
+        );
+        store.record_subscriber_signal(
+            list_id,
+            SubscriberSignal {
+                subscriber_id: Uuid::new_v4(),
+                satisfaction: 0.6,
+                impact: 0.4,
+            },
+        );
+
+        store.record_engagement_signal(
+            list_id,
+            EngagementSignal {
+                subscriber_id: Uuid::new_v4(),
+                score: 0.9,
+            },
+        );
+        store.record_engagement_signal(
+            list_id,
+            EngagementSignal {
+                subscriber_id: Uuid::new_v4(),
+                score: 0.5,
+            },
+        );
+
+        store.record_subscriber_count(
+            list_id,
+            SubscriberCountSnapshot {
+                recorded_at: 100,
+                count: 10,
+            },
+        );
+        store.record_subscriber_count(
+            list_id,
+            SubscriberCountSnapshot {
+                recorded_at: 200,
+                count: 15,
+            },
+        );
+
+        let metrics = store.metrics(list_id);
+
+        assert_eq!(metrics.filtered_content.len(), 2);
+        assert!(metrics.filtered_content.contains(&content_a));
+        assert!(metrics.filtered_content.contains(&content_b));
+        assert!((metrics.subscriber_satisfaction - 0.7).abs() < 0.0001);
+        assert!((metrics.impact_score - 0.5).abs() < 0.0001);
+        assert!((metrics.engagement_score - 0.7).abs() < 0.0001);
+        assert!((metrics.subscriber_growth_rate - 0.5).abs() < 0.0001);
     }
 }

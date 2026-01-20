@@ -601,16 +601,20 @@ pub async fn get_trouble_leaderboard_handler(
 
     let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
 
-    let min_tier = query.min_tier.as_ref().map(|t| {
-        match t.to_lowercase().as_str() {
+    let min_tier = query
+        .min_tier
+        .as_ref()
+        .map(|t| match t.to_lowercase().as_str() {
             "critical" => crate::services::TroubleTier::Critical,
             "high" => crate::services::TroubleTier::High,
             "moderate" => crate::services::TroubleTier::Moderate,
             _ => crate::services::TroubleTier::Low,
-        }
-    });
+        });
 
-    match service.get_leaderboard(min_tier, query.limit, query.offset).await {
+    match service
+        .get_leaderboard(min_tier, query.limit, query.offset)
+        .await
+    {
         Ok(leaderboard) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -742,11 +746,15 @@ pub async fn get_user_revenue_distribution_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    let platform = query.platform.as_ref().and_then(|p| {
-        crate::services::RevenuePlatform::from_str(p)
-    });
+    let platform = query
+        .platform
+        .as_ref()
+        .and_then(|p| crate::services::RevenuePlatform::from_str(p));
 
-    match service.get_user_revenue_distribution(user.id, platform, query.days).await {
+    match service
+        .get_user_revenue_distribution(user.id, platform, query.days)
+        .await
+    {
         Ok(distribution) => Ok(Json(serde_json::json!({
             "success": true,
             "data": distribution
@@ -776,7 +784,10 @@ pub async fn get_user_top_artists_revenue_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    match service.get_user_top_artists(user.id, query.days, query.limit).await {
+    match service
+        .get_user_top_artists(user.id, query.days, query.limit)
+        .await
+    {
         Ok(artists) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -815,7 +826,10 @@ pub async fn get_user_problematic_revenue_handler(
         _ => crate::services::TroubleTier::Moderate,
     };
 
-    match service.get_user_problematic_artists(user.id, min_tier, query.days, query.limit).await {
+    match service
+        .get_user_problematic_artists(user.id, min_tier, query.days, query.limit)
+        .await
+    {
         Ok(artists) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -849,7 +863,10 @@ pub async fn get_artist_revenue_breakdown_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    match service.get_artist_revenue(user.id, artist_id, query.days).await {
+    match service
+        .get_artist_revenue(user.id, artist_id, query.days)
+        .await
+    {
         Ok(breakdown) => Ok(Json(serde_json::json!({
             "success": true,
             "data": breakdown
@@ -911,7 +928,10 @@ pub async fn get_global_problematic_revenue_handler(
         _ => crate::services::TroubleTier::Moderate,
     };
 
-    match service.get_problematic_revenue_leaderboard(min_tier, query.days, query.limit).await {
+    match service
+        .get_problematic_revenue_leaderboard(min_tier, query.days, query.limit)
+        .await
+    {
         Ok(leaderboard) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -982,7 +1002,10 @@ pub async fn get_category_revenue_handler(
     let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
     let offense_category = crate::services::OffenseCategory::from_str(&category);
 
-    match service.get_category_revenue(offense_category, query.top_n).await {
+    match service
+        .get_category_revenue(offense_category, query.top_n)
+        .await
+    {
         Ok(revenue) => Ok(Json(serde_json::json!({
             "success": true,
             "data": revenue
@@ -1032,7 +1055,10 @@ pub async fn get_user_category_exposure_handler(
 
     let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
 
-    match service.get_user_category_exposure(user.id, query.days).await {
+    match service
+        .get_user_category_exposure(user.id, query.days)
+        .await
+    {
         Ok(exposure) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {

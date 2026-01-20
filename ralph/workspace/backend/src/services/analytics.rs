@@ -1,8 +1,12 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use sysinfo::System;
 use uuid::Uuid;
+
+use crate::metrics::MetricsCollector;
+use crate::services::monitoring::{AlertSeverity, HealthStatus, MonitoringService};
 
 /// Enforcement success report for a user
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,11 +183,33 @@ pub struct SystemAlert {
 /// Analytics service for user-facing reports and dashboards
 pub struct AnalyticsService {
     db_pool: PgPool,
+    monitoring_service: Option<std::sync::Arc<MonitoringService>>,
+    metrics_collector: Option<std::sync::Arc<MetricsCollector>>,
 }
 
 impl AnalyticsService {
     pub fn new(db_pool: PgPool) -> Self {
-        Self { db_pool }
+        Self {
+            db_pool,
+            monitoring_service: None,
+            metrics_collector: None,
+        }
+    }
+
+    pub fn with_monitoring_service(
+        mut self,
+        monitoring_service: std::sync::Arc<MonitoringService>,
+    ) -> Self {
+        self.monitoring_service = Some(monitoring_service);
+        self
+    }
+
+    pub fn with_metrics_collector(
+        mut self,
+        metrics_collector: std::sync::Arc<MetricsCollector>,
+    ) -> Self {
+        self.metrics_collector = Some(metrics_collector);
+        self
     }
 
     /// Generate enforcement success report for a user
@@ -698,29 +724,157 @@ impl AnalyticsService {
 
     // System performance methods
     async fn get_overall_system_health(&self) -> Result<String, Box<dyn std::error::Error>> {
-        // TODO: Implement health check aggregation
-        Ok("Healthy".to_string())
+        let mut signals: Vec<HealthStatus> = Vec::new();
+
+        if let Some(monitoring_service) = &self.monitoring_service {
+            let health_checks = monitoring_service.get_health_checks().await;
+            if health_checks.is_empty() {
+                // No explicit health checks configured, avoid defaulting to "Healthy".
+            } else {
+                signals.extend(health_checks.values().map(|check| check.status.clone()));
+            }
+
+            let alerts = monitoring_service.get_recent_alerts(10).await;
+            if alerts
+                .iter()
+                .any(|alert| matches!(alert.severity, AlertSeverity::Critical))
+            {
+                signals.push(HealthStatus::Unhealthy);
+            } else if alerts
+                .iter()
+                .any(|alert| matches!(alert.severity, AlertSeverity::Warning))
+            {
+                signals.push(HealthStatus::Degraded);
+            }
+        }
+
+        if let Some(snapshot) = self.telemetry_snapshot().await {
+            if let Some(status) = health_from_telemetry(&snapshot) {
+                signals.push(status);
+            }
+        }
+
+        let status_label = match aggregate_health_status(&signals) {
+            Some(HealthStatus::Healthy) => "Healthy",
+            Some(HealthStatus::Degraded) => "Degraded",
+            Some(HealthStatus::Unhealthy) => "Unhealthy",
+            None => "Unknown",
+        };
+
+        Ok(status_label.to_string())
     }
 
     async fn get_api_performance_metrics(&self) -> Result<ApiPerformanceMetrics, Box<dyn std::error::Error>> {
-        // TODO: Implement API performance tracking
+        if let Some(snapshot) = self.telemetry_snapshot().await {
+            let total_requests = snapshot.total_requests;
+            let uptime_minutes = if snapshot.uptime_seconds > 0.0 {
+                snapshot.uptime_seconds / 60.0
+            } else {
+                0.0
+            };
+            let requests_per_minute = if uptime_minutes > 0.0 {
+                total_requests / uptime_minutes
+            } else {
+                0.0
+            };
+            let avg_response_time_ms = if snapshot.request_duration_count > 0.0 {
+                (snapshot.request_duration_sum / snapshot.request_duration_count) * 1000.0
+            } else {
+                0.0
+            };
+            let p95_response_time_ms = percentile_from_buckets(
+                &snapshot.request_duration_buckets,
+                snapshot.request_duration_count,
+                0.95,
+            ) * 1000.0;
+            let error_rate = if total_requests > 0.0 {
+                (snapshot.error_requests / total_requests) * 100.0
+            } else {
+                0.0
+            };
+            let uptime_percentage = if snapshot.uptime_seconds > 0.0 {
+                100.0
+            } else {
+                0.0
+            };
+
+            return Ok(ApiPerformanceMetrics {
+                requests_per_minute,
+                avg_response_time_ms,
+                p95_response_time_ms,
+                error_rate,
+                uptime_percentage,
+            });
+        }
+
         Ok(ApiPerformanceMetrics {
             requests_per_minute: 0.0,
             avg_response_time_ms: 0.0,
             p95_response_time_ms: 0.0,
             error_rate: 0.0,
-            uptime_percentage: 99.9,
+            uptime_percentage: 0.0,
         })
     }
 
     async fn get_enforcement_performance_metrics(&self) -> Result<EnforcementPerformanceMetrics, Box<dyn std::error::Error>> {
-        // TODO: Implement enforcement performance tracking
+        let operations_last_hour: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM action_batches WHERE created_at > NOW() - INTERVAL '1 hour'"
+        )
+        .fetch_one(&self.db_pool)
+        .await?
+        .unwrap_or(0);
+
+        let operations_last_24h: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM action_batches WHERE created_at > NOW() - INTERVAL '24 hours'"
+        )
+        .fetch_one(&self.db_pool)
+        .await?
+        .unwrap_or(0);
+
+        let successful_last_24h: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM action_batches WHERE created_at > NOW() - INTERVAL '24 hours' AND status = 'completed'"
+        )
+        .fetch_one(&self.db_pool)
+        .await?
+        .unwrap_or(0);
+
+        let avg_duration_ms: Option<f64> = sqlx::query_scalar!(
+            r#"
+            SELECT AVG(EXTRACT(EPOCH FROM (completed_at - created_at)) * 1000)
+            FROM action_batches
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+              AND completed_at IS NOT NULL
+            "#
+        )
+        .fetch_one(&self.db_pool)
+        .await?;
+
+        let queue_depth: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM action_batches WHERE status IN ('pending', 'processing')"
+        )
+        .fetch_one(&self.db_pool)
+        .await?
+        .unwrap_or(0);
+
+        let success_rate = if operations_last_24h > 0 {
+            (successful_last_24h as f64 / operations_last_24h as f64) * 100.0
+        } else {
+            0.0
+        };
+
+        let avg_operation_duration_ms = avg_duration_ms.unwrap_or(0.0);
+        let processing_capacity = if avg_operation_duration_ms > 0.0 {
+            3_600_000.0 / avg_operation_duration_ms
+        } else {
+            0.0
+        };
+
         Ok(EnforcementPerformanceMetrics {
-            operations_per_hour: 0.0,
-            success_rate: 0.0,
-            avg_operation_duration_ms: 0.0,
-            queue_depth: 0,
-            processing_capacity: 0.0,
+            operations_per_hour: operations_last_hour as f64,
+            success_rate,
+            avg_operation_duration_ms,
+            queue_depth: queue_depth.max(0) as u64,
+            processing_capacity,
         })
     }
 
@@ -762,18 +916,320 @@ impl AnalyticsService {
     }
 
     async fn get_system_resource_metrics(&self) -> Result<SystemResourceMetrics, Box<dyn std::error::Error>> {
-        // TODO: Implement system resource monitoring
+        let mut cpu_usage_percent = 0.0;
+        let mut memory_usage_percent = 0.0;
+        let mut disk_usage_percent = 0.0;
+
+        if let Some(snapshot) = self.telemetry_snapshot().await {
+            if let Some(cpu) = snapshot.cpu_usage_percent {
+                cpu_usage_percent = cpu;
+            }
+            if let Some(memory_percent) = snapshot.memory_usage_percent {
+                memory_usage_percent = memory_percent;
+            } else if let Some(memory_bytes) = snapshot.memory_usage_bytes {
+                let mut system = System::new_all();
+                system.refresh_memory();
+                let total_memory = system.total_memory() as f64;
+                if total_memory > 0.0 {
+                    memory_usage_percent = (memory_bytes / total_memory) * 100.0;
+                }
+            }
+            if let Some(disk_percent) = snapshot.disk_usage_percent {
+                disk_usage_percent = disk_percent;
+            }
+        }
+
+        if cpu_usage_percent == 0.0 || memory_usage_percent == 0.0 {
+            let mut system = System::new_all();
+            system.refresh_all();
+            if cpu_usage_percent == 0.0 {
+                cpu_usage_percent = system.global_cpu_info().cpu_usage() as f64;
+            }
+            if memory_usage_percent == 0.0 {
+                let total_memory = system.total_memory() as f64;
+                if total_memory > 0.0 {
+                    memory_usage_percent =
+                        (system.used_memory() as f64 / total_memory) * 100.0;
+                }
+            }
+        }
+
+        let database_connections = (self.db_pool.size() as u64)
+            .saturating_sub(self.db_pool.num_idle() as u64);
+
         Ok(SystemResourceMetrics {
-            cpu_usage_percent: 0.0,
-            memory_usage_percent: 0.0,
-            disk_usage_percent: 0.0,
-            database_connections: 0,
+            cpu_usage_percent,
+            memory_usage_percent,
+            disk_usage_percent,
+            database_connections,
             redis_memory_usage_mb: 0.0,
         })
     }
 
     async fn get_active_system_alerts(&self) -> Result<Vec<SystemAlert>, Box<dyn std::error::Error>> {
-        // TODO: Implement system alert tracking
-        Ok(vec![])
+        if let Some(monitoring_service) = &self.monitoring_service {
+            let alerts = monitoring_service.get_recent_alerts(25).await;
+            let mapped = alerts
+                .into_iter()
+                .map(|alert| SystemAlert {
+                    id: alert.id,
+                    severity: match alert.severity {
+                        AlertSeverity::Critical => "Critical".to_string(),
+                        AlertSeverity::Warning => "Warning".to_string(),
+                        AlertSeverity::Info => "Info".to_string(),
+                    },
+                    message: alert.message,
+                    timestamp: alert.timestamp,
+                    resolved: false,
+                })
+                .collect();
+            return Ok(mapped);
+        }
+
+        Ok(Vec::new())
     }
+
+    async fn telemetry_snapshot(&self) -> Option<TelemetrySnapshot> {
+        if let Some(monitoring_service) = &self.monitoring_service {
+            if let Ok(metrics) = monitoring_service.export_metrics() {
+                return Some(parse_prometheus_metrics(&metrics));
+            }
+        }
+
+        if let Some(metrics_collector) = &self.metrics_collector {
+            if let Ok(metrics) = metrics_collector.get_metrics() {
+                return Some(parse_prometheus_metrics(&metrics));
+            }
+        }
+
+        None
+    }
+}
+
+#[derive(Default)]
+struct TelemetrySnapshot {
+    total_requests: f64,
+    error_requests: f64,
+    request_duration_sum: f64,
+    request_duration_count: f64,
+    request_duration_buckets: BTreeMap<f64, f64>,
+    uptime_seconds: f64,
+    cpu_usage_percent: Option<f64>,
+    memory_usage_bytes: Option<f64>,
+    memory_usage_percent: Option<f64>,
+    disk_usage_percent: Option<f64>,
+}
+
+fn parse_prometheus_metrics(metrics: &str) -> TelemetrySnapshot {
+    let mut snapshot = TelemetrySnapshot::default();
+
+    for line in metrics.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+
+        let mut parts = line.split_whitespace();
+        let name_with_labels = match parts.next() {
+            Some(value) => value,
+            None => continue,
+        };
+        let value_str = match parts.next() {
+            Some(value) => value,
+            None => continue,
+        };
+        let value: f64 = match value_str.parse() {
+            Ok(parsed) => parsed,
+            Err(_) => continue,
+        };
+
+        let (name, labels) = split_metric_labels(name_with_labels);
+
+        match name {
+            "kiro_http_requests_total" | "kiro_http_http_requests_total" | "http_requests_total" => {
+                snapshot.total_requests += value;
+                if let Some(status_code) = labels.get("status_code") {
+                    if let Ok(code) = status_code.parse::<u16>() {
+                        if code >= 400 {
+                            snapshot.error_requests += value;
+                        }
+                    }
+                }
+            }
+            "kiro_http_request_duration_seconds_sum"
+            | "kiro_http_http_request_duration_seconds_sum"
+            | "http_request_duration_seconds_sum" => {
+                snapshot.request_duration_sum += value;
+            }
+            "kiro_http_request_duration_seconds_count"
+            | "kiro_http_http_request_duration_seconds_count"
+            | "http_request_duration_seconds_count" => {
+                snapshot.request_duration_count += value;
+            }
+            "kiro_http_request_duration_seconds_bucket"
+            | "kiro_http_http_request_duration_seconds_bucket"
+            | "http_request_duration_seconds_bucket" => {
+                if let Some(le_value) = labels.get("le") {
+                    if let Ok(bound) = parse_le_bound(le_value) {
+                        let entry = snapshot.request_duration_buckets.entry(bound).or_insert(0.0);
+                        *entry += value;
+                    }
+                }
+            }
+            "kiro_uptime_seconds" => {
+                if value > snapshot.uptime_seconds {
+                    snapshot.uptime_seconds = value;
+                }
+            }
+            "system_cpu_usage_percent" | "kiro_cpu_usage_percent" => {
+                snapshot.cpu_usage_percent = Some(value);
+            }
+            "system_memory_usage_percent" => {
+                snapshot.memory_usage_percent = Some(value);
+            }
+            "system_disk_usage_percent" => {
+                snapshot.disk_usage_percent = Some(value);
+            }
+            "kiro_memory_usage_bytes" => {
+                snapshot.memory_usage_bytes = Some(value);
+            }
+            _ => {}
+        }
+    }
+
+    snapshot
+}
+
+fn split_metric_labels(metric: &str) -> (&str, HashMap<String, String>) {
+    if let Some(start) = metric.find('{') {
+        if let Some(end) = metric.rfind('}') {
+            let name = &metric[..start];
+            let label_str = &metric[start + 1..end];
+            return (name, parse_labels(label_str));
+        }
+    }
+
+    (metric, HashMap::new())
+}
+
+fn parse_labels(label_str: &str) -> HashMap<String, String> {
+    let mut labels = HashMap::new();
+
+    for part in label_str.split(',') {
+        let mut split = part.splitn(2, '=');
+        let key = match split.next() {
+            Some(value) => value.trim(),
+            None => continue,
+        };
+        let value = match split.next() {
+            Some(value) => value.trim(),
+            None => continue,
+        };
+        let trimmed = value.trim_matches('"');
+        if !key.is_empty() {
+            labels.insert(key.to_string(), trimmed.to_string());
+        }
+    }
+
+    labels
+}
+
+fn parse_le_bound(value: &str) -> Result<f64, std::num::ParseFloatError> {
+    if value == "+Inf" {
+        Ok(f64::INFINITY)
+    } else {
+        value.parse()
+    }
+}
+
+fn aggregate_health_status(statuses: &[HealthStatus]) -> Option<HealthStatus> {
+    if statuses.is_empty() {
+        return None;
+    }
+
+    if statuses.iter().any(|status| matches!(status, HealthStatus::Unhealthy)) {
+        return Some(HealthStatus::Unhealthy);
+    }
+    if statuses.iter().any(|status| matches!(status, HealthStatus::Degraded)) {
+        return Some(HealthStatus::Degraded);
+    }
+
+    Some(HealthStatus::Healthy)
+}
+
+fn health_from_telemetry(snapshot: &TelemetrySnapshot) -> Option<HealthStatus> {
+    let mut has_signal = false;
+    let mut degraded = false;
+    let mut unhealthy = false;
+
+    if snapshot.total_requests > 0.0 {
+        has_signal = true;
+        let error_rate = (snapshot.error_requests / snapshot.total_requests) * 100.0;
+        if error_rate >= 10.0 {
+            unhealthy = true;
+        } else if error_rate >= 5.0 {
+            degraded = true;
+        }
+    }
+
+    if let Some(cpu) = snapshot.cpu_usage_percent {
+        has_signal = true;
+        if cpu >= 95.0 {
+            unhealthy = true;
+        } else if cpu >= 85.0 {
+            degraded = true;
+        }
+    }
+
+    if let Some(memory_percent) = snapshot.memory_usage_percent {
+        has_signal = true;
+        if memory_percent >= 95.0 {
+            unhealthy = true;
+        } else if memory_percent >= 85.0 {
+            degraded = true;
+        }
+    }
+
+    if let Some(disk_percent) = snapshot.disk_usage_percent {
+        has_signal = true;
+        if disk_percent >= 95.0 {
+            unhealthy = true;
+        } else if disk_percent >= 90.0 {
+            degraded = true;
+        }
+    }
+
+    if !has_signal {
+        return None;
+    }
+
+    if unhealthy {
+        Some(HealthStatus::Unhealthy)
+    } else if degraded {
+        Some(HealthStatus::Degraded)
+    } else {
+        Some(HealthStatus::Healthy)
+    }
+}
+
+fn percentile_from_buckets(buckets: &BTreeMap<f64, f64>, count: f64, percentile: f64) -> f64 {
+    if count <= 0.0 || buckets.is_empty() {
+        return 0.0;
+    }
+
+    let target = count * percentile;
+    let mut last_finite = 0.0;
+    for (bound, cumulative) in buckets {
+        if bound.is_finite() {
+            last_finite = *bound;
+        }
+        if *cumulative >= target {
+            if bound.is_finite() {
+                return *bound;
+            }
+            return last_finite;
+        }
+    }
+
+    last_finite
 }

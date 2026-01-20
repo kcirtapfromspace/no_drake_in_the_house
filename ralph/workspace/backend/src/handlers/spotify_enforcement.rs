@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    ActionBatchStatus, BatchExecutionResult, BatchProgress, BatchSummary,
-    EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
-    RollbackInfo, AggressivenessLevel, AuthenticatedUser,
+    ActionBatchStatus, AggressivenessLevel, AuthenticatedUser, BatchExecutionResult, BatchProgress,
+    BatchSummary, EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
+    RollbackInfo,
 };
 use crate::AppState;
 
@@ -48,9 +48,15 @@ pub struct SpotifyRunEnforcementRequest {
     pub idempotency_key: Option<String>,
 }
 
-fn default_true() -> bool { true }
-fn default_batch_size() -> u32 { 50 }
-fn default_aggressiveness() -> AggressivenessLevel { AggressivenessLevel::Moderate }
+fn default_true() -> bool {
+    true
+}
+fn default_batch_size() -> u32 {
+    50
+}
+fn default_aggressiveness() -> AggressivenessLevel {
+    AggressivenessLevel::Moderate
+}
 
 impl Default for SpotifyRunEnforcementRequest {
     fn default() -> Self {
@@ -266,7 +272,11 @@ pub async fn run_spotify_enforcement(
 
     Ok(Json(SpotifyEnforcementRunResponse {
         batch_id,
-        status: if is_dry_run { "dry_run".to_string() } else { "pending_connection".to_string() },
+        status: if is_dry_run {
+            "dry_run".to_string()
+        } else {
+            "pending_connection".to_string()
+        },
         summary: BatchSummary::default(),
         songs_removed: 0,
         albums_removed: 0,
@@ -391,7 +401,9 @@ pub async fn get_spotify_enforcement_history(
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let batches: Vec<SpotifyEnforcementHistoryItem> = rows
         .into_iter()
@@ -470,7 +482,6 @@ pub async fn get_spotify_enforcement_progress(
     _user: AuthenticatedUser,
     Path(batch_id): Path<Uuid>,
 ) -> Result<Json<BatchProgress>, AppError> {
-
     // Query batch progress from database using runtime query
     let batch: Option<BatchProgressRow> = sqlx::query_as(
         r#"
@@ -485,7 +496,9 @@ pub async fn get_spotify_enforcement_progress(
     .bind(batch_id)
     .fetch_optional(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     match batch {
         Some(batch) => {
@@ -497,7 +510,10 @@ pub async fn get_spotify_enforcement_progress(
                 completed_actions: summary.completed_actions,
                 failed_actions: summary.failed_actions,
                 current_action: None,
-                estimated_remaining_ms: ((summary.total_actions - summary.completed_actions - summary.failed_actions) as u64) * 750,
+                estimated_remaining_ms: ((summary.total_actions
+                    - summary.completed_actions
+                    - summary.failed_actions) as u64)
+                    * 750,
                 rate_limit_status: crate::models::RateLimitStatus {
                     requests_remaining: 100,
                     reset_time: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -542,7 +558,9 @@ async fn get_blocked_artist_ids(state: &AppState, user_id: Uuid) -> Result<Vec<U
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     Ok(rows.into_iter().map(|r| r.0).collect())
 }
@@ -554,7 +572,10 @@ struct BlockedArtistInfo {
     reason: String,
 }
 
-async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Result<Vec<BlockedArtistInfo>, AppError> {
+async fn get_blocked_artists_with_details(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<BlockedArtistInfo>, AppError> {
     // Get directly blocked artists
     let direct_blocks: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
         r#"
@@ -567,7 +588,9 @@ async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Re
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let mut artists: Vec<BlockedArtistInfo> = direct_blocks
         .into_iter()
@@ -594,15 +617,19 @@ async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Re
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
-    artists.extend(category_blocks.into_iter().map(|(id, name, category)| {
-        BlockedArtistInfo {
-            id,
-            name,
-            reason: format!("Blocked via category subscription: {}", category),
-        }
-    }));
+    artists.extend(
+        category_blocks
+            .into_iter()
+            .map(|(id, name, category)| BlockedArtistInfo {
+                id,
+                name,
+                reason: format!("Blocked via category subscription: {}", category),
+            }),
+    );
 
     Ok(artists)
 }
@@ -619,7 +646,10 @@ mod tests {
     fn test_spotify_run_enforcement_request_default() {
         let request = SpotifyRunEnforcementRequest::default();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Moderate));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Moderate
+        ));
         assert!(request.block_featuring);
         assert!(request.block_collaborations);
         assert!(!request.block_songwriter_only);
@@ -635,7 +665,10 @@ mod tests {
         let json = r#"{}"#;
         let request: SpotifyRunEnforcementRequest = serde_json::from_str(json).unwrap();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Moderate));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Moderate
+        ));
         assert!(request.block_featuring);
         assert!(request.block_collaborations);
         assert!(!request.dry_run);
@@ -656,7 +689,10 @@ mod tests {
         }"#;
         let request: SpotifyRunEnforcementRequest = serde_json::from_str(json).unwrap();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Aggressive));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Aggressive
+        ));
         assert!(!request.block_featuring);
         assert!(request.block_collaborations);
         assert!(request.block_songwriter_only);
@@ -683,7 +719,10 @@ mod tests {
 
         let options: EnforcementOptions = request.into();
 
-        assert!(matches!(options.aggressiveness, AggressivenessLevel::Conservative));
+        assert!(matches!(
+            options.aggressiveness,
+            AggressivenessLevel::Conservative
+        ));
         assert!(options.block_featuring);
         assert!(!options.block_collaborations);
         assert!(options.block_songwriter_only);
@@ -766,32 +805,26 @@ mod tests {
 
     #[test]
     fn test_spotify_enforcement_preview_response_with_content() {
-        let songs = vec![
-            BlockedSongPreview {
-                track_id: "track-1".to_string(),
-                name: "Bad Song".to_string(),
-                artist_name: "Bad Artist".to_string(),
-                album_name: "Bad Album".to_string(),
-                blocked_reason: "Direct block".to_string(),
-            },
-        ];
+        let songs = vec![BlockedSongPreview {
+            track_id: "track-1".to_string(),
+            name: "Bad Song".to_string(),
+            artist_name: "Bad Artist".to_string(),
+            album_name: "Bad Album".to_string(),
+            blocked_reason: "Direct block".to_string(),
+        }];
 
-        let albums = vec![
-            BlockedAlbumPreview {
-                album_id: "album-1".to_string(),
-                name: "Bad Album".to_string(),
-                artist_name: "Bad Artist".to_string(),
-                blocked_reason: "Direct block".to_string(),
-            },
-        ];
+        let albums = vec![BlockedAlbumPreview {
+            album_id: "album-1".to_string(),
+            name: "Bad Album".to_string(),
+            artist_name: "Bad Artist".to_string(),
+            blocked_reason: "Direct block".to_string(),
+        }];
 
-        let artists = vec![
-            BlockedArtistPreview {
-                artist_id: "artist-1".to_string(),
-                name: "Bad Artist".to_string(),
-                blocked_reason: "In DNP list".to_string(),
-            },
-        ];
+        let artists = vec![BlockedArtistPreview {
+            artist_id: "artist-1".to_string(),
+            name: "Bad Artist".to_string(),
+            blocked_reason: "In DNP list".to_string(),
+        }];
 
         let response = SpotifyEnforcementPreviewResponse {
             songs_to_remove: 1,
@@ -860,10 +893,13 @@ mod tests {
     #[test]
     fn test_spotify_rollback_request_with_actions() {
         let action_id = Uuid::new_v4();
-        let json = format!(r#"{{
+        let json = format!(
+            r#"{{
             "action_ids": ["{}"],
             "reason": "Rollback specific actions"
-        }}"#, action_id);
+        }}"#,
+            action_id
+        );
         let request: SpotifyRollbackRequest = serde_json::from_str(&json).unwrap();
 
         assert!(request.action_ids.is_some());
@@ -969,9 +1005,7 @@ mod tests {
                 "Remove liked songs".to_string(),
                 "Remove playlist tracks".to_string(),
             ],
-            limitations: vec![
-                "Cannot prevent playback".to_string(),
-            ],
+            limitations: vec!["Cannot prevent playback".to_string()],
         };
 
         assert!(response.library_modification);
@@ -1115,9 +1149,15 @@ mod tests {
         let moderate = AggressivenessLevel::Moderate;
         let aggressive = AggressivenessLevel::Aggressive;
 
-        assert_eq!(serde_json::to_string(&conservative).unwrap(), "\"Conservative\"");
+        assert_eq!(
+            serde_json::to_string(&conservative).unwrap(),
+            "\"Conservative\""
+        );
         assert_eq!(serde_json::to_string(&moderate).unwrap(), "\"Moderate\"");
-        assert_eq!(serde_json::to_string(&aggressive).unwrap(), "\"Aggressive\"");
+        assert_eq!(
+            serde_json::to_string(&aggressive).unwrap(),
+            "\"Aggressive\""
+        );
     }
 
     #[test]
@@ -1152,9 +1192,15 @@ mod tests {
         let json = serde_json::to_string(&original).unwrap();
         let deserialized: SpotifyRunEnforcementRequest = serde_json::from_str(&json).unwrap();
 
-        assert!(matches!(deserialized.aggressiveness, AggressivenessLevel::Aggressive));
+        assert!(matches!(
+            deserialized.aggressiveness,
+            AggressivenessLevel::Aggressive
+        ));
         assert_eq!(deserialized.block_featuring, original.block_featuring);
-        assert_eq!(deserialized.block_collaborations, original.block_collaborations);
+        assert_eq!(
+            deserialized.block_collaborations,
+            original.block_collaborations
+        );
         assert_eq!(deserialized.batch_size, original.batch_size);
         assert_eq!(deserialized.dry_run, original.dry_run);
         assert_eq!(deserialized.idempotency_key, original.idempotency_key);

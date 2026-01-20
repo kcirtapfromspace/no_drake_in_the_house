@@ -20,10 +20,7 @@ impl TokenVaultService {
         Self {}
     }
 
-    pub async fn store_token(
-        &self,
-        request: StoreTokenRequest,
-    ) -> Result<Connection, AppError> {
+    pub async fn store_token(&self, request: StoreTokenRequest) -> Result<Connection, AppError> {
         // Return a mock connection
         Ok(Connection {
             id: Uuid::new_v4(),
@@ -63,10 +60,7 @@ impl TokenVaultService {
         })
     }
 
-    pub async fn get_user_connections(
-        &self,
-        user_id: Uuid,
-    ) -> Result<Vec<Connection>, AppError> {
+    pub async fn get_user_connections(&self, user_id: Uuid) -> Result<Vec<Connection>, AppError> {
         Ok(vec![Connection {
             id: Uuid::new_v4(),
             user_id,
@@ -85,10 +79,7 @@ impl TokenVaultService {
         }])
     }
 
-    pub async fn delete_connection(
-        &self,
-        _connection_id: Uuid,
-    ) -> Result<(), AppError> {
+    pub async fn delete_connection(&self, _connection_id: Uuid) -> Result<(), AppError> {
         Ok(())
     }
 }

@@ -260,10 +260,7 @@ impl User {
 
     /// Get all linked OAuth providers
     pub fn linked_providers(&self) -> Vec<OAuthProviderType> {
-        self.oauth_accounts
-            .iter()
-            .map(|acc| acc.provider.clone())
-            .collect()
+        self.oauth_accounts.iter().map(|acc| acc.provider).collect()
     }
 
     /// Convert to user profile (safe for API responses)
@@ -277,7 +274,7 @@ impl User {
                 .oauth_accounts
                 .iter()
                 .map(|acc| OAuthAccountInfo {
-                    provider: acc.provider.clone(),
+                    provider: acc.provider,
                     provider_user_id: acc.provider_user_id.clone(),
                     email: acc.email.clone(),
                     display_name: acc.display_name.clone(),
@@ -349,7 +346,7 @@ impl Default for UserSettings {
 impl OAuthAccountInfo {
     pub fn from_oauth_account(account: &OAuthAccount) -> Self {
         Self {
-            provider: account.provider.clone(),
+            provider: account.provider,
             provider_user_id: account.provider_user_id.clone(),
             email: account.email.clone(),
             display_name: account.display_name.clone(),

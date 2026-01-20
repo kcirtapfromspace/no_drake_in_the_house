@@ -13,10 +13,10 @@ use std::time::Instant;
 use uuid::Uuid;
 
 use crate::models::{
-    Connection, AppleMusicRatingEnforcementOptions, EnforcementProgress,
-    BlockedContentScan, BlockedSongInfo, BlockedAlbumInfo, EnforcementPreview,
-    RatingEnforcementResult, RollbackResult, RatingError, EnforcementRunStatus,
-    AppleMusicResourceType, EnforcementActionType,
+    AppleMusicRatingEnforcementOptions, AppleMusicResourceType, BlockedAlbumInfo,
+    BlockedContentScan, BlockedSongInfo, Connection, EnforcementActionType, EnforcementPreview,
+    EnforcementProgress, EnforcementRunStatus, RatingEnforcementResult, RatingError,
+    RollbackResult,
 };
 use crate::services::AppleMusicService;
 
@@ -28,7 +28,10 @@ pub struct AppleMusicEnforcementService {
 
 impl AppleMusicEnforcementService {
     pub fn new(apple_music: Arc<AppleMusicService>, db_pool: PgPool) -> Self {
-        Self { apple_music, db_pool }
+        Self {
+            apple_music,
+            db_pool,
+        }
     }
 
     /// Run full enforcement for a user's Apple Music library
@@ -46,28 +49,27 @@ impl AppleMusicEnforcementService {
         let mut progress = EnforcementProgress::new();
 
         // Get user's Apple Music connection
-        let connection = self.apple_music
+        let connection = self
+            .apple_music
             .get_user_connection(user_id)
             .await?
             .ok_or_else(|| anyhow!("No Apple Music connection found for user"))?;
 
         // Create enforcement run record
-        let run_id = self.create_enforcement_run(
-            user_id,
-            connection.id,
-            &options,
-        ).await?;
+        let run_id = self
+            .create_enforcement_run(user_id, connection.id, &options)
+            .await?;
 
         progress.phase = "scanning".to_string();
         progress_callback(progress.clone());
 
         // Scan library for blocked content
-        let blocked_content = self.scan_for_blocked_content(
-            &connection,
-            &blocked_artist_names,
-        ).await?;
+        let blocked_content = self
+            .scan_for_blocked_content(&connection, &blocked_artist_names)
+            .await?;
 
-        progress.total_items = blocked_content.blocked_songs.len() + blocked_content.blocked_albums.len();
+        progress.total_items =
+            blocked_content.blocked_songs.len() + blocked_content.blocked_albums.len();
         progress.phase = "enforcing".to_string();
         progress_callback(progress.clone());
 
@@ -89,8 +91,12 @@ impl AppleMusicEnforcementService {
                 EnforcementRunStatus::Completed,
                 blocked_content.total_songs_scanned as u32,
                 blocked_content.total_albums_scanned as u32,
-                0, 0, 0, None,
-            ).await?;
+                0,
+                0,
+                0,
+                None,
+            )
+            .await?;
 
             return Ok(result);
         }
@@ -106,7 +112,8 @@ impl AppleMusicEnforcementService {
                 progress.processed_items = idx;
                 progress_callback(progress.clone());
 
-                match self.apple_music
+                match self
+                    .apple_music
                     .rate_library_song(&connection, &song.library_song_id, -1)
                     .await
                 {
@@ -124,7 +131,9 @@ impl AppleMusicEnforcementService {
                             Some(&song.artist_name),
                             EnforcementActionType::Dislike,
                             None,
-                        ).await.ok();
+                        )
+                        .await
+                        .ok();
                     }
                     Err(e) => {
                         errors.push(RatingError {
@@ -147,7 +156,8 @@ impl AppleMusicEnforcementService {
                 progress.processed_items = song_count + idx;
                 progress_callback(progress.clone());
 
-                match self.apple_music
+                match self
+                    .apple_music
                     .rate_library_album(&connection, &album.library_album_id, -1)
                     .await
                 {
@@ -165,7 +175,9 @@ impl AppleMusicEnforcementService {
                             Some(&album.artist_name),
                             EnforcementActionType::Dislike,
                             None,
-                        ).await.ok();
+                        )
+                        .await
+                        .ok();
                     }
                     Err(e) => {
                         errors.push(RatingError {
@@ -202,8 +214,13 @@ impl AppleMusicEnforcementService {
             songs_disliked as u32,
             albums_disliked as u32,
             errors.len() as u32,
-            if errors.is_empty() { None } else { Some(serde_json::to_value(&errors)?) },
-        ).await?;
+            if errors.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_value(&errors)?)
+            },
+        )
+        .await?;
 
         Ok(RatingEnforcementResult {
             run_id,
@@ -242,7 +259,10 @@ impl AppleMusicEnforcementService {
         // Find blocked songs
         for track in library_tracks {
             let artist_lower = track.attributes.artist_name.to_lowercase();
-            if blocked_names_lower.iter().any(|blocked| artist_lower.contains(blocked)) {
+            if blocked_names_lower
+                .iter()
+                .any(|blocked| artist_lower.contains(blocked))
+            {
                 scan.blocked_songs.push(BlockedSongInfo {
                     library_song_id: track.id.clone(),
                     catalog_song_id: None, // Library items don't always have catalog IDs
@@ -257,7 +277,10 @@ impl AppleMusicEnforcementService {
         // Find blocked albums
         for album in library_albums {
             let artist_lower = album.attributes.artist_name.to_lowercase();
-            if blocked_names_lower.iter().any(|blocked| artist_lower.contains(blocked)) {
+            if blocked_names_lower
+                .iter()
+                .any(|blocked| artist_lower.contains(blocked))
+            {
                 scan.blocked_albums.push(BlockedAlbumInfo {
                     library_album_id: album.id.clone(),
                     catalog_album_id: None,
@@ -277,18 +300,19 @@ impl AppleMusicEnforcementService {
         user_id: Uuid,
         blocked_artist_names: Vec<String>,
     ) -> Result<EnforcementPreview> {
-        let connection = self.apple_music
+        let connection = self
+            .apple_music
             .get_user_connection(user_id)
             .await?
             .ok_or_else(|| anyhow!("No Apple Music connection found for user"))?;
 
-        let blocked_content = self.scan_for_blocked_content(
-            &connection,
-            &blocked_artist_names,
-        ).await?;
+        let blocked_content = self
+            .scan_for_blocked_content(&connection, &blocked_artist_names)
+            .await?;
 
         // Estimate ~50ms per API call
-        let total_items = blocked_content.blocked_songs.len() + blocked_content.blocked_albums.len();
+        let total_items =
+            blocked_content.blocked_songs.len() + blocked_content.blocked_albums.len();
         let estimated_duration = (total_items as u64) * 50 / 1000;
 
         Ok(EnforcementPreview {
@@ -308,7 +332,8 @@ impl AppleMusicEnforcementService {
     ) -> Result<RollbackResult> {
         let start_time = Instant::now();
 
-        let connection = self.apple_music
+        let connection = self
+            .apple_music
             .get_user_connection(user_id)
             .await?
             .ok_or_else(|| anyhow!("No Apple Music connection found for user"))?;
@@ -341,9 +366,7 @@ impl AppleMusicEnforcementService {
                         .delete_album_rating(&connection, &action.resource_id)
                         .await
                 }
-                _ => {
-                    Err(anyhow!("Unknown resource type: {}", action.resource_type))
-                }
+                _ => Err(anyhow!("Unknown resource type: {}", action.resource_type)),
             };
 
             match result {
@@ -359,7 +382,8 @@ impl AppleMusicEnforcementService {
         }
 
         // Update run status to rolled back
-        self.update_enforcement_run_status(&run_id, EnforcementRunStatus::RolledBack).await?;
+        self.update_enforcement_run_status(&run_id, EnforcementRunStatus::RolledBack)
+            .await?;
 
         Ok(RollbackResult {
             run_id,
@@ -1082,8 +1106,14 @@ mod tests {
 
     #[test]
     fn test_enforcement_run_status_equality() {
-        assert_eq!(EnforcementRunStatus::Completed, EnforcementRunStatus::Completed);
-        assert_ne!(EnforcementRunStatus::Completed, EnforcementRunStatus::Failed);
+        assert_eq!(
+            EnforcementRunStatus::Completed,
+            EnforcementRunStatus::Completed
+        );
+        assert_ne!(
+            EnforcementRunStatus::Completed,
+            EnforcementRunStatus::Failed
+        );
     }
 
     #[test]
@@ -1100,17 +1130,29 @@ mod tests {
     #[test]
     fn test_resource_type_display() {
         assert_eq!(AppleMusicResourceType::Song.to_string(), "song");
-        assert_eq!(AppleMusicResourceType::LibrarySong.to_string(), "library_song");
+        assert_eq!(
+            AppleMusicResourceType::LibrarySong.to_string(),
+            "library_song"
+        );
         assert_eq!(AppleMusicResourceType::Album.to_string(), "album");
-        assert_eq!(AppleMusicResourceType::LibraryAlbum.to_string(), "library_album");
+        assert_eq!(
+            AppleMusicResourceType::LibraryAlbum.to_string(),
+            "library_album"
+        );
         assert_eq!(AppleMusicResourceType::Playlist.to_string(), "playlist");
-        assert_eq!(AppleMusicResourceType::LibraryPlaylist.to_string(), "library_playlist");
+        assert_eq!(
+            AppleMusicResourceType::LibraryPlaylist.to_string(),
+            "library_playlist"
+        );
     }
 
     #[test]
     fn test_resource_type_equality() {
         assert_eq!(AppleMusicResourceType::Song, AppleMusicResourceType::Song);
-        assert_ne!(AppleMusicResourceType::Song, AppleMusicResourceType::LibrarySong);
+        assert_ne!(
+            AppleMusicResourceType::Song,
+            AppleMusicResourceType::LibrarySong
+        );
     }
 
     // ============================================
@@ -1120,13 +1162,22 @@ mod tests {
     #[test]
     fn test_action_type_display() {
         assert_eq!(EnforcementActionType::Dislike.to_string(), "dislike");
-        assert_eq!(EnforcementActionType::RemoveRating.to_string(), "remove_rating");
+        assert_eq!(
+            EnforcementActionType::RemoveRating.to_string(),
+            "remove_rating"
+        );
     }
 
     #[test]
     fn test_action_type_equality() {
-        assert_eq!(EnforcementActionType::Dislike, EnforcementActionType::Dislike);
-        assert_ne!(EnforcementActionType::Dislike, EnforcementActionType::RemoveRating);
+        assert_eq!(
+            EnforcementActionType::Dislike,
+            EnforcementActionType::Dislike
+        );
+        assert_ne!(
+            EnforcementActionType::Dislike,
+            EnforcementActionType::RemoveRating
+        );
     }
 
     // ============================================
@@ -1244,25 +1295,21 @@ mod tests {
     #[test]
     fn test_enforcement_preview_with_content() {
         let preview = EnforcementPreview {
-            songs_to_dislike: vec![
-                BlockedSongInfo {
-                    library_song_id: "song-1".to_string(),
-                    catalog_song_id: None,
-                    name: "Song 1".to_string(),
-                    artist_name: "Artist".to_string(),
-                    album_name: "Album".to_string(),
-                    blocked_artist_id: None,
-                },
-            ],
-            albums_to_dislike: vec![
-                BlockedAlbumInfo {
-                    library_album_id: "album-1".to_string(),
-                    catalog_album_id: None,
-                    name: "Album 1".to_string(),
-                    artist_name: "Artist".to_string(),
-                    blocked_artist_id: None,
-                },
-            ],
+            songs_to_dislike: vec![BlockedSongInfo {
+                library_song_id: "song-1".to_string(),
+                catalog_song_id: None,
+                name: "Song 1".to_string(),
+                artist_name: "Artist".to_string(),
+                album_name: "Album".to_string(),
+                blocked_artist_id: None,
+            }],
+            albums_to_dislike: vec![BlockedAlbumInfo {
+                library_album_id: "album-1".to_string(),
+                catalog_album_id: None,
+                name: "Album 1".to_string(),
+                artist_name: "Artist".to_string(),
+                blocked_artist_id: None,
+            }],
             total_songs: 500,
             total_albums: 100,
             estimated_duration_seconds: 1, // (2 items * 50ms) / 1000
@@ -1281,10 +1328,8 @@ mod tests {
     fn test_artist_name_matching_case_insensitive() {
         // Test the matching logic used in scan_for_blocked_content
         let blocked_names = vec!["drake".to_string(), "r. kelly".to_string()];
-        let blocked_names_lower: Vec<String> = blocked_names
-            .iter()
-            .map(|n| n.to_lowercase())
-            .collect();
+        let blocked_names_lower: Vec<String> =
+            blocked_names.iter().map(|n| n.to_lowercase()).collect();
 
         // Test various artist names
         let test_cases = vec![
@@ -1301,9 +1346,12 @@ mod tests {
 
         for (artist_name, should_match) in test_cases {
             let artist_lower = artist_name.to_lowercase();
-            let matches = blocked_names_lower.iter().any(|blocked| artist_lower.contains(blocked));
+            let matches = blocked_names_lower
+                .iter()
+                .any(|blocked| artist_lower.contains(blocked));
             assert_eq!(
-                matches, should_match,
+                matches,
+                should_match,
                 "Artist '{}' should {} be blocked",
                 artist_name,
                 if should_match { "" } else { "not" }
@@ -1315,10 +1363,8 @@ mod tests {
     fn test_partial_artist_name_matching() {
         // Test that partial matches work (e.g., "Drake" matches "Drake & Future")
         let blocked_names = vec!["drake".to_string()];
-        let blocked_names_lower: Vec<String> = blocked_names
-            .iter()
-            .map(|n| n.to_lowercase())
-            .collect();
+        let blocked_names_lower: Vec<String> =
+            blocked_names.iter().map(|n| n.to_lowercase()).collect();
 
         let collaborations = vec![
             ("Drake & Future", true),
@@ -1331,9 +1377,12 @@ mod tests {
 
         for (artist_name, should_match) in collaborations {
             let artist_lower = artist_name.to_lowercase();
-            let matches = blocked_names_lower.iter().any(|blocked| artist_lower.contains(blocked));
+            let matches = blocked_names_lower
+                .iter()
+                .any(|blocked| artist_lower.contains(blocked));
             assert_eq!(
-                matches, should_match,
+                matches,
+                should_match,
                 "Artist '{}' should {} match",
                 artist_name,
                 if should_match { "" } else { "not" }
@@ -1345,12 +1394,12 @@ mod tests {
     fn test_estimated_duration_calculation() {
         // Test the estimation logic: ~50ms per API call
         let test_cases = vec![
-            (0, 0),      // 0 items = 0 seconds
-            (1, 0),      // 1 item = 0 seconds (50ms rounds down)
-            (20, 1),     // 20 items = 1 second
-            (40, 2),     // 40 items = 2 seconds
-            (100, 5),    // 100 items = 5 seconds
-            (1000, 50),  // 1000 items = 50 seconds
+            (0, 0),     // 0 items = 0 seconds
+            (1, 0),     // 1 item = 0 seconds (50ms rounds down)
+            (20, 1),    // 20 items = 1 second
+            (40, 2),    // 40 items = 2 seconds
+            (100, 5),   // 100 items = 5 seconds
+            (1000, 50), // 1000 items = 50 seconds
         ];
 
         for (total_items, expected_seconds) in test_cases {
@@ -1368,10 +1417,10 @@ mod tests {
         // Test status determination logic based on results
         let test_cases = vec![
             // (songs_disliked, albums_disliked, error_count, expected_status)
-            (10, 5, 0, EnforcementRunStatus::Completed),  // All successful
-            (10, 5, 2, EnforcementRunStatus::Completed),  // Partial success
-            (0, 0, 5, EnforcementRunStatus::Failed),      // All failed
-            (1, 0, 10, EnforcementRunStatus::Completed),  // At least one success
+            (10, 5, 0, EnforcementRunStatus::Completed), // All successful
+            (10, 5, 2, EnforcementRunStatus::Completed), // Partial success
+            (0, 0, 5, EnforcementRunStatus::Failed),     // All failed
+            (1, 0, 10, EnforcementRunStatus::Completed), // At least one success
         ];
 
         for (songs, albums, errors, expected) in test_cases {

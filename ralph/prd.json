@@ -107,7 +107,7 @@
       "description": "As a product owner, I want user profile responses to reflect real email verification status, OAuth accounts, and last login so clients show accurate data.",
       "id": "US-007",
       "notes": "",
-      "passes": false,
+      "passes": true,
       "priority": 7,
       "title": "Populate user profile correctness fields"
     },

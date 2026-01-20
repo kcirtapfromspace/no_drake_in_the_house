@@ -59,7 +59,7 @@ pub enum ActionItemStatus {
 }
 
 /// Summary of batch execution results
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct BatchSummary {
     pub total_actions: u32,
     pub completed_actions: u32,
@@ -236,21 +236,6 @@ impl ActionItem {
 
     pub fn can_rollback(&self) -> bool {
         matches!(self.status, ActionItemStatus::Completed) && self.before_state.is_some()
-    }
-}
-
-impl Default for BatchSummary {
-    fn default() -> Self {
-        Self {
-            total_actions: 0,
-            completed_actions: 0,
-            failed_actions: 0,
-            skipped_actions: 0,
-            execution_time_ms: 0,
-            api_calls_made: 0,
-            rate_limit_delays_ms: 0,
-            errors: Vec::new(),
-        }
     }
 }
 

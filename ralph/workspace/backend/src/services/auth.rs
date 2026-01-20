@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use crate::models::oauth::{
     AccountLinkRequest, OAuthAccount, OAuthAccountHealth, OAuthConnectionStatus, OAuthFlowResponse,
     OAuthProviderType, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
@@ -826,7 +828,7 @@ impl AuthService {
         let user_info = if provider_type == OAuthProviderType::Apple && tokens.id_token.is_some() {
             // For Apple, extract user info from ID token
             match self
-                .extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
+                .extract_apple_user_info(tokens.id_token.as_ref().unwrap())
                 .await
             {
                 Ok(info) => info,
@@ -937,7 +939,7 @@ impl AuthService {
         // Get user info from provider
         let user_info = if request.provider == OAuthProviderType::Apple && tokens.id_token.is_some()
         {
-            self.extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
+            self.extract_apple_user_info(tokens.id_token.as_ref().unwrap())
                 .await?
         } else {
             provider.get_user_info(&tokens.access_token).await?
@@ -1052,17 +1054,16 @@ impl AuthService {
     }
 
     /// Merge two user accounts (for duplicate account resolution)
-    /// TODO: Re-enable once SQLx cache is updated with new queries
+    /// Explicitly gated until SQLx cache is refreshed; returns a stable unavailable contract.
     pub async fn merge_accounts(
         &self,
         _primary_user_id: Uuid,
         _request: MergeAccountsRequest,
     ) -> Result<MergeAccountsResponse> {
-        // Temporarily disabled until SQLx cache is updated with new queries
-        // The full implementation is ready but needs database access to cache the queries
-        Err(AppError::NotFound {
-            resource: "Account merging is temporarily disabled until database setup is complete"
-                .to_string(),
+        const ACCOUNT_MERGE_UNAVAILABLE_REASON: &str =
+            "Account merging is temporarily disabled until database setup is complete";
+        Err(AppError::AccountMergeUnavailable {
+            reason: ACCOUNT_MERGE_UNAVAILABLE_REASON.to_string(),
         })
     }
 
@@ -1271,10 +1272,7 @@ impl AuthService {
                 "Token near expiry, refreshing automatically"
             );
 
-            match self
-                .refresh_oauth_tokens(user_id, provider_type.clone())
-                .await
-            {
+            match self.refresh_oauth_tokens(user_id, provider_type).await {
                 Ok(()) => {
                     // Get the updated token after refresh
                     let updated_account = sqlx::query!(
@@ -2253,12 +2251,9 @@ impl AuthService {
 
         for account in oauth_accounts {
             if account.is_token_expired() && account.refresh_token_encrypted.is_some() {
-                match self
-                    .refresh_oauth_tokens(user_id, account.provider.clone())
-                    .await
-                {
+                match self.refresh_oauth_tokens(user_id, account.provider).await {
                     Ok(()) => {
-                        let provider = account.provider.clone();
+                        let provider = account.provider;
                         refreshed_providers.push(account.provider);
                         tracing::info!(
                             user_id = %user_id,
@@ -2312,10 +2307,7 @@ impl AuthService {
                 AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e))
             })?;
 
-            match self
-                .refresh_oauth_tokens(account.user_id, provider.clone())
-                .await
-            {
+            match self.refresh_oauth_tokens(account.user_id, provider).await {
                 Ok(()) => {
                     refreshed_count += 1;
                     tracing::debug!(
@@ -2720,7 +2712,7 @@ impl AuthService {
         self
     }
 
-    /// Add OAuth provider for testing (disabled due to clone constraints)
+    // Add OAuth provider for testing (disabled due to clone constraints)
     // pub fn add_oauth_provider(&mut self, provider_type: OAuthProviderType, provider: Box<dyn OAuthProvider>) {
     //     // Cannot clone HashMap<OAuthProviderType, Box<dyn OAuthProvider>>
     //     // This method is disabled for now

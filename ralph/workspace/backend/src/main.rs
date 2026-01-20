@@ -1,19 +1,16 @@
-use music_streaming_blocklist_backend::{
-    create_pool, create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
-    AuditLoggingService, AuthService, DatabaseConfig, DnpListService, MonitoringConfig,
-    MonitoringSystem, RateLimitService, RedisConfiguration, UserService,
-    OrchestratorBuilder, PlatformSyncConfig, CreditsSyncService,
-    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner,
-    BackfillOrchestrator,
-};
-use music_streaming_blocklist_backend::services::{
-    AppleMusicService, AppleMusicConfig,
-};
+use chrono::Duration;
 use music_streaming_blocklist_backend::services::catalog_sync::{
-    AppleMusicSyncWorker, DeezerSyncWorker, SpotifySyncWorker, CrossPlatformIdentityResolver,
+    AppleMusicSyncWorker, CrossPlatformIdentityResolver, DeezerSyncWorker, SpotifySyncWorker,
 };
 use music_streaming_blocklist_backend::services::stubs::TokenVaultService;
-use chrono::Duration;
+use music_streaming_blocklist_backend::services::{AppleMusicConfig, AppleMusicService};
+use music_streaming_blocklist_backend::{
+    create_pool, create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
+    AuditLoggingService, AuthService, BackfillOrchestrator, CreditsSyncService, DatabaseConfig,
+    DnpListService, MonitoringConfig, MonitoringSystem, NewsPipelineConfig,
+    NewsPipelineOrchestrator, OrchestratorBuilder, PlatformSyncConfig, RateLimitService,
+    RedisConfiguration, ScheduledPipelineRunner, UserService,
+};
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -98,11 +95,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     // Initialize catalog sync orchestrator with available workers
-    let identity_resolver = CrossPlatformIdentityResolver::new(
-        "NoDrakeInTheHouse",
-        "1.0",
-        "admin@nodrake.example.com",
-    );
+    let identity_resolver =
+        CrossPlatformIdentityResolver::new("NoDrakeInTheHouse", "1.0", "admin@nodrake.example.com");
 
     let mut orchestrator_builder = OrchestratorBuilder::new()
         .with_identity_resolver(identity_resolver)
@@ -140,9 +134,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Add Spotify worker if credentials are available
     if let Some(spotify_creds) = &platform_config.spotify {
-        orchestrator_builder = orchestrator_builder.with_worker(
-            SpotifySyncWorker::new(spotify_creds.client_id.clone(), spotify_creds.client_secret.clone())
-        );
+        orchestrator_builder = orchestrator_builder.with_worker(SpotifySyncWorker::new(
+            spotify_creds.client_id.clone(),
+            spotify_creds.client_secret.clone(),
+        ));
         tracing::info!("Spotify sync worker registered");
     }
 
@@ -181,9 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Initialize backfill orchestrator for offense discovery
     // Note: For full news pipeline integration, we'd pass the news_pipeline Arc here
-    let backfill_orchestrator = Some(Arc::new(
-        BackfillOrchestrator::new(db_pool.clone())
-    ));
+    let backfill_orchestrator = Some(Arc::new(BackfillOrchestrator::new(db_pool.clone())));
     tracing::info!("Backfill orchestrator initialized");
 
     // Initialize Apple Music service for enforcement
@@ -191,7 +184,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let token_vault = Arc::new(TokenVaultService::new());
     let apple_music_service = Arc::new(
         AppleMusicService::new(apple_music_config, token_vault)
-            .expect("Failed to create Apple Music service")
+            .expect("Failed to create Apple Music service"),
     );
     tracing::info!("Apple Music enforcement service initialized");
 

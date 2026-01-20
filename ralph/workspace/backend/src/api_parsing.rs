@@ -106,7 +106,9 @@ fn parse_offset_pagination(value: &Value) -> Option<PaginationInfo> {
 
 fn parse_cursor_pagination(value: &Value) -> Option<PaginationInfo> {
     let paging = value.get("paging")?.as_object()?;
-    let cursors = paging.get("cursors").and_then(|cursors| cursors.as_object());
+    let cursors = paging
+        .get("cursors")
+        .and_then(|cursors| cursors.as_object());
 
     let after = cursors
         .and_then(|cursor| cursor.get("after"))

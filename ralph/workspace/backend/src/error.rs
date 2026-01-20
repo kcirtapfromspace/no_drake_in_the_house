@@ -73,6 +73,9 @@ pub enum AppError {
     #[error("OAuth account merge conflict: {reason}")]
     OAuthAccountMergeConflict { reason: String },
 
+    #[error("Account merge unavailable: {reason}")]
+    AccountMergeUnavailable { reason: String },
+
     // Encryption errors
     #[error("Token encryption error: {0}")]
     EncryptionError(String),
@@ -254,6 +257,7 @@ impl AppError {
 
             // 503 Service Unavailable
             AppError::ServiceUnavailable
+            | AppError::AccountMergeUnavailable { .. }
             | AppError::DatabaseConnectionFailed
             | AppError::RedisConnectionFailed => StatusCode::SERVICE_UNAVAILABLE,
 
@@ -300,6 +304,7 @@ impl AppError {
             AppError::OAuthStateValidationFailed => "OAUTH_STATE_VALIDATION_FAILED",
             AppError::OAuthAccountLinkingFailed { .. } => "OAUTH_ACCOUNT_LINKING_FAILED",
             AppError::OAuthAccountMergeConflict { .. } => "OAUTH_ACCOUNT_MERGE_CONFLICT",
+            AppError::AccountMergeUnavailable { .. } => "ACCOUNT_MERGE_UNAVAILABLE",
             AppError::EncryptionError(_) => "ENCRYPTION_ERROR",
             AppError::ValidationFailed(_) => "VALIDATION_FAILED",
             AppError::InvalidRequestFormat(_) => "INVALID_REQUEST_FORMAT",
@@ -385,6 +390,9 @@ impl AppError {
             AppError::OAuthAccountMergeConflict { reason } => {
                 format!("Account merge conflict: {}", reason)
             }
+            AppError::AccountMergeUnavailable { .. } => {
+                "Account merge is currently unavailable. Please try again later.".to_string()
+            }
             AppError::EncryptionError(_) => "Token encryption/decryption failed".to_string(),
             AppError::BusinessRuleViolation { rule } => {
                 format!("Business rule violation: {}", rule)
@@ -448,6 +456,9 @@ impl AppError {
             AppError::OAuthAccountMergeConflict { reason } => Some(json!({
                 "merge_conflict_reason": reason
             })),
+            AppError::AccountMergeUnavailable { reason } => Some(json!({
+                "merge_unavailable_reason": reason
+            })),
             AppError::EncryptionError(message) => Some(json!({
                 "encryption_error": message
             })),
@@ -473,7 +484,8 @@ impl IntoResponse for AppError {
             | AppError::RedisConnectionFailed
             | AppError::RedisOperationFailed(_)
             | AppError::ConfigurationError { .. }
-            | AppError::ServiceUnavailable => {
+            | AppError::ServiceUnavailable
+            | AppError::AccountMergeUnavailable { .. } => {
                 tracing::error!(
                     correlation_id = %correlation_id,
                     error_code = %error_code,
@@ -590,6 +602,34 @@ impl From<sqlx::Error> for AppError {
             sqlx::Error::PoolClosed => AppError::DatabaseConnectionFailed,
             _ => AppError::DatabaseQueryFailed(err),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn account_merge_unavailable_contract_is_stable() {
+        let reason = "maintenance window".to_string();
+        let error = AppError::AccountMergeUnavailable {
+            reason: reason.clone(),
+        };
+
+        assert_eq!(error.status_code(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(error.error_code(), "ACCOUNT_MERGE_UNAVAILABLE");
+        assert_eq!(
+            error.user_message(),
+            "Account merge is currently unavailable. Please try again later."
+        );
+
+        let details = error.error_details().expect("merge unavailable details");
+        assert_eq!(
+            details
+                .get("merge_unavailable_reason")
+                .and_then(|value| value.as_str()),
+            Some(reason.as_str())
+        );
     }
 }
 

@@ -64,3 +64,34 @@ Once the backend OAuth is re-enabled, the frontend will work seamlessly without 
 3. **Long-term**: Full OAuth functionality with encrypted token storage and multi-provider support
 
 The OAuth integration is **architecturally sound** and **implementation complete** - it just needs the SQLx cache updated to become fully operational.
+
+## Account Merge API Contract
+
+Account merge is currently **disabled** and returns a stable feature-unavailable response.
+
+**Endpoint**
+- `POST /auth/accounts/merge`
+
+**Request body**
+- `secondary_user_id` (UUID)
+- `merge_reason` (string)
+
+**Unavailable response**
+- HTTP `503 Service Unavailable`
+- `error_code`: `ACCOUNT_MERGE_UNAVAILABLE`
+- `message`: `Account merge is currently unavailable. Please try again later.`
+- `details.merge_unavailable_reason`: explanatory string
+
+**Error response shape (example)**
+```json
+{
+  "error": "Account merge unavailable: Account merging is temporarily disabled until database setup is complete",
+  "error_code": "ACCOUNT_MERGE_UNAVAILABLE",
+  "message": "Account merge is currently unavailable. Please try again later.",
+  "details": {
+    "merge_unavailable_reason": "Account merging is temporarily disabled until database setup is complete"
+  },
+  "correlation_id": "b8fd7b4c-1e05-4d1b-9f5a-5ce1c7ef2a76",
+  "timestamp": "2024-05-01T12:34:56Z"
+}
+```

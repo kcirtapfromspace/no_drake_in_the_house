@@ -72,6 +72,12 @@ pub struct SecurityMonitor {
     suspicious_ips: Arc<RwLock<HashMap<String, SuspiciousActivity>>>,
 }
 
+impl Default for SecurityMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Clone)]
 struct FailedAttemptTracker {
     count: u32,
@@ -198,7 +204,7 @@ impl SecurityMonitor {
             .filter(|tracker| {
                 tracker
                     .locked_until
-                    .map_or(false, |until| chrono::Utc::now() < until)
+                    .is_some_and(|until| chrono::Utc::now() < until)
             })
             .count();
 
@@ -207,7 +213,7 @@ impl SecurityMonitor {
             .filter(|activity| {
                 activity
                     .blocked_until
-                    .map_or(false, |until| chrono::Utc::now() < until)
+                    .is_some_and(|until| chrono::Utc::now() < until)
             })
             .count();
 
@@ -232,6 +238,12 @@ pub struct SecurityStats {
 #[derive(Clone)]
 pub struct VulnerabilityScanner {
     scan_results: Arc<RwLock<Vec<VulnerabilityScanResult>>>,
+}
+
+impl Default for VulnerabilityScanner {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

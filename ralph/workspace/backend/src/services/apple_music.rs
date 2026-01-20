@@ -4,20 +4,19 @@ use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
+use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use jsonwebtoken::{encode, Header, EncodingKey, Algorithm};
 
 use crate::models::{
-    Connection, ConnectionStatus, StreamingProvider, TokenHealthCheck, DecryptedToken,
-    AppleMusicLibrary, AppleMusicCapabilities, AppleMusicEnforcementOptions,
-    AppleMusicEnforcementResult, AppleMusicResponse, AppleMusicTrack, AppleMusicAlbum,
-    AppleMusicPlaylist, AppleMusicLibraryTrack, AppleMusicLibraryAlbum, AppleMusicLibraryPlaylist,
-    AppleMusicSearchRequest, AppleMusicSearchResponse, AppleMusicTokenInfo,
-    AppleMusicDeveloperToken, AppleMusicUserTokenResponse, AppleMusicErrorResponse,
-    BatchRatingResult, RatingError,
+    AppleMusicAlbum, AppleMusicCapabilities, AppleMusicDeveloperToken,
+    AppleMusicEnforcementOptions, AppleMusicEnforcementResult, AppleMusicErrorResponse,
+    AppleMusicLibrary, AppleMusicLibraryAlbum, AppleMusicLibraryPlaylist, AppleMusicLibraryTrack,
+    AppleMusicPlaylist, AppleMusicResponse, AppleMusicSearchRequest, AppleMusicSearchResponse,
+    AppleMusicTokenInfo, AppleMusicTrack, AppleMusicUserTokenResponse, BatchRatingResult,
+    Connection, ConnectionStatus, DecryptedToken, RatingError, StreamingProvider, TokenHealthCheck,
 };
 use crate::services::TokenVaultService;
 
@@ -39,14 +38,18 @@ impl Default for AppleMusicConfig {
     fn default() -> Self {
         // Try to read private key from file path first, then fall back to direct env var
         let private_key = if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
-            std::fs::read_to_string(&key_path)
-                .unwrap_or_else(|e| {
-                    tracing::warn!("Failed to read Apple Music private key from {}: {}", key_path, e);
-                    "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
-                })
+            std::fs::read_to_string(&key_path).unwrap_or_else(|e| {
+                tracing::warn!(
+                    "Failed to read Apple Music private key from {}: {}",
+                    key_path,
+                    e
+                );
+                "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
+            })
         } else {
-            std::env::var("APPLE_MUSIC_PRIVATE_KEY")
-                .unwrap_or_else(|_| "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string())
+            std::env::var("APPLE_MUSIC_PRIVATE_KEY").unwrap_or_else(|_| {
+                "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
+            })
         };
 
         Self {
@@ -89,9 +92,7 @@ pub struct AppleMusicService {
 
 impl AppleMusicService {
     pub fn new(config: AppleMusicConfig, token_vault: Arc<TokenVaultService>) -> Result<Self> {
-        let http_client = Client::builder()
-            .timeout(Duration::from_secs(30))
-            .build()?;
+        let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
         Ok(Self {
             config,
@@ -129,22 +130,22 @@ impl AppleMusicService {
             ..Default::default()
         };
 
-        let encoding_key = EncodingKey::from_ec_pem(self.config.private_key.as_bytes())
-            .map_err(|e| {
-                tracing::error!("Failed to parse private key: {}. Key starts with: {:?}", e, &self.config.private_key.chars().take(50).collect::<String>());
+        let encoding_key =
+            EncodingKey::from_ec_pem(self.config.private_key.as_bytes()).map_err(|e| {
+                tracing::error!(
+                    "Failed to parse private key: {}. Key starts with: {:?}",
+                    e,
+                    &self.config.private_key.chars().take(50).collect::<String>()
+                );
                 anyhow!("Failed to parse private key: {}", e)
             })?;
 
-        let token = encode(&header, &claims, &encoding_key)
-            .map_err(|e| {
-                tracing::error!("Failed to generate JWT: {}", e);
-                anyhow!("Failed to generate JWT: {}", e)
-            })?;
+        let token = encode(&header, &claims, &encoding_key).map_err(|e| {
+            tracing::error!("Failed to generate JWT: {}", e);
+            anyhow!("Failed to generate JWT: {}", e)
+        })?;
 
-        let developer_token = AppleMusicDeveloperToken {
-            token,
-            expires_at,
-        };
+        let developer_token = AppleMusicDeveloperToken { token, expires_at };
 
         // Cache the token
         {
@@ -169,7 +170,7 @@ impl AppleMusicService {
     ) -> Result<Connection> {
         // Validate the user token by making a test API call
         let developer_token = self.generate_developer_token().await?;
-        
+
         let test_response = self
             .make_api_request_with_tokens(
                 &developer_token.token,
@@ -317,17 +318,15 @@ impl AppleMusicService {
 
     /// Scan user's Apple Music library
     pub async fn scan_library(&self, connection: &Connection) -> Result<AppleMusicLibrary> {
-        let mut library = AppleMusicLibrary::new(
-            connection.user_id,
-            connection.provider_user_id.clone(),
-        );
+        let mut library =
+            AppleMusicLibrary::new(connection.user_id, connection.provider_user_id.clone());
 
         // Scan library tracks
         library.library_tracks = self.get_library_tracks(connection).await?;
-        
+
         // Scan library albums
         library.library_albums = self.get_library_albums(connection).await?;
-        
+
         // Scan library playlists
         library.library_playlists = self.get_library_playlists(connection).await?;
 
@@ -337,7 +336,10 @@ impl AppleMusicService {
     }
 
     /// Get user's library tracks
-    pub async fn get_library_tracks(&self, connection: &Connection) -> Result<Vec<AppleMusicLibraryTrack>> {
+    pub async fn get_library_tracks(
+        &self,
+        connection: &Connection,
+    ) -> Result<Vec<AppleMusicLibraryTrack>> {
         let mut tracks = Vec::new();
         let mut next_url: Option<String> = Some("/v1/me/library/songs?limit=100".to_string());
 
@@ -347,7 +349,11 @@ impl AppleMusicService {
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(anyhow!("Failed to get library tracks: {} - {}", status, error_text));
+                return Err(anyhow!(
+                    "Failed to get library tracks: {} - {}",
+                    status,
+                    error_text
+                ));
             }
 
             let response_data: AppleMusicResponse<AppleMusicLibraryTrack> = response.json().await?;
@@ -361,7 +367,10 @@ impl AppleMusicService {
     }
 
     /// Get user's library albums
-    pub async fn get_library_albums(&self, connection: &Connection) -> Result<Vec<AppleMusicLibraryAlbum>> {
+    pub async fn get_library_albums(
+        &self,
+        connection: &Connection,
+    ) -> Result<Vec<AppleMusicLibraryAlbum>> {
         let mut albums = Vec::new();
         let mut next_url: Option<String> = Some("/v1/me/library/albums?limit=100".to_string());
 
@@ -371,7 +380,11 @@ impl AppleMusicService {
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(anyhow!("Failed to get library albums: {} - {}", status, error_text));
+                return Err(anyhow!(
+                    "Failed to get library albums: {} - {}",
+                    status,
+                    error_text
+                ));
             }
 
             let response_data: AppleMusicResponse<AppleMusicLibraryAlbum> = response.json().await?;
@@ -385,7 +398,10 @@ impl AppleMusicService {
     }
 
     /// Get user's library playlists
-    pub async fn get_library_playlists(&self, connection: &Connection) -> Result<Vec<AppleMusicLibraryPlaylist>> {
+    pub async fn get_library_playlists(
+        &self,
+        connection: &Connection,
+    ) -> Result<Vec<AppleMusicLibraryPlaylist>> {
         let mut playlists = Vec::new();
         let mut next_url: Option<String> = Some("/v1/me/library/playlists?limit=100".to_string());
 
@@ -395,10 +411,15 @@ impl AppleMusicService {
             if !response.status().is_success() {
                 let status = response.status();
                 let error_text = response.text().await.unwrap_or_default();
-                return Err(anyhow!("Failed to get library playlists: {} - {}", status, error_text));
+                return Err(anyhow!(
+                    "Failed to get library playlists: {} - {}",
+                    status,
+                    error_text
+                ));
             }
 
-            let response_data: AppleMusicResponse<AppleMusicLibraryPlaylist> = response.json().await?;
+            let response_data: AppleMusicResponse<AppleMusicLibraryPlaylist> =
+                response.json().await?;
             playlists.extend(response_data.data);
 
             next_url = response_data.next;
@@ -435,7 +456,9 @@ impl AppleMusicService {
 
         let endpoint = format!("/v1/catalog/us/search?{}", query_string);
 
-        let response = self.make_api_request(connection, "GET", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "GET", &endpoint, None)
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -504,7 +527,9 @@ impl AppleMusicService {
         // This is a simplified implementation - in practice, you'd use the entity resolution service
         // to match artist names to canonical IDs
         dnp_artist_ids.iter().any(|blocked_id| {
-            artist_name.to_lowercase().contains(&blocked_id.to_lowercase())
+            artist_name
+                .to_lowercase()
+                .contains(&blocked_id.to_lowercase())
         })
     }
 
@@ -517,10 +542,10 @@ impl AppleMusicService {
         // In a real implementation, this would generate a CSV or JSON file
         // with details of blocked content for manual removal
         let export_path = format!("/tmp/apple_music_blocked_content_{}.json", result.user_id);
-        
+
         // This is a placeholder - you'd implement actual file generation here
         tracing::info!("Would export blocked content to: {}", export_path);
-        
+
         Ok(export_path)
     }
 
@@ -540,7 +565,7 @@ impl AppleMusicService {
     /// Update rate limit information from API response headers
     async fn update_rate_limit_from_response(&self, response: &reqwest::Response) {
         let mut rate_limits = self.rate_limits.write().await;
-        
+
         // Apple Music API rate limiting is not well documented
         // This is a conservative approach
         let remaining = response
@@ -566,7 +591,7 @@ impl AppleMusicService {
     async fn set_rate_limit_retry_after(&self, retry_after_seconds: u32) {
         let mut rate_limits = self.rate_limits.write().await;
         let reset_at = Utc::now() + chrono::Duration::seconds(retry_after_seconds as i64);
-        
+
         rate_limits.insert(
             "global".to_string(),
             AppleMusicRateLimit {
@@ -579,7 +604,8 @@ impl AppleMusicService {
 
     /// Get current connection for a user
     pub async fn get_user_connection(&self, user_id: Uuid) -> Result<Option<Connection>> {
-        let connections = self.token_vault
+        let connections = self
+            .token_vault
             .get_user_connections(user_id)
             .await
             .map_err(|e| anyhow::anyhow!("{}", e))?;
@@ -603,10 +629,15 @@ impl AppleMusicService {
 
     /// Get storefront for user (required for some API calls)
     pub async fn get_user_storefront(&self, connection: &Connection) -> Result<String> {
-        let response = self.make_api_request(connection, "GET", "/v1/me/storefront", None).await?;
+        let response = self
+            .make_api_request(connection, "GET", "/v1/me/storefront", None)
+            .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Failed to get user storefront: {}", response.status()));
+            return Err(anyhow!(
+                "Failed to get user storefront: {}",
+                response.status()
+            ));
         }
 
         let response_data: serde_json::Value = response.json().await?;
@@ -627,12 +658,7 @@ impl AppleMusicService {
     // ============================================
 
     /// Rate a catalog song (like: 1, dislike: -1)
-    pub async fn rate_song(
-        &self,
-        connection: &Connection,
-        song_id: &str,
-        value: i8,
-    ) -> Result<()> {
+    pub async fn rate_song(&self, connection: &Connection, song_id: &str, value: i8) -> Result<()> {
         let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
         let body = serde_json::json!({
             "type": "rating",
@@ -641,12 +667,19 @@ impl AppleMusicService {
             }
         });
 
-        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+        let response = self
+            .make_api_request(connection, "PUT", &endpoint, Some(body))
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to rate song {}: {} - {}", song_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to rate song {}: {} - {}",
+                song_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Rated song {} with value {}", song_id, value);
@@ -668,15 +701,26 @@ impl AppleMusicService {
             }
         });
 
-        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+        let response = self
+            .make_api_request(connection, "PUT", &endpoint, Some(body))
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to rate library song {}: {} - {}", library_song_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to rate library song {}: {} - {}",
+                library_song_id,
+                status,
+                error_text
+            ));
         }
 
-        tracing::debug!("Rated library song {} with value {}", library_song_id, value);
+        tracing::debug!(
+            "Rated library song {} with value {}",
+            library_song_id,
+            value
+        );
         Ok(())
     }
 
@@ -695,12 +739,19 @@ impl AppleMusicService {
             }
         });
 
-        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+        let response = self
+            .make_api_request(connection, "PUT", &endpoint, Some(body))
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to rate album {}: {} - {}", album_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to rate album {}: {} - {}",
+                album_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Rated album {} with value {}", album_id, value);
@@ -722,15 +773,26 @@ impl AppleMusicService {
             }
         });
 
-        let response = self.make_api_request(connection, "PUT", &endpoint, Some(body)).await?;
+        let response = self
+            .make_api_request(connection, "PUT", &endpoint, Some(body))
+            .await?;
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to rate library album {}: {} - {}", library_album_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to rate library album {}: {} - {}",
+                library_album_id,
+                status,
+                error_text
+            ));
         }
 
-        tracing::debug!("Rated library album {} with value {}", library_album_id, value);
+        tracing::debug!(
+            "Rated library album {} with value {}",
+            library_album_id,
+            value
+        );
         Ok(())
     }
 
@@ -741,7 +803,9 @@ impl AppleMusicService {
         song_id: &str,
     ) -> Result<Option<i8>> {
         let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
-        let response = self.make_api_request(connection, "GET", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "GET", &endpoint, None)
+            .await?;
 
         if response.status() == StatusCode::NOT_FOUND {
             return Ok(None);
@@ -750,7 +814,12 @@ impl AppleMusicService {
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to get song rating {}: {} - {}", song_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to get song rating {}: {} - {}",
+                song_id,
+                status,
+                error_text
+            ));
         }
 
         let response_data: serde_json::Value = response.json().await?;
@@ -767,23 +836,27 @@ impl AppleMusicService {
     }
 
     /// Delete a song rating (removes like/dislike)
-    pub async fn delete_song_rating(
-        &self,
-        connection: &Connection,
-        song_id: &str,
-    ) -> Result<()> {
+    pub async fn delete_song_rating(&self, connection: &Connection, song_id: &str) -> Result<()> {
         let endpoint = format!("/v1/me/ratings/songs/{}", song_id);
-        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "DELETE", &endpoint, None)
+            .await?;
 
         // 204 No Content is success, 404 means no rating existed
-        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT
+        {
             return Ok(());
         }
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to delete song rating {}: {} - {}", song_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to delete song rating {}: {} - {}",
+                song_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Deleted rating for song {}", song_id);
@@ -797,16 +870,24 @@ impl AppleMusicService {
         library_song_id: &str,
     ) -> Result<()> {
         let endpoint = format!("/v1/me/ratings/library-songs/{}", library_song_id);
-        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "DELETE", &endpoint, None)
+            .await?;
 
-        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT
+        {
             return Ok(());
         }
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to delete library song rating {}: {} - {}", library_song_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to delete library song rating {}: {} - {}",
+                library_song_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Deleted rating for library song {}", library_song_id);
@@ -814,22 +895,26 @@ impl AppleMusicService {
     }
 
     /// Delete an album rating
-    pub async fn delete_album_rating(
-        &self,
-        connection: &Connection,
-        album_id: &str,
-    ) -> Result<()> {
+    pub async fn delete_album_rating(&self, connection: &Connection, album_id: &str) -> Result<()> {
         let endpoint = format!("/v1/me/ratings/albums/{}", album_id);
-        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "DELETE", &endpoint, None)
+            .await?;
 
-        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT
+        {
             return Ok(());
         }
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to delete album rating {}: {} - {}", album_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to delete album rating {}: {} - {}",
+                album_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Deleted rating for album {}", album_id);
@@ -843,16 +928,24 @@ impl AppleMusicService {
         library_album_id: &str,
     ) -> Result<()> {
         let endpoint = format!("/v1/me/ratings/library-albums/{}", library_album_id);
-        let response = self.make_api_request(connection, "DELETE", &endpoint, None).await?;
+        let response = self
+            .make_api_request(connection, "DELETE", &endpoint, None)
+            .await?;
 
-        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT {
+        if response.status() == StatusCode::NOT_FOUND || response.status() == StatusCode::NO_CONTENT
+        {
             return Ok(());
         }
 
         if !response.status().is_success() {
             let status = response.status();
             let error_text = response.text().await.unwrap_or_default();
-            return Err(anyhow!("Failed to delete library album rating {}: {} - {}", library_album_id, status, error_text));
+            return Err(anyhow!(
+                "Failed to delete library album rating {}: {} - {}",
+                library_album_id,
+                status,
+                error_text
+            ));
         }
 
         tracing::debug!("Deleted rating for library album {}", library_album_id);
@@ -875,7 +968,10 @@ impl AppleMusicService {
         let mut errors = Vec::new();
 
         for (idx, song_id) in song_ids.iter().enumerate() {
-            match self.rate_library_song(connection, song_id, RATING_DISLIKE).await {
+            match self
+                .rate_library_song(connection, song_id, RATING_DISLIKE)
+                .await
+            {
                 Ok(()) => {
                     successful += 1;
                 }
@@ -918,7 +1014,10 @@ impl AppleMusicService {
         let mut errors = Vec::new();
 
         for (idx, album_id) in album_ids.iter().enumerate() {
-            match self.rate_library_album(connection, album_id, RATING_DISLIKE).await {
+            match self
+                .rate_library_album(connection, album_id, RATING_DISLIKE)
+                .await
+            {
                 Ok(()) => {
                     successful += 1;
                 }
@@ -967,7 +1066,7 @@ mod tests {
         let service = AppleMusicService::new(config, token_vault).unwrap();
 
         let capabilities = service.get_capabilities();
-        
+
         assert!(capabilities.library_read);
         assert!(!capabilities.library_modify); // Limited by Apple Music API
         assert!(capabilities.playlist_read);
@@ -978,14 +1077,14 @@ mod tests {
     fn test_apple_music_enforcement_result() {
         let user_id = Uuid::new_v4();
         let mut result = AppleMusicEnforcementResult::new(user_id);
-        
+
         assert_eq!(result.user_id, user_id);
         assert_eq!(result.total_blocked_items(), 0);
-        
+
         result.blocked_tracks_found = 5;
         result.blocked_albums_found = 2;
         assert_eq!(result.total_blocked_items(), 7);
-        
+
         result.add_limitation("Test limitation".to_string());
         assert_eq!(result.limitations_encountered.len(), 1);
     }

@@ -496,7 +496,8 @@ impl AppleMusicCredentials {
         if !private_key.contains("-----BEGIN PRIVATE KEY-----") {
             return Err(ConfigError::InvalidValue {
                 key: "APPLE_MUSIC_PRIVATE_KEY".to_string(),
-                message: "Private key must be in PEM format (-----BEGIN PRIVATE KEY-----)".to_string(),
+                message: "Private key must be in PEM format (-----BEGIN PRIVATE KEY-----)"
+                    .to_string(),
             });
         }
 

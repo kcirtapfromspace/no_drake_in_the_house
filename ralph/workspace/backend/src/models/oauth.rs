@@ -131,6 +131,7 @@ pub struct AccountMerge {
 }
 
 impl OAuthAccount {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         user_id: Uuid,
         provider: OAuthProviderType,

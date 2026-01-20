@@ -300,8 +300,7 @@ impl AppleMusicSyncWorker {
                                         && !names_seen.contains(&artist.name.to_lowercase())
                                     {
                                         names_seen.insert(artist.name.to_lowercase());
-                                        all_artists
-                                            .insert(artist.platform_id.clone(), artist);
+                                        all_artists.insert(artist.platform_id.clone(), artist);
                                         progress_callback(all_artists.len(), target_count);
                                     }
                                 }

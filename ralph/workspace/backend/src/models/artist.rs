@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
 /// External provider identifiers for an artist
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ExternalIds {
     pub spotify: Option<String>,
     pub apple: Option<String>,
@@ -11,19 +11,6 @@ pub struct ExternalIds {
     pub tidal: Option<String>,
     pub musicbrainz: Option<String>,
     pub isni: Option<String>,
-}
-
-impl Default for ExternalIds {
-    fn default() -> Self {
-        Self {
-            spotify: None,
-            apple: None,
-            youtube: None,
-            tidal: None,
-            musicbrainz: None,
-            isni: None,
-        }
-    }
 }
 
 impl ExternalIds {
@@ -158,7 +145,7 @@ impl ArtistAlias {
 }
 
 /// Artist metadata including images, genres, and other attributes
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct ArtistMetadata {
     pub image_url: Option<String>,
     pub genres: Vec<String>,
@@ -169,22 +156,6 @@ pub struct ArtistMetadata {
     pub formed_year: Option<u32>,
     pub isrc_codes: Vec<String>, // International Standard Recording Codes
     pub upc_codes: Vec<String>,  // Universal Product Codes
-}
-
-impl Default for ArtistMetadata {
-    fn default() -> Self {
-        Self {
-            image_url: None,
-            genres: Vec::new(),
-            popularity: None,
-            follower_count: None,
-            verified: None,
-            country: None,
-            formed_year: None,
-            isrc_codes: Vec::new(),
-            upc_codes: Vec::new(),
-        }
-    }
 }
 
 /// Core Artist entity with canonical identification and external mappings

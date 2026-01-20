@@ -1,5 +1,8 @@
 use crate::{
-    models::{AuthResponse, LoginRequest, RefreshTokenRequest, RegisterRequest, TotpVerifyRequest},
+    models::{
+        AuthResponse, LoginRequest, MergeAccountsRequest, RefreshTokenRequest, RegisterRequest,
+        TotpVerifyRequest,
+    },
     services::registration_monitoring::RegistrationMonitoringService,
     AppError, AppState, Result,
 };
@@ -364,6 +367,23 @@ pub async fn disable_2fa_handler(
             message: "Invalid TOTP code".to_string(),
         })
     }
+}
+
+/// Merge two user accounts
+pub async fn merge_accounts_handler(
+    State(state): State<AppState>,
+    user: crate::models::AuthenticatedUser,
+    Json(request): Json<MergeAccountsRequest>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(user_id = %user.id, "Account merge requested");
+
+    let result = state.auth_service.merge_accounts(user.id, request).await?;
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": result,
+        "message": "Account merge completed"
+    })))
 }
 
 /// Logout user

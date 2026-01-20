@@ -99,6 +99,7 @@ pub struct MonitoringResponse {
 
 impl MonitoringSystem {
     /// Create a new monitoring system
+    #[allow(clippy::result_large_err)]
     pub fn new(config: MonitoringConfig) -> Result<Self> {
         let metrics = Arc::new(MetricsCollector::new().map_err(|e| AppError::Internal {
             message: Some(format!("Failed to create metrics collector: {}", e)),

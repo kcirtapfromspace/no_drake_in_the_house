@@ -1,6 +1,7 @@
 use base64::prelude::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// Represents a connection to a streaming service provider
@@ -195,15 +196,19 @@ impl StreamingProvider {
             StreamingProvider::Tidal => "tidal",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for StreamingProvider {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "spotify" => Some(StreamingProvider::Spotify),
-            "apple" => Some(StreamingProvider::Apple),
-            "apple_music" => Some(StreamingProvider::AppleMusic),
-            "youtube_music" | "youtube" => Some(StreamingProvider::YouTubeMusic),
-            "tidal" => Some(StreamingProvider::Tidal),
-            _ => None,
+            "spotify" => Ok(StreamingProvider::Spotify),
+            "apple" => Ok(StreamingProvider::Apple),
+            "apple_music" => Ok(StreamingProvider::AppleMusic),
+            "youtube_music" | "youtube" => Ok(StreamingProvider::YouTubeMusic),
+            "tidal" => Ok(StreamingProvider::Tidal),
+            _ => Err(format!("Unknown streaming provider: {}", s)),
         }
     }
 }

@@ -16,7 +16,7 @@ pub mod trends;
 pub mod trouble_score;
 
 pub use category_revenue::{
-    ArtistDiscographyRevenue, AlbumRevenue, CategoryArtistRevenue, CategoryRevenue,
+    AlbumRevenue, ArtistDiscographyRevenue, CategoryArtistRevenue, CategoryRevenue,
     CategoryRevenueService, GlobalCategoryRevenue, OffenseCategory, SimulationParams,
 };
 pub use dashboard::{DashboardMetrics, DashboardService, TimeRange};

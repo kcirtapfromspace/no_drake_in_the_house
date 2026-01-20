@@ -1,4 +1,4 @@
-use ralph_backend::api_parsing::{
+use music_streaming_blocklist_backend::api_parsing::{
     parse_pagination, HeaderMap, PaginationInfo, RateLimitState,
 };
 use serde_json::json;
@@ -47,6 +47,65 @@ fn rate_limit_parsing_leaves_state_when_headers_missing() {
 }
 
 #[test]
+fn rate_limit_parsing_handles_dash_headers() {
+    let mut state = RateLimitState::default();
+    let header_map = headers(&[
+        ("X-Rate-Limit-Remaining", "10"),
+        ("X-Rate-Limit-Reset", "1700000010"),
+    ]);
+
+    let updated = state.update_from_headers(&header_map);
+
+    assert!(updated);
+    assert_eq!(state.remaining, Some(10));
+    assert_eq!(state.reset_epoch_seconds, Some(1700000010));
+    assert_eq!(state.retry_after_seconds, None);
+    assert!(!state.is_rate_limited);
+}
+
+#[test]
+fn rate_limit_parsing_retry_after_only_sets_rate_limited() {
+    let mut state = RateLimitState {
+        remaining: Some(25),
+        reset_epoch_seconds: Some(1700000020),
+        retry_after_seconds: None,
+        is_rate_limited: false,
+    };
+    let header_map = headers(&[("Retry-After", "30")]);
+
+    let updated = state.update_from_headers(&header_map);
+
+    assert!(updated);
+    assert_eq!(state.remaining, None);
+    assert_eq!(state.reset_epoch_seconds, None);
+    assert_eq!(state.retry_after_seconds, Some(30));
+    assert!(state.is_rate_limited);
+}
+
+#[test]
+fn rate_limit_parsing_invalid_values_do_not_update_state() {
+    let mut state = RateLimitState {
+        remaining: Some(9),
+        reset_epoch_seconds: Some(1700000100),
+        retry_after_seconds: Some(12),
+        is_rate_limited: true,
+    };
+    let header_map = headers(&[
+        ("X-RateLimit-Remaining", "not-a-number"),
+        ("X-RateLimit-Reset", "invalid"),
+        ("Retry-After", "nope"),
+    ]);
+
+    let updated = state.update_from_headers(&header_map);
+
+    assert!(!updated);
+    assert_eq!(state.remaining, Some(9));
+    assert_eq!(state.reset_epoch_seconds, Some(1700000100));
+    assert_eq!(state.retry_after_seconds, Some(12));
+    assert!(state.is_rate_limited);
+}
+
+#[test]
 fn pagination_parses_offset_format() {
     let response = json!({
         "items": [{"id": "1"}],
@@ -81,6 +140,43 @@ fn pagination_parses_offset_format() {
 }
 
 #[test]
+fn pagination_parses_offset_format_with_previous() {
+    let response = json!({
+        "items": [{"id": "1"}],
+        "total": 100,
+        "limit": 50,
+        "offset": 50,
+        "next": "https://api.spotify.com/v1/me/tracks?offset=100&limit=50",
+        "previous": "https://api.spotify.com/v1/me/tracks?offset=0&limit=50"
+    });
+
+    let pagination = parse_pagination(&response).expect("expected offset pagination");
+
+    match pagination {
+        PaginationInfo::Offset {
+            total,
+            limit,
+            offset,
+            next,
+            previous,
+        } => {
+            assert_eq!(total, 100);
+            assert_eq!(limit, 50);
+            assert_eq!(offset, 50);
+            assert_eq!(
+                next,
+                Some("https://api.spotify.com/v1/me/tracks?offset=100&limit=50".to_string())
+            );
+            assert_eq!(
+                previous,
+                Some("https://api.spotify.com/v1/me/tracks?offset=0&limit=50".to_string())
+            );
+        }
+        _ => panic!("expected offset pagination"),
+    }
+}
+
+#[test]
 fn pagination_parses_cursor_format() {
     let response = json!({
         "data": [{"id": "1"}],
@@ -93,13 +189,68 @@ fn pagination_parses_cursor_format() {
     let pagination = parse_pagination(&response).expect("expected cursor pagination");
 
     match pagination {
-        PaginationInfo::Cursor { after, before, next } => {
+        PaginationInfo::Cursor {
+            after,
+            before,
+            next,
+        } => {
             assert_eq!(after, Some("cursor_after".to_string()));
             assert_eq!(before, Some("cursor_before".to_string()));
             assert_eq!(
                 next,
                 Some("https://api.example.com/data?after=cursor_after".to_string())
             );
+        }
+        _ => panic!("expected cursor pagination"),
+    }
+}
+
+#[test]
+fn pagination_parses_cursor_format_with_next_only() {
+    let response = json!({
+        "paging": {
+            "next": "https://api.example.com/data?after=cursor_after"
+        }
+    });
+
+    let pagination = parse_pagination(&response).expect("expected cursor pagination");
+
+    match pagination {
+        PaginationInfo::Cursor {
+            after,
+            before,
+            next,
+        } => {
+            assert_eq!(after, None);
+            assert_eq!(before, None);
+            assert_eq!(
+                next,
+                Some("https://api.example.com/data?after=cursor_after".to_string())
+            );
+        }
+        _ => panic!("expected cursor pagination"),
+    }
+}
+
+#[test]
+fn pagination_parses_cursor_format_with_cursors_only() {
+    let response = json!({
+        "paging": {
+            "cursors": {"before": "cursor_before", "after": "cursor_after"}
+        }
+    });
+
+    let pagination = parse_pagination(&response).expect("expected cursor pagination");
+
+    match pagination {
+        PaginationInfo::Cursor {
+            after,
+            before,
+            next,
+        } => {
+            assert_eq!(after, Some("cursor_after".to_string()));
+            assert_eq!(before, Some("cursor_before".to_string()));
+            assert_eq!(next, None);
         }
         _ => panic!("expected cursor pagination"),
     }

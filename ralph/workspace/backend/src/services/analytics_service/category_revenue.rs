@@ -191,10 +191,10 @@ pub struct SimulationParams {
 impl Default for SimulationParams {
     fn default() -> Self {
         Self {
-            base_monthly_streams: 100_000,      // 100K base streams/month
-            popularity_multiplier: 5.0,         // Up to 5x for notorious artists
+            base_monthly_streams: 100_000,       // 100K base streams/month
+            popularity_multiplier: 5.0,          // Up to 5x for notorious artists
             avg_payout_rate: Decimal::new(4, 3), // $0.004 per stream avg
-            age_decay_factor: 0.9,              // 10% decay per year
+            age_decay_factor: 0.9,               // 10% decay per year
         }
     }
 }
@@ -240,7 +240,9 @@ impl CategoryRevenueService {
 
         // Get clean artist count and simulate their revenue
         let clean_stats = self.get_clean_artist_stats().await?;
-        let clean_revenue = self.simulate_clean_artist_revenue(clean_stats.artist_count).await;
+        let clean_revenue = self
+            .simulate_clean_artist_revenue(clean_stats.artist_count)
+            .await;
 
         let total_revenue = total_problematic_revenue + clean_revenue;
         let problematic_percentage = if total_revenue > Decimal::ZERO {
@@ -255,10 +257,11 @@ impl CategoryRevenueService {
         // Calculate percentages for each category
         for cat in &mut categories {
             if total_revenue > Decimal::ZERO {
-                cat.percentage_of_total = (cat.simulated_revenue / total_revenue * Decimal::from(100))
-                    .to_string()
-                    .parse::<f64>()
-                    .unwrap_or(0.0);
+                cat.percentage_of_total = (cat.simulated_revenue / total_revenue
+                    * Decimal::from(100))
+                .to_string()
+                .parse::<f64>()
+                .unwrap_or(0.0);
             }
         }
 
@@ -306,13 +309,12 @@ impl CategoryRevenueService {
         let artist_count = artists.len() as i32;
 
         // Get total offense count for this category
-        let offense_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM artist_offenses WHERE category::text = $1"
-        )
-        .bind(category.as_str())
-        .fetch_one(&self.pool)
-        .await
-        .unwrap_or(0);
+        let offense_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM artist_offenses WHERE category::text = $1")
+                .bind(category.as_str())
+                .fetch_one(&self.pool)
+                .await
+                .unwrap_or(0);
 
         // Simulate revenue for each artist
         let mut total_streams: i64 = 0;
@@ -320,8 +322,10 @@ impl CategoryRevenueService {
         let mut top_artists = Vec::new();
 
         for (idx, artist) in artists.iter().enumerate() {
-            let popularity_boost = self.calculate_popularity_boost(artist.offense_count, &artist.max_severity);
-            let artist_streams = (self.params.base_monthly_streams as f64 * popularity_boost) as i64;
+            let popularity_boost =
+                self.calculate_popularity_boost(artist.offense_count, &artist.max_severity);
+            let artist_streams =
+                (self.params.base_monthly_streams as f64 * popularity_boost) as i64;
             let artist_revenue = self.params.avg_payout_rate * Decimal::from(artist_streams);
 
             total_streams += artist_streams;
@@ -332,7 +336,10 @@ impl CategoryRevenueService {
                     artist_id: artist.artist_id,
                     artist_name: artist.artist_name.clone(),
                     offense_count: artist.offense_count,
-                    severity: artist.max_severity.clone().unwrap_or_else(|| "unknown".to_string()),
+                    severity: artist
+                        .max_severity
+                        .clone()
+                        .unwrap_or_else(|| "unknown".to_string()),
                     simulated_streams: artist_streams,
                     simulated_revenue: artist_revenue,
                 });
@@ -357,13 +364,12 @@ impl CategoryRevenueService {
         artist_id: Uuid,
     ) -> Result<ArtistDiscographyRevenue> {
         // Get artist info
-        let artist_name: String = sqlx::query_scalar(
-            "SELECT canonical_name FROM artists WHERE id = $1"
-        )
-        .bind(artist_id)
-        .fetch_one(&self.pool)
-        .await
-        .context("Artist not found")?;
+        let artist_name: String =
+            sqlx::query_scalar("SELECT canonical_name FROM artists WHERE id = $1")
+                .bind(artist_id)
+                .fetch_one(&self.pool)
+                .await
+                .context("Artist not found")?;
 
         // Get artist offenses
         let offenses = sqlx::query_as::<_, OffenseRow>(
@@ -433,7 +439,8 @@ impl CategoryRevenueService {
             total_tracks = album_revenues.iter().map(|a| a.track_count).sum();
         } else {
             for album in &albums {
-                let age_years = album.release_year
+                let age_years = album
+                    .release_year
                     .map(|y| (current_year - y).max(0))
                     .unwrap_or(5) as f64;
                 let age_factor = self.params.age_decay_factor.powf(age_years);
@@ -457,8 +464,14 @@ impl CategoryRevenueService {
             }
         }
 
-        let total_monthly_streams: i64 = album_revenues.iter().map(|a| a.simulated_monthly_streams).sum();
-        let total_monthly_revenue: Decimal = album_revenues.iter().map(|a| a.simulated_monthly_revenue).sum();
+        let total_monthly_streams: i64 = album_revenues
+            .iter()
+            .map(|a| a.simulated_monthly_streams)
+            .sum();
+        let total_monthly_revenue: Decimal = album_revenues
+            .iter()
+            .map(|a| a.simulated_monthly_revenue)
+            .sum();
         let total_yearly_revenue = total_monthly_revenue * Decimal::from(12);
 
         Ok(ArtistDiscographyRevenue {
@@ -572,7 +585,11 @@ impl CategoryRevenueService {
         self.params.avg_payout_rate * Decimal::from(total_streams)
     }
 
-    async fn simulate_discography(&self, _artist_id: Uuid, popularity_boost: f64) -> Vec<AlbumRevenue> {
+    async fn simulate_discography(
+        &self,
+        _artist_id: Uuid,
+        popularity_boost: f64,
+    ) -> Vec<AlbumRevenue> {
         // Generate realistic simulated discography
         let album_count = 3 + (popularity_boost * 2.0) as i32;
         let current_year = Utc::now().year();

@@ -146,7 +146,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::SexualMisconduct,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "sexual assault",
                     "sexual harassment",
                     "rape",
@@ -181,7 +181,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::DomesticViolence,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "domestic violence", "domestic abuse", "beat", "hit",
                     "assault", "battery", "restraining order", "abuse",
                     "physical altercation", "attacked",
@@ -202,7 +202,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::HateSpeech,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "hate speech",
                     "slur",
                     "offensive comments",
@@ -233,7 +233,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::Racism,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "racist",
                     "racism",
                     "racial slur",
@@ -265,7 +265,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::Antisemitism,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "antisemit",
                     "anti-semit",
                     "jewish",
@@ -298,7 +298,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::Homophobia,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "homophobic",
                     "homophobia",
                     "anti-gay",
@@ -328,7 +328,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::ChildAbuse,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "child abuse",
                     "minor",
                     "underage",
@@ -359,7 +359,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::ViolentCrimes,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "murder",
                     "killed",
                     "shooting",
@@ -392,7 +392,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::FinancialCrimes,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "fraud",
                     "embezzlement",
                     "money laundering",
@@ -424,7 +424,7 @@ impl OffenseClassifier {
         map.insert(
             OffenseCategory::DrugOffenses,
             CategoryKeywords {
-                keywords: vec![
+                keywords: [
                     "drug trafficking",
                     "drug possession",
                     "cocaine",

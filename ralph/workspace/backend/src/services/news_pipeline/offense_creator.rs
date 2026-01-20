@@ -80,7 +80,12 @@ impl OffenseCreator {
         {
             // Link evidence to existing offense
             let evidence_linked = self
-                .link_evidence(existing_id, article_url, article_title, &classification.context)
+                .link_evidence(
+                    existing_id,
+                    article_url,
+                    article_title,
+                    &classification.context,
+                )
                 .await
                 .is_ok();
 
@@ -131,7 +136,12 @@ impl OffenseCreator {
 
         // 5. Link the article as evidence
         let evidence_linked = self
-            .link_evidence(offense_id, article_url, article_title, &classification.context)
+            .link_evidence(
+                offense_id,
+                article_url,
+                article_title,
+                &classification.context,
+            )
             .await
             .is_ok();
 

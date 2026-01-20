@@ -93,7 +93,10 @@ impl NewsRepository {
             article.published_at,
             article.fetched_at,
             article.image_url.as_deref(),
-            article.content.as_ref().map(|c| c.split_whitespace().count() as i32)
+            article
+                .content
+                .as_ref()
+                .map(|c| c.split_whitespace().count() as i32)
         )
         .fetch_one(&self.db_pool)
         .await
@@ -341,12 +344,11 @@ impl NewsRepository {
 
     /// Get offense count
     pub async fn get_offense_count(&self) -> Result<i64> {
-        let count = sqlx::query_scalar!(
-            r#"SELECT COUNT(*) as "count!" FROM news_offense_classifications"#
-        )
-        .fetch_one(&self.db_pool)
-        .await
-        .context("Failed to count offenses")?;
+        let count =
+            sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM news_offense_classifications"#)
+                .fetch_one(&self.db_pool)
+                .await
+                .context("Failed to count offenses")?;
 
         Ok(count)
     }

@@ -198,7 +198,9 @@ async fn main() {
     let health_check_service = Arc::new(HealthCheckService::new(monitoring_service.clone()));
 
     // Initialize analytics service
-    let analytics_service = Arc::new(AnalyticsService::new(db_pool.clone()));
+    let analytics_service = Arc::new(
+        AnalyticsService::new(db_pool.clone()).with_monitoring_service(monitoring_service.clone()),
+    );
 
     // Start background monitoring tasks
     monitoring_service.start_background_tasks().await;

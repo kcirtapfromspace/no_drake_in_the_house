@@ -1,6 +1,14 @@
 //! Music Streaming Blocklist Manager Backend
 //!
 //! A modular backend service for managing Do-Not-Play lists across music streaming platforms.
+#![allow(
+    async_fn_in_trait,
+    dead_code,
+    mismatched_lifetime_syntaxes,
+    unused_imports,
+    unused_mut,
+    unused_variables
+)]
 
 use axum::{
     extract::State,
@@ -16,6 +24,7 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
+pub mod api_parsing;
 pub mod config;
 pub mod error;
 pub mod health;
@@ -37,6 +46,10 @@ pub use config::{
     AppConfig, AuthConfig, ConfigError, DatabaseSettings, Environment, OAuthSettings,
     RedisSettings, ServerConfig,
 };
+pub use config::{
+    AppleMusicCredentials, DeezerConfig, PlatformSyncConfig, SpotifyCredentials, TidalCredentials,
+    YouTubeCredentials,
+};
 pub use database::{
     create_pool, create_redis_pool, health_check as db_health_check, redis_health_check,
     run_migrations, seed_test_data, DatabaseConfig, RedisConfiguration,
@@ -55,13 +68,16 @@ pub use monitoring::{
     SystemMetrics,
 };
 pub use recovery::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
-pub use services::dnp_list::DnpListService;
-pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
-pub use services::catalog_sync::{CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder};
-pub use services::news_pipeline::{NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner, ScheduledPipelineHandle};
 pub use services::backfill_orchestrator::BackfillOrchestrator;
+pub use services::catalog_sync::{
+    CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder,
+};
+pub use services::dnp_list::DnpListService;
+pub use services::news_pipeline::{
+    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
+};
+pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
 pub use validation::{validate_email, validate_password, validate_totp_code, ValidatedJson};
-pub use config::{PlatformSyncConfig, SpotifyCredentials, AppleMusicCredentials, TidalCredentials, YouTubeCredentials, DeezerConfig};
 
 // Re-export stub services for testing
 #[cfg(test)]
@@ -143,6 +159,10 @@ pub fn create_router(state: AppState) -> Router {
         )
         // Auth routes (protected)
         .route("/auth/logout", post(handlers::auth::logout_handler))
+        .route(
+            "/auth/accounts/merge",
+            post(handlers::auth::merge_accounts_handler),
+        )
         // 2FA routes
         .route("/auth/2fa/setup", post(handlers::auth::setup_2fa_handler))
         .route("/auth/2fa/verify", post(handlers::auth::verify_2fa_handler))

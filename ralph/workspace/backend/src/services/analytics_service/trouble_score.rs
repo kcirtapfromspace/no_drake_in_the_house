@@ -321,7 +321,11 @@ impl TroubleScoreService {
             {
                 Ok(_) => recalculated += 1,
                 Err(e) => {
-                    tracing::warn!("Failed to recalculate score for artist {}: {}", artist_id, e);
+                    tracing::warn!(
+                        "Failed to recalculate score for artist {}: {}",
+                        artist_id,
+                        e
+                    );
                     errors += 1;
                 }
             }

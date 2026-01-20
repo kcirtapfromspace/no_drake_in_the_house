@@ -154,50 +154,52 @@ pub use graph_service::{
 
 // Export analytics service components
 pub use analytics_service::{
+    // Category revenue (simulated by offense category)
+    AlbumRevenue,
+    ArtistDiscographyRevenue,
+    // Revenue tracking
+    ArtistRevenueBreakdown,
+    // Trouble scores
+    ArtistTroubleScore,
+    CategoryArtistRevenue,
+    CategoryRevenue,
+    CategoryRevenueService,
     // Dashboard
     DashboardMetrics,
     DashboardService,
+    GlobalArtistRevenue,
+    GlobalCategoryRevenue,
+    OffenseCategory,
+    PayoutRate,
+    PlatformRevenue,
+    RecalculationSummary,
     // Reporting
     Report,
     ReportType,
     ReportingService,
-    // Revenue tracking
-    ArtistRevenueBreakdown,
-    GlobalArtistRevenue,
-    PayoutRate,
-    PlatformRevenue,
     RevenuePlatform,
     RevenueService,
-    UserPlaycount,
-    UserRevenueDistribution,
-    // Category revenue (simulated by offense category)
-    AlbumRevenue,
-    ArtistDiscographyRevenue,
-    CategoryArtistRevenue,
-    CategoryRevenue,
-    CategoryRevenueService,
-    GlobalCategoryRevenue,
-    OffenseCategory,
+    ScoreHistoryEntry,
+    ScoreWeights,
     SimulationParams,
+    TierDistribution,
     // Trends
     TimeRange,
     TrendAnalysisService,
     TrendData,
     TrendDirection,
-    // Trouble scores
-    ArtistTroubleScore,
-    RecalculationSummary,
-    ScoreHistoryEntry,
-    ScoreWeights,
-    TierDistribution,
     TroubleLeaderboardEntry,
     TroubleScoreComponents,
     TroubleScoreService,
     TroubleTier,
+    UserPlaycount,
+    UserRevenueDistribution,
 };
 
 // Export backfill orchestrator components
-pub use backfill_orchestrator::{BackfillOrchestrator, BackfillProgress, BackfillResult, BackfillStats};
+pub use backfill_orchestrator::{
+    BackfillOrchestrator, BackfillProgress, BackfillResult, BackfillStats,
+};
 
 // Export MusicBrainz importer
 pub use catalog_sync::{MusicBrainzImportStats, MusicBrainzImporter};

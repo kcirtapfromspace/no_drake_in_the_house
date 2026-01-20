@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::Value;

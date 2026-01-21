@@ -1798,28 +1798,17 @@ async fn get_business_metrics(db_pool: &sqlx::PgPool) -> (i64, i64) {
     (user_count, block_count)
 }
 
-/// Get API performance metrics from stored telemetry
+/// Get API performance metrics from audit log
+/// Note: Detailed request telemetry (response times, error rates) requires
+/// additional instrumentation. Currently returns activity counts from audit_log.
 async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
-    // Query average response time from request_logs table if it exists
-    let avg_response_time: Option<f64> = sqlx::query_scalar(
-        r#"
-        SELECT AVG(response_time_ms)::float8
-        FROM request_logs
-        WHERE created_at > NOW() - INTERVAL '1 hour'
-        "#,
-    )
-    .fetch_optional(&state.db_pool)
-    .await
-    .ok()
-    .flatten();
-
-    // Query error rate
-    let error_stats: Option<(i64, i64)> = sqlx::query_as(
+    // Query activity counts from audit_log (the available telemetry source)
+    let activity_stats: Option<(i64, i64)> = sqlx::query_as(
         r#"
         SELECT
-            COUNT(*) FILTER (WHERE status_code >= 500) as errors,
-            COUNT(*) as total
-        FROM request_logs
+            COUNT(*) as total_actions,
+            COUNT(DISTINCT actor_user_id) as unique_users
+        FROM audit_log
         WHERE created_at > NOW() - INTERVAL '1 hour'
         "#,
     )
@@ -1828,37 +1817,18 @@ async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
     .ok()
     .flatten();
 
-    let (errors, total) = error_stats.unwrap_or((0, 0));
-    let error_rate = if total > 0 {
-        errors as f64 / total as f64
-    } else {
-        0.0
-    };
+    let (total_actions, unique_users) = activity_stats.unwrap_or((0, 0));
 
-    // Query requests per minute (average over last hour)
-    let requests_per_minute: Option<f64> = sqlx::query_scalar(
-        r#"
-        SELECT (COUNT(*)::float8 / 60.0) as rpm
-        FROM request_logs
-        WHERE created_at > NOW() - INTERVAL '1 hour'
-        "#,
-    )
-    .fetch_optional(&state.db_pool)
-    .await
-    .ok()
-    .flatten();
-
-    // Get endpoint breakdown
-    let endpoint_stats = sqlx::query_as::<_, (String, i64, Option<f64>)>(
+    // Get action type breakdown from audit_log
+    let action_stats = sqlx::query_as::<_, (String, i64)>(
         r#"
         SELECT
-            endpoint,
-            COUNT(*) as request_count,
-            AVG(response_time_ms)::float8 as avg_response_time
-        FROM request_logs
+            action,
+            COUNT(*) as action_count
+        FROM audit_log
         WHERE created_at > NOW() - INTERVAL '1 hour'
-        GROUP BY endpoint
-        ORDER BY request_count DESC
+        GROUP BY action
+        ORDER BY action_count DESC
         LIMIT 10
         "#,
     )
@@ -1866,24 +1836,22 @@ async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
     .await
     .unwrap_or_default();
 
-    let top_endpoints: Vec<serde_json::Value> = endpoint_stats
+    let top_actions: Vec<serde_json::Value> = action_stats
         .iter()
-        .map(|(endpoint, count, avg_time)| {
+        .map(|(action, count)| {
             serde_json::json!({
-                "endpoint": endpoint,
-                "request_count": count,
-                "avg_response_time_ms": avg_time.unwrap_or(0.0)
+                "action": action,
+                "count": count
             })
         })
         .collect();
 
     serde_json::json!({
-        "avg_response_time_ms": avg_response_time.unwrap_or(0.0),
-        "error_rate": error_rate,
-        "requests_per_minute": requests_per_minute.unwrap_or(0.0),
-        "total_requests_last_hour": total,
-        "errors_last_hour": errors,
-        "top_endpoints": top_endpoints
+        "total_actions_last_hour": total_actions,
+        "unique_users_last_hour": unique_users,
+        "actions_per_minute": total_actions as f64 / 60.0,
+        "top_actions": top_actions,
+        "note": "Detailed response time metrics require additional instrumentation"
     })
 }
 
@@ -1922,16 +1890,17 @@ async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Va
     .ok()
     .flatten();
 
-    // Query actions by provider
+    // Query actions by provider from action_batches (joined with action_items)
     let provider_stats = sqlx::query_as::<_, (String, i64, i64)>(
         r#"
         SELECT
-            provider,
-            COUNT(*) as total_actions,
-            COUNT(*) FILTER (WHERE status = 'completed') as successful
-        FROM enforcement_actions
-        WHERE created_at > NOW() - INTERVAL '24 hours'
-        GROUP BY provider
+            ab.provider,
+            COUNT(ai.id) as total_actions,
+            COUNT(ai.id) FILTER (WHERE ai.status = 'completed') as successful
+        FROM action_batches ab
+        LEFT JOIN action_items ai ON ai.batch_id = ab.id
+        WHERE ab.created_at > NOW() - INTERVAL '24 hours'
+        GROUP BY ab.provider
         "#,
     )
     .fetch_all(&state.db_pool)
@@ -1950,19 +1919,19 @@ async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Va
         })
         .collect();
 
-    // Query recent failures with retry info
-    let recent_failures = sqlx::query_as::<_, (Uuid, String, String, i32, chrono::DateTime<chrono::Utc>)>(
+    // Query recent failures from action_items
+    let recent_failures = sqlx::query_as::<_, (Uuid, String, String, chrono::DateTime<chrono::Utc>)>(
         r#"
         SELECT
-            id,
-            provider,
-            COALESCE(error_message, 'Unknown error') as error,
-            retry_count,
-            created_at
-        FROM enforcement_actions
-        WHERE status = 'failed'
-          AND created_at > NOW() - INTERVAL '24 hours'
-        ORDER BY created_at DESC
+            ai.id,
+            ab.provider,
+            COALESCE(ai.error_message, 'Unknown error') as error,
+            ai.created_at
+        FROM action_items ai
+        JOIN action_batches ab ON ai.batch_id = ab.id
+        WHERE ai.status = 'failed'
+          AND ai.created_at > NOW() - INTERVAL '24 hours'
+        ORDER BY ai.created_at DESC
         LIMIT 10
         "#,
     )
@@ -1972,12 +1941,11 @@ async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Va
 
     let failures_list: Vec<serde_json::Value> = recent_failures
         .iter()
-        .map(|(id, provider, error, retries, created_at)| {
+        .map(|(id, provider, error, created_at)| {
             serde_json::json!({
                 "id": id,
                 "provider": provider,
                 "error": error,
-                "retry_count": retries,
                 "occurred_at": created_at.to_rfc3339()
             })
         })

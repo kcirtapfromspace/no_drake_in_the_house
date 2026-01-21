@@ -100,12 +100,26 @@ pub struct WorkerConfig {
     pub heartbeat_interval_ms: u64,
 }
 
+/// Configuration for Redis SCAN operations
+#[derive(Debug, Clone)]
+pub struct ScanConfig {
+    /// Batch size for SCAN operations (default: 100)
+    pub batch_size: usize,
+}
+
+impl Default for ScanConfig {
+    fn default() -> Self {
+        Self { batch_size: 100 }
+    }
+}
+
 /// Job queue service with Redis backend
 pub struct JobQueueService {
     redis_pool: Pool,
     rate_limiter: Arc<RateLimitingService>,
     workers: Arc<RwLock<HashMap<String, WorkerHandle>>>,
     job_handlers: Arc<RwLock<HashMap<JobType, Box<dyn JobHandler + Send + Sync>>>>,
+    scan_config: ScanConfig,
 }
 
 /// Worker handle for managing worker processes
@@ -142,6 +156,14 @@ pub trait JobHandler {
 
 impl JobQueueService {
     pub fn new(redis_url: &str, rate_limiter: Arc<RateLimitingService>) -> Result<Self> {
+        Self::with_scan_config(redis_url, rate_limiter, ScanConfig::default())
+    }
+
+    pub fn with_scan_config(
+        redis_url: &str,
+        rate_limiter: Arc<RateLimitingService>,
+        scan_config: ScanConfig,
+    ) -> Result<Self> {
         let config = Config::from_url(redis_url);
         let pool = config.create_pool(Some(Runtime::Tokio1))?;
 
@@ -150,6 +172,7 @@ impl JobQueueService {
             rate_limiter,
             workers: Arc::new(RwLock::new(HashMap::new())),
             job_handlers: Arc::new(RwLock::new(HashMap::new())),
+            scan_config,
         })
     }
 
@@ -290,7 +313,7 @@ impl JobQueueService {
         Ok(())
     }
 
-    /// Get jobs by user ID
+    /// Get jobs by user ID using the user index for efficient lookup
     pub async fn get_user_jobs(
         &self,
         user_id: &Uuid,
@@ -298,32 +321,38 @@ impl JobQueueService {
         limit: Option<usize>,
     ) -> Result<Vec<Job>> {
         let mut conn = self.redis_pool.get().await?;
-        let pattern = format!("job:*");
-        let keys: Vec<String> = conn.keys(&pattern).await?;
-        
+        let user_index_key = format!("user:{}:jobs", user_id);
+
+        // Get job IDs from user index, sorted by score (created_at) descending
+        // We fetch more than limit to account for status filtering
+        let fetch_limit = limit.map(|l| l * 3).unwrap_or(1000);
+        let job_ids: Vec<String> = redis::cmd("ZREVRANGE")
+            .arg(&user_index_key)
+            .arg(0)
+            .arg(fetch_limit as isize - 1)
+            .query_async(&mut *conn)
+            .await?;
+
         let mut jobs = Vec::new();
-        for key in keys {
-            let job_json: Option<String> = conn.get(&key).await?;
-            if let Some(json) = job_json {
-                if let Ok(job) = serde_json::from_str::<Job>(&json) {
-                    if job.user_id == Some(*user_id) {
-                        if let Some(ref status) = status_filter {
-                            if job.status == *status {
-                                jobs.push(job);
-                            }
-                        } else {
+        let target_count = limit.unwrap_or(usize::MAX);
+
+        for job_id in job_ids {
+            if jobs.len() >= target_count {
+                break;
+            }
+
+            if let Ok(job_uuid) = Uuid::parse_str(&job_id) {
+                if let Some(job) = self.get_job_status(&job_uuid).await? {
+                    // Apply status filter if provided
+                    if let Some(ref status) = status_filter {
+                        if job.status == *status {
                             jobs.push(job);
                         }
+                    } else {
+                        jobs.push(job);
                     }
                 }
             }
-        }
-
-        // Sort by created_at descending
-        jobs.sort_by(|a, b| b.created_at.cmp(&a.created_at));
-        
-        if let Some(limit) = limit {
-            jobs.truncate(limit);
         }
 
         Ok(jobs)
@@ -382,38 +411,70 @@ impl JobQueueService {
         Ok(stats)
     }
 
-    /// Clean up completed and old jobs
+    /// Clean up completed and old jobs using SCAN for efficient iteration
     pub async fn cleanup_jobs(&self, older_than_hours: u64) -> Result<u64> {
         let mut conn = self.redis_pool.get().await?;
-        let pattern = format!("job:*");
-        let keys: Vec<String> = conn.keys(&pattern).await?;
-        
+        let pattern = "job:*";
+
         let cutoff_time = Utc::now() - chrono::Duration::hours(older_than_hours as i64);
         let mut cleaned_count = 0;
-        
-        for key in keys {
-            let job_json: Option<String> = conn.get(&key).await?;
-            if let Some(json) = job_json {
-                if let Ok(job) = serde_json::from_str::<Job>(&json) {
-                    let should_clean = match job.status {
-                        JobStatus::Completed => job.completed_at
-                            .map(|t| t < cutoff_time)
-                            .unwrap_or(false),
-                        JobStatus::Failed => job.completed_at
-                            .map(|t| t < cutoff_time)
-                            .unwrap_or(false),
-                        JobStatus::DeadLetter => job.created_at < cutoff_time,
-                        _ => false,
-                    };
-                    
-                    if should_clean {
-                        conn.del(&key).await?;
-                        cleaned_count += 1;
+        let mut cursor: u64 = 0;
+
+        loop {
+            // Use SCAN with COUNT hint for batch size
+            let (new_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(self.scan_config.batch_size)
+                .query_async(&mut *conn)
+                .await?;
+
+            for key in keys {
+                let job_json: Option<String> = conn.get(&key).await?;
+                if let Some(json) = job_json {
+                    if let Ok(job) = serde_json::from_str::<Job>(&json) {
+                        let should_clean = match job.status {
+                            JobStatus::Completed => job
+                                .completed_at
+                                .map(|t| t < cutoff_time)
+                                .unwrap_or(false),
+                            JobStatus::Failed => job
+                                .completed_at
+                                .map(|t| t < cutoff_time)
+                                .unwrap_or(false),
+                            JobStatus::DeadLetter => job.created_at < cutoff_time,
+                            _ => false,
+                        };
+
+                        if should_clean {
+                            // Build pipeline for atomic deletion
+                            let mut pipe = redis::pipe();
+                            pipe.atomic();
+
+                            // Delete the job key
+                            pipe.del(&key);
+
+                            // Remove from user index if user_id is present
+                            if let Some(user_id) = job.user_id {
+                                let user_index_key = format!("user:{}:jobs", user_id);
+                                pipe.zrem(&user_index_key, job.id.to_string());
+                            }
+
+                            pipe.query_async(&mut *conn).await?;
+                            cleaned_count += 1;
+                        }
                     }
                 }
             }
+
+            cursor = new_cursor;
+            if cursor == 0 {
+                break;
+            }
         }
-        
+
         tracing::info!("Cleaned up {} old jobs", cleaned_count);
         Ok(cleaned_count)
     }
@@ -656,11 +717,27 @@ impl JobQueueService {
     async fn add_to_queue(&self, job: &Job) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let queue_key = format!("queue:{:?}", job.job_type);
-        
+
         // Use scheduled_at timestamp as score for priority queue
         let score = job.scheduled_at.timestamp() as f64;
-        conn.zadd(&queue_key, job.id.to_string(), score).await?;
-        
+
+        // Build pipeline for atomic operations
+        let mut pipe = redis::pipe();
+        pipe.atomic();
+
+        // Add to job type queue
+        pipe.zadd(&queue_key, job.id.to_string(), score);
+
+        // Add to user index if user_id is present
+        if let Some(user_id) = job.user_id {
+            let user_index_key = format!("user:{}:jobs", user_id);
+            // Use created_at as score for user index (for descending sort by recency)
+            let user_score = job.created_at.timestamp() as f64;
+            pipe.zadd(&user_index_key, job.id.to_string(), user_score);
+        }
+
+        pipe.query_async(&mut *conn).await?;
+
         Ok(())
     }
 
@@ -691,6 +768,7 @@ impl Clone for JobQueueService {
             rate_limiter: self.rate_limiter.clone(),
             workers: self.workers.clone(),
             job_handlers: self.job_handlers.clone(),
+            scan_config: self.scan_config.clone(),
         }
     }
 }

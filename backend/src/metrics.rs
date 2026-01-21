@@ -26,6 +26,9 @@ pub struct MetricsCollector {
     http_request_duration: HistogramVec,
     http_requests_in_flight: Gauge,
 
+    // Request latency metrics (US-023)
+    http_request_latency: HistogramVec,
+
     // Database metrics
     db_connections_active: Gauge,
     db_connections_idle: Gauge,
@@ -47,6 +50,10 @@ pub struct MetricsCollector {
     memory_usage_bytes: Gauge,
     cpu_usage_percent: Gauge,
     uptime_seconds: Gauge,
+
+    // Data key cache metrics
+    data_key_cache_hits: Counter,
+    data_key_cache_misses: Counter,
 }
 
 impl MetricsCollector {
@@ -78,6 +85,19 @@ impl MetricsCollector {
         let http_requests_in_flight = Gauge::new(
             "kiro_http_requests_in_flight",
             "Number of HTTP requests currently being processed",
+        )?;
+
+        // Request latency histogram (US-023)
+        // Buckets: 10ms, 50ms, 100ms, 250ms, 500ms, 1000ms, 5000ms
+        let http_request_latency = HistogramVec::new(
+            HistogramOpts::new(
+                "http_request_latency_seconds",
+                "HTTP request latency in seconds for P50/P90/P99 calculations",
+            )
+            .namespace("kiro")
+            .subsystem("http")
+            .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0]),
+            &["method", "path", "status_code"],
         )?;
 
         // Database metrics
@@ -177,10 +197,22 @@ impl MetricsCollector {
 
         let uptime_seconds = Gauge::new("kiro_uptime_seconds", "Application uptime in seconds")?;
 
+        // Data key cache metrics
+        let data_key_cache_hits = Counter::new(
+            "kiro_data_key_cache_hits",
+            "Total number of data key cache hits",
+        )?;
+
+        let data_key_cache_misses = Counter::new(
+            "kiro_data_key_cache_misses",
+            "Total number of data key cache misses",
+        )?;
+
         // Register all metrics
         registry.register(Box::new(http_requests_total.clone()))?;
         registry.register(Box::new(http_request_duration.clone()))?;
         registry.register(Box::new(http_requests_in_flight.clone()))?;
+        registry.register(Box::new(http_request_latency.clone()))?;
         registry.register(Box::new(db_connections_active.clone()))?;
         registry.register(Box::new(db_connections_idle.clone()))?;
         registry.register(Box::new(db_query_duration.clone()))?;
@@ -195,12 +227,15 @@ impl MetricsCollector {
         registry.register(Box::new(memory_usage_bytes.clone()))?;
         registry.register(Box::new(cpu_usage_percent.clone()))?;
         registry.register(Box::new(uptime_seconds.clone()))?;
+        registry.register(Box::new(data_key_cache_hits.clone()))?;
+        registry.register(Box::new(data_key_cache_misses.clone()))?;
 
         Ok(Self {
             registry,
             http_requests_total,
             http_request_duration,
             http_requests_in_flight,
+            http_request_latency,
             db_connections_active,
             db_connections_idle,
             db_query_duration,
@@ -215,6 +250,8 @@ impl MetricsCollector {
             memory_usage_bytes,
             cpu_usage_percent,
             uptime_seconds,
+            data_key_cache_hits,
+            data_key_cache_misses,
         })
     }
 
@@ -326,6 +363,16 @@ impl MetricsCollector {
         self.memory_usage_bytes.set(memory_bytes as f64);
         self.cpu_usage_percent.set(cpu_percent);
         self.uptime_seconds.set(uptime_seconds as f64);
+    }
+
+    /// Record data key cache hit
+    pub fn record_data_key_cache_hit(&self) {
+        self.data_key_cache_hits.inc();
+    }
+
+    /// Record data key cache miss
+    pub fn record_data_key_cache_miss(&self) {
+        self.data_key_cache_misses.inc();
     }
 
     /// Get metrics in Prometheus format

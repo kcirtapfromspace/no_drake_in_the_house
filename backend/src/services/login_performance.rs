@@ -380,13 +380,30 @@ impl LoginPerformanceService {
             session_cache.clear();
         }
 
-        // Clear Redis caches
+        // Clear Redis caches using SCAN instead of KEYS for efficiency at scale
         let mut conn = self.redis_pool.get().await?;
         let pattern = "login_user:*";
-        let keys: Vec<String> = conn.keys(&pattern).await?;
+        let batch_size = 100;
+        let mut cursor: u64 = 0;
 
-        if !keys.is_empty() {
-            let _: i32 = conn.del(&keys).await?;
+        loop {
+            let (new_cursor, keys): (u64, Vec<String>) = redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(pattern)
+                .arg("COUNT")
+                .arg(batch_size)
+                .query_async(&mut *conn)
+                .await?;
+
+            if !keys.is_empty() {
+                let _: i32 = conn.del(&keys).await?;
+            }
+
+            cursor = new_cursor;
+            if cursor == 0 {
+                break;
+            }
         }
 
         Ok(())

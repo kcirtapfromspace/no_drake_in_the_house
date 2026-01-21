@@ -361,6 +361,9 @@ pub async fn resolve_identity_handler(
 }
 
 /// Merge two artists
+///
+/// Note: This feature is currently gated and not available.
+/// Returns a stable "feature unavailable" response that clients can handle.
 pub async fn merge_artists_handler(
     State(_state): State<AppState>,
     _user: AuthenticatedUser,
@@ -369,7 +372,7 @@ pub async fn merge_artists_handler(
     tracing::info!(
         primary_id = %request.primary_id,
         secondary_id = %request.secondary_id,
-        "Merge artists request"
+        "Merge artists request (feature gated)"
     );
 
     if request.primary_id == request.secondary_id {
@@ -379,9 +382,10 @@ pub async fn merge_artists_handler(
         });
     }
 
-    // Return not found for now since we don't have artists stored
-    Err(AppError::NotFound {
-        resource: "Artist".to_string(),
+    // Feature is explicitly gated - return a stable, documented response
+    // This allows clients to handle the response gracefully
+    Err(AppError::OperationNotAllowed {
+        reason: "Artist merge feature is not currently available. This functionality is planned for a future release.".to_string(),
     })
 }
 

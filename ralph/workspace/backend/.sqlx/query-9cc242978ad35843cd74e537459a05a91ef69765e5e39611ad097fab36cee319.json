@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                id,\n                canonical_name,\n                external_ids,\n                metadata\n            FROM artists \n            WHERE \n                canonical_name ILIKE $1 \n                OR canonical_name ILIKE $2\n                OR aliases::text ILIKE $1\n            ORDER BY \n                CASE \n                    WHEN canonical_name ILIKE $2 THEN 1\n                    WHEN canonical_name ILIKE $1 THEN 2\n                    ELSE 3\n                END,\n                canonical_name\n            LIMIT $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "canonical_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "external_ids",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 3,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "9cc242978ad35843cd74e537459a05a91ef69765e5e39611ad097fab36cee319"
+}

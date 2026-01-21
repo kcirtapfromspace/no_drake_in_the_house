@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE community_lists SET owner_user_id = NULL WHERE owner_user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fa75700d3f2553dc8abf5a3a1af44142d2bd4a10bef6f711dd8545a76bd59eed"
+}

@@ -165,7 +165,7 @@ impl GoogleOAuthProvider {
     }
 
     /// Parse Google user info response into standardized format
-    fn parse_user_info(&self, user_data: Value) -> Result<OAuthUserInfo> {
+    pub fn parse_user_info(&self, user_data: Value) -> Result<OAuthUserInfo> {
         let provider_user_id = user_data["id"]
             .as_str()
             .ok_or_else(|| AppError::OAuthProviderError {

@@ -57,6 +57,7 @@ pub struct AppConfig {
     pub redis: RedisSettings,
     pub auth: AuthConfig,
     pub oauth: OAuthSettings,
+    pub token_refresh: TokenRefreshConfig,
 }
 
 impl AppConfig {
@@ -71,6 +72,7 @@ impl AppConfig {
             redis: RedisSettings::from_env(environment)?,
             auth: AuthConfig::from_env(environment)?,
             oauth: OAuthSettings::from_env(environment)?,
+            token_refresh: TokenRefreshConfig::from_env(),
         };
 
         // Validate production requirements
@@ -256,6 +258,99 @@ impl AuthConfig {
     /// Default JWT secret for development only
     pub fn default_jwt_secret() -> String {
         "dev_secret_key_do_not_use_in_production_1234567890".to_string()
+    }
+}
+
+/// Token refresh background job configuration
+#[derive(Clone)]
+pub struct TokenRefreshConfig {
+    /// Interval between token refresh job runs (in hours)
+    pub interval_hours: u64,
+    /// Refresh tokens expiring within this many hours
+    pub expiry_threshold_hours: u64,
+    /// Maximum number of tokens to refresh per batch
+    pub batch_size: usize,
+    /// Rate limit delay between refresh attempts (in milliseconds)
+    pub rate_limit_delay_ms: u64,
+    /// Maximum retry attempts for failed refreshes
+    pub max_retries: u32,
+    /// Base delay for exponential backoff (in seconds)
+    pub retry_base_delay_secs: u64,
+}
+
+/// Token vault configuration
+#[derive(Clone)]
+pub struct TokenVaultConfig {
+    /// Maximum number of data keys to cache in memory (LRU eviction)
+    pub data_key_cache_size: u64,
+    /// Number of days before rotating data keys
+    pub key_rotation_days: i64,
+    /// Hours between health checks
+    pub health_check_interval_hours: i64,
+}
+
+impl TokenVaultConfig {
+    /// Default cache size for data keys
+    pub const DEFAULT_CACHE_SIZE: u64 = 10_000;
+
+    pub fn from_env() -> Self {
+        Self {
+            data_key_cache_size: std::env::var("DATA_KEY_CACHE_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(Self::DEFAULT_CACHE_SIZE),
+            key_rotation_days: std::env::var("TOKEN_VAULT_KEY_ROTATION_DAYS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30),
+            health_check_interval_hours: std::env::var("TOKEN_VAULT_HEALTH_CHECK_INTERVAL_HOURS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(24),
+        }
+    }
+}
+
+impl Default for TokenVaultConfig {
+    fn default() -> Self {
+        Self::from_env()
+    }
+}
+
+impl TokenRefreshConfig {
+    pub fn from_env() -> Self {
+        Self {
+            interval_hours: std::env::var("TOKEN_REFRESH_INTERVAL_HOURS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(1), // Default: 1 hour
+            expiry_threshold_hours: std::env::var("TOKEN_REFRESH_EXPIRY_THRESHOLD_HOURS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(24), // Default: 24 hours
+            batch_size: std::env::var("TOKEN_REFRESH_BATCH_SIZE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(50), // Default: 50 tokens per batch
+            rate_limit_delay_ms: std::env::var("TOKEN_REFRESH_RATE_LIMIT_DELAY_MS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(100), // Default: 100ms between refreshes
+            max_retries: std::env::var("TOKEN_REFRESH_MAX_RETRIES")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(3), // Default: 3 retries
+            retry_base_delay_secs: std::env::var("TOKEN_REFRESH_RETRY_BASE_DELAY_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(30), // Default: 30 seconds base delay
+        }
+    }
+}
+
+impl Default for TokenRefreshConfig {
+    fn default() -> Self {
+        Self::from_env()
     }
 }
 
@@ -496,7 +591,8 @@ impl AppleMusicCredentials {
         if !private_key.contains("-----BEGIN PRIVATE KEY-----") {
             return Err(ConfigError::InvalidValue {
                 key: "APPLE_MUSIC_PRIVATE_KEY".to_string(),
-                message: "Private key must be in PEM format (-----BEGIN PRIVATE KEY-----)".to_string(),
+                message: "Private key must be in PEM format (-----BEGIN PRIVATE KEY-----)"
+                    .to_string(),
             });
         }
 

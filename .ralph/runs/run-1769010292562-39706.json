@@ -1,0 +1,51 @@
+{
+  "run_id": "run-1769010292562-39706",
+  "started_at": {
+    "secs_since_epoch": 1769010292,
+    "nanos_since_epoch": 562815000
+  },
+  "completed_at": {
+    "secs_since_epoch": 1769010637,
+    "nanos_since_epoch": 821733000
+  },
+  "recorded_at": {
+    "secs_since_epoch": 1769010637,
+    "nanos_since_epoch": 821733000
+  },
+  "run_duration": {
+    "secs": 345,
+    "nanos": 259201750
+  },
+  "expected_steps": 27,
+  "steps_attempted": 1,
+  "steps_completed": 0,
+  "failures": 1,
+  "retries": 0,
+  "completeness_percent": 3.7037037037037033,
+  "step_durations": {
+    "US-001": {
+      "secs": 345,
+      "nanos": 183714959
+    }
+  },
+  "steps": [
+    {
+      "step_id": "US-001",
+      "attempts": 1,
+      "duration": {
+        "secs": 345,
+        "nanos": 183714959
+      },
+      "success": false,
+      "started_at": {
+        "secs_since_epoch": 1769010292,
+        "nanos_since_epoch": 582916000
+      },
+      "completed_at": {
+        "secs_since_epoch": 1769010637,
+        "nanos_since_epoch": 766349000
+      },
+      "error": "Execution timed out: Agent 'claude' stalled (no output for 180s) (iteration 1)"
+    }
+  ]
+}

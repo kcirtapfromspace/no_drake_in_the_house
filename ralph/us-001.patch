@@ -1,0 +1,155 @@
+*** Begin Patch
+*** Update File: backend/src/services/analytics.rs
+@@
+     pub async fn generate_community_list_impact_report(
+         &self,
+         list_id: Uuid,
+     ) -> Result<CommunityListImpactReport, Box<dyn std::error::Error>> {
+@@
+         Ok(CommunityListImpactReport {
+             list_id,
+             list_name: list_info.0,
+             curator_id: list_info.1,
+             total_subscribers,
+@@
+             growth_metrics,
+         })
+     }
++
++    pub async fn get_community_list_access(
++        &self,
++        list_id: Uuid,
++    ) -> Result<Option<(Uuid, String)>, Box<dyn std::error::Error>> {
++        let row = sqlx::query!(
++            "SELECT owner_user_id, visibility FROM community_lists WHERE id = $1",
++            list_id
++        )
++        .fetch_optional(&self.db_pool)
++        .await?;
++
++        Ok(row.map(|row| (row.owner_user_id.unwrap_or_default(), row.visibility)))
++    }
+*** End Patch
+*** Begin Patch
+*** Update File: backend/src/handlers/analytics.rs
+@@
+ use uuid::Uuid;
+ 
++use crate::AppError;
+ use crate::models::User;
+ use crate::services::analytics::AnalyticsService;
+@@
+ pub async fn get_community_list_impact_report(
+     State(analytics_service): State<Arc<AnalyticsService>>,
+     Path(list_id): Path<Uuid>,
+-    Extension(_user): Extension<User>,
++    Extension(user): Extension<User>,
+     Query(_params): Query<CommunityListReportQuery>,
+-) -> Result<Json<AnalyticsResponse<crate::services::analytics::CommunityListImpactReport>>, StatusCode> {
+-    // TODO: Add authorization check - only list owners or public lists
++) -> Result<Json<AnalyticsResponse<crate::services::analytics::CommunityListImpactReport>>, AppError> {
++    let access = analytics_service
++        .get_community_list_access(list_id)
++        .await
++        .map_err(|e| AppError::Internal {
++            message: Some(format!("Failed to load community list access: {}", e)),
++        })?;
++
++    let (owner_id, visibility) = match access {
++        Some(access) => access,
++        None => {
++            return Err(AppError::NotFound {
++                resource: "Community list".to_string(),
++            })
++        }
++    };
++
++    if visibility != "public" && owner_id != user.id {
++        return Err(AppError::InsufficientPermissions);
++    }
+@@
+     match analytics_service
+         .generate_community_list_impact_report(list_id)
+         .await
+     {
+         Ok(report) => Ok(Json(AnalyticsResponse {
+             success: true,
+             data: report,
+             generated_at: chrono::Utc::now(),
+         })),
+         Err(e) => {
+             tracing::error!("Failed to generate community list impact report: {}", e);
+-            Err(StatusCode::INTERNAL_SERVER_ERROR)
++            Err(AppError::Internal {
++                message: Some(format!(
++                    "Failed to generate community list impact report: {}",
++                    e
++                )),
++            })
+         }
+     }
+ }
+*** End Patch
+*** Begin Patch
+*** Update File: backend/src/handlers/offense.rs
+@@
+-use crate::error::Result;
++use crate::error::{AppError, Result};
+@@
+ pub async fn verify_offense(
+     State(state): State<AppState>,
+     user: AuthenticatedUser,
+     Path(offense_id): Path<Uuid>,
+ ) -> Result<StatusCode> {
+-    // TODO: Check if user has moderator role
++    let role: Option<String> = sqlx::query_scalar("SELECT role FROM users WHERE id = $1")
++        .bind(user.id)
++        .fetch_optional(&state.db_pool)
++        .await
++        .map_err(AppError::DatabaseQueryFailed)?;
++
++    let role = role.unwrap_or_else(|| "user".to_string());
++    if role != "moderator" && role != "admin" {
++        return Err(AppError::InsufficientPermissions);
++    }
++
+     let offense_service = OffenseService::new(&state.db_pool);
+     offense_service.verify_offense(offense_id, user.id).await?;
+     Ok(StatusCode::OK)
+ }
+*** End Patch
+*** Begin Patch
+*** Update File: backend/src/handlers/news.rs
+@@
+ pub async fn verify_offense_handler(
+-    State(_state): State<AppState>,
++    State(state): State<AppState>,
+     Path(offense_id): Path<Uuid>,
+-    _user: AuthenticatedUser,
++    user: AuthenticatedUser,
+     Json(request): Json<VerifyOffenseRequest>,
+ ) -> Result<Json<serde_json::Value>> {
+     tracing::info!(
+         offense_id = %offense_id,
+         is_correct = request.is_correct,
+         corrected_category = ?request.corrected_category,
+         "Verify offense request"
+     );
++
++    let role: Option<String> = sqlx::query_scalar("SELECT role FROM users WHERE id = $1")
++        .bind(user.id)
++        .fetch_optional(&state.db_pool)
++        .await
++        .map_err(AppError::DatabaseQueryFailed)?;
++
++    let role = role.unwrap_or_else(|| "user".to_string());
++    if role != "moderator" && role != "admin" {
++        return Err(AppError::InsufficientPermissions);
++    }
+@@
+     // Return not found for now
+     Err(AppError::NotFound {
+         resource: "Offense".to_string(),
+     })
+ }
+*** End Patch

@@ -601,16 +601,20 @@ pub async fn get_trouble_leaderboard_handler(
 
     let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
 
-    let min_tier = query.min_tier.as_ref().map(|t| {
-        match t.to_lowercase().as_str() {
+    let min_tier = query
+        .min_tier
+        .as_ref()
+        .map(|t| match t.to_lowercase().as_str() {
             "critical" => crate::services::TroubleTier::Critical,
             "high" => crate::services::TroubleTier::High,
             "moderate" => crate::services::TroubleTier::Moderate,
             _ => crate::services::TroubleTier::Low,
-        }
-    });
+        });
 
-    match service.get_leaderboard(min_tier, query.limit, query.offset).await {
+    match service
+        .get_leaderboard(min_tier, query.limit, query.offset)
+        .await
+    {
         Ok(leaderboard) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -742,11 +746,15 @@ pub async fn get_user_revenue_distribution_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    let platform = query.platform.as_ref().and_then(|p| {
-        crate::services::RevenuePlatform::from_str(p)
-    });
+    let platform = query
+        .platform
+        .as_ref()
+        .and_then(|p| crate::services::RevenuePlatform::from_str(p));
 
-    match service.get_user_revenue_distribution(user.id, platform, query.days).await {
+    match service
+        .get_user_revenue_distribution(user.id, platform, query.days)
+        .await
+    {
         Ok(distribution) => Ok(Json(serde_json::json!({
             "success": true,
             "data": distribution
@@ -776,7 +784,10 @@ pub async fn get_user_top_artists_revenue_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    match service.get_user_top_artists(user.id, query.days, query.limit).await {
+    match service
+        .get_user_top_artists(user.id, query.days, query.limit)
+        .await
+    {
         Ok(artists) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -815,7 +826,10 @@ pub async fn get_user_problematic_revenue_handler(
         _ => crate::services::TroubleTier::Moderate,
     };
 
-    match service.get_user_problematic_artists(user.id, min_tier, query.days, query.limit).await {
+    match service
+        .get_user_problematic_artists(user.id, min_tier, query.days, query.limit)
+        .await
+    {
         Ok(artists) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -849,7 +863,10 @@ pub async fn get_artist_revenue_breakdown_handler(
 
     let service = crate::services::RevenueService::new(state.db_pool.clone());
 
-    match service.get_artist_revenue(user.id, artist_id, query.days).await {
+    match service
+        .get_artist_revenue(user.id, artist_id, query.days)
+        .await
+    {
         Ok(breakdown) => Ok(Json(serde_json::json!({
             "success": true,
             "data": breakdown
@@ -911,7 +928,10 @@ pub async fn get_global_problematic_revenue_handler(
         _ => crate::services::TroubleTier::Moderate,
     };
 
-    match service.get_problematic_revenue_leaderboard(min_tier, query.days, query.limit).await {
+    match service
+        .get_problematic_revenue_leaderboard(min_tier, query.days, query.limit)
+        .await
+    {
         Ok(leaderboard) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -982,7 +1002,10 @@ pub async fn get_category_revenue_handler(
     let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
     let offense_category = crate::services::OffenseCategory::from_str(&category);
 
-    match service.get_category_revenue(offense_category, query.top_n).await {
+    match service
+        .get_category_revenue(offense_category, query.top_n)
+        .await
+    {
         Ok(revenue) => Ok(Json(serde_json::json!({
             "success": true,
             "data": revenue
@@ -1032,7 +1055,10 @@ pub async fn get_user_category_exposure_handler(
 
     let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
 
-    match service.get_user_category_exposure(user.id, query.days).await {
+    match service
+        .get_user_category_exposure(user.id, query.days)
+        .await
+    {
         Ok(exposure) => Ok(Json(serde_json::json!({
             "success": true,
             "data": {
@@ -1076,60 +1102,469 @@ pub async fn get_offense_categories_handler(
 }
 
 // ============================================================================
+// Enforcement Analytics Endpoints (US-024)
+// ============================================================================
+
+/// Query parameters for enforcement analytics
+#[derive(Debug, Deserialize)]
+pub struct EnforcementAnalyticsQuery {
+    /// Filter by provider (spotify, apple_music, etc.)
+    pub provider: Option<String>,
+    /// Number of days for time-series (default: 30)
+    #[serde(default = "default_days")]
+    pub days: i32,
+}
+
+/// Get enforcement analytics for the authenticated user
+pub async fn get_enforcement_analytics_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<EnforcementAnalyticsQuery>,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(
+        user_id = %user.id,
+        provider = ?query.provider,
+        days = query.days,
+        "Get enforcement analytics request"
+    );
+
+    let service = crate::services::EnforcementAnalyticsService::new(state.db_pool.clone());
+
+    let analytics_query = crate::services::EnforcementAnalyticsQuery {
+        provider: query.provider,
+        days: query.days,
+    };
+
+    match service
+        .get_user_enforcement_analytics(user.id, &analytics_query)
+        .await
+    {
+        Ok(analytics) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "total_batches": analytics.stats.total_batches,
+                "total_actions": analytics.stats.total_actions,
+                "successful_actions": analytics.stats.successful_actions,
+                "failed_actions": analytics.stats.failed_actions,
+                "skipped_actions": analytics.stats.skipped_actions,
+                "success_rate": analytics.stats.success_rate,
+                "actions_by_type": analytics.stats.actions_by_type,
+                "actions_by_provider": analytics.stats.actions_by_provider,
+                "time_series": analytics.time_series
+            },
+            "generated_at": analytics.generated_at.to_rfc3339()
+        }))),
+        Err(e) => {
+            tracing::error!("Failed to get enforcement analytics: {}", e);
+            Ok(Json(serde_json::json!({
+                "success": false,
+                "error": e.to_string()
+            })))
+        }
+    }
+}
+
+// ============================================================================
+// User Activity Summary Endpoints (US-025)
+// ============================================================================
+
+/// User activity summary response
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserActivitySummary {
+    /// Number of artists in the user's DNP list
+    pub dnp_list_size: i64,
+    /// List of connected streaming providers with their status
+    pub connected_providers: Vec<ConnectedProviderInfo>,
+    /// Number of enforcement actions in the last 30 days
+    pub recent_enforcement_count: i64,
+    /// Date of the last enforcement action
+    pub last_enforcement_date: Option<chrono::DateTime<chrono::Utc>>,
+    /// Next scheduled scan timestamp (if any)
+    pub next_scheduled_scan: Option<chrono::DateTime<chrono::Utc>>,
+    /// Timestamp when this summary was generated
+    pub generated_at: chrono::DateTime<chrono::Utc>,
+    /// Whether this data was served from cache
+    pub cached: bool,
+}
+
+/// Information about a connected streaming provider
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectedProviderInfo {
+    pub provider: String,
+    pub status: String,
+    pub connected_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Get user activity summary for the dashboard (cached for 5 minutes)
+pub async fn get_user_activity_summary_handler(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    use redis::AsyncCommands;
+
+    tracing::info!(user_id = %user.id, "Get user activity summary request");
+
+    let cache_key = format!("user_activity_summary:{}", user.id);
+    const CACHE_TTL_SECONDS: u64 = 300; // 5 minutes
+
+    // Try to get from Redis cache first
+    if let Ok(mut conn) = state.redis_pool.get().await {
+        let cached: Option<String> = conn.get(&cache_key).await.unwrap_or(None);
+        if let Some(cached_json) = cached {
+            if let Ok(mut summary) = serde_json::from_str::<UserActivitySummary>(&cached_json) {
+                summary.cached = true;
+                tracing::debug!(user_id = %user.id, "Returning cached user activity summary");
+                return Ok(Json(serde_json::json!({
+                    "success": true,
+                    "data": summary
+                })));
+            }
+        }
+    }
+
+    // Cache miss - fetch fresh data
+    let summary = fetch_user_activity_summary(&state, user.id).await?;
+
+    // Store in cache
+    if let Ok(mut conn) = state.redis_pool.get().await {
+        if let Ok(summary_json) = serde_json::to_string(&summary) {
+            let _: std::result::Result<(), _> = conn
+                .set_ex(&cache_key, summary_json, CACHE_TTL_SECONDS)
+                .await;
+        }
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": summary
+    })))
+}
+
+/// Fetch fresh user activity summary data from the database
+async fn fetch_user_activity_summary(
+    state: &AppState,
+    user_id: uuid::Uuid,
+) -> Result<UserActivitySummary> {
+    // Query DNP list size
+    let dnp_list_size: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(Some(0))
+            .unwrap_or(0);
+
+    // Query connected providers from connections table
+    let connected_providers =
+        sqlx::query_as::<_, (String, String, Option<chrono::DateTime<chrono::Utc>>)>(
+            r#"
+        SELECT
+            provider,
+            status,
+            created_at
+        FROM connections
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        "#,
+        )
+        .bind(user_id)
+        .fetch_all(&state.db_pool)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(provider, status, created_at)| ConnectedProviderInfo {
+            provider,
+            status,
+            connected_at: created_at,
+        })
+        .collect();
+
+    // Query recent enforcement actions (last 30 days)
+    let thirty_days_ago = chrono::Utc::now() - chrono::Duration::days(30);
+    let recent_enforcement_count: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(*)
+        FROM action_batches
+        WHERE user_id = $1
+          AND created_at >= $2
+          AND status IN ('completed', 'partially_completed')
+        "#,
+    )
+    .bind(user_id)
+    .bind(thirty_days_ago)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(Some(0))
+    .unwrap_or(0);
+
+    // Query last enforcement date
+    let last_enforcement_date: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        r#"
+        SELECT MAX(completed_at)
+        FROM action_batches
+        WHERE user_id = $1
+          AND status IN ('completed', 'partially_completed')
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(None);
+
+    // Query next scheduled scan from jobs table
+    let next_scheduled_scan: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+        r#"
+        SELECT MIN(scheduled_at)
+        FROM jobs
+        WHERE user_id = $1
+          AND status = 'pending'
+          AND job_type IN ('LibraryScan', 'EnforcementExecution')
+        "#,
+    )
+    .bind(user_id)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(None);
+
+    Ok(UserActivitySummary {
+        dnp_list_size,
+        connected_providers,
+        recent_enforcement_count,
+        last_enforcement_date,
+        next_scheduled_scan,
+        generated_at: chrono::Utc::now(),
+        cached: false,
+    })
+}
+
+// ============================================================================
 // Metrics Endpoints (Prometheus-compatible)
 // ============================================================================
 
-/// Get metrics in Prometheus format
-pub async fn get_metrics_handler(State(_state): State<AppState>) -> Result<String> {
+/// Get metrics in Prometheus format with real system data
+pub async fn get_metrics_handler(State(state): State<AppState>) -> Result<String> {
     tracing::debug!("Get metrics request");
 
-    // Return Prometheus-format metrics
-    let metrics = r#"# HELP blocklist_users_total Total number of registered users
-# TYPE blocklist_users_total gauge
-blocklist_users_total 0
+    // Collect real system metrics using sysinfo
+    use sysinfo::{Disks, System};
 
-# HELP blocklist_blocks_total Total number of artist blocks
-# TYPE blocklist_blocks_total gauge
-blocklist_blocks_total 0
+    let mut sys = System::new_all();
+    sys.refresh_all();
 
-# HELP blocklist_syncs_total Total platform sync operations
-# TYPE blocklist_syncs_total counter
-blocklist_syncs_total{platform="spotify",status="success"} 0
-blocklist_syncs_total{platform="spotify",status="failed"} 0
-blocklist_syncs_total{platform="apple_music",status="success"} 0
-blocklist_syncs_total{platform="apple_music",status="failed"} 0
+    // CPU usage (average across all CPUs)
+    let cpu_usage = sys.global_cpu_info().cpu_usage();
 
-# HELP blocklist_articles_processed_total Total news articles processed
-# TYPE blocklist_articles_processed_total counter
-blocklist_articles_processed_total 0
+    // Memory metrics
+    let total_memory = sys.total_memory();
+    let used_memory = sys.used_memory();
+    let memory_usage_percent = if total_memory > 0 {
+        (used_memory as f64 / total_memory as f64) * 100.0
+    } else {
+        0.0
+    };
 
-# HELP blocklist_offenses_detected_total Total offenses detected
-# TYPE blocklist_offenses_detected_total counter
-blocklist_offenses_detected_total 0
+    // Get process-specific memory (RSS - Resident Set Size)
+    let current_pid = sysinfo::get_current_pid().ok();
+    let process_memory_rss = current_pid
+        .and_then(|pid| sys.process(pid))
+        .map(|p| p.memory())
+        .unwrap_or(0);
 
-# HELP blocklist_api_requests_total Total API requests
-# TYPE blocklist_api_requests_total counter
-blocklist_api_requests_total{endpoint="/api/v1/health",method="GET"} 0
+    // Disk usage for data directory (use root or current working directory)
+    let disks = Disks::new_with_refreshed_list();
+    let (disk_total, disk_used) = disks
+        .iter()
+        .next()
+        .map(|d| (d.total_space(), d.total_space() - d.available_space()))
+        .unwrap_or((0, 0));
+    let disk_usage_percent = if disk_total > 0 {
+        (disk_used as f64 / disk_total as f64) * 100.0
+    } else {
+        0.0
+    };
 
-# HELP blocklist_api_latency_seconds API request latency
-# TYPE blocklist_api_latency_seconds histogram
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="0.01"} 0
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="0.05"} 0
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="0.1"} 0
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="0.5"} 0
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="1.0"} 0
-blocklist_api_latency_seconds_bucket{endpoint="/api/v1/health",le="+Inf"} 0
-blocklist_api_latency_seconds_sum{endpoint="/api/v1/health"} 0
-blocklist_api_latency_seconds_count{endpoint="/api/v1/health"} 0
+    // Database connection pool stats
+    let db_pool_size = state.db_pool.size();
+    let db_idle_connections = state.db_pool.num_idle();
+    let db_active_connections = (db_pool_size as usize).saturating_sub(db_idle_connections) as u32;
 
-# HELP blocklist_database_connections Active database connections
-# TYPE blocklist_database_connections gauge
-blocklist_database_connections{database="postgres"} 0
-blocklist_database_connections{database="duckdb"} 1
-blocklist_database_connections{database="kuzu"} 1
-blocklist_database_connections{database="lancedb"} 1
-blocklist_database_connections{database="redis"} 0
-"#;
+    // Redis connection pool stats
+    let redis_status = state.redis_pool.status();
+    let redis_pool_size = redis_status.size;
+    let redis_available = redis_status.available;
+    let redis_active = redis_pool_size.saturating_sub(redis_available);
 
-    Ok(metrics.to_string())
+    // Job queue depth by job type - query Redis for queue sizes
+    let job_queue_depths = get_job_queue_depths(&state.redis_pool).await;
+
+    // Query database for business metrics
+    let (user_count, block_count) = get_business_metrics(&state.db_pool).await;
+
+    // Build Prometheus-format metrics output
+    let mut metrics = String::new();
+
+    // System metrics - CPU
+    metrics.push_str("# HELP blocklist_cpu_usage_percent Current CPU usage percentage\n");
+    metrics.push_str("# TYPE blocklist_cpu_usage_percent gauge\n");
+    metrics.push_str(&format!("blocklist_cpu_usage_percent {:.2}\n\n", cpu_usage));
+
+    // System metrics - Memory (system-wide)
+    metrics.push_str("# HELP blocklist_memory_usage_bytes Current system memory usage in bytes\n");
+    metrics.push_str("# TYPE blocklist_memory_usage_bytes gauge\n");
+    metrics.push_str(&format!("blocklist_memory_usage_bytes {}\n\n", used_memory));
+
+    metrics.push_str("# HELP blocklist_memory_total_bytes Total system memory in bytes\n");
+    metrics.push_str("# TYPE blocklist_memory_total_bytes gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_memory_total_bytes {}\n\n",
+        total_memory
+    ));
+
+    metrics.push_str("# HELP blocklist_memory_usage_percent System memory usage percentage\n");
+    metrics.push_str("# TYPE blocklist_memory_usage_percent gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_memory_usage_percent {:.2}\n\n",
+        memory_usage_percent
+    ));
+
+    // Process-specific memory (RSS)
+    metrics
+        .push_str("# HELP blocklist_process_memory_rss_bytes Process resident set size in bytes\n");
+    metrics.push_str("# TYPE blocklist_process_memory_rss_bytes gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_process_memory_rss_bytes {}\n\n",
+        process_memory_rss
+    ));
+
+    // Disk usage
+    metrics.push_str("# HELP blocklist_disk_usage_bytes Current disk usage in bytes\n");
+    metrics.push_str("# TYPE blocklist_disk_usage_bytes gauge\n");
+    metrics.push_str(&format!("blocklist_disk_usage_bytes {}\n\n", disk_used));
+
+    metrics.push_str("# HELP blocklist_disk_total_bytes Total disk space in bytes\n");
+    metrics.push_str("# TYPE blocklist_disk_total_bytes gauge\n");
+    metrics.push_str(&format!("blocklist_disk_total_bytes {}\n\n", disk_total));
+
+    metrics.push_str("# HELP blocklist_disk_usage_percent Disk usage percentage\n");
+    metrics.push_str("# TYPE blocklist_disk_usage_percent gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_disk_usage_percent {:.2}\n\n",
+        disk_usage_percent
+    ));
+
+    // Database connection metrics
+    metrics.push_str("# HELP blocklist_db_connections_active Active database connections\n");
+    metrics.push_str("# TYPE blocklist_db_connections_active gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_db_connections_active {}\n\n",
+        db_active_connections
+    ));
+
+    metrics.push_str("# HELP blocklist_db_connections_idle Idle database connections\n");
+    metrics.push_str("# TYPE blocklist_db_connections_idle gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_db_connections_idle {}\n\n",
+        db_idle_connections
+    ));
+
+    metrics.push_str("# HELP blocklist_db_connections_total Total database connection pool size\n");
+    metrics.push_str("# TYPE blocklist_db_connections_total gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_db_connections_total {}\n\n",
+        db_pool_size
+    ));
+
+    // Redis connection metrics
+    metrics.push_str("# HELP blocklist_redis_connections_active Active Redis connections\n");
+    metrics.push_str("# TYPE blocklist_redis_connections_active gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_redis_connections_active {}\n\n",
+        redis_active
+    ));
+
+    metrics.push_str("# HELP blocklist_redis_connections_available Available Redis connections\n");
+    metrics.push_str("# TYPE blocklist_redis_connections_available gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_redis_connections_available {}\n\n",
+        redis_available
+    ));
+
+    metrics.push_str("# HELP blocklist_redis_connections_total Total Redis connection pool size\n");
+    metrics.push_str("# TYPE blocklist_redis_connections_total gauge\n");
+    metrics.push_str(&format!(
+        "blocklist_redis_connections_total {}\n\n",
+        redis_pool_size
+    ));
+
+    // Job queue depth by type
+    metrics.push_str("# HELP blocklist_job_queue_depth Number of pending jobs by type\n");
+    metrics.push_str("# TYPE blocklist_job_queue_depth gauge\n");
+    for (job_type, depth) in &job_queue_depths {
+        metrics.push_str(&format!(
+            "blocklist_job_queue_depth{{job_type=\"{}\"}} {}\n",
+            job_type, depth
+        ));
+    }
+    metrics.push('\n');
+
+    // Business metrics
+    metrics.push_str("# HELP blocklist_users_total Total number of registered users\n");
+    metrics.push_str("# TYPE blocklist_users_total gauge\n");
+    metrics.push_str(&format!("blocklist_users_total {}\n\n", user_count));
+
+    metrics.push_str("# HELP blocklist_blocks_total Total number of artist blocks\n");
+    metrics.push_str("# TYPE blocklist_blocks_total gauge\n");
+    metrics.push_str(&format!("blocklist_blocks_total {}\n\n", block_count));
+
+    Ok(metrics)
+}
+
+/// Get job queue depths from Redis for each job type
+async fn get_job_queue_depths(redis_pool: &deadpool_redis::Pool) -> Vec<(String, i64)> {
+    use redis::AsyncCommands;
+
+    let job_types = [
+        "EnforcementExecution",
+        "BatchRollback",
+        "TokenRefresh",
+        "LibraryScan",
+        "CommunityListUpdate",
+        "HealthCheck",
+    ];
+
+    let mut depths = Vec::new();
+
+    if let Ok(mut conn) = redis_pool.get().await {
+        for job_type in &job_types {
+            let queue_key = format!("queue:{}", job_type);
+            let depth: i64 = conn.zcard(&queue_key).await.unwrap_or(0);
+            depths.push((job_type.to_string(), depth));
+        }
+    } else {
+        // If we can't connect to Redis, return zeros
+        for job_type in &job_types {
+            depths.push((job_type.to_string(), 0));
+        }
+    }
+
+    depths
+}
+
+/// Get business metrics from the database
+async fn get_business_metrics(db_pool: &sqlx::PgPool) -> (i64, i64) {
+    // Query user count
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(db_pool)
+        .await
+        .unwrap_or(Some(0))
+        .unwrap_or(0);
+
+    // Query block count
+    let block_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks")
+        .fetch_one(db_pool)
+        .await
+        .unwrap_or(Some(0))
+        .unwrap_or(0);
+
+    (user_count, block_count)
 }

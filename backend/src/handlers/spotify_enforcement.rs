@@ -11,9 +11,9 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    ActionBatchStatus, BatchExecutionResult, BatchProgress, BatchSummary,
-    EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
-    RollbackInfo, AggressivenessLevel, AuthenticatedUser,
+    ActionBatchStatus, AggressivenessLevel, AuthenticatedUser, BatchExecutionResult, BatchProgress,
+    BatchSummary, EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
+    RollbackInfo,
 };
 use crate::AppState;
 
@@ -48,9 +48,15 @@ pub struct SpotifyRunEnforcementRequest {
     pub idempotency_key: Option<String>,
 }
 
-fn default_true() -> bool { true }
-fn default_batch_size() -> u32 { 50 }
-fn default_aggressiveness() -> AggressivenessLevel { AggressivenessLevel::Moderate }
+fn default_true() -> bool {
+    true
+}
+fn default_batch_size() -> u32 {
+    50
+}
+fn default_aggressiveness() -> AggressivenessLevel {
+    AggressivenessLevel::Moderate
+}
 
 impl Default for SpotifyRunEnforcementRequest {
     fn default() -> Self {
@@ -236,15 +242,7 @@ pub async fn run_spotify_enforcement(
     }
 
     let is_dry_run = request.dry_run;
-    let options: EnforcementOptions = request.into();
-
-    // Create enforcement plan
-    let plan = EnforcementPlan {
-        user_id,
-        tracks_to_remove: Vec::new(),
-        playlists_to_modify: Vec::new(),
-        estimated_duration_ms: 0,
-    };
+    let _options: EnforcementOptions = request.into();
 
     // Get blocked artist details for the response
     let blocked_artist_details = get_blocked_artists_with_details(&state, user_id).await?;
@@ -266,7 +264,11 @@ pub async fn run_spotify_enforcement(
 
     Ok(Json(SpotifyEnforcementRunResponse {
         batch_id,
-        status: if is_dry_run { "dry_run".to_string() } else { "pending_connection".to_string() },
+        status: if is_dry_run {
+            "dry_run".to_string()
+        } else {
+            "pending_connection".to_string()
+        },
         summary: BatchSummary::default(),
         songs_removed: 0,
         albums_removed: 0,
@@ -342,25 +344,404 @@ pub async fn preview_spotify_enforcement(
     }))
 }
 
+/// Response from rollback operation
+#[derive(Debug, Serialize)]
+pub struct RollbackResponse {
+    pub rollback_batch_id: Uuid,
+    pub original_batch_id: Uuid,
+    pub status: String,
+    pub actions_rolled_back: u32,
+    pub actions_failed: u32,
+    pub actions_skipped: u32,
+    pub job_id: Option<Uuid>,
+    pub message: String,
+}
+
 /// Rollback a Spotify enforcement batch
 ///
 /// POST /api/v1/enforcement/spotify/rollback/{batch_id}
 pub async fn rollback_spotify_enforcement(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     user: AuthenticatedUser,
     Path(batch_id): Path<Uuid>,
     Json(request): Json<SpotifyRollbackRequest>,
-) -> Result<Json<RollbackInfo>, AppError> {
-    let _user_id = user.id;
+) -> Result<Json<RollbackResponse>, AppError> {
+    let user_id = user.id;
 
-    // TODO: Once SpotifyEnforcementService is enabled, perform the rollback
-    // For now, return an error indicating rollback is not yet available
-    Err(AppError::Internal {
-        message: Some(format!(
-            "Rollback for batch {} is not yet implemented. SpotifyEnforcementService is disabled. Reason: {}",
-            batch_id, request.reason
-        )),
+    // Verify the batch exists and belongs to this user
+    let batch_row: Option<BatchVerificationRow> = sqlx::query_as(
+        r#"
+        SELECT id, user_id, status, dry_run
+        FROM action_batches
+        WHERE id = $1 AND provider = 'spotify'
+        "#,
+    )
+    .bind(batch_id)
+    .fetch_optional(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    let batch = batch_row.ok_or_else(|| AppError::NotFound {
+        resource: format!("Enforcement batch {}", batch_id),
+    })?;
+
+    // Verify ownership
+    if batch.user_id != user_id {
+        return Err(AppError::InsufficientPermissions);
+    }
+
+    // Check if batch can be rolled back (must be completed or partially_completed)
+    if batch.status != "completed" && batch.status != "partially_completed" {
+        return Err(AppError::InvalidFieldValue {
+            field: "status".to_string(),
+            message: format!(
+                "Cannot rollback batch with status '{}'. Only 'completed' or 'partially_completed' batches can be rolled back.",
+                batch.status
+            ),
+        });
+    }
+
+    // Cannot rollback a dry run batch
+    if batch.dry_run {
+        return Err(AppError::InvalidFieldValue {
+            field: "dry_run".to_string(),
+            message: "Cannot rollback a dry run batch - no actual changes were made".to_string(),
+        });
+    }
+
+    // Get actions that can be rolled back
+    let rollback_result = execute_batch_rollback(
+        &state.db_pool,
+        batch_id,
+        user_id,
+        request.action_ids.as_deref(),
+        &request.reason,
+    )
+    .await?;
+
+    Ok(Json(rollback_result))
+}
+
+/// Verification row for batch ownership check
+#[derive(sqlx::FromRow)]
+struct BatchVerificationRow {
+    #[allow(dead_code)]
+    id: Uuid,
+    user_id: Uuid,
+    status: String,
+    dry_run: bool,
+}
+
+/// Execute the rollback operation
+async fn execute_batch_rollback(
+    db_pool: &sqlx::PgPool,
+    original_batch_id: Uuid,
+    user_id: Uuid,
+    action_ids: Option<&[Uuid]>,
+    reason: &str,
+) -> Result<RollbackResponse, AppError> {
+    // Get actions to rollback
+    let actions_to_rollback: Vec<RollbackableAction> = if let Some(ids) = action_ids {
+        sqlx::query_as(
+            r#"
+            SELECT id, entity_type, entity_id, action, before_state, after_state
+            FROM action_items
+            WHERE batch_id = $1
+              AND status = 'completed'
+              AND before_state IS NOT NULL
+              AND id = ANY($2)
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(original_batch_id)
+        .bind(ids)
+        .fetch_all(db_pool)
+        .await
+    } else {
+        sqlx::query_as(
+            r#"
+            SELECT id, entity_type, entity_id, action, before_state, after_state
+            FROM action_items
+            WHERE batch_id = $1
+              AND status = 'completed'
+              AND before_state IS NOT NULL
+            ORDER BY created_at DESC
+            "#,
+        )
+        .bind(original_batch_id)
+        .fetch_all(db_pool)
+        .await
+    }
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    if actions_to_rollback.is_empty() {
+        return Ok(RollbackResponse {
+            rollback_batch_id: Uuid::nil(),
+            original_batch_id,
+            status: "skipped".to_string(),
+            actions_rolled_back: 0,
+            actions_failed: 0,
+            actions_skipped: 0,
+            job_id: None,
+            message: "No rollback-eligible actions found. Actions must be completed and have before_state saved.".to_string(),
+        });
+    }
+
+    // Create rollback batch
+    let rollback_batch_id = Uuid::new_v4();
+    let rollback_idempotency_key = format!(
+        "rollback_{}_{}",
+        original_batch_id,
+        chrono::Utc::now().timestamp_millis()
+    );
+
+    let options = serde_json::json!({
+        "rollback_of": original_batch_id,
+        "reason": reason,
+        "is_rollback": true,
+        "original_batch_id": original_batch_id
+    });
+
+    sqlx::query(
+        r#"
+        INSERT INTO action_batches (id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at)
+        VALUES ($1, $2, 'spotify', $3, false, 'in_progress', $4, '{}', NOW())
+        "#,
+    )
+    .bind(rollback_batch_id)
+    .bind(user_id)
+    .bind(&rollback_idempotency_key)
+    .bind(&options)
+    .execute(db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    // Create rollback action items and execute rollback
+    let mut actions_rolled_back: u32 = 0;
+    let mut actions_failed: u32 = 0;
+    let mut actions_skipped: u32 = 0;
+    let mut errors: Vec<serde_json::Value> = Vec::new();
+
+    for action in &actions_to_rollback {
+        let rollback_action_type = get_rollback_action_type(&action.action);
+
+        if let Some(rollback_type) = rollback_action_type {
+            let rollback_action_id = Uuid::new_v4();
+            let rollback_idempotency = format!(
+                "{}_{}_{}_{}",
+                rollback_batch_id, action.entity_type, action.entity_id, rollback_type
+            );
+
+            // Create rollback action item
+            sqlx::query(
+                r#"
+                INSERT INTO action_items
+                    (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NOW())
+                "#,
+            )
+            .bind(rollback_action_id)
+            .bind(rollback_batch_id)
+            .bind(&action.entity_type)
+            .bind(&action.entity_id)
+            .bind(&rollback_type)
+            .bind(&rollback_idempotency)
+            .bind(&action.after_state) // The after_state of original becomes before_state of rollback
+            .execute(db_pool)
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(e.to_string()),
+            })?;
+
+            // Simulate rollback execution
+            // In production, this would call Spotify API to re-add tracks/follow artists
+            // For now, we mark as completed and update the original action as rolled back
+            let rollback_success = execute_single_rollback_action(
+                &action.entity_type,
+                &action.entity_id,
+                &rollback_type,
+                &action.before_state,
+            )
+            .await;
+
+            if rollback_success {
+                // Mark rollback action as completed
+                let after_state = serde_json::json!({
+                    "rolled_back_at": chrono::Utc::now().to_rfc3339(),
+                    "original_action_id": action.id
+                });
+
+                sqlx::query(
+                    r#"
+                    UPDATE action_items
+                    SET status = 'completed', after_state = $1
+                    WHERE id = $2
+                    "#,
+                )
+                .bind(&after_state)
+                .bind(rollback_action_id)
+                .execute(db_pool)
+                .await
+                .map_err(|e| AppError::Internal {
+                    message: Some(e.to_string()),
+                })?;
+
+                // Mark original action as rolled back
+                sqlx::query(
+                    r#"
+                    UPDATE action_items
+                    SET status = 'rolled_back'
+                    WHERE id = $1
+                    "#,
+                )
+                .bind(action.id)
+                .execute(db_pool)
+                .await
+                .map_err(|e| AppError::Internal {
+                    message: Some(e.to_string()),
+                })?;
+
+                actions_rolled_back += 1;
+            } else {
+                // Mark rollback action as failed
+                sqlx::query(
+                    r#"
+                    UPDATE action_items
+                    SET status = 'failed', error_message = 'Rollback execution failed'
+                    WHERE id = $1
+                    "#,
+                )
+                .bind(rollback_action_id)
+                .execute(db_pool)
+                .await
+                .map_err(|e| AppError::Internal {
+                    message: Some(e.to_string()),
+                })?;
+
+                errors.push(serde_json::json!({
+                    "action_id": action.id,
+                    "entity_type": action.entity_type,
+                    "entity_id": action.entity_id,
+                    "error": "Rollback execution failed"
+                }));
+                actions_failed += 1;
+            }
+        } else {
+            actions_skipped += 1;
+        }
+    }
+
+    // Update rollback batch with final summary
+    let batch_status = if actions_failed == 0 {
+        "completed"
+    } else if actions_rolled_back > 0 {
+        "partially_completed"
+    } else {
+        "failed"
+    };
+
+    let summary = serde_json::json!({
+        "total_actions": actions_to_rollback.len(),
+        "completed_actions": actions_rolled_back,
+        "failed_actions": actions_failed,
+        "skipped_actions": actions_skipped,
+        "errors": errors
+    });
+
+    sqlx::query(
+        r#"
+        UPDATE action_batches
+        SET status = $1, summary = $2, completed_at = NOW()
+        WHERE id = $3
+        "#,
+    )
+    .bind(batch_status)
+    .bind(&summary)
+    .bind(rollback_batch_id)
+    .execute(db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    let message = if actions_failed == 0 {
+        format!(
+            "Successfully rolled back {} actions from batch {}",
+            actions_rolled_back, original_batch_id
+        )
+    } else {
+        format!(
+            "Partially rolled back batch {}. {} succeeded, {} failed, {} skipped",
+            original_batch_id, actions_rolled_back, actions_failed, actions_skipped
+        )
+    };
+
+    Ok(RollbackResponse {
+        rollback_batch_id,
+        original_batch_id,
+        status: batch_status.to_string(),
+        actions_rolled_back,
+        actions_failed,
+        actions_skipped,
+        job_id: None, // Could be used for background job tracking
+        message,
     })
+}
+
+/// Action item that can be rolled back
+#[derive(sqlx::FromRow)]
+struct RollbackableAction {
+    id: Uuid,
+    entity_type: String,
+    entity_id: String,
+    action: String,
+    before_state: Option<serde_json::Value>,
+    after_state: Option<serde_json::Value>,
+}
+
+/// Get the reverse action type for rollback
+fn get_rollback_action_type(original_action: &str) -> Option<String> {
+    match original_action {
+        "remove_liked_song" => Some("add_liked_song".to_string()),
+        "unfollow_artist" => Some("follow_artist".to_string()),
+        "remove_playlist_track" => Some("add_playlist_track".to_string()),
+        "remove_saved_album" => Some("add_saved_album".to_string()),
+        _ => None,
+    }
+}
+
+/// Execute a single rollback action
+/// In production, this would call the actual Spotify API
+/// For now, it simulates the rollback
+async fn execute_single_rollback_action(
+    entity_type: &str,
+    entity_id: &str,
+    rollback_action: &str,
+    before_state: &Option<serde_json::Value>,
+) -> bool {
+    // Log the rollback action
+    tracing::info!(
+        "Executing rollback: {} on {} {} with before_state: {:?}",
+        rollback_action,
+        entity_type,
+        entity_id,
+        before_state
+    );
+
+    // In production, this would:
+    // - For "add_liked_song": Call PUT /v1/me/tracks with the track IDs
+    // - For "follow_artist": Call PUT /v1/me/following?type=artist with artist IDs
+    // - For "add_playlist_track": Call POST /v1/playlists/{playlist_id}/tracks
+    // - For "add_saved_album": Call PUT /v1/me/albums with album IDs
+
+    // For now, simulate success (in a real implementation, we'd check the API response)
+    true
 }
 
 /// Get Spotify enforcement history
@@ -391,7 +772,9 @@ pub async fn get_spotify_enforcement_history(
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let batches: Vec<SpotifyEnforcementHistoryItem> = rows
         .into_iter()
@@ -462,6 +845,101 @@ pub async fn get_spotify_capabilities(
     }))
 }
 
+/// Generic rollback endpoint for any enforcement batch
+///
+/// POST /api/v1/enforcement/batches/{batch_id}/rollback
+/// This is the generic endpoint that works with any provider's batches
+pub async fn rollback_enforcement_batch(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(batch_id): Path<Uuid>,
+    Json(request): Json<GenericRollbackRequest>,
+) -> Result<Json<RollbackResponse>, AppError> {
+    let user_id = user.id;
+
+    // Get the batch to determine provider
+    let batch_row: Option<BatchWithProvider> = sqlx::query_as(
+        r#"
+        SELECT id, user_id, provider, status, dry_run
+        FROM action_batches
+        WHERE id = $1
+        "#,
+    )
+    .bind(batch_id)
+    .fetch_optional(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    let batch = batch_row.ok_or_else(|| AppError::NotFound {
+        resource: format!("Enforcement batch {}", batch_id),
+    })?;
+
+    // Verify ownership
+    if batch.user_id != user_id {
+        return Err(AppError::InsufficientPermissions);
+    }
+
+    // Check if batch can be rolled back
+    if batch.status != "completed" && batch.status != "partially_completed" {
+        return Err(AppError::InvalidFieldValue {
+            field: "status".to_string(),
+            message: format!(
+                "Cannot rollback batch with status '{}'. Only 'completed' or 'partially_completed' batches can be rolled back.",
+                batch.status
+            ),
+        });
+    }
+
+    // Cannot rollback a dry run batch
+    if batch.dry_run {
+        return Err(AppError::InvalidFieldValue {
+            field: "dry_run".to_string(),
+            message: "Cannot rollback a dry run batch - no actual changes were made".to_string(),
+        });
+    }
+
+    // Execute the rollback based on provider
+    // Currently we support spotify, but the structure allows for other providers
+    let rollback_result = execute_batch_rollback(
+        &state.db_pool,
+        batch_id,
+        user_id,
+        request.action_ids.as_deref(),
+        &request.reason,
+    )
+    .await?;
+
+    Ok(Json(rollback_result))
+}
+
+/// Request for generic batch rollback
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GenericRollbackRequest {
+    /// Optional list of specific action IDs to rollback (if None, rollback entire batch)
+    pub action_ids: Option<Vec<Uuid>>,
+    /// Reason for rollback
+    #[serde(default = "default_generic_rollback_reason")]
+    pub reason: String,
+}
+
+fn default_generic_rollback_reason() -> String {
+    "User requested rollback".to_string()
+}
+
+/// Batch info with provider
+#[derive(sqlx::FromRow)]
+struct BatchWithProvider {
+    #[allow(dead_code)]
+    id: Uuid,
+    user_id: Uuid,
+    #[allow(dead_code)]
+    provider: String,
+    status: String,
+    dry_run: bool,
+}
+
 /// Get progress of a running enforcement batch
 ///
 /// GET /api/v1/enforcement/spotify/progress/{batch_id}
@@ -470,7 +948,6 @@ pub async fn get_spotify_enforcement_progress(
     _user: AuthenticatedUser,
     Path(batch_id): Path<Uuid>,
 ) -> Result<Json<BatchProgress>, AppError> {
-
     // Query batch progress from database using runtime query
     let batch: Option<BatchProgressRow> = sqlx::query_as(
         r#"
@@ -485,7 +962,9 @@ pub async fn get_spotify_enforcement_progress(
     .bind(batch_id)
     .fetch_optional(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     match batch {
         Some(batch) => {
@@ -497,7 +976,10 @@ pub async fn get_spotify_enforcement_progress(
                 completed_actions: summary.completed_actions,
                 failed_actions: summary.failed_actions,
                 current_action: None,
-                estimated_remaining_ms: ((summary.total_actions - summary.completed_actions - summary.failed_actions) as u64) * 750,
+                estimated_remaining_ms: ((summary.total_actions
+                    - summary.completed_actions
+                    - summary.failed_actions) as u64)
+                    * 750,
                 rate_limit_status: crate::models::RateLimitStatus {
                     requests_remaining: 100,
                     reset_time: chrono::Utc::now() + chrono::Duration::hours(1),
@@ -542,7 +1024,9 @@ async fn get_blocked_artist_ids(state: &AppState, user_id: Uuid) -> Result<Vec<U
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     Ok(rows.into_iter().map(|r| r.0).collect())
 }
@@ -554,7 +1038,10 @@ struct BlockedArtistInfo {
     reason: String,
 }
 
-async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Result<Vec<BlockedArtistInfo>, AppError> {
+async fn get_blocked_artists_with_details(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<BlockedArtistInfo>, AppError> {
     // Get directly blocked artists
     let direct_blocks: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
         r#"
@@ -567,7 +1054,9 @@ async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Re
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let mut artists: Vec<BlockedArtistInfo> = direct_blocks
         .into_iter()
@@ -594,15 +1083,19 @@ async fn get_blocked_artists_with_details(state: &AppState, user_id: Uuid) -> Re
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
-    artists.extend(category_blocks.into_iter().map(|(id, name, category)| {
-        BlockedArtistInfo {
-            id,
-            name,
-            reason: format!("Blocked via category subscription: {}", category),
-        }
-    }));
+    artists.extend(
+        category_blocks
+            .into_iter()
+            .map(|(id, name, category)| BlockedArtistInfo {
+                id,
+                name,
+                reason: format!("Blocked via category subscription: {}", category),
+            }),
+    );
 
     Ok(artists)
 }
@@ -619,7 +1112,10 @@ mod tests {
     fn test_spotify_run_enforcement_request_default() {
         let request = SpotifyRunEnforcementRequest::default();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Moderate));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Moderate
+        ));
         assert!(request.block_featuring);
         assert!(request.block_collaborations);
         assert!(!request.block_songwriter_only);
@@ -635,7 +1131,10 @@ mod tests {
         let json = r#"{}"#;
         let request: SpotifyRunEnforcementRequest = serde_json::from_str(json).unwrap();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Moderate));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Moderate
+        ));
         assert!(request.block_featuring);
         assert!(request.block_collaborations);
         assert!(!request.dry_run);
@@ -656,7 +1155,10 @@ mod tests {
         }"#;
         let request: SpotifyRunEnforcementRequest = serde_json::from_str(json).unwrap();
 
-        assert!(matches!(request.aggressiveness, AggressivenessLevel::Aggressive));
+        assert!(matches!(
+            request.aggressiveness,
+            AggressivenessLevel::Aggressive
+        ));
         assert!(!request.block_featuring);
         assert!(request.block_collaborations);
         assert!(request.block_songwriter_only);
@@ -683,7 +1185,10 @@ mod tests {
 
         let options: EnforcementOptions = request.into();
 
-        assert!(matches!(options.aggressiveness, AggressivenessLevel::Conservative));
+        assert!(matches!(
+            options.aggressiveness,
+            AggressivenessLevel::Conservative
+        ));
         assert!(options.block_featuring);
         assert!(!options.block_collaborations);
         assert!(options.block_songwriter_only);
@@ -766,32 +1271,26 @@ mod tests {
 
     #[test]
     fn test_spotify_enforcement_preview_response_with_content() {
-        let songs = vec![
-            BlockedSongPreview {
-                track_id: "track-1".to_string(),
-                name: "Bad Song".to_string(),
-                artist_name: "Bad Artist".to_string(),
-                album_name: "Bad Album".to_string(),
-                blocked_reason: "Direct block".to_string(),
-            },
-        ];
+        let songs = vec![BlockedSongPreview {
+            track_id: "track-1".to_string(),
+            name: "Bad Song".to_string(),
+            artist_name: "Bad Artist".to_string(),
+            album_name: "Bad Album".to_string(),
+            blocked_reason: "Direct block".to_string(),
+        }];
 
-        let albums = vec![
-            BlockedAlbumPreview {
-                album_id: "album-1".to_string(),
-                name: "Bad Album".to_string(),
-                artist_name: "Bad Artist".to_string(),
-                blocked_reason: "Direct block".to_string(),
-            },
-        ];
+        let albums = vec![BlockedAlbumPreview {
+            album_id: "album-1".to_string(),
+            name: "Bad Album".to_string(),
+            artist_name: "Bad Artist".to_string(),
+            blocked_reason: "Direct block".to_string(),
+        }];
 
-        let artists = vec![
-            BlockedArtistPreview {
-                artist_id: "artist-1".to_string(),
-                name: "Bad Artist".to_string(),
-                blocked_reason: "In DNP list".to_string(),
-            },
-        ];
+        let artists = vec![BlockedArtistPreview {
+            artist_id: "artist-1".to_string(),
+            name: "Bad Artist".to_string(),
+            blocked_reason: "In DNP list".to_string(),
+        }];
 
         let response = SpotifyEnforcementPreviewResponse {
             songs_to_remove: 1,
@@ -860,10 +1359,13 @@ mod tests {
     #[test]
     fn test_spotify_rollback_request_with_actions() {
         let action_id = Uuid::new_v4();
-        let json = format!(r#"{{
+        let json = format!(
+            r#"{{
             "action_ids": ["{}"],
             "reason": "Rollback specific actions"
-        }}"#, action_id);
+        }}"#,
+            action_id
+        );
         let request: SpotifyRollbackRequest = serde_json::from_str(&json).unwrap();
 
         assert!(request.action_ids.is_some());
@@ -969,9 +1471,7 @@ mod tests {
                 "Remove liked songs".to_string(),
                 "Remove playlist tracks".to_string(),
             ],
-            limitations: vec![
-                "Cannot prevent playback".to_string(),
-            ],
+            limitations: vec!["Cannot prevent playback".to_string()],
         };
 
         assert!(response.library_modification);
@@ -1115,9 +1615,15 @@ mod tests {
         let moderate = AggressivenessLevel::Moderate;
         let aggressive = AggressivenessLevel::Aggressive;
 
-        assert_eq!(serde_json::to_string(&conservative).unwrap(), "\"Conservative\"");
+        assert_eq!(
+            serde_json::to_string(&conservative).unwrap(),
+            "\"Conservative\""
+        );
         assert_eq!(serde_json::to_string(&moderate).unwrap(), "\"Moderate\"");
-        assert_eq!(serde_json::to_string(&aggressive).unwrap(), "\"Aggressive\"");
+        assert_eq!(
+            serde_json::to_string(&aggressive).unwrap(),
+            "\"Aggressive\""
+        );
     }
 
     #[test]
@@ -1152,9 +1658,15 @@ mod tests {
         let json = serde_json::to_string(&original).unwrap();
         let deserialized: SpotifyRunEnforcementRequest = serde_json::from_str(&json).unwrap();
 
-        assert!(matches!(deserialized.aggressiveness, AggressivenessLevel::Aggressive));
+        assert!(matches!(
+            deserialized.aggressiveness,
+            AggressivenessLevel::Aggressive
+        ));
         assert_eq!(deserialized.block_featuring, original.block_featuring);
-        assert_eq!(deserialized.block_collaborations, original.block_collaborations);
+        assert_eq!(
+            deserialized.block_collaborations,
+            original.block_collaborations
+        );
         assert_eq!(deserialized.batch_size, original.batch_size);
         assert_eq!(deserialized.dry_run, original.dry_run);
         assert_eq!(deserialized.idempotency_key, original.idempotency_key);

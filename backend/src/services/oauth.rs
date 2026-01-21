@@ -38,6 +38,16 @@ pub trait OAuthProvider: Send + Sync {
         Ok(())
     }
 
+    /// Validate and extract user info from ID token (for providers that use ID tokens like Apple)
+    /// This performs full JWT signature verification using the provider's public keys.
+    /// Default implementation returns an error - providers that support ID tokens should override.
+    async fn validate_id_token(&self, _id_token: &str) -> Result<OAuthUserInfo> {
+        Err(AppError::OAuthProviderError {
+            provider: self.provider_type().to_string(),
+            message: "ID token validation not supported by this provider".to_string(),
+        })
+    }
+
     /// Validate provider-specific configuration
     fn validate_config(&self) -> Result<()>;
 }

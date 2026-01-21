@@ -1,0 +1,48 @@
+# Fly.io configuration for No Drake in the House - Backend
+# See https://fly.io/docs/reference/configuration/ for details
+
+app = "nodrake-backend"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  RUST_LOG = "info,music_streaming_blocklist_backend=debug"
+  ENVIRONMENT = "production"
+  HOST = "0.0.0.0"
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+  [[http_service.checks]]
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[deploy]
+  release_command = "./backend migrate"
+
+# Secrets are set via `flyctl secrets set`:
+# flyctl secrets set JWT_SECRET=<secret> DATABASE_URL=<url> REDIS_URL=<url>
+# flyctl secrets set SPOTIFY_CLIENT_ID=<id> SPOTIFY_CLIENT_SECRET=<secret>
+# flyctl secrets set GOOGLE_CLIENT_ID=<id> GOOGLE_CLIENT_SECRET=<secret>
+# flyctl secrets set APPLE_CLIENT_ID=<id> APPLE_TEAM_ID=<id> APPLE_KEY_ID=<id> APPLE_PRIVATE_KEY=<key>

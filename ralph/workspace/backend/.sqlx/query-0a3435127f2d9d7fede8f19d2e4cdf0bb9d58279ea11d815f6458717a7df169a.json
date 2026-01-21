@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE user_artist_blocks SET tags = $3 WHERE user_id = $1 AND artist_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0a3435127f2d9d7fede8f19d2e4cdf0bb9d58279ea11d815f6458717a7df169a"
+}

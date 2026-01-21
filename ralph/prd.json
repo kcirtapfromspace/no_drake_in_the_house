@@ -1,0 +1,466 @@
+{
+  "project": "No Drake in the House",
+  "branchName": "ralph/production-readiness",
+  "description": "Production Readiness - Complete critical path from prototype to MVP: real OAuth integration, persistent token storage with KMS, token refresh lifecycle, real enforcement execution, and job queue scalability fixes.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Re-enable backend OAuth routes",
+      "description": "As a user, I want to authenticate with my streaming providers so that the app can manage my library on my behalf.",
+      "acceptanceCriteria": [
+        "OAuth routes in backend/src/handlers/ are uncommented and functional",
+        "SQLx offline cache is regenerated with all OAuth queries",
+        "cargo sqlx prepare runs successfully",
+        "OAuth endpoints return proper HTTP status codes (not 501 Not Implemented)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Implement Google OAuth end-to-end flow",
+      "description": "As a user, I want to sign in with Google so that I can use my existing account.",
+      "acceptanceCriteria": [
+        "/api/v1/auth/oauth/google/authorize returns valid authorization URL",
+        "/api/v1/auth/oauth/google/callback exchanges code for tokens",
+        "User account is created or linked on successful OAuth",
+        "Tokens are encrypted before storage using existing encryption service",
+        "Error states return appropriate error codes per error.rs OAuth mappings",
+        "Integration test with mocked Google API passes",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Implement Apple OAuth end-to-end flow",
+      "description": "As a user, I want to sign in with Apple so that I can use my Apple ID.",
+      "acceptanceCriteria": [
+        "/api/v1/auth/oauth/apple/authorize returns valid authorization URL with proper scopes",
+        "/api/v1/auth/oauth/apple/callback handles Apple's POST callback format",
+        "Apple's identity token (JWT) is validated correctly",
+        "User account is created or linked on successful OAuth",
+        "Handles Apple's hide my email relay addresses",
+        "Integration test with mocked Apple API passes",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Implement GitHub OAuth end-to-end flow",
+      "description": "As a user, I want to sign in with GitHub so that I can use my developer account.",
+      "acceptanceCriteria": [
+        "/api/v1/auth/oauth/github/authorize returns valid authorization URL",
+        "/api/v1/auth/oauth/github/callback exchanges code for tokens",
+        "User email is fetched from GitHub API handling private email case",
+        "User account is created or linked on successful OAuth",
+        "Integration test with mocked GitHub API passes",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Implement Spotify OAuth for provider connection",
+      "description": "As a user, I want to connect my Spotify account so that the app can enforce my DNP list on Spotify.",
+      "acceptanceCriteria": [
+        "/api/v1/connections/spotify/authorize returns authorization URL with required scopes",
+        "Required scopes include: user-library-read, user-library-modify, playlist-read-private, playlist-modify-private, user-follow-read, user-follow-modify",
+        "/api/v1/connections/spotify/callback stores encrypted tokens in database",
+        "Connection record created with status: Active",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Implement pluggable KMS provider interface",
+      "description": "As a developer, I need a KMS abstraction so that we can use different key management solutions.",
+      "acceptanceCriteria": [
+        "Create KmsProvider trait in backend/src/services/kms/mod.rs",
+        "Trait defines: generate_data_key(), decrypt_data_key(), rotate_key()",
+        "Implement MockKmsProvider for development/testing from existing code",
+        "KMS provider is configurable via environment variable KMS_PROVIDER",
+        "Existing TokenVaultService uses the trait instead of concrete MockKmsService",
+        "All existing token vault tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Implement HashiCorp Vault KMS provider",
+      "description": "As an operator, I need real KMS integration so that encryption keys are securely managed in production.",
+      "acceptanceCriteria": [
+        "VaultKmsProvider connects to Vault server via VAULT_ADDR env var",
+        "Authenticates using AppRole or Token auth method",
+        "Uses Vault Transit secrets engine for envelope encryption",
+        "generate_data_key() creates and returns encrypted DEK",
+        "decrypt_data_key() decrypts DEK using Vault",
+        "Handles Vault unavailability gracefully (returns error, doesn't panic)",
+        "Integration test with Vault dev server passes",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Migrate token vault to persistent storage",
+      "description": "As a user, I need my provider connections to persist across service restarts so that I don't have to reconnect constantly.",
+      "acceptanceCriteria": [
+        "Token vault reads/writes to PostgreSQL connections table (not in-memory DashMap)",
+        "Encrypted tokens stored in access_token_encrypted and refresh_token_encrypted columns",
+        "Data key ID stored with connection for decryption lookup",
+        "Connection retrieval uses database queries with proper indexing",
+        "Service restart does not lose connection data",
+        "All token vault tests updated and passing",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Implement Spotify token refresh",
+      "description": "As a user, I need my Spotify tokens to refresh automatically so that enforcement continues working.",
+      "acceptanceCriteria": [
+        "TokenVaultService::refresh_token() calls Spotify's /api/token endpoint",
+        "Uses stored refresh token to obtain new access token",
+        "Updates access_token_encrypted, refresh_token_encrypted, expires_at in database",
+        "Handles refresh token rotation (Spotify may return new refresh token)",
+        "Returns TokenRefreshResult with success: true and new expiry",
+        "On failure, updates connection status to NeedsReauth",
+        "Logs refresh attempts with correlation ID",
+        "Integration test with mocked Spotify API passes",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Implement Apple Music token refresh",
+      "description": "As a user, I need my Apple Music tokens to refresh automatically.",
+      "acceptanceCriteria": [
+        "Implement Apple Music token refresh flow (developer token + user token)",
+        "Handle Apple's 6-month user token expiry",
+        "Update connection record on successful refresh",
+        "On failure, update connection status to NeedsReauth",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Implement proactive token refresh background job",
+      "description": "As a system, I need to refresh tokens before they expire so that users don't experience service interruptions.",
+      "acceptanceCriteria": [
+        "Background job runs every hour (configurable via TOKEN_REFRESH_INTERVAL_HOURS)",
+        "Queries connections expiring within 24 hours",
+        "Refreshes tokens in batches with rate limiting",
+        "Uses TokenRefreshJobHandler in job queue",
+        "Failed refreshes are retried with exponential backoff",
+        "After max retries, connection marked NeedsReauth",
+        "Metrics emitted: tokens_refreshed_total, token_refresh_failures_total",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Implement connection health check endpoint",
+      "description": "As a user, I want to see if my provider connections are healthy so that I know if enforcement will work.",
+      "acceptanceCriteria": [
+        "GET /api/v1/connections returns list with health status for each",
+        "Health status includes: active, expiring_soon, needs_reauth, error",
+        "expiring_soon = expires within 24 hours",
+        "Response includes last_used_at and expires_at timestamps",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Implement real Spotify library scan",
+      "description": "As a user, I want the app to scan my actual Spotify library so that enforcement plans are based on real data.",
+      "acceptanceCriteria": [
+        "SpotifyService::scan_library() fetches real liked songs via Spotify API",
+        "Fetches saved albums, followed artists, and user playlists",
+        "Handles pagination (Spotify returns max 50 items per request)",
+        "Respects Spotify rate limits (429 responses trigger backoff)",
+        "Returns structured LibraryScanResult with counts and items",
+        "Scan progress is trackable via job queue",
+        "Integration test with mocked Spotify API passes",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Implement real Spotify enforcement execution",
+      "description": "As a user, I want enforcement to actually remove blocked artists from my Spotify library.",
+      "acceptanceCriteria": [
+        "execute_action_batch() in enforcement_job_handler.rs calls real Spotify APIs",
+        "remove_liked_song action calls DELETE /v1/me/tracks",
+        "unfollow_artist action calls DELETE /v1/me/following",
+        "remove_playlist_track action calls DELETE /v1/playlists/{id}/tracks",
+        "Each action records before_state and after_state for rollback",
+        "Failed actions don't stop batch; errors collected and reported",
+        "Rate limiting respected with automatic backoff",
+        "Batch results stored in action_items table",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Implement enforcement rollback",
+      "description": "As a user, I want to undo an enforcement batch if I made a mistake.",
+      "acceptanceCriteria": [
+        "POST /api/v1/enforcement/batches/{id}/rollback triggers rollback job",
+        "Rollback reads before_state from action_items table",
+        "Re-adds removed liked songs via PUT /v1/me/tracks",
+        "Re-follows unfollowed artists via PUT /v1/me/following",
+        "Re-adds removed playlist tracks (best effort)",
+        "Rollback batch created with reference to original batch",
+        "Progress tracked via job queue",
+        "Returns actual actions_rolled_back count (not hardcoded 0)",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Implement Apple Music enforcement",
+      "description": "As a user, I want enforcement to work on my Apple Music library.",
+      "acceptanceCriteria": [
+        "Library scan fetches Apple Music library via MusicKit API",
+        "Enforcement removes songs from library via API",
+        "Handles Apple Music's different API structure",
+        "Rate limiting respected",
+        "Rollback supported",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Implement YouTube Music enforcement",
+      "description": "As a user, I want enforcement to work on my YouTube Music library.",
+      "acceptanceCriteria": [
+        "OAuth flow for YouTube/Google account connection",
+        "Library scan via YouTube Data API",
+        "Enforcement removes liked videos/songs",
+        "Handles YouTube Music's playlist structure",
+        "Rate limiting respected",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Implement Tidal enforcement",
+      "description": "As a user, I want enforcement to work on my Tidal library.",
+      "acceptanceCriteria": [
+        "OAuth flow for Tidal account connection",
+        "Library scan via Tidal API",
+        "Enforcement removes favorites and playlist items",
+        "Rate limiting respected",
+        "Integration test passes",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Replace Redis KEYS with SCAN",
+      "description": "As a system, I need efficient Redis queries so that the job queue doesn't block at scale.",
+      "acceptanceCriteria": [
+        "get_user_jobs() in job_queue.rs uses SCAN instead of KEYS",
+        "cleanup_jobs() uses SCAN with cursor iteration",
+        "Batch size configurable (default 100)",
+        "No use of KEYS * pattern anywhere in codebase",
+        "Existing job queue tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Add job index by user ID",
+      "description": "As a system, I need efficient job lookups by user so that the dashboard loads quickly.",
+      "acceptanceCriteria": [
+        "Add Redis sorted set user:{user_id}:jobs indexing job IDs",
+        "Jobs added to user index on enqueue",
+        "Jobs removed from user index on cleanup",
+        "get_user_jobs() queries user index instead of scanning all jobs",
+        "Index maintained atomically with job operations",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Implement data key cache with LRU eviction",
+      "description": "As a system, I need bounded memory usage for the data key cache.",
+      "acceptanceCriteria": [
+        "Replace unbounded DashMap in TokenVaultService with LRU cache",
+        "Default capacity: 10,000 keys",
+        "Capacity configurable via DATA_KEY_CACHE_SIZE env var",
+        "Cache miss triggers KMS fetch and caches result",
+        "Metrics: data_key_cache_hits, data_key_cache_misses",
+        "Existing token vault tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Implement real system metrics",
+      "description": "As an operator, I need real system metrics so that I can monitor service health.",
+      "acceptanceCriteria": [
+        "/metrics returns real CPU usage (via sysinfo crate)",
+        "Returns real memory usage (heap and RSS)",
+        "Returns disk usage for data directory",
+        "Returns active database connection count",
+        "Returns Redis connection pool stats",
+        "Returns job queue depth by job type",
+        "Metrics in Prometheus format",
+        "No placeholder values in metrics output",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Implement request latency metrics",
+      "description": "As an operator, I need latency metrics so that I can identify slow endpoints.",
+      "acceptanceCriteria": [
+        "Middleware records latency for all HTTP requests",
+        "Histogram buckets: 10ms, 50ms, 100ms, 250ms, 500ms, 1000ms, 5000ms",
+        "Labels: method, path, status_code",
+        "P50, P90, P99 calculable from histogram",
+        "Metrics available at /metrics",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Implement enforcement analytics",
+      "description": "As a user, I want to see statistics about my enforcement history.",
+      "acceptanceCriteria": [
+        "GET /api/v1/analytics/enforcement returns real data (not placeholders)",
+        "Returns: total batches, total actions, success rate, actions by type",
+        "Time-series data for last 30 days",
+        "Filtered by provider",
+        "Proper authorization (users see only their data)",
+        "Response time < 500ms",
+        "Typecheck passes"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Implement user activity dashboard data",
+      "description": "As a user, I want to see my activity summary on the dashboard.",
+      "acceptanceCriteria": [
+        "GET /api/v1/analytics/summary returns user activity summary",
+        "Includes: DNP list size, connected providers, recent enforcement count",
+        "Includes: last enforcement date, next scheduled scan",
+        "Cached for 5 minutes to reduce database load",
+        "Typecheck passes"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Implement circuit breaker for provider APIs",
+      "description": "As a system, I need circuit breakers so that provider outages don't cascade.",
+      "acceptanceCriteria": [
+        "Circuit breaker wraps all provider API calls",
+        "Opens after 5 consecutive failures within 1 minute",
+        "Half-open state allows 1 test request every 30 seconds",
+        "Closes after 3 successful requests in half-open",
+        "Metrics: circuit_breaker_state, circuit_breaker_trips_total",
+        "When open, returns ProviderUnavailable error immediately",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Implement graceful degradation for token refresh failures",
+      "description": "As a user, I need clear feedback when my provider connection needs attention.",
+      "acceptanceCriteria": [
+        "After token refresh failure, connection status = NeedsReauth",
+        "User receives in-app notification (not just silent failure)",
+        "Enforcement jobs skip providers with NeedsReauth status (with explanation)",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

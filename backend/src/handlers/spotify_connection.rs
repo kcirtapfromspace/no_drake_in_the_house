@@ -15,7 +15,9 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
-use crate::models::oauth::{OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo};
+use crate::models::oauth::{
+    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
+};
 use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_spotify::SpotifyOAuthProvider;

@@ -627,10 +627,7 @@ impl AppleMusicService {
 
     /// Get current connection for a user
     pub async fn get_user_connection(&self, user_id: Uuid) -> Result<Option<Connection>> {
-        let connections = self
-            .token_vault
-            .get_user_connections(user_id)
-            .await;
+        let connections = self.token_vault.get_user_connections(user_id).await;
         Ok(connections
             .into_iter()
             .find(|c| c.provider == StreamingProvider::AppleMusic))

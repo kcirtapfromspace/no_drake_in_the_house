@@ -68,8 +68,8 @@ pub use services::news_pipeline::{
     NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
 };
 pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
-pub use services::{TokenVaultBackgroundService, TokenVaultService, TokenVaultStatistics};
 pub use services::{CircuitBreakerConfig, CircuitBreakerService};
+pub use services::{TokenVaultBackgroundService, TokenVaultService, TokenVaultStatistics};
 pub use validation::{validate_email, validate_password, validate_totp_code, ValidatedJson};
 
 // Re-export stub services for testing

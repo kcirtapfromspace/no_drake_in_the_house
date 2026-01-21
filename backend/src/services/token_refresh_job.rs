@@ -361,9 +361,7 @@ impl TokenRefreshBackgroundJob {
                 if state.exceeded_max_retries(self.config.max_retries) {
                     let last_error = state.last_error.clone();
                     drop(retry_states);
-                    return self
-                        .mark_needs_reauth(connection_id, last_error)
-                        .await;
+                    return self.mark_needs_reauth(connection_id, last_error).await;
                 }
             }
         }

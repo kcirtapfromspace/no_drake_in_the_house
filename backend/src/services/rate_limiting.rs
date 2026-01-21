@@ -376,7 +376,8 @@ impl RateLimitingService {
             };
 
             let state_json = serde_json::to_string(&state)?;
-            let _: () = conn.set_ex(&key, state_json, config.window_duration_seconds as u64)
+            let _: () = conn
+                .set_ex(&key, state_json, config.window_duration_seconds as u64)
                 .await?;
             Ok(state)
         }

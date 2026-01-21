@@ -487,9 +487,7 @@ impl MetricsCollector {
         let cpu_percent = if sys.cpus().is_empty() {
             0.0
         } else {
-            sys.cpus().iter()
-                .map(|cpu| cpu.cpu_usage())
-                .sum::<f32>() / sys.cpus().len() as f32
+            sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32
         };
         self.cpu_usage_percent.set(cpu_percent as f64);
 

@@ -770,7 +770,8 @@ impl SpotifyService {
     /// using the Spotify API with proper pagination (50 items max per request) and
     /// rate limit handling (exponential backoff on 429 responses).
     pub async fn scan_library(&self, connection: &Connection) -> Result<SpotifyLibraryScanResult> {
-        self.scan_library_with_progress::<fn(u32, u32, &str)>(connection, None).await
+        self.scan_library_with_progress::<fn(u32, u32, &str)>(connection, None)
+            .await
     }
 
     /// Scan user's complete Spotify library with optional progress callback

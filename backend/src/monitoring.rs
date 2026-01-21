@@ -178,9 +178,7 @@ impl MonitoringSystem {
         let cpu_usage_percent = if sys.cpus().is_empty() {
             0.0
         } else {
-            sys.cpus().iter()
-                .map(|cpu| cpu.cpu_usage())
-                .sum::<f32>() / sys.cpus().len() as f32
+            sys.cpus().iter().map(|cpu| cpu.cpu_usage()).sum::<f32>() / sys.cpus().len() as f32
         };
         let uptime_seconds = self.start_time.elapsed().as_secs();
 

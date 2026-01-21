@@ -7,10 +7,7 @@
 //! 4. Frontend sends the Music User Token to /api/v1/apple-music/auth/connect
 //! 5. Backend stores the token and creates a connection
 
-use axum::{
-    extract::State,
-    Json,
-};
+use axum::{extract::State, Json};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 

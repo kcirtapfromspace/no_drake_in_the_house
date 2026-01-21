@@ -202,11 +202,7 @@ impl ArtistRepository {
     }
 
     /// Create a sync run record and return its ID
-    pub async fn create_sync_run(
-        &self,
-        platform: &Platform,
-        sync_type: &str,
-    ) -> Result<Uuid> {
+    pub async fn create_sync_run(&self, platform: &Platform, sync_type: &str) -> Result<Uuid> {
         let platform_str = format!("{:?}", platform).to_lowercase();
 
         let run_id = sqlx::query_scalar!(
@@ -296,12 +292,10 @@ impl ArtistRepository {
 
     /// Get total artist count
     pub async fn get_artist_count(&self) -> Result<i64> {
-        let count = sqlx::query_scalar!(
-            r#"SELECT COUNT(*) as "count!" FROM artists"#
-        )
-        .fetch_one(&self.db_pool)
-        .await
-        .context("Failed to count artists")?;
+        let count = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM artists"#)
+            .fetch_one(&self.db_pool)
+            .await
+            .context("Failed to count artists")?;
 
         Ok(count)
     }

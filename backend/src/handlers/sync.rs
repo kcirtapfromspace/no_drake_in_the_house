@@ -129,7 +129,9 @@ pub async fn get_sync_status_handler(
         .catalog_sync
         .get_status()
         .await
-        .map_err(|e| AppError::Internal { message: Some(format!("Failed to get sync status: {}", e)) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to get sync status: {}", e)),
+        })?;
 
     // Get health status for all platforms
     let health_results = state.catalog_sync.health_check_all().await;
@@ -138,14 +140,12 @@ pub async fn get_sync_status_handler(
     let platforms: Vec<PlatformStatusItem> = overall_status
         .platforms
         .iter()
-        .map(|(platform, status)| {
-            PlatformStatusItem {
-                platform: format!("{:?}", platform).to_lowercase(),
-                is_healthy: *health_results.get(platform).unwrap_or(&false),
-                last_sync: status.last_sync.map(|dt| dt.to_rfc3339()),
-                artists_synced: status.artists_synced,
-                is_syncing: status.current_run.is_some(),
-            }
+        .map(|(platform, status)| PlatformStatusItem {
+            platform: format!("{:?}", platform).to_lowercase(),
+            is_healthy: *health_results.get(platform).unwrap_or(&false),
+            last_sync: status.last_sync.map(|dt| dt.to_rfc3339()),
+            artists_synced: status.artists_synced,
+            is_syncing: status.current_run.is_some(),
         })
         .collect();
 
@@ -156,7 +156,9 @@ pub async fn get_sync_status_handler(
         platforms,
         total_artists: overall_status.total_artists,
         last_full_sync: overall_status.last_full_sync.map(|dt| dt.to_rfc3339()),
-        last_incremental_sync: overall_status.last_incremental_sync.map(|dt| dt.to_rfc3339()),
+        last_incremental_sync: overall_status
+            .last_incremental_sync
+            .map(|dt| dt.to_rfc3339()),
     };
 
     Ok(Json(serde_json::json!({
@@ -237,7 +239,9 @@ pub async fn trigger_sync_handler(
         .catalog_sync
         .trigger_sync(trigger_request)
         .await
-        .map_err(|e| AppError::Internal { message: Some(format!("Failed to trigger sync: {}", e)) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to trigger sync: {}", e)),
+        })?;
 
     tracing::info!(
         run_ids = ?run_ids,
@@ -412,7 +416,9 @@ pub async fn cross_platform_search_handler(
         .catalog_sync
         .search_artist_all_platforms(&query.q, query.limit_per_platform)
         .await
-        .map_err(|e| AppError::Internal { message: Some(format!("Search failed: {}", e)) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Search failed: {}", e)),
+        })?;
 
     // Convert to JSON-friendly format
     let results: std::collections::HashMap<String, Vec<serde_json::Value>> = search_results
@@ -512,11 +518,15 @@ pub async fn trigger_credits_sync_handler(
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     tracing::info!("Credits sync trigger request");
 
-    let credits_sync = state.credits_sync.as_ref().ok_or_else(|| {
-        AppError::Internal {
-            message: Some("Credits sync service not configured (Apple Music credentials required)".to_string()),
-        }
-    })?;
+    let credits_sync = state
+        .credits_sync
+        .as_ref()
+        .ok_or_else(|| AppError::Internal {
+            message: Some(
+                "Credits sync service not configured (Apple Music credentials required)"
+                    .to_string(),
+            ),
+        })?;
 
     // Clone the Arc to spawn a background task
     let credits_sync = credits_sync.clone();
@@ -556,11 +566,15 @@ pub async fn trigger_artist_credits_sync_handler(
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     tracing::info!(artist_id = %artist_id, "Artist credits sync trigger request");
 
-    let credits_sync = state.credits_sync.as_ref().ok_or_else(|| {
-        AppError::Internal {
-            message: Some("Credits sync service not configured (Apple Music credentials required)".to_string()),
-        }
-    })?;
+    let credits_sync = state
+        .credits_sync
+        .as_ref()
+        .ok_or_else(|| AppError::Internal {
+            message: Some(
+                "Credits sync service not configured (Apple Music credentials required)"
+                    .to_string(),
+            ),
+        })?;
 
     // Clone the Arc to spawn a background task
     let credits_sync = credits_sync.clone();
@@ -613,22 +627,25 @@ pub async fn get_credits_sync_status_handler(
     .await
     .map_err(|e| AppError::Internal { message: Some(format!("Failed to query sync runs: {}", e)) })?;
 
-    let run_list: Vec<serde_json::Value> = runs.iter().map(|r| {
-        serde_json::json!({
-            "id": r.0,
-            "artist_id": r.1,
-            "platform": r.2,
-            "status": r.3,
-            "albums_processed": r.4,
-            "tracks_processed": r.5,
-            "credits_added": r.6,
-            "completed_at": r.7.map(|dt| dt.to_rfc3339())
+    let run_list: Vec<serde_json::Value> = runs
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "id": r.0,
+                "artist_id": r.1,
+                "platform": r.2,
+                "status": r.3,
+                "albums_processed": r.4,
+                "tracks_processed": r.5,
+                "credits_added": r.6,
+                "completed_at": r.7.map(|dt| dt.to_rfc3339())
+            })
         })
-    }).collect();
+        .collect();
 
     // Get totals
     let totals = sqlx::query_as::<_, (i64, i64, i64)>(
-        "SELECT COUNT(DISTINCT album_id), COUNT(*), COUNT(*) FROM tracks, track_credits"
+        "SELECT COUNT(DISTINCT album_id), COUNT(*), COUNT(*) FROM tracks, track_credits",
     )
     .fetch_optional(&state.db_pool)
     .await
@@ -745,7 +762,10 @@ pub async fn import_charts_handler(
         .catalog_sync
         .get_worker(&Platform::AppleMusic)
         .ok_or_else(|| AppError::Internal {
-            message: Some("Apple Music worker not configured. Set APPLE_MUSIC_* environment variables.".to_string()),
+            message: Some(
+                "Apple Music worker not configured. Set APPLE_MUSIC_* environment variables."
+                    .to_string(),
+            ),
         })?;
 
     // Clone for background task
@@ -765,10 +785,26 @@ pub async fn import_charts_handler(
         // Import using search for popular artist names as fallback
         // In production, this would use the fetch_top_artists_bulk method
         let popular_searches = [
-            "Taylor Swift", "Drake", "The Weeknd", "Bad Bunny", "Ed Sheeran",
-            "Dua Lipa", "Harry Styles", "Post Malone", "Billie Eilish", "Ariana Grande",
-            "BTS", "Doja Cat", "Justin Bieber", "Kendrick Lamar", "Travis Scott",
-            "Kanye West", "Rihanna", "Beyonce", "Eminem", "Jay-Z",
+            "Taylor Swift",
+            "Drake",
+            "The Weeknd",
+            "Bad Bunny",
+            "Ed Sheeran",
+            "Dua Lipa",
+            "Harry Styles",
+            "Post Malone",
+            "Billie Eilish",
+            "Ariana Grande",
+            "BTS",
+            "Doja Cat",
+            "Justin Bieber",
+            "Kendrick Lamar",
+            "Travis Scott",
+            "Kanye West",
+            "Rihanna",
+            "Beyonce",
+            "Eminem",
+            "Jay-Z",
         ];
 
         for artist_name in popular_searches {
@@ -776,7 +812,10 @@ pub async fn import_charts_handler(
                 break;
             }
 
-            match orchestrator.search_and_persist(&Platform::AppleMusic, artist_name, 5, Some(run_id)).await {
+            match orchestrator
+                .search_and_persist(&Platform::AppleMusic, artist_name, 5, Some(run_id))
+                .await
+            {
                 Ok(count) => {
                     imported += count as usize;
                     tracing::debug!("Imported {} artists from search '{}'", count, artist_name);
@@ -883,11 +922,12 @@ pub async fn backfill_offenses_handler(
     );
 
     // Check if backfill orchestrator is available
-    let backfill = state.backfill_orchestrator.as_ref().ok_or_else(|| {
-        AppError::Internal {
+    let backfill = state
+        .backfill_orchestrator
+        .as_ref()
+        .ok_or_else(|| AppError::Internal {
             message: Some("Backfill orchestrator not configured".to_string()),
-        }
-    })?;
+        })?;
 
     // Check if already running
     if backfill.is_running().await {
@@ -955,11 +995,12 @@ pub async fn backfill_status_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Backfill status request");
 
-    let backfill = state.backfill_orchestrator.as_ref().ok_or_else(|| {
-        AppError::Internal {
+    let backfill = state
+        .backfill_orchestrator
+        .as_ref()
+        .ok_or_else(|| AppError::Internal {
             message: Some("Backfill orchestrator not configured".to_string()),
-        }
-    })?;
+        })?;
 
     let progress = backfill.get_progress().await;
     let is_running = backfill.is_running().await;

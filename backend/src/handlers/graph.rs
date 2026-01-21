@@ -101,12 +101,14 @@ pub async fn get_artist_network_handler(
 
     // Get center artist
     let center_artist: Option<(String, Option<String>, Option<Vec<String>>)> = sqlx::query_as(
-        r#"SELECT canonical_name, metadata->>'image_url', genres FROM artists WHERE id = $1"#
+        r#"SELECT canonical_name, metadata->>'image_url', genres FROM artists WHERE id = $1"#,
     )
     .bind(artist_id)
     .fetch_optional(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let center = center_artist.ok_or_else(|| AppError::NotFound {
         resource: "Artist".to_string(),
@@ -114,7 +116,7 @@ pub async fn get_artist_network_handler(
 
     // Check if center artist is blocked by user
     let center_blocked: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2)"
+        "SELECT EXISTS(SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2)",
     )
     .bind(user.id)
     .bind(artist_id)
@@ -182,7 +184,9 @@ pub async fn get_artist_network_handler(
         "image_url": center.1
     })];
 
-    for (id, name, image_url, genres, _distance, _conn_type, _collab_count, is_blocked) in &network_artists {
+    for (id, name, image_url, genres, _distance, _conn_type, _collab_count, is_blocked) in
+        &network_artists
+    {
         nodes.push(serde_json::json!({
             "id": id,
             "name": name,
@@ -194,40 +198,69 @@ pub async fn get_artist_network_handler(
     }
 
     // Get edges (collaborations) between the artists in the network
-    let artist_ids: Vec<Uuid> = nodes.iter()
-        .filter_map(|n| n.get("id").and_then(|v| v.as_str()).and_then(|s| Uuid::parse_str(s).ok()))
+    let artist_ids: Vec<Uuid> = nodes
+        .iter()
+        .filter_map(|n| {
+            n.get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Uuid::parse_str(s).ok())
+        })
         .collect();
 
-    let edges: Vec<(Uuid, Uuid, String, i32)> = sqlx::query_as(r#"
+    let edges: Vec<(Uuid, Uuid, String, i32)> = sqlx::query_as(
+        r#"
         SELECT artist_id_1, artist_id_2, collaboration_type, track_count
         FROM artist_collaborations
         WHERE artist_id_1 = ANY($1) AND artist_id_2 = ANY($1)
-    "#)
+    "#,
+    )
     .bind(&artist_ids)
     .fetch_all(&state.db_pool)
     .await
     .unwrap_or_default();
 
-    let edge_list: Vec<serde_json::Value> = edges.iter().map(|(a1, a2, collab_type, count)| {
-        serde_json::json!({
-            "source": a1,
-            "target": a2,
-            "type": "collaborated_with",
-            "weight": (*count as f64).sqrt().max(1.0).min(5.0),
-            "metadata": {
-                "collaboration_type": collab_type,
-                "track_count": count
-            }
+    let edge_list: Vec<serde_json::Value> = edges
+        .iter()
+        .map(|(a1, a2, collab_type, count)| {
+            serde_json::json!({
+                "source": a1,
+                "target": a2,
+                "type": "collaborated_with",
+                "weight": (*count as f64).sqrt().max(1.0).min(5.0),
+                "metadata": {
+                    "collaboration_type": collab_type,
+                    "track_count": count
+                }
+            })
         })
-    }).collect();
+        .collect();
 
     // Calculate stats
     let total_nodes = nodes.len();
     let total_edges = edge_list.len();
-    let blocked_nodes = nodes.iter().filter(|n| n.get("is_blocked").and_then(|v| v.as_bool()).unwrap_or(false)).count();
-    let blocked_percentage = if total_nodes > 0 { (blocked_nodes as f64 / total_nodes as f64) * 100.0 } else { 0.0 };
-    let avg_degree = if total_nodes > 0 { (total_edges as f64 * 2.0) / total_nodes as f64 } else { 0.0 };
-    let density = if total_nodes > 1 { (total_edges as f64 * 2.0) / (total_nodes as f64 * (total_nodes as f64 - 1.0)) } else { 0.0 };
+    let blocked_nodes = nodes
+        .iter()
+        .filter(|n| {
+            n.get("is_blocked")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
+        .count();
+    let blocked_percentage = if total_nodes > 0 {
+        (blocked_nodes as f64 / total_nodes as f64) * 100.0
+    } else {
+        0.0
+    };
+    let avg_degree = if total_nodes > 0 {
+        (total_edges as f64 * 2.0) / total_nodes as f64
+    } else {
+        0.0
+    };
+    let density = if total_nodes > 1 {
+        (total_edges as f64 * 2.0) / (total_nodes as f64 * (total_nodes as f64 - 1.0))
+    } else {
+        0.0
+    };
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -269,7 +302,9 @@ pub async fn get_collaborators_handler(
     tracing::info!(artist_id = %artist_id, "Get collaborators request");
 
     // Get collaborators from artist_collaborations table with track details
-    let collaborators: Vec<(Uuid, String, String, i32, Option<String>, Option<i32>)> = sqlx::query_as(r#"
+    let collaborators: Vec<(Uuid, String, String, i32, Option<String>, Option<i32>)> =
+        sqlx::query_as(
+            r#"
         WITH collab_artists AS (
             SELECT
                 CASE
@@ -294,17 +329,21 @@ pub async fn get_collaborators_handler(
         LEFT JOIN tracks t ON t.id = ANY(ca.sample_track_ids)
         ORDER BY ca.track_count DESC, a.canonical_name ASC
         LIMIT $2
-    "#)
-    .bind(artist_id)
-    .bind(query.limit)
-    .fetch_all(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    "#,
+        )
+        .bind(artist_id)
+        .bind(query.limit)
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     // If no collaborations found in dedicated table, try track_credits
     let collaborators_list: Vec<serde_json::Value> = if collaborators.is_empty() {
         // Fallback to track_credits for finding collaborators
-        let credit_collabs: Vec<(Uuid, String, String, String, Option<i32>)> = sqlx::query_as(r#"
+        let credit_collabs: Vec<(Uuid, String, String, String, Option<i32>)> = sqlx::query_as(
+            r#"
             SELECT DISTINCT
                 a2.id as artist_id,
                 a2.canonical_name as artist_name,
@@ -319,32 +358,39 @@ pub async fn get_collaborators_handler(
             AND tc2.artist_id != $1
             ORDER BY a2.canonical_name
             LIMIT $2
-        "#)
+        "#,
+        )
         .bind(artist_id)
         .bind(query.limit)
         .fetch_all(&state.db_pool)
         .await
         .unwrap_or_default();
 
-        credit_collabs.iter().map(|(id, name, collab_type, track_title, year)| {
-            serde_json::json!({
-                "artist_id": id,
-                "artist_name": name,
-                "collab_type": collab_type,
-                "track_title": track_title,
-                "year": year
+        credit_collabs
+            .iter()
+            .map(|(id, name, collab_type, track_title, year)| {
+                serde_json::json!({
+                    "artist_id": id,
+                    "artist_name": name,
+                    "collab_type": collab_type,
+                    "track_title": track_title,
+                    "year": year
+                })
             })
-        }).collect()
+            .collect()
     } else {
-        collaborators.iter().map(|(id, name, collab_type, _count, track_title, year)| {
-            serde_json::json!({
-                "artist_id": id,
-                "artist_name": name,
-                "collab_type": collab_type,
-                "track_title": track_title,
-                "year": year
+        collaborators
+            .iter()
+            .map(|(id, name, collab_type, _count, track_title, year)| {
+                serde_json::json!({
+                    "artist_id": id,
+                    "artist_name": name,
+                    "collab_type": collab_type,
+                    "track_title": track_title,
+                    "year": year
+                })
             })
-        }).collect()
+            .collect()
     };
 
     let total = collaborators_list.len();
@@ -379,25 +425,27 @@ pub async fn find_path_handler(
     }
 
     // Verify both artists exist
-    let from_artist: Option<(String, Option<String>)> = sqlx::query_as(
-        "SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1"
-    )
-    .bind(from_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    let from_artist: Option<(String, Option<String>)> =
+        sqlx::query_as("SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1")
+            .bind(from_id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(e.to_string()),
+            })?;
 
     let from_artist = from_artist.ok_or_else(|| AppError::NotFound {
         resource: format!("Source artist {}", from_id),
     })?;
 
-    let to_artist: Option<(String, Option<String>)> = sqlx::query_as(
-        "SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1"
-    )
-    .bind(to_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    let to_artist: Option<(String, Option<String>)> =
+        sqlx::query_as("SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1")
+            .bind(to_id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(e.to_string()),
+            })?;
 
     let to_artist = to_artist.ok_or_else(|| AppError::NotFound {
         resource: format!("Target artist {}", to_id),
@@ -485,15 +533,18 @@ pub async fn find_path_handler(
     }
 
     // Build path nodes
-    let path_nodes: Vec<serde_json::Value> = path_result.iter().map(|(id, name, image_url, _pos, _prev, is_blocked)| {
-        serde_json::json!({
-            "id": id,
-            "name": name,
-            "type": "artist",
-            "is_blocked": is_blocked,
-            "image_url": image_url
+    let path_nodes: Vec<serde_json::Value> = path_result
+        .iter()
+        .map(|(id, name, image_url, _pos, _prev, is_blocked)| {
+            serde_json::json!({
+                "id": id,
+                "name": name,
+                "type": "artist",
+                "is_blocked": is_blocked,
+                "image_url": image_url
+            })
         })
-    }).collect();
+        .collect();
 
     // Build edges between consecutive path nodes
     let mut edges = Vec::new();
@@ -509,7 +560,9 @@ pub async fn find_path_handler(
     }
 
     // Check if path goes through any blocked artist
-    let via_blocked = path_result.iter().any(|(_, _, _, _, _, is_blocked)| *is_blocked);
+    let via_blocked = path_result
+        .iter()
+        .any(|(_, _, _, _, _, is_blocked)| *is_blocked);
     let total_distance = path_result.len() - 1;
 
     Ok(Json(serde_json::json!({
@@ -537,16 +590,20 @@ pub async fn analyze_blocked_network_handler(
     );
 
     // Get user's blocked artists
-    let blocked_artists: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(r#"
+    let blocked_artists: Vec<(Uuid, String, Option<String>)> = sqlx::query_as(
+        r#"
         SELECT a.id, a.canonical_name, a.metadata->>'image_url'
         FROM user_artist_blocks uab
         JOIN artists a ON a.id = uab.artist_id
         WHERE uab.user_id = $1
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     if blocked_artists.is_empty() {
         return Ok(Json(serde_json::json!({
@@ -566,7 +623,8 @@ pub async fn analyze_blocked_network_handler(
     let blocked_ids: Vec<Uuid> = blocked_artists.iter().map(|(id, _, _)| *id).collect();
 
     // Find artists who collaborate with blocked artists (at-risk artists)
-    let at_risk: Vec<(Uuid, String, Option<String>, i64, f64)> = sqlx::query_as(r#"
+    let at_risk: Vec<(Uuid, String, Option<String>, i64, f64)> = sqlx::query_as(
+        r#"
         WITH blocked_collabs AS (
             SELECT
                 CASE
@@ -590,18 +648,21 @@ pub async fn analyze_blocked_network_handler(
         GROUP BY a.id, a.canonical_name, a.metadata->>'image_url'
         ORDER BY risk_score DESC
         LIMIT 50
-    "#)
+    "#,
+    )
     .bind(&blocked_ids)
     .fetch_all(&state.db_pool)
     .await
     .unwrap_or_default();
 
     // Calculate average collaborations per blocked artist
-    let total_collaborations: i64 = sqlx::query_scalar(r#"
+    let total_collaborations: i64 = sqlx::query_scalar(
+        r#"
         SELECT COALESCE(SUM(track_count), 0)::bigint
         FROM artist_collaborations
         WHERE artist_id_1 = ANY($1) OR artist_id_2 = ANY($1)
-    "#)
+    "#,
+    )
     .bind(&blocked_ids)
     .fetch_one(&state.db_pool)
     .await
@@ -614,35 +675,41 @@ pub async fn analyze_blocked_network_handler(
     };
 
     // Build at-risk artists list
-    let at_risk_artists: Vec<serde_json::Value> = at_risk.iter().map(|(id, name, image_url, blocked_count, risk_score)| {
-        let normalized_risk = (*risk_score / 10.0).min(1.0);
-        serde_json::json!({
-            "artist": {
-                "id": id,
-                "name": name,
-                "genres": [],
-                "is_blocked": false,
-                "image_url": image_url
-            },
-            "blocked_collaborators": blocked_count,
-            "risk_score": (normalized_risk * 100.0).round() / 100.0
+    let at_risk_artists: Vec<serde_json::Value> = at_risk
+        .iter()
+        .map(|(id, name, image_url, blocked_count, risk_score)| {
+            let normalized_risk = (*risk_score / 10.0).min(1.0);
+            serde_json::json!({
+                "artist": {
+                    "id": id,
+                    "name": name,
+                    "genres": [],
+                    "is_blocked": false,
+                    "image_url": image_url
+                },
+                "blocked_collaborators": blocked_count,
+                "risk_score": (normalized_risk * 100.0).round() / 100.0
+            })
         })
-    }).collect();
+        .collect();
 
     // Build blocked artists clusters (artists who collaborate with each other)
-    let blocked_clusters: Vec<serde_json::Value> = blocked_artists.iter().map(|(id, name, image_url)| {
-        serde_json::json!({
-            "cluster_id": id,
-            "artists": [{
-                "id": id,
-                "name": name,
-                "genres": [],
-                "is_blocked": true,
-                "image_url": image_url
-            }],
-            "internal_collaborations": 0
+    let blocked_clusters: Vec<serde_json::Value> = blocked_artists
+        .iter()
+        .map(|(id, name, image_url)| {
+            serde_json::json!({
+                "cluster_id": id,
+                "artists": [{
+                    "id": id,
+                    "name": name,
+                    "genres": [],
+                    "is_blocked": true,
+                    "image_url": image_url
+                }],
+                "internal_collaborations": 0
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -735,7 +802,8 @@ pub async fn search_artists_handler(
     }
 
     // Search local database for artists
-    let artists: Vec<(Uuid, String, Option<Vec<String>>, Option<String>)> = sqlx::query_as(r#"
+    let artists: Vec<(Uuid, String, Option<Vec<String>>, Option<String>)> = sqlx::query_as(
+        r#"
         SELECT id, canonical_name, genres, metadata->>'image_url'
         FROM artists
         WHERE canonical_name ILIKE $1
@@ -743,23 +811,29 @@ pub async fn search_artists_handler(
             CASE WHEN canonical_name ILIKE $2 THEN 0 ELSE 1 END,
             canonical_name
         LIMIT $3
-    "#)
+    "#,
+    )
     .bind(format!("%{}%", query.q))
-    .bind(format!("{}%", query.q))  // Prioritize prefix matches
+    .bind(format!("{}%", query.q)) // Prioritize prefix matches
     .bind(query.limit)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
-    let artist_list: Vec<serde_json::Value> = artists.iter().map(|(id, name, genres, image_url)| {
-        serde_json::json!({
-            "id": id,
-            "name": name,
-            "genres": genres.clone().unwrap_or_default(),
-            "is_blocked": false,
-            "image_url": image_url
+    let artist_list: Vec<serde_json::Value> = artists
+        .iter()
+        .map(|(id, name, genres, image_url)| {
+            serde_json::json!({
+                "id": id,
+                "name": name,
+                "genres": genres.clone().unwrap_or_default(),
+                "is_blocked": false,
+                "image_url": image_url
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -789,10 +863,11 @@ pub async fn get_global_stats_handler(
         .unwrap_or(0);
 
     // Count labels (from albums table)
-    let label_count: i64 = sqlx::query_scalar("SELECT COUNT(DISTINCT label) FROM albums WHERE label IS NOT NULL")
-        .fetch_one(&state.db_pool)
-        .await
-        .unwrap_or(0);
+    let label_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(DISTINCT label) FROM albums WHERE label IS NOT NULL")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     // Count tracks
     let track_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tracks")
@@ -996,7 +1071,8 @@ pub async fn get_offense_network_handler(
     );
 
     // Get all artists with verified offenses
-    let offensive_artists = sqlx::query_as::<_, (Uuid, String, String, String, i64)>(r#"
+    let offensive_artists = sqlx::query_as::<_, (Uuid, String, String, String, i64)>(
+        r#"
         SELECT
             a.id,
             a.canonical_name,
@@ -1021,7 +1097,8 @@ pub async fn get_offense_network_handler(
         GROUP BY a.id, a.canonical_name, ao.category, ao.severity
         ORDER BY offense_count DESC
         LIMIT $3
-    "#)
+    "#,
+    )
     .bind(&query.category)
     .bind(&query.min_severity)
     .bind(query.limit)
@@ -1046,7 +1123,8 @@ pub async fn get_offense_network_handler(
         }));
 
         // Find collaborators through track_credits
-        let collaborators = sqlx::query_as::<_, (Uuid, String, String, i64)>(r#"
+        let collaborators = sqlx::query_as::<_, (Uuid, String, String, i64)>(
+            r#"
             SELECT DISTINCT
                 a2.id,
                 a2.canonical_name,
@@ -1062,7 +1140,8 @@ pub async fn get_offense_network_handler(
             GROUP BY a2.id, a2.canonical_name, tc2.role
             ORDER BY shared_tracks DESC
             LIMIT 20
-        "#)
+        "#,
+        )
         .bind(artist_id)
         .fetch_all(&state.db_pool)
         .await
@@ -1071,7 +1150,7 @@ pub async fn get_offense_network_handler(
         for (collab_id, collab_name, role, shared_tracks) in collaborators {
             // Check if collaborator has offenses
             let collab_offense_count: i64 = sqlx::query_scalar(
-                "SELECT COUNT(*) FROM artist_offenses WHERE artist_id = $1 AND status = 'verified'"
+                "SELECT COUNT(*) FROM artist_offenses WHERE artist_id = $1 AND status = 'verified'",
             )
             .bind(collab_id)
             .fetch_one(&state.db_pool)
@@ -1079,7 +1158,11 @@ pub async fn get_offense_network_handler(
             .unwrap_or(0);
 
             // Add collaborator node if not already added
-            if !collaborator_ids.contains(&collab_id) && !offensive_artists.iter().any(|(id, _, _, _, _)| *id == collab_id) {
+            if !collaborator_ids.contains(&collab_id)
+                && !offensive_artists
+                    .iter()
+                    .any(|(id, _, _, _, _)| *id == collab_id)
+            {
                 collaborator_ids.insert(collab_id);
                 nodes.push(serde_json::json!({
                     "id": collab_id,
@@ -1138,28 +1221,33 @@ pub async fn get_artist_offense_connections_handler(
     tracing::info!(artist_id = %artist_id, "Get artist offense connections request");
 
     // Get artist info
-    let artist = sqlx::query_as::<_, (String,)>(
-        "SELECT canonical_name FROM artists WHERE id = $1"
-    )
-    .bind(artist_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?
-    .ok_or_else(|| AppError::NotFound { resource: "Artist".to_string() })?;
+    let artist = sqlx::query_as::<_, (String,)>("SELECT canonical_name FROM artists WHERE id = $1")
+        .bind(artist_id)
+        .fetch_optional(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Artist".to_string(),
+        })?;
 
     // Check if this artist has offenses
-    let artist_offenses = sqlx::query_as::<_, (String, String, String)>(r#"
+    let artist_offenses = sqlx::query_as::<_, (String, String, String)>(
+        r#"
         SELECT category::text, severity::text, title
         FROM artist_offenses
         WHERE artist_id = $1 AND status = 'verified'
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_all(&state.db_pool)
     .await
     .unwrap_or_default();
 
     // Find collaborators who have offenses
-    let offensive_collaborators = sqlx::query_as::<_, (Uuid, String, String, String, String, i64)>(r#"
+    let offensive_collaborators = sqlx::query_as::<_, (Uuid, String, String, String, String, i64)>(
+        r#"
         SELECT DISTINCT
             a2.id,
             a2.canonical_name,
@@ -1177,7 +1265,8 @@ pub async fn get_artist_offense_connections_handler(
         AND ao.status = 'verified'
         GROUP BY a2.id, a2.canonical_name, ao.category, ao.severity, ao.title
         ORDER BY shared_tracks DESC
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_all(&state.db_pool)
     .await
@@ -1187,12 +1276,15 @@ pub async fn get_artist_offense_connections_handler(
     let mut connections = Vec::new();
     let mut seen_artists: std::collections::HashSet<Uuid> = std::collections::HashSet::new();
 
-    for (collab_id, collab_name, category, severity, offense_title, shared_tracks) in offensive_collaborators {
+    for (collab_id, collab_name, category, severity, offense_title, shared_tracks) in
+        offensive_collaborators
+    {
         if !seen_artists.contains(&collab_id) {
             seen_artists.insert(collab_id);
 
             // Get example shared tracks
-            let shared_track_examples = sqlx::query_as::<_, (String, Option<String>)>(r#"
+            let shared_track_examples = sqlx::query_as::<_, (String, Option<String>)>(
+                r#"
                 SELECT DISTINCT t.title, al.title as album_title
                 FROM track_credits tc1
                 JOIN tracks t ON tc1.track_id = t.id
@@ -1200,7 +1292,8 @@ pub async fn get_artist_offense_connections_handler(
                 LEFT JOIN albums al ON t.album_id = al.id
                 WHERE tc1.artist_id = $1 AND tc2.artist_id = $2
                 LIMIT 5
-            "#)
+            "#,
+            )
             .bind(artist_id)
             .bind(collab_id)
             .fetch_all(&state.db_pool)
@@ -1232,7 +1325,8 @@ pub async fn get_artist_offense_connections_handler(
 
     // Calculate risk score based on connections to offensive artists
     let total_offensive_connections = connections.len();
-    let severe_connections = connections.iter()
+    let severe_connections = connections
+        .iter()
         .filter(|c| {
             let severity = c["offense"]["severity"].as_str().unwrap_or("");
             severity == "severe" || severity == "egregious"
@@ -1311,13 +1405,14 @@ pub async fn get_offense_radius_handler(
     let depth = query.depth.clamp(1, 3);
 
     // First, verify the artist exists and has offenses
-    let artist: Option<(String, Option<String>)> = sqlx::query_as(
-        "SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1"
-    )
-    .bind(query.artist_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    let artist: Option<(String, Option<String>)> =
+        sqlx::query_as("SELECT canonical_name, metadata->>'image_url' FROM artists WHERE id = $1")
+            .bind(query.artist_id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(e.to_string()),
+            })?;
 
     let artist = artist.ok_or_else(|| AppError::NotFound {
         resource: "Artist".to_string(),
@@ -1326,7 +1421,7 @@ pub async fn get_offense_radius_handler(
     // Get the starting artist's offenses
     let center_offenses: Vec<(String, String)> = sqlx::query_as(
         r#"SELECT category::text, severity::text FROM artist_offenses
-           WHERE artist_id = $1 AND status = 'verified'"#
+           WHERE artist_id = $1 AND status = 'verified'"#,
     )
     .bind(query.artist_id)
     .fetch_all(&state.db_pool)
@@ -1341,7 +1436,8 @@ pub async fn get_offense_radius_handler(
         i32,            // distance
         String,         // connection_type
         i64,            // offense_count
-    )> = sqlx::query_as(r#"
+    )> = sqlx::query_as(
+        r#"
         WITH RECURSIVE network AS (
             -- Start from the center artist
             SELECT
@@ -1379,70 +1475,81 @@ pub async fn get_offense_radius_handler(
         JOIN artists a ON a.id = n.artist_id
         WHERE n.distance > 0  -- Exclude center artist
         ORDER BY a.id, n.distance ASC
-    "#)
+    "#,
+    )
     .bind(query.artist_id)
     .bind(depth as i32)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     // Calculate risk scores and build response
     let mut artists_in_radius: Vec<serde_json::Value> = radius_artists
         .into_iter()
-        .filter(|(_, _, _, _, _, offense_count)| {
-            !query.offenders_only || *offense_count > 0
-        })
-        .map(|(id, name, image_url, distance, connection_type, offense_count)| {
-            // Risk score decreases with distance
-            let distance_factor = 1.0 / (distance as f64 + 1.0);
+        .filter(|(_, _, _, _, _, offense_count)| !query.offenders_only || *offense_count > 0)
+        .map(
+            |(id, name, image_url, distance, connection_type, offense_count)| {
+                // Risk score decreases with distance
+                let distance_factor = 1.0 / (distance as f64 + 1.0);
 
-            // Connection type risk multiplier
-            let connection_multiplier = match connection_type.as_str() {
-                "featured_artist" | "primary_artist" => 0.9,
-                "producer" => 0.7,
-                "writer" => 0.5,
-                _ => 0.3,
-            };
+                // Connection type risk multiplier
+                let connection_multiplier = match connection_type.as_str() {
+                    "featured_artist" | "primary_artist" => 0.9,
+                    "producer" => 0.7,
+                    "writer" => 0.5,
+                    _ => 0.3,
+                };
 
-            // Offense status multiplier
-            let offense_multiplier = if offense_count > 0 { 2.0 } else { 1.0 };
+                // Offense status multiplier
+                let offense_multiplier = if offense_count > 0 { 2.0 } else { 1.0 };
 
-            let risk_score = (distance_factor * connection_multiplier * offense_multiplier * 100.0).min(100.0);
+                let risk_score =
+                    (distance_factor * connection_multiplier * offense_multiplier * 100.0)
+                        .min(100.0);
 
-            let risk_level = if risk_score >= 60.0 {
-                "high"
-            } else if risk_score >= 30.0 {
-                "medium"
-            } else {
-                "low"
-            };
+                let risk_level = if risk_score >= 60.0 {
+                    "high"
+                } else if risk_score >= 30.0 {
+                    "medium"
+                } else {
+                    "low"
+                };
 
-            serde_json::json!({
-                "id": id,
-                "name": name,
-                "image_url": image_url,
-                "distance": distance,
-                "connection_type": connection_type,
-                "has_offenses": offense_count > 0,
-                "offense_count": offense_count,
-                "risk_score": (risk_score * 10.0).round() / 10.0,
-                "risk_level": risk_level
-            })
-        })
+                serde_json::json!({
+                    "id": id,
+                    "name": name,
+                    "image_url": image_url,
+                    "distance": distance,
+                    "connection_type": connection_type,
+                    "has_offenses": offense_count > 0,
+                    "offense_count": offense_count,
+                    "risk_score": (risk_score * 10.0).round() / 10.0,
+                    "risk_level": risk_level
+                })
+            },
+        )
         .collect();
 
     // Sort by risk score descending
     artists_in_radius.sort_by(|a, b| {
         let score_a = a.get("risk_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let score_b = b.get("risk_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // Count summary stats
     let total_in_radius = artists_in_radius.len();
     let offenders_in_radius = artists_in_radius
         .iter()
-        .filter(|a| a.get("has_offenses").and_then(|v| v.as_bool()).unwrap_or(false))
+        .filter(|a| {
+            a.get("has_offenses")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
         .count();
 
     tracing::info!(

@@ -7,11 +7,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::models::{
-    Connection, SpotifyLibrary, SpotifySavedTrack, SpotifyPlaylist, SpotifyFollowedArtist,
-    SpotifyAlbum, SpotifyTrack, SpotifyArtist, FeaturedArtistDetection, DetectionMethod,
-    EnforcementPlan, EnforcementOptions, EnforcementImpact, PlannedAction, ActionType,
-    EntityType, BlockReason, AffectedTrack, LibraryImpact, PlaylistImpact, FollowingImpact,
-    AlbumImpact, PlaylistModification, Artist,
+    ActionType, AffectedTrack, AlbumImpact, Artist, BlockReason, Connection, DetectionMethod,
+    EnforcementImpact, EnforcementOptions, EnforcementPlan, EntityType, FeaturedArtistDetection,
+    FollowingImpact, LibraryImpact, PlannedAction, PlaylistImpact, PlaylistModification,
+    SpotifyAlbum, SpotifyArtist, SpotifyFollowedArtist, SpotifyLibrary, SpotifyPlaylist,
+    SpotifySavedTrack, SpotifyTrack,
 };
 use crate::services::SpotifyService;
 
@@ -42,7 +42,7 @@ impl SpotifyLibraryService {
     /// Scan user's complete Spotify library
     pub async fn scan_library(&self, connection: &Connection) -> Result<SpotifyLibrary> {
         let user_profile = self.get_user_profile(connection).await?;
-        
+
         // Scan all library components concurrently
         let (liked_songs, playlists, followed_artists, saved_albums) = tokio::try_join!(
             self.scan_liked_songs(connection),
@@ -63,7 +63,10 @@ impl SpotifyLibraryService {
     }
 
     /// Get user profile information
-    async fn get_user_profile(&self, connection: &Connection) -> Result<crate::services::spotify::SpotifyUserProfile> {
+    async fn get_user_profile(
+        &self,
+        connection: &Connection,
+    ) -> Result<crate::services::spotify::SpotifyUserProfile> {
         let response = self
             .spotify_service
             .make_api_request(connection, "GET", "https://api.spotify.com/v1/me", None)
@@ -95,7 +98,10 @@ impl SpotifyLibraryService {
                 .await?;
 
             if !response.status().is_success() {
-                return Err(anyhow!("Failed to fetch liked songs: {}", response.status()));
+                return Err(anyhow!(
+                    "Failed to fetch liked songs: {}",
+                    response.status()
+                ));
             }
 
             let data: Value = response.json().await?;
@@ -155,7 +161,9 @@ impl SpotifyLibraryService {
             for item in items {
                 if let Ok(mut playlist) = serde_json::from_value::<SpotifyPlaylist>(item.clone()) {
                     // Fetch full playlist details including tracks
-                    playlist = self.fetch_playlist_details(connection, &playlist.id).await?;
+                    playlist = self
+                        .fetch_playlist_details(connection, &playlist.id)
+                        .await?;
                     playlists.push(playlist);
                 }
             }
@@ -171,7 +179,11 @@ impl SpotifyLibraryService {
     }
 
     /// Fetch detailed playlist information including tracks
-    async fn fetch_playlist_details(&self, connection: &Connection, playlist_id: &str) -> Result<SpotifyPlaylist> {
+    async fn fetch_playlist_details(
+        &self,
+        connection: &Connection,
+        playlist_id: &str,
+    ) -> Result<SpotifyPlaylist> {
         let url = format!(
             "https://api.spotify.com/v1/playlists/{}?fields=id,name,description,owner,public,collaborative,tracks.total,tracks.items(added_at,added_by,is_local,track(id,name,artists,album,duration_ms,explicit,popularity,preview_url,external_urls,is_local,is_playable)),external_urls,images,snapshot_id",
             playlist_id
@@ -183,7 +195,10 @@ impl SpotifyLibraryService {
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow!("Failed to fetch playlist details: {}", response.status()));
+            return Err(anyhow!(
+                "Failed to fetch playlist details: {}",
+                response.status()
+            ));
         }
 
         let playlist: SpotifyPlaylist = response.json().await?;
@@ -191,7 +206,10 @@ impl SpotifyLibraryService {
     }
 
     /// Scan user's followed artists
-    async fn scan_followed_artists(&self, connection: &Connection) -> Result<Vec<SpotifyFollowedArtist>> {
+    async fn scan_followed_artists(
+        &self,
+        connection: &Connection,
+    ) -> Result<Vec<SpotifyFollowedArtist>> {
         let mut followed_artists = Vec::new();
         let mut after: Option<String> = None;
         let limit = 50;
@@ -212,7 +230,10 @@ impl SpotifyLibraryService {
                 .await?;
 
             if !response.status().is_success() {
-                return Err(anyhow!("Failed to fetch followed artists: {}", response.status()));
+                return Err(anyhow!(
+                    "Failed to fetch followed artists: {}",
+                    response.status()
+                ));
             }
 
             let data: Value = response.json().await?;
@@ -265,7 +286,10 @@ impl SpotifyLibraryService {
                 .await?;
 
             if !response.status().is_success() {
-                return Err(anyhow!("Failed to fetch saved albums: {}", response.status()));
+                return Err(anyhow!(
+                    "Failed to fetch saved albums: {}",
+                    response.status()
+                ));
             }
 
             let data: Value = response.json().await?;
@@ -278,7 +302,9 @@ impl SpotifyLibraryService {
 
             for item in items {
                 if let Some(album_data) = item["album"].as_object() {
-                    if let Ok(album) = serde_json::from_value::<SpotifyAlbum>(Value::Object(album_data.clone())) {
+                    if let Ok(album) =
+                        serde_json::from_value::<SpotifyAlbum>(Value::Object(album_data.clone()))
+                    {
                         saved_albums.push(album);
                     }
                 }
@@ -325,7 +351,7 @@ impl SpotifyLibraryService {
             for artist in &track.artists[1..] {
                 collaboration_artists.push(artist.id.clone());
             }
-            
+
             if confidence < 0.7 {
                 detection_method = DetectionMethod::ArtistArray;
                 confidence = 0.7;
@@ -340,7 +366,7 @@ impl SpotifyLibraryService {
                     featured_artists.push(artist.id.clone());
                 }
             }
-            
+
             if confidence < 0.6 {
                 detection_method = DetectionMethod::AlbumArtist;
                 confidence = 0.6;
@@ -355,7 +381,8 @@ impl SpotifyLibraryService {
         };
 
         featured_artists.retain(|id| !primary_artists.contains(id));
-        collaboration_artists.retain(|id| !primary_artists.contains(id) && !featured_artists.contains(id));
+        collaboration_artists
+            .retain(|id| !primary_artists.contains(id) && !featured_artists.contains(id));
 
         FeaturedArtistDetection {
             track_id: track.id.clone(),
@@ -380,10 +407,14 @@ impl SpotifyLibraryService {
     }
 
     /// Find artist by name in a list of artists
-    fn find_artist_by_name<'a>(&self, artists: &'a [SpotifyArtist], name: &str) -> Option<&'a SpotifyArtist> {
+    fn find_artist_by_name<'a>(
+        &self,
+        artists: &'a [SpotifyArtist],
+        name: &str,
+    ) -> Option<&'a SpotifyArtist> {
         artists.iter().find(|artist| {
-            artist.name.to_lowercase().contains(&name.to_lowercase()) ||
-            name.to_lowercase().contains(&artist.name.to_lowercase())
+            artist.name.to_lowercase().contains(&name.to_lowercase())
+                || name.to_lowercase().contains(&artist.name.to_lowercase())
         })
     }
 
@@ -396,23 +427,32 @@ impl SpotifyLibraryService {
     ) -> Result<EnforcementPlan> {
         // Scan library if not provided
         let library = self.scan_library(connection).await?;
-        
+
         // Convert DNP artists to a lookup map by external IDs
         let dnp_lookup = self.create_dnp_lookup(&dnp_artists);
-        
+
         let mut plan = EnforcementPlan::new(
+            Uuid::new_v4(),
             connection.user_id,
-            "spotify".to_string(),
             options.clone(),
-            dnp_artists.iter().map(|a| a.id).collect(),
+            Vec::new(), // Actions will be populated below
         );
 
+        // Set DNP artists
+        plan.dnp_artists = dnp_artists.iter().map(|a| a.id).collect();
+
         // Analyze impact and create actions
-        plan.impact = self.analyze_enforcement_impact(&library, &dnp_lookup, &options).await?;
-        plan.actions = self.create_planned_actions(&library, &dnp_lookup, &options).await?;
+        plan.impact = self
+            .analyze_enforcement_impact(&library, &dnp_lookup, &options)
+            .await?;
+        plan.actions = self
+            .create_planned_actions(&library, &dnp_lookup, &options)
+            .await?;
 
         // Calculate estimated duration
-        plan.estimated_duration_seconds = plan.actions.iter()
+        plan.estimated_duration_seconds = plan
+            .actions
+            .iter()
             .map(|action| action.estimated_duration_ms / 1000)
             .sum();
 
@@ -422,13 +462,13 @@ impl SpotifyLibraryService {
     /// Create DNP artist lookup map by Spotify IDs
     fn create_dnp_lookup(&self, dnp_artists: &[Artist]) -> HashMap<String, Uuid> {
         let mut lookup = HashMap::new();
-        
+
         for artist in dnp_artists {
             if let Some(spotify_id) = &artist.external_ids.spotify {
                 lookup.insert(spotify_id.clone(), artist.id);
             }
         }
-        
+
         lookup
     }
 
@@ -442,16 +482,21 @@ impl SpotifyLibraryService {
         let mut impact = EnforcementImpact::default();
 
         // Analyze liked songs impact
-        impact.liked_songs = self.analyze_liked_songs_impact(&library.liked_songs, dnp_lookup, options);
+        impact.liked_songs =
+            self.analyze_liked_songs_impact(&library.liked_songs, dnp_lookup, options);
 
         // Analyze playlists impact
-        impact.playlists = self.analyze_playlists_impact(&library.playlists, dnp_lookup, options).await;
+        impact.playlists = self
+            .analyze_playlists_impact(&library.playlists, dnp_lookup, options)
+            .await;
 
         // Analyze followed artists impact
-        impact.followed_artists = self.analyze_followed_artists_impact(&library.followed_artists, dnp_lookup);
+        impact.followed_artists =
+            self.analyze_followed_artists_impact(&library.followed_artists, dnp_lookup);
 
         // Analyze saved albums impact
-        impact.saved_albums = self.analyze_saved_albums_impact(&library.saved_albums, dnp_lookup, options);
+        impact.saved_albums =
+            self.analyze_saved_albums_impact(&library.saved_albums, dnp_lookup, options);
 
         // Calculate totals
         impact.total_items_affected = impact.liked_songs.tracks_to_remove
@@ -460,7 +505,8 @@ impl SpotifyLibraryService {
             + impact.saved_albums.albums_to_remove;
 
         // Estimate time saved (assuming 3.5 minutes average track length)
-        let total_tracks_removed = impact.liked_songs.tracks_to_remove + impact.playlists.tracks_to_remove;
+        let total_tracks_removed =
+            impact.liked_songs.tracks_to_remove + impact.playlists.tracks_to_remove;
         impact.estimated_time_saved_hours = (total_tracks_removed as f64 * 3.5) / 60.0;
 
         Ok(impact)
@@ -481,10 +527,10 @@ impl SpotifyLibraryService {
         for saved_track in liked_songs {
             let detection = self.detect_featured_artists(&saved_track.track);
             let block_result = self.should_block_track(&detection, dnp_lookup, options);
-            
+
             if block_result.should_block {
                 impact.tracks_to_remove += 1;
-                
+
                 match block_result.reason {
                     BlockReason::ExactMatch => impact.exact_matches += 1,
                     BlockReason::Collaboration => impact.collaborations_found += 1,
@@ -522,18 +568,22 @@ impl SpotifyLibraryService {
 
             if let Some(ref tracks) = playlist.tracks.items {
                 impact.total_tracks += tracks.len() as u32;
-                
+
                 for playlist_track in tracks {
                     if let Some(ref track) = playlist_track.track {
                         let detection = self.detect_featured_artists(track);
                         let block_result = self.should_block_track(&detection, dnp_lookup, options);
-                        
+
                         if block_result.should_block {
                             playlist_modification.tracks_to_remove += 1;
                             playlist_modification.affected_tracks.push(AffectedTrack {
                                 track_id: track.id.clone(),
                                 track_name: track.name.clone(),
-                                artist_names: track.artists.iter().map(|a| a.name.clone()).collect(),
+                                artist_names: track
+                                    .artists
+                                    .iter()
+                                    .map(|a| a.name.clone())
+                                    .collect(),
                                 blocked_artist_ids: block_result.blocked_artist_ids,
                                 reason: block_result.reason.clone(),
                                 confidence: detection.confidence,
@@ -546,14 +596,14 @@ impl SpotifyLibraryService {
             if playlist_modification.tracks_to_remove > 0 {
                 impact.playlists_to_modify += 1;
                 impact.tracks_to_remove += playlist_modification.tracks_to_remove;
-                
+
                 if playlist_modification.is_user_owned {
                     impact.user_playlists_affected += 1;
                 }
                 if playlist_modification.is_collaborative {
                     impact.collaborative_playlists_affected += 1;
                 }
-                
+
                 impact.playlist_details.push(playlist_modification);
             }
         }
@@ -708,7 +758,7 @@ impl SpotifyLibraryService {
         for saved_track in &library.liked_songs {
             let detection = self.detect_featured_artists(&saved_track.track);
             let block_result = self.should_block_track(&detection, dnp_lookup, options);
-            
+
             if block_result.should_block {
                 actions.push(PlannedAction {
                     id: Uuid::new_v4(),
@@ -735,10 +785,12 @@ impl SpotifyLibraryService {
                     if let Some(ref track) = playlist_track.track {
                         let detection = self.detect_featured_artists(track);
                         let block_result = self.should_block_track(&detection, dnp_lookup, options);
-                        
+
                         if block_result.should_block {
                             // Skip user playlists if preserve_user_playlists is true
-                            if options.preserve_user_playlists && playlist.owner.id == library.spotify_user_id {
+                            if options.preserve_user_playlists
+                                && playlist.owner.id == library.spotify_user_id
+                            {
                                 continue;
                             }
 
@@ -802,7 +854,9 @@ impl SpotifyLibraryService {
                 }
             }
 
-            if should_remove && (reason != BlockReason::Collaboration || options.block_collaborations) {
+            if should_remove
+                && (reason != BlockReason::Collaboration || options.block_collaborations)
+            {
                 actions.push(PlannedAction {
                     id: Uuid::new_v4(),
                     action_type: ActionType::RemoveSavedAlbum,
@@ -835,24 +889,27 @@ struct BlockResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{SpotifyTrack, SpotifyArtist, SpotifyAlbum};
+    use crate::models::{SpotifyAlbum, SpotifyArtist, SpotifyTrack};
     use std::collections::HashMap;
 
     fn create_test_track(name: &str, artists: Vec<(&str, &str)>) -> SpotifyTrack {
         SpotifyTrack {
             id: "test_track".to_string(),
             name: name.to_string(),
-            artists: artists.into_iter().map(|(id, name)| SpotifyArtist {
-                id: id.to_string(),
-                name: name.to_string(),
-                external_urls: HashMap::new(),
-                href: None,
-                uri: format!("spotify:artist:{}", id),
-                genres: None,
-                images: None,
-                popularity: None,
-                followers: None,
-            }).collect(),
+            artists: artists
+                .into_iter()
+                .map(|(id, name)| SpotifyArtist {
+                    id: id.to_string(),
+                    name: name.to_string(),
+                    external_urls: HashMap::new(),
+                    href: None,
+                    uri: format!("spotify:artist:{}", id),
+                    genres: None,
+                    images: None,
+                    popularity: None,
+                    followers: None,
+                })
+                .collect(),
             album: SpotifyAlbum {
                 id: "test_album".to_string(),
                 name: "Test Album".to_string(),
@@ -876,20 +933,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_featured_artist_detection_from_title() {
-        let spotify_service = Arc::new(SpotifyService::new(
-            crate::services::spotify::SpotifyConfig::default(),
-            Arc::new(crate::services::TokenVaultService::new()),
-        ).unwrap());
-        
+        let spotify_service = Arc::new(
+            SpotifyService::new(
+                crate::services::spotify::SpotifyConfig::default(),
+                Arc::new(crate::services::TokenVaultService::new()),
+            )
+            .unwrap(),
+        );
+
         let service = SpotifyLibraryService::new(spotify_service);
-        
+
         let track = create_test_track(
             "Song Title (feat. Featured Artist)",
-            vec![("artist1", "Main Artist"), ("artist2", "Featured Artist")]
+            vec![("artist1", "Main Artist"), ("artist2", "Featured Artist")],
         );
-        
+
         let detection = service.detect_featured_artists(&track);
-        
+
         assert_eq!(detection.detection_method, DetectionMethod::TrackTitle);
         assert!(detection.confidence > 0.8);
         assert_eq!(detection.featured_artists.len(), 1);
@@ -898,20 +958,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_collaboration_detection() {
-        let spotify_service = Arc::new(SpotifyService::new(
-            crate::services::spotify::SpotifyConfig::default(),
-            Arc::new(crate::services::TokenVaultService::new()),
-        ).unwrap());
-        
+        let spotify_service = Arc::new(
+            SpotifyService::new(
+                crate::services::spotify::SpotifyConfig::default(),
+                Arc::new(crate::services::TokenVaultService::new()),
+            )
+            .unwrap(),
+        );
+
         let service = SpotifyLibraryService::new(spotify_service);
-        
+
         let track = create_test_track(
             "Collaboration Song",
-            vec![("artist1", "Artist One"), ("artist2", "Artist Two")]
+            vec![("artist1", "Artist One"), ("artist2", "Artist Two")],
         );
-        
+
         let detection = service.detect_featured_artists(&track);
-        
+
         assert_eq!(detection.collaboration_artists.len(), 1);
         assert_eq!(detection.collaboration_artists[0], "artist2");
         assert_eq!(detection.primary_artists[0], "artist1");

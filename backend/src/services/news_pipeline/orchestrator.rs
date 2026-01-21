@@ -477,7 +477,10 @@ impl NewsPipelineOrchestrator {
 
             // Persist to database if repository is configured
             if let Some(ref repository) = self.repository {
-                if let Err(e) = repository.insert_article(&article, &entities, &offenses).await {
+                if let Err(e) = repository
+                    .insert_article(&article, &entities, &offenses)
+                    .await
+                {
                     tracing::warn!(url = %article.url, error = %e, "Failed to persist article");
                 } else {
                     // Create artist_offenses from detected offenses

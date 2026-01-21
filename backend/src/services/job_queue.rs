@@ -7,13 +7,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
-use tokio::time::{interval, sleep, Instant};
+use tokio::time::{interval, Instant};
 use uuid::Uuid;
 
-use crate::models::{
-    ActionBatch, ActionBatchStatus, RateLimitedRequest, RequestPriority,
-    BatchCheckpoint, BatchProgress, RateLimitStatus,
-};
+// crate::models imported but unused batch types removed for cleaner code
 use crate::services::RateLimitingService;
 
 /// Job types for the queue system
@@ -230,7 +227,7 @@ impl JobQueueService {
     /// Start a worker with the given configuration
     pub async fn start_worker(&self, config: WorkerConfig) -> Result<()> {
         let worker_id = config.worker_id.clone();
-        let (shutdown_tx, mut shutdown_rx) = mpsc::channel(1);
+        let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
 
         let handle = WorkerHandle {
             worker_id: worker_id.clone(),
@@ -253,7 +250,7 @@ impl JobQueueService {
         tokio::spawn(async move {
             if let Err(e) = service.run_worker(config, shutdown_rx).await {
                 tracing::error!("Worker {} failed: {}", worker_id, e);
-                
+
                 // Update worker status to error
                 let mut workers = service.workers.write().await;
                 if let Some(worker) = workers.get_mut(&worker_id) {
@@ -281,7 +278,7 @@ impl JobQueueService {
     pub async fn get_job_status(&self, job_id: &Uuid) -> Result<Option<Job>> {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("job:{}", job_id);
-        
+
         let job_json: Option<String> = conn.get(&key).await?;
         if let Some(json) = job_json {
             let job: Job = serde_json::from_str(&json)?;
@@ -292,22 +289,18 @@ impl JobQueueService {
     }
 
     /// Update job progress
-    pub async fn update_job_progress(
-        &self,
-        job_id: &Uuid,
-        progress: JobProgress,
-    ) -> Result<()> {
+    pub async fn update_job_progress(&self, job_id: &Uuid, progress: JobProgress) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("job:{}", job_id);
-        
+
         // Get current job
         let job_json: Option<String> = conn.get(&key).await?;
         if let Some(json) = job_json {
             let mut job: Job = serde_json::from_str(&json)?;
             job.progress = Some(progress);
-            
+
             let updated_json = serde_json::to_string(&job)?;
-            conn.set_ex(&key, updated_json, 86400).await?; // 24 hours TTL
+            let _: () = conn.set_ex(&key, updated_json, 86400).await?; // 24 hours TTL
         }
 
         Ok(())
@@ -362,11 +355,11 @@ impl JobQueueService {
     pub async fn retry_job(&self, job_id: &Uuid) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("job:{}", job_id);
-        
+
         let job_json: Option<String> = conn.get(&key).await?;
         if let Some(json) = job_json {
             let mut job: Job = serde_json::from_str(&json)?;
-            
+
             if job.status == JobStatus::Failed && job.retry_count < job.max_retries {
                 job.status = JobStatus::Pending;
                 job.retry_count += 1;
@@ -374,10 +367,10 @@ impl JobQueueService {
                 job.started_at = None;
                 job.completed_at = None;
                 job.scheduled_at = Utc::now();
-                
+
                 self.save_job(&job).await?;
                 self.add_to_queue(&job).await?;
-                
+
                 tracing::info!("Retrying job {} (attempt {})", job_id, job.retry_count + 1);
             } else {
                 return Err(anyhow!("Job cannot be retried"));
@@ -393,7 +386,7 @@ impl JobQueueService {
     pub async fn get_worker_stats(&self) -> Result<HashMap<String, WorkerStats>> {
         let workers = self.workers.read().await;
         let mut stats = HashMap::new();
-        
+
         for (worker_id, worker) in workers.iter() {
             let worker_stats = WorkerStats {
                 worker_id: worker_id.clone(),
@@ -407,7 +400,7 @@ impl JobQueueService {
             };
             stats.insert(worker_id.clone(), worker_stats);
         }
-        
+
         Ok(stats)
     }
 
@@ -436,14 +429,12 @@ impl JobQueueService {
                 if let Some(json) = job_json {
                     if let Ok(job) = serde_json::from_str::<Job>(&json) {
                         let should_clean = match job.status {
-                            JobStatus::Completed => job
-                                .completed_at
-                                .map(|t| t < cutoff_time)
-                                .unwrap_or(false),
-                            JobStatus::Failed => job
-                                .completed_at
-                                .map(|t| t < cutoff_time)
-                                .unwrap_or(false),
+                            JobStatus::Completed => {
+                                job.completed_at.map(|t| t < cutoff_time).unwrap_or(false)
+                            }
+                            JobStatus::Failed => {
+                                job.completed_at.map(|t| t < cutoff_time).unwrap_or(false)
+                            }
                             JobStatus::DeadLetter => job.created_at < cutoff_time,
                             _ => false,
                         };
@@ -462,7 +453,7 @@ impl JobQueueService {
                                 pipe.zrem(&user_index_key, job.id.to_string());
                             }
 
-                            pipe.query_async(&mut *conn).await?;
+                            let _: () = pipe.query_async(&mut *conn).await?;
                             cleaned_count += 1;
                         }
                     }
@@ -531,8 +522,10 @@ impl JobQueueService {
     }
 
     async fn process_jobs(&self, config: &WorkerConfig) -> Result<()> {
-        let jobs = self.get_pending_jobs(&config.job_types, config.concurrency).await?;
-        
+        let jobs = self
+            .get_pending_jobs(&config.job_types, config.concurrency)
+            .await?;
+
         if jobs.is_empty() {
             // Update worker status to idle
             let mut workers = self.workers.write().await;
@@ -555,9 +548,7 @@ impl JobQueueService {
         for job in jobs {
             let service = Arc::new(self.clone());
             let config = config.clone();
-            let handle = tokio::spawn(async move {
-                service.execute_job(job, &config).await
-            });
+            let handle = tokio::spawn(async move { service.execute_job(job, &config).await });
             handles.push(handle);
         }
 
@@ -573,7 +564,7 @@ impl JobQueueService {
 
     async fn execute_job(&self, mut job: Job, config: &WorkerConfig) -> Result<()> {
         let start_time = Instant::now();
-        
+
         // Update job status to processing
         job.status = JobStatus::Processing;
         job.started_at = Some(Utc::now());
@@ -599,10 +590,16 @@ impl JobQueueService {
 
                 match tokio::time::timeout(timeout_duration, execution_future).await {
                     Ok(result) => result,
-                    Err(_) => Err(anyhow!("Job execution timed out after {}ms", timeout_duration.as_millis())),
+                    Err(_) => Err(anyhow!(
+                        "Job execution timed out after {}ms",
+                        timeout_duration.as_millis()
+                    )),
                 }
             } else {
-                Err(anyhow!("No handler registered for job type: {:?}", job.job_type))
+                Err(anyhow!(
+                    "No handler registered for job type: {:?}",
+                    job.job_type
+                ))
             }
         };
 
@@ -610,11 +607,11 @@ impl JobQueueService {
 
         // Update job with result
         match result {
-            Ok(result_data) => {
+            Ok(_result_data) => {
                 job.status = JobStatus::Completed;
                 job.completed_at = Some(Utc::now());
                 job.error_message = None;
-                
+
                 tracing::info!(
                     "Job {} completed successfully in {}ms",
                     job.id,
@@ -623,17 +620,18 @@ impl JobQueueService {
             }
             Err(e) => {
                 job.error_message = Some(e.to_string());
-                
+
                 if job.retry_count < job.max_retries {
                     job.status = JobStatus::Retrying;
                     job.retry_count += 1;
-                    job.scheduled_at = Utc::now() + chrono::Duration::seconds(
-                        (2_u64.pow(job.retry_count.min(5)) * 30) as i64 // Exponential backoff
-                    );
-                    
+                    job.scheduled_at = Utc::now()
+                        + chrono::Duration::seconds(
+                            (2_u64.pow(job.retry_count.min(5)) * 30) as i64, // Exponential backoff
+                        );
+
                     // Re-queue for retry
                     self.add_to_queue(&job).await?;
-                    
+
                     tracing::warn!(
                         "Job {} failed, scheduling retry {} in {}s: {}",
                         job.id,
@@ -644,7 +642,7 @@ impl JobQueueService {
                 } else {
                     job.status = JobStatus::DeadLetter;
                     job.completed_at = Some(Utc::now());
-                    
+
                     tracing::error!(
                         "Job {} moved to dead letter queue after {} retries: {}",
                         job.id,
@@ -676,19 +674,19 @@ impl JobQueueService {
         for job_type in job_types {
             let queue_key = format!("queue:{:?}", job_type);
             let job_ids: Vec<String> = conn.zrange(&queue_key, 0, limit as isize - 1).await?;
-            
+
             for job_id in job_ids {
                 if let Ok(job_uuid) = Uuid::parse_str(&job_id) {
                     if let Some(job) = self.get_job_status(&job_uuid).await? {
                         if job.status == JobStatus::Pending && job.scheduled_at <= Utc::now() {
                             jobs.push(job);
                             // Remove from queue
-                            conn.zrem(&queue_key, &job_id).await?;
+                            let _: i32 = conn.zrem(&queue_key, &job_id).await?;
                         }
                     }
                 }
             }
-            
+
             if jobs.len() >= limit {
                 break;
             }
@@ -696,7 +694,8 @@ impl JobQueueService {
 
         // Sort by priority (highest first) then by created_at
         jobs.sort_by(|a, b| {
-            b.priority.cmp(&a.priority)
+            b.priority
+                .cmp(&a.priority)
                 .then_with(|| a.created_at.cmp(&b.created_at))
         });
 
@@ -708,9 +707,9 @@ impl JobQueueService {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("job:{}", job.id);
         let job_json = serde_json::to_string(job)?;
-        
+
         // Store job for 24 hours
-        conn.set_ex(&key, job_json, 86400).await?;
+        let _: () = conn.set_ex(&key, job_json, 86400).await?;
         Ok(())
     }
 
@@ -736,7 +735,7 @@ impl JobQueueService {
             pipe.zadd(&user_index_key, job.id.to_string(), user_score);
         }
 
-        pipe.query_async(&mut *conn).await?;
+        let _: () = pipe.query_async(&mut *conn).await?;
 
         Ok(())
     }
@@ -747,6 +746,40 @@ impl JobQueueService {
             worker.last_heartbeat = Utc::now();
         }
         Ok(())
+    }
+
+    /// Get the depth (number of pending jobs) for each job type (US-022)
+    ///
+    /// Returns a HashMap with job type names as keys and pending job counts as values
+    pub async fn get_queue_depths(&self) -> Result<HashMap<String, u64>> {
+        let mut conn = self.redis_pool.get().await?;
+        let mut depths = HashMap::new();
+
+        // All job types to check
+        let job_types = [
+            JobType::EnforcementExecution,
+            JobType::BatchRollback,
+            JobType::TokenRefresh,
+            JobType::LibraryScan,
+            JobType::CommunityListUpdate,
+            JobType::HealthCheck,
+        ];
+
+        for job_type in job_types {
+            let queue_key = format!("queue:{:?}", job_type);
+            let count: u64 = conn.zcard(&queue_key).await.unwrap_or(0);
+            depths.insert(format!("{:?}", job_type), count);
+        }
+
+        Ok(depths)
+    }
+
+    /// Get queue depth for a specific job type (US-022)
+    pub async fn get_queue_depth(&self, job_type: &JobType) -> Result<u64> {
+        let mut conn = self.redis_pool.get().await?;
+        let queue_key = format!("queue:{:?}", job_type);
+        let count: u64 = conn.zcard(&queue_key).await?;
+        Ok(count)
     }
 }
 

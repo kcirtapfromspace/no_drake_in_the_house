@@ -530,6 +530,25 @@ impl OAuthConfigValidator {
                    - SPOTIFY_CLIENT_SECRET=your_client_secret\n\
                    - SPOTIFY_REDIRECT_URI=https://yourdomain.com/auth/callback/spotify"
                 .to_string(),
+            OAuthProviderType::YouTubeMusic => "To configure YouTube Music OAuth:\n\
+                1. Go to Google Cloud Console (https://console.cloud.google.com/)\n\
+                2. Create or select a project\n\
+                3. Enable the YouTube Data API v3\n\
+                4. Create OAuth 2.0 credentials\n\
+                5. Set environment variables:\n\
+                   - YOUTUBE_MUSIC_CLIENT_ID=your_client_id.apps.googleusercontent.com\n\
+                   - YOUTUBE_MUSIC_CLIENT_SECRET=your_client_secret\n\
+                   - YOUTUBE_MUSIC_REDIRECT_URI=https://yourdomain.com/auth/callback/youtube-music"
+                .to_string(),
+            OAuthProviderType::Tidal => "To configure Tidal OAuth:\n\
+                1. Go to TIDAL Developer Portal (https://developer.tidal.com/)\n\
+                2. Create a new application\n\
+                3. Set the redirect URI\n\
+                4. Set environment variables:\n\
+                   - TIDAL_CLIENT_ID=your_client_id\n\
+                   - TIDAL_CLIENT_SECRET=your_client_secret\n\
+                   - TIDAL_REDIRECT_URI=https://yourdomain.com/auth/callback/tidal"
+                .to_string(),
         }
     }
 

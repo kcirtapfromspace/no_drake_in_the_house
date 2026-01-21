@@ -56,7 +56,10 @@ impl CreditRole {
         let role_lower = role.to_lowercase();
         if role_lower.contains("producer") || role_lower.contains("produced by") {
             CreditRole::Producer
-        } else if role_lower.contains("writer") || role_lower.contains("written by") || role_lower.contains("songwriter") {
+        } else if role_lower.contains("writer")
+            || role_lower.contains("written by")
+            || role_lower.contains("songwriter")
+        {
             CreditRole::Writer
         } else if role_lower.contains("composer") || role_lower.contains("composed by") {
             CreditRole::Composer
@@ -70,8 +73,13 @@ impl CreditRole {
             CreditRole::RecordingEngineer
         } else if role_lower.contains("vocal") || role_lower.contains("backing") {
             CreditRole::BackgroundVocalist
-        } else if role_lower.contains("guitar") || role_lower.contains("bass") || role_lower.contains("drums")
-            || role_lower.contains("keyboard") || role_lower.contains("piano") || role_lower.contains("instrument") {
+        } else if role_lower.contains("guitar")
+            || role_lower.contains("bass")
+            || role_lower.contains("drums")
+            || role_lower.contains("keyboard")
+            || role_lower.contains("piano")
+            || role_lower.contains("instrument")
+        {
             CreditRole::Instrumentalist
         } else if role_lower.contains("remix") {
             CreditRole::Remixer
@@ -248,12 +256,16 @@ impl CreditsSyncService {
         let run_id = self.create_sync_run(artist_id).await?;
 
         // Fetch and process albums
-        match self.fetch_and_process_albums(&apple_artist_id, artist_id, &mut stats).await {
+        match self
+            .fetch_and_process_albums(&apple_artist_id, artist_id, &mut stats)
+            .await
+        {
             Ok(_) => {
                 self.complete_sync_run(run_id, &stats, None).await?;
             }
             Err(e) => {
-                self.complete_sync_run(run_id, &stats, Some(&e.to_string())).await?;
+                self.complete_sync_run(run_id, &stats, Some(&e.to_string()))
+                    .await?;
                 return Err(e);
             }
         }
@@ -267,7 +279,7 @@ impl CreditsSyncService {
             INSERT INTO credits_sync_runs (artist_id, platform, status, started_at)
             VALUES ($1, 'apple_music', 'running', NOW())
             RETURNING id
-            "#
+            "#,
         )
         .bind(artist_id)
         .fetch_one(&self.db_pool)
@@ -276,8 +288,17 @@ impl CreditsSyncService {
         Ok(run_id)
     }
 
-    async fn complete_sync_run(&self, run_id: Uuid, stats: &SyncStats, error: Option<&str>) -> Result<()> {
-        let status = if error.is_some() { "failed" } else { "completed" };
+    async fn complete_sync_run(
+        &self,
+        run_id: Uuid,
+        stats: &SyncStats,
+        error: Option<&str>,
+    ) -> Result<()> {
+        let status = if error.is_some() {
+            "failed"
+        } else {
+            "completed"
+        };
 
         sqlx::query(
             r#"
@@ -286,7 +307,7 @@ impl CreditsSyncService {
                 credits_added = $5, completed_at = NOW(),
                 error_log = CASE WHEN $6 IS NOT NULL THEN jsonb_build_array($6) ELSE '[]'::jsonb END
             WHERE id = $1
-            "#
+            "#,
         )
         .bind(run_id)
         .bind(status)
@@ -318,7 +339,8 @@ impl CreditsSyncService {
         loop {
             let url = format!("{}?limit={}&offset={}", base_url, limit, offset);
 
-            let response = self.client
+            let response = self
+                .client
                 .get(&url)
                 .header("Authorization", format!("Bearer {}", token))
                 .send()
@@ -329,10 +351,16 @@ impl CreditsSyncService {
                 let status = response.status();
                 let body = response.text().await.unwrap_or_default();
                 tracing::error!(status = %status, body = %body, "Apple Music API error");
-                return Err(anyhow::anyhow!("Apple Music API error: {} - {}", status, body));
+                return Err(anyhow::anyhow!(
+                    "Apple Music API error: {} - {}",
+                    status,
+                    body
+                ));
             }
 
-            let albums: AppleMusicResponse<AppleMusicAlbum> = response.json().await
+            let albums: AppleMusicResponse<AppleMusicAlbum> = response
+                .json()
+                .await
                 .context("Failed to parse albums response")?;
 
             if albums.data.is_empty() {
@@ -368,15 +396,17 @@ impl CreditsSyncService {
         let attrs = &album.attributes;
 
         // Parse release date
-        let release_date = attrs.release_date.as_ref().and_then(|d| {
-            NaiveDate::parse_from_str(d, "%Y-%m-%d").ok()
-        });
+        let release_date = attrs
+            .release_date
+            .as_ref()
+            .and_then(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d").ok());
         let release_year = release_date.map(|d| d.year());
 
         // Get cover art URL
-        let cover_url = attrs.artwork.as_ref().map(|a| {
-            a.url.replace("{w}", "600").replace("{h}", "600")
-        });
+        let cover_url = attrs
+            .artwork
+            .as_ref()
+            .map(|a| a.url.replace("{w}", "600").replace("{h}", "600"));
 
         // Insert or update album
         let album_id: Uuid = sqlx::query_scalar(
@@ -388,7 +418,7 @@ impl CreditsSyncService {
                 title = EXCLUDED.title,
                 updated_at = NOW()
             RETURNING id
-            "#
+            "#,
         )
         .bind(&attrs.name)
         .bind(release_date)
@@ -408,7 +438,7 @@ impl CreditsSyncService {
             INSERT INTO album_artists (album_id, artist_id, is_primary)
             VALUES ($1, $2, true)
             ON CONFLICT DO NOTHING
-            "#
+            "#,
         )
         .bind(album_id)
         .bind(artist_id)
@@ -416,7 +446,8 @@ impl CreditsSyncService {
         .await?;
 
         // Fetch tracks with credits
-        self.fetch_album_tracks(&album.id, album_id, artist_id, stats).await?;
+        self.fetch_album_tracks(&album.id, album_id, artist_id, stats)
+            .await?;
 
         Ok(())
     }
@@ -434,7 +465,8 @@ impl CreditsSyncService {
             self.storefront, apple_album_id
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", token))
             .send()
@@ -468,7 +500,11 @@ impl CreditsSyncService {
         stats: &mut SyncStats,
     ) -> Result<()> {
         let attrs = &track.attributes;
-        let is_explicit = attrs.content_rating.as_ref().map(|r| r == "explicit").unwrap_or(false);
+        let is_explicit = attrs
+            .content_rating
+            .as_ref()
+            .map(|r| r == "explicit")
+            .unwrap_or(false);
 
         // Insert track
         let track_id: Uuid = sqlx::query_scalar(
@@ -480,7 +516,7 @@ impl CreditsSyncService {
                 title = EXCLUDED.title,
                 updated_at = NOW()
             RETURNING id
-            "#
+            "#,
         )
         .bind(&attrs.name)
         .bind(album_id)
@@ -495,12 +531,21 @@ impl CreditsSyncService {
         .await?;
 
         // Add primary artist credit
-        self.add_credit(track_id, Some(artist_id), &attrs.artist_name, CreditRole::PrimaryArtist, None, stats).await?;
+        self.add_credit(
+            track_id,
+            Some(artist_id),
+            &attrs.artist_name,
+            CreditRole::PrimaryArtist,
+            None,
+            stats,
+        )
+        .await?;
 
         // Add composer credit if available
         if let Some(ref composer) = attrs.composer_name {
             if !composer.is_empty() && composer != &attrs.artist_name {
-                self.add_credit(track_id, None, composer, CreditRole::Composer, None, stats).await?;
+                self.add_credit(track_id, None, composer, CreditRole::Composer, None, stats)
+                    .await?;
             }
         }
 
@@ -524,7 +569,8 @@ impl CreditsSyncService {
             self.storefront, apple_track_id
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", token))
             .send()
@@ -546,11 +592,25 @@ impl CreditsSyncService {
                         if let Some(credit_data) = credits.get("data").and_then(|d| d.as_array()) {
                             for credit in credit_data {
                                 if let (Some(role), Some(name)) = (
-                                    credit.get("attributes").and_then(|a| a.get("roleName")).and_then(|r| r.as_str()),
-                                    credit.get("attributes").and_then(|a| a.get("artistName")).and_then(|n| n.as_str())
+                                    credit
+                                        .get("attributes")
+                                        .and_then(|a| a.get("roleName"))
+                                        .and_then(|r| r.as_str()),
+                                    credit
+                                        .get("attributes")
+                                        .and_then(|a| a.get("artistName"))
+                                        .and_then(|n| n.as_str()),
                                 ) {
                                     let credit_role = CreditRole::from_apple_role(role);
-                                    self.add_credit(track_id, None, name, credit_role, Some(role), stats).await?;
+                                    self.add_credit(
+                                        track_id,
+                                        None,
+                                        name,
+                                        credit_role,
+                                        Some(role),
+                                        stats,
+                                    )
+                                    .await?;
                                 }
                             }
                         }
@@ -562,7 +622,15 @@ impl CreditsSyncService {
                     if let Some(composers) = meta.get("composers").and_then(|c| c.as_array()) {
                         for composer in composers {
                             if let Some(name) = composer.as_str() {
-                                self.add_credit(track_id, None, name, CreditRole::Composer, None, stats).await?;
+                                self.add_credit(
+                                    track_id,
+                                    None,
+                                    name,
+                                    CreditRole::Composer,
+                                    None,
+                                    stats,
+                                )
+                                .await?;
                             }
                         }
                     }
@@ -612,7 +680,8 @@ impl CreditsSyncService {
                 // Get primary artist for this track
                 if let Ok(Some(primary_artist)) = self.get_track_primary_artist(track_id).await {
                     if primary_artist != credited_artist {
-                        self.update_collaboration(primary_artist, credited_artist, &role, track_id).await?;
+                        self.update_collaboration(primary_artist, credited_artist, &role, track_id)
+                            .await?;
                     }
                 }
             }
@@ -628,7 +697,7 @@ impl CreditsSyncService {
             WHERE LOWER(canonical_name) = LOWER($1)
             OR aliases::text ILIKE '%' || $1 || '%'
             LIMIT 1
-            "#
+            "#,
         )
         .bind(name)
         .fetch_optional(&self.db_pool)
@@ -643,7 +712,7 @@ impl CreditsSyncService {
             SELECT artist_id FROM track_credits
             WHERE track_id = $1 AND role = 'primary_artist'
             LIMIT 1
-            "#
+            "#,
         )
         .bind(track_id)
         .fetch_optional(&self.db_pool)
@@ -659,7 +728,11 @@ impl CreditsSyncService {
         role: &CreditRole,
         track_id: Uuid,
     ) -> Result<()> {
-        let (a1, a2) = if artist1 < artist2 { (artist1, artist2) } else { (artist2, artist1) };
+        let (a1, a2) = if artist1 < artist2 {
+            (artist1, artist2)
+        } else {
+            (artist2, artist1)
+        };
 
         let collab_type = match role {
             CreditRole::FeaturedArtist => "featured",
@@ -697,12 +770,15 @@ impl CreditsSyncService {
         let mut total_stats = SyncStats::default();
 
         let artists: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT DISTINCT artist_id FROM artist_platform_ids WHERE platform = 'apple_music'"
+            "SELECT DISTINCT artist_id FROM artist_platform_ids WHERE platform = 'apple_music'",
         )
         .fetch_all(&self.db_pool)
         .await?;
 
-        tracing::info!(count = artists.len(), "Starting credits sync for all artists");
+        tracing::info!(
+            count = artists.len(),
+            "Starting credits sync for all artists"
+        );
 
         for artist_id in artists {
             match self.sync_artist_credits(artist_id).await {

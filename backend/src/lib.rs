@@ -37,6 +37,10 @@ pub use config::{
     AppConfig, AuthConfig, ConfigError, DatabaseSettings, Environment, OAuthSettings,
     RedisSettings, ServerConfig,
 };
+pub use config::{
+    AppleMusicCredentials, DeezerConfig, PlatformSyncConfig, SpotifyCredentials, TidalCredentials,
+    YouTubeCredentials,
+};
 pub use database::{
     create_pool, create_redis_pool, health_check as db_health_check, redis_health_check,
     run_migrations, seed_test_data, DatabaseConfig, RedisConfiguration,
@@ -55,13 +59,18 @@ pub use monitoring::{
     SystemMetrics,
 };
 pub use recovery::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
-pub use services::dnp_list::DnpListService;
-pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
-pub use services::catalog_sync::{CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder};
-pub use services::news_pipeline::{NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner, ScheduledPipelineHandle};
 pub use services::backfill_orchestrator::BackfillOrchestrator;
+pub use services::catalog_sync::{
+    CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder,
+};
+pub use services::dnp_list::DnpListService;
+pub use services::news_pipeline::{
+    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
+};
+pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
+pub use services::{TokenVaultBackgroundService, TokenVaultService, TokenVaultStatistics};
+pub use services::{CircuitBreakerConfig, CircuitBreakerService};
 pub use validation::{validate_email, validate_password, validate_totp_code, ValidatedJson};
-pub use config::{PlatformSyncConfig, SpotifyCredentials, AppleMusicCredentials, TidalCredentials, YouTubeCredentials, DeezerConfig};
 
 // Re-export stub services for testing
 #[cfg(test)]
@@ -84,6 +93,8 @@ pub struct AppState {
     pub credits_sync: Option<Arc<CreditsSyncService>>,
     pub backfill_orchestrator: Option<Arc<services::BackfillOrchestrator>>,
     pub apple_music_service: Arc<services::AppleMusicService>,
+    /// Circuit breaker for provider API calls (US-026)
+    pub circuit_breaker: Arc<CircuitBreakerService>,
     /// Test user ID for development (will be removed in production auth)
     pub test_user_id: Option<uuid::Uuid>,
 }
@@ -126,6 +137,44 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/oauth/:provider/callback",
             post(handlers::oauth::oauth_callback_handler),
+        )
+        // Apple OAuth routes (explicit endpoints per acceptance criteria US-003)
+        // GET returns authorization URL with proper scopes
+        .route(
+            "/oauth/apple/authorize",
+            get(handlers::oauth::apple_authorize_handler),
+        )
+        // POST handles Apple's form_post callback format
+        .route(
+            "/oauth/apple/callback",
+            post(handlers::oauth::apple_oauth_callback_handler),
+        )
+        // Legacy route alias for form callback
+        .route(
+            "/oauth/apple/callback-form",
+            post(handlers::oauth::apple_oauth_callback_handler),
+        )
+        // GitHub OAuth routes (explicit endpoints per acceptance criteria US-004)
+        // GET returns authorization URL with proper scopes
+        .route(
+            "/oauth/github/authorize",
+            get(handlers::oauth::github_authorize_handler),
+        )
+        // POST handles GitHub callback and exchanges code for tokens
+        .route(
+            "/oauth/github/callback",
+            post(handlers::oauth::github_oauth_callback_handler),
+        )
+        // Google OAuth routes (explicit endpoints per acceptance criteria US-002)
+        // GET returns authorization URL with proper scopes (openid, email, profile)
+        .route(
+            "/oauth/google/authorize",
+            get(handlers::oauth::google_authorize_handler),
+        )
+        // POST handles Google callback and exchanges code for tokens
+        .route(
+            "/oauth/google/callback",
+            post(handlers::oauth::google_oauth_callback_handler),
         );
 
     // Create protected routes that require authentication
@@ -503,6 +552,16 @@ pub fn create_router(state: AppState) -> Router {
             "/analytics/category-revenue/user/exposure",
             get(handlers::analytics_v2::get_user_category_exposure_handler),
         )
+        // Enforcement analytics routes (US-024)
+        .route(
+            "/analytics/enforcement",
+            get(handlers::analytics_v2::get_enforcement_analytics_handler),
+        )
+        // User activity summary route (US-025)
+        .route(
+            "/analytics/summary",
+            get(handlers::analytics_v2::get_user_activity_summary_handler),
+        )
         // News pipeline routes
         .route("/news/articles", get(handlers::news::list_articles_handler))
         .route(
@@ -586,6 +645,16 @@ pub fn create_router(state: AppState) -> Router {
             "/enforcement/spotify/progress/:batch_id",
             get(handlers::spotify_enforcement::get_spotify_enforcement_progress),
         )
+        // Generic enforcement batch rollback endpoint (US-015)
+        .route(
+            "/enforcement/batches/:batch_id/rollback",
+            post(handlers::spotify_enforcement::rollback_enforcement_batch),
+        )
+        // Connection health check routes (US-012)
+        .route(
+            "/connections",
+            get(handlers::connections::get_connections_health_handler),
+        )
         // Apple Music auth routes (connect/disconnect Apple Music account)
         .route(
             "/apple-music/auth/connect",
@@ -602,6 +671,23 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/apple-music/auth/verify",
             post(handlers::apple_music_auth::verify_connection),
+        )
+        // Spotify connection routes (US-005: Spotify OAuth for provider connection)
+        .route(
+            "/connections/spotify/authorize",
+            get(handlers::spotify_connection::spotify_authorize_handler),
+        )
+        .route(
+            "/connections/spotify/callback",
+            post(handlers::spotify_connection::spotify_callback_handler),
+        )
+        .route(
+            "/connections/spotify/status",
+            get(handlers::spotify_connection::spotify_connection_status_handler),
+        )
+        .route(
+            "/connections/spotify",
+            delete(handlers::spotify_connection::spotify_disconnect_handler),
         )
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
@@ -660,6 +746,11 @@ pub fn create_router(state: AppState) -> Router {
                 .layer(TraceLayer::new_for_http())
                 .layer(create_cors_layer()),
         )
+        // Add latency metrics middleware (US-023)
+        .layer(axum::middleware::from_fn_with_state(
+            state.metrics.clone(),
+            crate::middleware::latency::latency_middleware,
+        ))
         .with_state(state)
 }
 

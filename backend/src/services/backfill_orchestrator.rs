@@ -64,7 +64,10 @@ impl BackfillOrchestrator {
     }
 
     /// Create with news pipeline for offense searching
-    pub fn with_news_pipeline(db_pool: PgPool, news_pipeline: Arc<NewsPipelineOrchestrator>) -> Self {
+    pub fn with_news_pipeline(
+        db_pool: PgPool,
+        news_pipeline: Arc<NewsPipelineOrchestrator>,
+    ) -> Self {
         Self {
             db_pool,
             news_pipeline: Some(news_pipeline),
@@ -197,7 +200,9 @@ impl BackfillOrchestrator {
         .await
         .unwrap_or(0);
 
-        let target_count = max_artists.unwrap_or(total_needing as usize).min(total_needing as usize);
+        let target_count = max_artists
+            .unwrap_or(total_needing as usize)
+            .min(total_needing as usize);
 
         {
             let mut progress = self.progress.write().await;
@@ -237,7 +242,11 @@ impl BackfillOrchestrator {
                     Ok(offenses_found) => {
                         result.offenses_created += offenses_found;
                         if let Err(e) = self.record_search(artist.id, offenses_found as i32).await {
-                            tracing::warn!("Failed to record search for {}: {}", artist.canonical_name, e);
+                            tracing::warn!(
+                                "Failed to record search for {}: {}",
+                                artist.canonical_name,
+                                e
+                            );
                         }
                     }
                     Err(e) => {

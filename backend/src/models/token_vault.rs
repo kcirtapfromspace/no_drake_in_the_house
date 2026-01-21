@@ -18,6 +18,8 @@ pub struct Connection {
     pub status: ConnectionStatus,
     pub last_health_check: Option<DateTime<Utc>>,
     pub error_code: Option<String>,
+    /// Key ID used for envelope encryption (e.g., user-{uuid}-spotify)
+    pub data_key_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -49,6 +51,7 @@ pub enum ConnectionStatus {
     Expired,
     Revoked,
     Error,
+    NeedsReauth,
 }
 
 /// Encrypted token data with envelope encryption
@@ -135,9 +138,29 @@ impl Connection {
             status: ConnectionStatus::Active,
             last_health_check: None,
             error_code: None,
+            data_key_id: None,
             created_at: now,
             updated_at: now,
         }
+    }
+
+    /// Create a new connection with a specific data key ID for encryption
+    pub fn with_data_key_id(
+        user_id: Uuid,
+        provider: StreamingProvider,
+        provider_user_id: String,
+        scopes: Vec<String>,
+        data_key_id: String,
+    ) -> Self {
+        let mut conn = Self::new(user_id, provider, provider_user_id, scopes);
+        conn.data_key_id = Some(data_key_id);
+        conn
+    }
+
+    /// Set the data key ID for this connection
+    pub fn set_data_key_id(&mut self, key_id: String) {
+        self.data_key_id = Some(key_id);
+        self.updated_at = Utc::now();
     }
 
     pub fn update_tokens(
@@ -163,6 +186,12 @@ impl Connection {
 
     pub fn mark_expired(&mut self) {
         self.status = ConnectionStatus::Expired;
+        self.updated_at = Utc::now();
+    }
+
+    pub fn mark_needs_reauth(&mut self, reason: String) {
+        self.status = ConnectionStatus::NeedsReauth;
+        self.error_code = Some(reason);
         self.updated_at = Utc::now();
     }
 

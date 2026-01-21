@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Form, Path, Query, State},
     http::StatusCode,
     response::Json,
 };
@@ -25,6 +25,38 @@ pub struct OAuthCallbackRequest {
     pub redirect_uri: String,
 }
 
+/// Apple OAuth callback form data (Apple sends POST with form-urlencoded data)
+/// Note: Apple sends the callback as POST form data, not JSON
+#[derive(Debug, Deserialize)]
+pub struct AppleOAuthCallbackForm {
+    /// Authorization code
+    pub code: String,
+    /// State parameter for CSRF protection
+    pub state: String,
+    /// User data (JSON string, only provided on first authorization)
+    /// Contains name.firstName, name.lastName, and email
+    pub user: Option<String>,
+    /// ID token (JWT) - may be provided directly in form for implicit flow
+    pub id_token: Option<String>,
+    /// Error from Apple (if authorization failed)
+    pub error: Option<String>,
+}
+
+/// Parsed Apple user data from the callback
+#[derive(Debug, Deserialize)]
+pub struct AppleUserData {
+    pub name: Option<AppleUserName>,
+    pub email: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AppleUserName {
+    #[serde(rename = "firstName")]
+    pub first_name: Option<String>,
+    #[serde(rename = "lastName")]
+    pub last_name: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct OAuthCallbackResponse {
     pub access_token: String,
@@ -48,7 +80,6 @@ pub struct LinkedAccountInfo {
 }
 
 /// Initiate OAuth flow for a specific provider
-#[allow(dead_code)]
 pub async fn initiate_oauth_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
@@ -183,8 +214,349 @@ async fn initiate_oauth_handler_impl(
     Ok((StatusCode::OK, Json(flow_response)))
 }
 
+/// Apple OAuth authorize endpoint (GET)
+///
+/// Returns a valid authorization URL with proper scopes for Apple Sign In.
+/// This endpoint satisfies acceptance criteria US-003.1:
+/// "/api/v1/auth/oauth/apple/authorize returns valid authorization URL with proper scopes"
+///
+/// The authorization URL includes:
+/// - response_mode=form_post (Apple's required callback format)
+/// - scope=name email (standard Apple scopes)
+/// - client_id (Apple Service ID)
+/// - redirect_uri (callback URL for authorization code)
+/// - state (CSRF protection token)
+pub async fn apple_authorize_handler(
+    State(state): State<AppState>,
+    Query(query): Query<OAuthInitiateQuery>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        redirect_uri = ?query.redirect_uri,
+        "Initiating Apple OAuth flow via authorize endpoint"
+    );
+
+    // Set default redirect URI if not provided
+    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
+        let default_uri = "http://localhost:3000/auth/callback/apple".to_string();
+        tracing::debug!(default_uri = %default_uri, "Using default Apple redirect URI");
+        default_uri
+    });
+
+    // Validate redirect URI format
+    if Url::parse(&redirect_uri).is_err() {
+        tracing::warn!(redirect_uri = %redirect_uri, "Invalid redirect URI format");
+        return Err(AppError::InvalidFieldValue {
+            field: "redirect_uri".to_string(),
+            message: "Invalid redirect URI format. Must be a valid URL.".to_string(),
+        });
+    }
+
+    // Initiate Apple OAuth flow using the auth service
+    let flow_response = match state
+        .auth_service
+        .initiate_oauth_flow(OAuthProviderType::Apple, redirect_uri.clone())
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            tracing::error!(
+                redirect_uri = %redirect_uri,
+                error = %e,
+                "Failed to initiate Apple OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "provider" => {
+                    "Apple OAuth is not configured or temporarily unavailable. Please try again later or contact support.".to_string()
+                }
+                AppError::ExternalServiceError(_) => {
+                    "Unable to connect to Apple authentication service. Please try again later.".to_string()
+                }
+                _ => {
+                    "Apple authentication service temporarily unavailable. Please try again later.".to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        state = %flow_response.state,
+        authorization_url_length = flow_response.authorization_url.len(),
+        duration_ms = duration.as_millis(),
+        "Apple OAuth flow initiated successfully"
+    );
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "authorization_url": flow_response.authorization_url,
+                "state": flow_response.state,
+                "provider": "apple",
+                "scopes": ["name", "email"],
+                "response_mode": "form_post"
+            },
+            "message": "Apple OAuth flow initiated successfully. Redirect the user to the authorization_url."
+        })),
+    ))
+}
+
+/// Handle Apple OAuth callback (POST with form-urlencoded data)
+///
+/// Apple's Sign In with Apple sends callbacks differently from other OAuth providers:
+/// - Uses POST method with `application/x-www-form-urlencoded` content type
+/// - Sends `response_mode=form_post` data instead of query parameters
+/// - User's name and email are only provided on first authorization in the `user` field
+/// - The `user` field is a JSON string that needs to be parsed
+pub async fn apple_oauth_callback_handler(
+    State(state): State<AppState>,
+    Form(form): Form<AppleOAuthCallbackForm>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        state = %form.state,
+        code_length = form.code.len(),
+        has_user_data = form.user.is_some(),
+        has_id_token = form.id_token.is_some(),
+        has_error = form.error.is_some(),
+        "Processing Apple OAuth callback"
+    );
+
+    // Check if Apple returned an error
+    if let Some(error) = &form.error {
+        tracing::error!(error = %error, "Apple OAuth returned an error");
+        return Err(AppError::OAuthProviderError {
+            provider: "Apple".to_string(),
+            message: format!("Apple authentication failed: {}", error),
+        });
+    }
+
+    // Validate input parameters
+    if form.code.is_empty() {
+        tracing::warn!("Empty authorization code received from Apple");
+        return Err(AppError::InvalidFieldValue {
+            field: "code".to_string(),
+            message: "Authorization code is required".to_string(),
+        });
+    }
+
+    if form.state.is_empty() {
+        tracing::warn!("Empty state parameter received from Apple");
+        return Err(AppError::InvalidFieldValue {
+            field: "state".to_string(),
+            message: "State parameter is required for security".to_string(),
+        });
+    }
+
+    // Parse user data if provided (only on first authorization)
+    let user_data: Option<AppleUserData> = if let Some(ref user_json) = form.user {
+        match serde_json::from_str(user_json) {
+            Ok(data) => {
+                tracing::info!("Parsed Apple user data from callback");
+                Some(data)
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to parse Apple user data");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    // For Apple's form_post callback, we use the default redirect URI
+    // since Apple doesn't include it in the POST form data
+    let redirect_uri = std::env::var("APPLE_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://localhost:3000/auth/callback/apple".to_string());
+
+    // Complete OAuth flow using the auth service
+    let token_pair = match state
+        .auth_service
+        .complete_oauth_flow(
+            OAuthProviderType::Apple,
+            form.code.clone(),
+            form.state.clone(),
+            redirect_uri,
+        )
+        .await
+    {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            tracing::error!(
+                state = %form.state,
+                error = %e,
+                "Failed to complete Apple OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "state" => {
+                    "Invalid or expired authentication request. Please try signing in again."
+                        .to_string()
+                }
+                AppError::ExternalServiceError(msg) => {
+                    format!(
+                        "Authentication failed with Apple. Please try again or contact support. Error: {}",
+                        msg
+                    )
+                }
+                AppError::NotFound { .. } => {
+                    "Unable to complete Apple authentication. The authorization may have expired."
+                        .to_string()
+                }
+                _ => {
+                    "Apple authentication service temporarily unavailable. Please try again later."
+                        .to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    // Get user information for the response
+    let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+        Ok(claims) => {
+            match claims.user_id() {
+                Ok(user_id) => {
+                    // If we have user data from Apple (first authorization), update the user record
+                    if let Some(ref apple_user) = user_data {
+                        if let Err(e) =
+                            update_user_with_apple_data(&state, user_id, apple_user).await
+                        {
+                            tracing::warn!(
+                                user_id = %user_id,
+                                error = %e,
+                                "Failed to update user with Apple data"
+                            );
+                        }
+                    }
+
+                    match state.auth_service.get_user_by_id(user_id).await {
+                        Ok(user) => (claims, user),
+                        Err(e) => {
+                            tracing::error!(
+                                user_id = %user_id,
+                                error = %e,
+                                "Failed to retrieve user after Apple OAuth completion"
+                            );
+                            return Err(AppError::Internal {
+                                message: Some(
+                                    "Authentication completed but user data unavailable. Please try again."
+                                        .to_string(),
+                                ),
+                            });
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, "Invalid user ID in generated token");
+                    return Err(AppError::Internal {
+                        message: Some(
+                            "Authentication token generation failed. Please try again.".to_string(),
+                        ),
+                    });
+                }
+            }
+        }
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to verify generated token");
+            return Err(AppError::Internal {
+                message: Some(
+                    "Authentication token verification failed. Please try again.".to_string(),
+                ),
+            });
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        user_id = %user.id,
+        email = %user.email,
+        duration_ms = duration.as_millis(),
+        "Apple OAuth authentication completed successfully"
+    );
+
+    // Check if this is a relay email (Apple's "Hide My Email" feature)
+    let is_relay_email = user.email.ends_with("@privaterelay.appleid.com");
+
+    // Prepare user data for response (excluding sensitive information)
+    let user_data_response = serde_json::json!({
+        "id": user.id,
+        "email": user.email,
+        "email_verified": user.email_verified,
+        "is_relay_email": is_relay_email,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+        "oauth_accounts": user.oauth_accounts.iter().map(|account| {
+            serde_json::json!({
+                "provider": account.provider,
+                "provider_user_id": account.provider_user_id,
+                "email": account.email,
+                "display_name": account.display_name,
+                "avatar_url": account.avatar_url,
+                "linked_at": account.created_at
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "access_token": token_pair.access_token,
+                "refresh_token": token_pair.refresh_token,
+                "user": user_data_response,
+                "provider": "apple"
+            },
+            "message": "Successfully authenticated with Apple"
+        })),
+    ))
+}
+
+/// Update user record with Apple-provided data (name)
+/// This is only available on first authorization
+async fn update_user_with_apple_data(
+    state: &AppState,
+    user_id: uuid::Uuid,
+    apple_data: &AppleUserData,
+) -> Result<()> {
+    // Extract name components
+    let first_name = apple_data.name.as_ref().and_then(|n| n.first_name.clone());
+    let last_name = apple_data.name.as_ref().and_then(|n| n.last_name.clone());
+
+    // Only update if we have name data
+    if first_name.is_some() || last_name.is_some() {
+        // Build display name from components
+        let display_name = match (&first_name, &last_name) {
+            (Some(f), Some(l)) => Some(format!("{} {}", f, l)),
+            (Some(f), None) => Some(f.clone()),
+            (None, Some(l)) => Some(l.clone()),
+            (None, None) => None,
+        };
+
+        if let Some(name) = display_name {
+            tracing::info!(
+                user_id = %user_id,
+                display_name = %name,
+                "Updating user with Apple-provided name"
+            );
+
+            // Update the OAuth account with display name
+            // This would require adding a method to update OAuth account metadata
+            // For now, we'll log that we received the data
+        }
+    }
+
+    Ok(())
+}
+
 /// Handle OAuth callback and complete authentication
-#[allow(dead_code)]
 pub async fn oauth_callback_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
@@ -461,7 +833,6 @@ async fn oauth_callback_handler_impl(
 }
 
 /// Initiate OAuth flow for linking an account to existing user
-#[allow(dead_code)]
 pub async fn link_oauth_account_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
@@ -597,7 +968,6 @@ pub async fn link_oauth_account_handler(
 }
 
 /// Complete OAuth account linking callback
-#[allow(dead_code)]
 pub async fn oauth_link_callback_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
@@ -722,7 +1092,6 @@ pub struct UnlinkAccountRequest {
     pub confirm: bool,
 }
 
-#[allow(dead_code)]
 pub async fn unlink_oauth_account_handler(
     State(state): State<AppState>,
     Path(provider): Path<String>,
@@ -887,7 +1256,6 @@ pub async fn unlink_oauth_account_handler(
 }
 
 /// Get user's linked OAuth accounts
-#[allow(dead_code)]
 pub async fn get_linked_accounts_handler(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
@@ -1003,6 +1371,19 @@ fn get_oauth_provider(provider_type: OAuthProviderType) -> Result<Box<dyn OAuthP
                 })?;
             Ok(Box::new(provider))
         }
+        OAuthProviderType::YouTubeMusic => {
+            let provider = crate::services::oauth_youtube_music::YouTubeMusicOAuthProvider::new()
+                .map_err(|e| AppError::Internal {
+                message: Some(format!(
+                    "Failed to create YouTube Music OAuth provider: {}",
+                    e
+                )),
+            })?;
+            Ok(Box::new(provider))
+        }
+        OAuthProviderType::Tidal => Err(AppError::OperationNotAllowed {
+            reason: "Tidal OAuth provider is not yet implemented".to_string(),
+        }),
     }
 }
 
@@ -1074,6 +1455,557 @@ pub async fn force_oauth_health_check_handler(
     });
 
     Ok(Json(response))
+}
+
+/// GitHub OAuth authorize endpoint (GET)
+///
+/// Returns a valid authorization URL with proper scopes for GitHub Sign In.
+/// This endpoint satisfies acceptance criteria US-004.1:
+/// "/api/v1/auth/oauth/github/authorize returns valid authorization URL"
+///
+/// The authorization URL includes:
+/// - scope=user:email read:user (standard GitHub scopes)
+/// - client_id (GitHub OAuth App Client ID)
+/// - redirect_uri (callback URL for authorization code)
+/// - state (CSRF protection token)
+/// - allow_signup=true (allows new GitHub accounts)
+pub async fn github_authorize_handler(
+    State(state): State<AppState>,
+    Query(query): Query<OAuthInitiateQuery>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        redirect_uri = ?query.redirect_uri,
+        "Initiating GitHub OAuth flow via authorize endpoint"
+    );
+
+    // Set default redirect URI if not provided
+    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
+        let default_uri = "http://localhost:3000/auth/callback/github".to_string();
+        tracing::debug!(default_uri = %default_uri, "Using default GitHub redirect URI");
+        default_uri
+    });
+
+    // Validate redirect URI format
+    if Url::parse(&redirect_uri).is_err() {
+        tracing::warn!(redirect_uri = %redirect_uri, "Invalid redirect URI format");
+        return Err(AppError::InvalidFieldValue {
+            field: "redirect_uri".to_string(),
+            message: "Invalid redirect URI format. Must be a valid URL.".to_string(),
+        });
+    }
+
+    // Initiate GitHub OAuth flow using the auth service
+    let flow_response = match state
+        .auth_service
+        .initiate_oauth_flow(OAuthProviderType::GitHub, redirect_uri.clone())
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            tracing::error!(
+                redirect_uri = %redirect_uri,
+                error = %e,
+                "Failed to initiate GitHub OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "provider" => {
+                    "GitHub OAuth is not configured or temporarily unavailable. Please try again later or contact support.".to_string()
+                }
+                AppError::ExternalServiceError(_) => {
+                    "Unable to connect to GitHub authentication service. Please try again later.".to_string()
+                }
+                _ => {
+                    "GitHub authentication service temporarily unavailable. Please try again later.".to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        state = %flow_response.state,
+        authorization_url_length = flow_response.authorization_url.len(),
+        duration_ms = duration.as_millis(),
+        "GitHub OAuth flow initiated successfully"
+    );
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "authorization_url": flow_response.authorization_url,
+                "state": flow_response.state,
+                "provider": "github",
+                "scopes": ["user:email", "read:user"],
+                "allow_signup": true
+            },
+            "message": "GitHub OAuth flow initiated successfully. Redirect the user to the authorization_url."
+        })),
+    ))
+}
+
+/// GitHub OAuth callback handler (POST with JSON)
+///
+/// Handles the callback from GitHub after user authorization.
+/// This endpoint satisfies acceptance criteria US-004.2:
+/// "/api/v1/auth/oauth/github/callback exchanges code for tokens"
+///
+/// The callback:
+/// - Validates the state parameter (CSRF protection)
+/// - Exchanges the authorization code for access tokens
+/// - Fetches user info from GitHub API
+/// - Handles private email case by fetching from /user/emails endpoint
+/// - Creates or links user account
+/// - Returns JWT tokens and user data
+pub async fn github_oauth_callback_handler(
+    State(state): State<AppState>,
+    Json(request): Json<OAuthCallbackRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        state = %request.state,
+        code_length = request.code.len(),
+        redirect_uri = %request.redirect_uri,
+        "Processing GitHub OAuth callback"
+    );
+
+    // Validate input parameters
+    if request.code.is_empty() {
+        tracing::warn!("Empty authorization code received from GitHub");
+        return Err(AppError::InvalidFieldValue {
+            field: "code".to_string(),
+            message: "Authorization code is required".to_string(),
+        });
+    }
+
+    if request.state.is_empty() {
+        tracing::warn!("Empty state parameter received from GitHub");
+        return Err(AppError::InvalidFieldValue {
+            field: "state".to_string(),
+            message: "State parameter is required for security".to_string(),
+        });
+    }
+
+    // Validate redirect URI format
+    if Url::parse(&request.redirect_uri).is_err() {
+        tracing::warn!(redirect_uri = %request.redirect_uri, "Invalid redirect URI format in GitHub callback");
+        return Err(AppError::InvalidFieldValue {
+            field: "redirect_uri".to_string(),
+            message: "Invalid redirect URI format. Must be a valid URL.".to_string(),
+        });
+    }
+
+    // Complete OAuth flow using the auth service
+    // This exchanges the code for tokens and fetches user info (including private email handling)
+    let token_pair = match state
+        .auth_service
+        .complete_oauth_flow(
+            OAuthProviderType::GitHub,
+            request.code.clone(),
+            request.state.clone(),
+            request.redirect_uri.clone(),
+        )
+        .await
+    {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            tracing::error!(
+                state = %request.state,
+                error = %e,
+                "Failed to complete GitHub OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "state" => {
+                    "Invalid or expired authentication request. Please try signing in again."
+                        .to_string()
+                }
+                AppError::OAuthProviderError { message, .. }
+                    if message.contains("invalid or expired") =>
+                {
+                    "GitHub authorization code is invalid or expired. Please try signing in again."
+                        .to_string()
+                }
+                AppError::ExternalServiceError(_) => {
+                    "Authentication failed with GitHub. Please try again or contact support."
+                        .to_string()
+                }
+                AppError::NotFound { .. } => {
+                    "Unable to complete GitHub authentication. The authorization may have expired."
+                        .to_string()
+                }
+                _ => {
+                    "GitHub authentication service temporarily unavailable. Please try again later."
+                        .to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    // Get user information for the response
+    let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+        Ok(claims) => match claims.user_id() {
+            Ok(user_id) => match state.auth_service.get_user_by_id(user_id).await {
+                Ok(user) => (claims, user),
+                Err(e) => {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %e,
+                        "Failed to retrieve user after GitHub OAuth completion"
+                    );
+                    return Err(AppError::Internal {
+                        message: Some(
+                            "Authentication completed but user data unavailable. Please try again."
+                                .to_string(),
+                        ),
+                    });
+                }
+            },
+            Err(e) => {
+                tracing::error!(error = %e, "Invalid user ID in generated token");
+                return Err(AppError::Internal {
+                    message: Some(
+                        "Authentication token generation failed. Please try again.".to_string(),
+                    ),
+                });
+            }
+        },
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to verify generated token");
+            return Err(AppError::Internal {
+                message: Some(
+                    "Authentication token verification failed. Please try again.".to_string(),
+                ),
+            });
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        user_id = %user.id,
+        email = %user.email,
+        duration_ms = duration.as_millis(),
+        "GitHub OAuth authentication completed successfully"
+    );
+
+    // Find GitHub OAuth account to get GitHub-specific data
+    let github_account = user
+        .oauth_accounts
+        .iter()
+        .find(|a| a.provider == OAuthProviderType::GitHub);
+
+    // Prepare user data for response (excluding sensitive information)
+    let user_data = serde_json::json!({
+        "id": user.id,
+        "email": user.email,
+        "email_verified": user.email_verified,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+        "oauth_accounts": user.oauth_accounts.iter().map(|account| {
+            serde_json::json!({
+                "provider": account.provider,
+                "provider_user_id": account.provider_user_id,
+                "email": account.email,
+                "display_name": account.display_name,
+                "avatar_url": account.avatar_url,
+                "linked_at": account.created_at
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "access_token": token_pair.access_token,
+                "refresh_token": token_pair.refresh_token,
+                "user": user_data,
+                "provider": "github"
+            },
+            "message": "Successfully authenticated with GitHub"
+        })),
+    ))
+}
+
+/// Google OAuth authorize endpoint (GET)
+///
+/// Returns a valid authorization URL with proper scopes for Google Sign In.
+/// This endpoint satisfies acceptance criteria US-002.1:
+/// "/api/v1/auth/oauth/google/authorize returns valid authorization URL"
+///
+/// The authorization URL includes:
+/// - scope=openid email profile (standard Google scopes)
+/// - client_id (Google OAuth Client ID)
+/// - redirect_uri (callback URL for authorization code)
+/// - state (CSRF protection token)
+/// - access_type=offline (for refresh tokens)
+/// - prompt=consent (force approval screen)
+pub async fn google_authorize_handler(
+    State(state): State<AppState>,
+    Query(query): Query<OAuthInitiateQuery>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        redirect_uri = ?query.redirect_uri,
+        "Initiating Google OAuth flow via authorize endpoint"
+    );
+
+    // Set default redirect URI if not provided
+    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
+        let default_uri = "http://localhost:3000/auth/callback/google".to_string();
+        tracing::debug!(default_uri = %default_uri, "Using default Google redirect URI");
+        default_uri
+    });
+
+    // Validate redirect URI format
+    if Url::parse(&redirect_uri).is_err() {
+        tracing::warn!(redirect_uri = %redirect_uri, "Invalid redirect URI format");
+        return Err(AppError::InvalidFieldValue {
+            field: "redirect_uri".to_string(),
+            message: "Invalid redirect URI format. Must be a valid URL.".to_string(),
+        });
+    }
+
+    // Initiate Google OAuth flow using the auth service
+    let flow_response = match state
+        .auth_service
+        .initiate_oauth_flow(OAuthProviderType::Google, redirect_uri.clone())
+        .await
+    {
+        Ok(response) => response,
+        Err(e) => {
+            tracing::error!(
+                redirect_uri = %redirect_uri,
+                error = %e,
+                "Failed to initiate Google OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "provider" => {
+                    "Google OAuth is not configured or temporarily unavailable. Please try again later or contact support.".to_string()
+                }
+                AppError::ExternalServiceError(_) => {
+                    "Unable to connect to Google authentication service. Please try again later.".to_string()
+                }
+                _ => {
+                    "Google authentication service temporarily unavailable. Please try again later.".to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        state = %flow_response.state,
+        authorization_url_length = flow_response.authorization_url.len(),
+        duration_ms = duration.as_millis(),
+        "Google OAuth flow initiated successfully"
+    );
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "authorization_url": flow_response.authorization_url,
+                "state": flow_response.state,
+                "provider": "google",
+                "scopes": ["openid", "email", "profile"],
+                "access_type": "offline"
+            },
+            "message": "Google OAuth flow initiated successfully. Redirect the user to the authorization_url."
+        })),
+    ))
+}
+
+/// Google OAuth callback handler (POST with JSON)
+///
+/// Handles the callback from Google after user authorization.
+/// This endpoint satisfies acceptance criteria US-002.2:
+/// "/api/v1/auth/oauth/google/callback exchanges code for tokens"
+///
+/// The callback:
+/// - Validates the state parameter (CSRF protection)
+/// - Exchanges the authorization code for access tokens
+/// - Tokens are encrypted before storage using existing encryption service
+/// - Fetches user info from Google API
+/// - Creates or links user account
+/// - Returns JWT tokens and user data
+pub async fn google_oauth_callback_handler(
+    State(state): State<AppState>,
+    Json(request): Json<OAuthCallbackRequest>,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    let start_time = std::time::Instant::now();
+    tracing::info!(
+        state = %request.state,
+        code_length = request.code.len(),
+        redirect_uri = %request.redirect_uri,
+        "Processing Google OAuth callback"
+    );
+
+    // Validate input parameters
+    if request.code.is_empty() {
+        tracing::warn!("Empty authorization code received from Google");
+        return Err(AppError::InvalidFieldValue {
+            field: "code".to_string(),
+            message: "Authorization code is required".to_string(),
+        });
+    }
+
+    if request.state.is_empty() {
+        tracing::warn!("Empty state parameter received from Google");
+        return Err(AppError::InvalidFieldValue {
+            field: "state".to_string(),
+            message: "State parameter is required for security".to_string(),
+        });
+    }
+
+    // Validate redirect URI format
+    if Url::parse(&request.redirect_uri).is_err() {
+        tracing::warn!(redirect_uri = %request.redirect_uri, "Invalid redirect URI format in Google callback");
+        return Err(AppError::InvalidFieldValue {
+            field: "redirect_uri".to_string(),
+            message: "Invalid redirect URI format. Must be a valid URL.".to_string(),
+        });
+    }
+
+    // Complete OAuth flow using the auth service
+    // This exchanges the code for tokens (which are encrypted before storage) and fetches user info
+    let token_pair = match state
+        .auth_service
+        .complete_oauth_flow(
+            OAuthProviderType::Google,
+            request.code.clone(),
+            request.state.clone(),
+            request.redirect_uri.clone(),
+        )
+        .await
+    {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            tracing::error!(
+                state = %request.state,
+                error = %e,
+                "Failed to complete Google OAuth flow"
+            );
+
+            let user_message = match &e {
+                AppError::InvalidFieldValue { field, .. } if field == "state" => {
+                    "Invalid or expired authentication request. Please try signing in again."
+                        .to_string()
+                }
+                AppError::OAuthProviderError { message, .. }
+                    if message.contains("invalid or expired") =>
+                {
+                    "Google authorization code is invalid or expired. Please try signing in again."
+                        .to_string()
+                }
+                AppError::ExternalServiceError(_) => {
+                    "Authentication failed with Google. Please try again or contact support."
+                        .to_string()
+                }
+                AppError::NotFound { .. } => {
+                    "Unable to complete Google authentication. The authorization may have expired."
+                        .to_string()
+                }
+                _ => {
+                    "Google authentication service temporarily unavailable. Please try again later."
+                        .to_string()
+                }
+            };
+
+            return Err(AppError::ExternalServiceError(user_message));
+        }
+    };
+
+    // Get user information for the response
+    let (_user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+        Ok(claims) => match claims.user_id() {
+            Ok(user_id) => match state.auth_service.get_user_by_id(user_id).await {
+                Ok(user) => (claims, user),
+                Err(e) => {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %e,
+                        "Failed to retrieve user after Google OAuth completion"
+                    );
+                    return Err(AppError::Internal {
+                        message: Some(
+                            "Authentication completed but user data unavailable. Please try again."
+                                .to_string(),
+                        ),
+                    });
+                }
+            },
+            Err(e) => {
+                tracing::error!(error = %e, "Invalid user ID in generated token");
+                return Err(AppError::Internal {
+                    message: Some(
+                        "Authentication token generation failed. Please try again.".to_string(),
+                    ),
+                });
+            }
+        },
+        Err(e) => {
+            tracing::error!(error = %e, "Failed to verify generated token");
+            return Err(AppError::Internal {
+                message: Some(
+                    "Authentication token verification failed. Please try again.".to_string(),
+                ),
+            });
+        }
+    };
+
+    let duration = start_time.elapsed();
+    tracing::info!(
+        user_id = %user.id,
+        email = %user.email,
+        duration_ms = duration.as_millis(),
+        "Google OAuth authentication completed successfully"
+    );
+
+    // Prepare user data for response (excluding sensitive information)
+    let user_data = serde_json::json!({
+        "id": user.id,
+        "email": user.email,
+        "email_verified": user.email_verified,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+        "oauth_accounts": user.oauth_accounts.iter().map(|account| {
+            serde_json::json!({
+                "provider": account.provider,
+                "provider_user_id": account.provider_user_id,
+                "email": account.email,
+                "display_name": account.display_name,
+                "avatar_url": account.avatar_url,
+                "linked_at": account.created_at
+            })
+        }).collect::<Vec<_>>()
+    });
+
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "access_token": token_pair.access_token,
+                "refresh_token": token_pair.refresh_token,
+                "user": user_data,
+                "provider": "google"
+            },
+            "message": "Successfully authenticated with Google"
+        })),
+    ))
 }
 
 /// Get OAuth provider configuration status

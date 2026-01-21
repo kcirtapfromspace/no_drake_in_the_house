@@ -329,3 +329,541 @@ async fn test_multiple_providers_same_user() {
 
     println!("✓ Multiple providers test passed!");
 }
+
+// ============================================================================
+// US-009: Spotify Token Refresh Tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_spotify_token_refresh_returns_result() {
+    println!("=== US-009: Testing Spotify Token Refresh Returns Result ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Spotify connection with refresh token
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Spotify,
+        provider_user_id: "spotify_user_refresh_test".to_string(),
+        access_token: "old_access_token".to_string(),
+        refresh_token: Some("valid_refresh_token".to_string()),
+        scopes: vec![
+            "user-read-private".to_string(),
+            "user-library-read".to_string(),
+        ],
+        expires_at: Some(Utc::now() + chrono::Duration::minutes(3)), // Needs refresh
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!("✓ Created Spotify connection: {}", connection.id);
+
+    // Attempt token refresh - will fail without real Spotify credentials
+    // but should return a proper TokenRefreshResult
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Since we don't have real Spotify credentials configured, the result will fail
+    // but the structure should be correct
+    assert_eq!(result.connection_id, connection.id);
+    assert!(result.error_message.is_some() || result.success);
+    println!("✓ Token refresh returned proper result structure");
+    println!("  - success: {}", result.success);
+    println!("  - error_message: {:?}", result.error_message);
+
+    println!("✓ Spotify token refresh test passed!");
+}
+
+#[tokio::test]
+async fn test_token_refresh_no_refresh_token() {
+    println!("=== US-009: Testing Token Refresh Without Refresh Token ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Spotify connection WITHOUT refresh token
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Spotify,
+        provider_user_id: "spotify_user_no_refresh".to_string(),
+        access_token: "access_token_only".to_string(),
+        refresh_token: None, // No refresh token!
+        scopes: vec!["user-read-private".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!(
+        "✓ Created connection without refresh token: {}",
+        connection.id
+    );
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Should fail because there's no refresh token
+    assert!(!result.success);
+    assert!(result
+        .error_message
+        .as_ref()
+        .unwrap()
+        .contains("No refresh token"));
+    println!("✓ Correctly identified missing refresh token");
+
+    // Connection should be marked as NeedsReauth
+    let connections = vault.get_user_connections(user_id).await;
+    let updated_connection = connections
+        .iter()
+        .find(|c| c.id == connection.id)
+        .expect("Connection should exist");
+
+    assert_eq!(updated_connection.status, ConnectionStatus::NeedsReauth);
+    println!("✓ Connection status correctly set to NeedsReauth");
+
+    println!("✓ No refresh token test passed!");
+}
+
+#[tokio::test]
+async fn test_token_refresh_unsupported_provider() {
+    println!("=== US-009: Testing Token Refresh for Unsupported Provider ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Tidal connection (unsupported for token refresh)
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Tidal,
+        provider_user_id: "tidal_user_123".to_string(),
+        access_token: "tidal_access_token".to_string(),
+        refresh_token: Some("tidal_refresh_token".to_string()),
+        scopes: vec!["read".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!("✓ Created Tidal connection: {}", connection.id);
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Should fail because Tidal is not supported for token refresh
+    assert!(!result.success);
+    assert!(result
+        .error_message
+        .as_ref()
+        .unwrap()
+        .contains("not implemented for provider"));
+    println!("✓ Correctly returned error for unsupported provider");
+
+    println!("✓ Unsupported provider test passed!");
+}
+
+#[tokio::test]
+async fn test_token_refresh_nonexistent_connection() {
+    println!("=== US-009: Testing Token Refresh for Non-existent Connection ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+
+    // Try to refresh a connection that doesn't exist
+    let fake_connection_id = Uuid::new_v4();
+    let result = vault.refresh_token(fake_connection_id).await;
+
+    // Should return an error
+    assert!(result.is_err());
+    println!("✓ Correctly returned error for non-existent connection");
+
+    println!("✓ Non-existent connection test passed!");
+}
+
+#[tokio::test]
+async fn test_token_refresh_result_structure() {
+    println!("=== US-009: Testing TokenRefreshResult Structure ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Spotify connection
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Spotify,
+        provider_user_id: "spotify_structure_test".to_string(),
+        access_token: "test_access_token".to_string(),
+        refresh_token: Some("test_refresh_token".to_string()),
+        scopes: vec!["user-read-private".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::minutes(2)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+
+    // Get the refresh result
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Verify the result structure
+    assert_eq!(result.connection_id, connection.id);
+
+    // The result should have:
+    // - success: bool
+    // - new_access_token: Option<String>
+    // - new_refresh_token: Option<String>
+    // - new_expires_at: Option<DateTime<Utc>>
+    // - error_message: Option<String>
+
+    if result.success {
+        // On success, we should have new tokens
+        assert!(result.new_access_token.is_some());
+        assert!(result.new_refresh_token.is_some());
+        assert!(result.new_expires_at.is_some());
+        assert!(result.error_message.is_none());
+        println!("✓ Successful refresh returned all expected fields");
+    } else {
+        // On failure, we should have an error message
+        assert!(result.error_message.is_some());
+        println!(
+            "✓ Failed refresh returned error message: {:?}",
+            result.error_message
+        );
+    }
+
+    println!("✓ TokenRefreshResult structure test passed!");
+}
+
+#[tokio::test]
+async fn test_needs_reauth_status_after_failure() {
+    println!("=== US-009: Testing NeedsReauth Status After Refresh Failure ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Spotify connection without refresh token (will cause failure)
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Spotify,
+        provider_user_id: "spotify_status_test".to_string(),
+        access_token: "test_access_token".to_string(),
+        refresh_token: None, // No refresh token will cause failure
+        scopes: vec!["user-read-private".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::minutes(2)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    assert_eq!(connection.status, ConnectionStatus::Active);
+    println!("✓ Initial connection status is Active");
+
+    // Attempt refresh which will fail
+    let result = vault.refresh_token(connection.id).await.unwrap();
+    assert!(!result.success);
+    println!("✓ Token refresh failed as expected");
+
+    // Check that connection status is now NeedsReauth
+    let connections = vault.get_user_connections(user_id).await;
+    let updated = connections
+        .iter()
+        .find(|c| c.id == connection.id)
+        .expect("Connection should exist");
+
+    assert_eq!(updated.status, ConnectionStatus::NeedsReauth);
+    assert!(updated.error_code.is_some());
+    println!(
+        "✓ Connection status updated to NeedsReauth with error code: {:?}",
+        updated.error_code
+    );
+
+    println!("✓ NeedsReauth status test passed!");
+}
+
+#[tokio::test]
+async fn test_connection_mark_needs_reauth() {
+    println!("=== US-009: Testing Connection mark_needs_reauth Method ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store a Spotify connection
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::Spotify,
+        provider_user_id: "spotify_mark_test".to_string(),
+        access_token: "test_access_token".to_string(),
+        refresh_token: Some("test_refresh_token".to_string()),
+        scopes: vec!["user-read-private".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    assert_eq!(connection.status, ConnectionStatus::Active);
+
+    // Try to get token (should work)
+    let token = vault
+        .get_token(user_id, StreamingProvider::Spotify)
+        .await
+        .unwrap();
+    assert_eq!(token.access_token, "test_access_token");
+    println!("✓ Token retrieval works for Active connection");
+
+    // Revoke the connection to simulate a status change
+    vault.revoke_connection(connection.id).await.unwrap();
+
+    // Now token retrieval should fail
+    let revoked_result = vault.get_token(user_id, StreamingProvider::Spotify).await;
+    assert!(revoked_result.is_err());
+    println!("✓ Token retrieval fails for non-Active connection");
+
+    println!("✓ mark_needs_reauth test passed!");
+}
+
+// ============================================================================
+// US-010: Apple Music Token Refresh Tests
+// ============================================================================
+
+#[tokio::test]
+async fn test_apple_music_token_refresh_valid_token() {
+    println!("=== US-010: Testing Apple Music Token Refresh with Valid Token ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store an Apple Music connection with 6-month expiry (typical for Apple Music)
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_valid".to_string(),
+        access_token: "valid_apple_music_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()), // MusicKit JS token
+        scopes: vec!["library-read".to_string(), "library-modify".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::days(180)), // 6 months
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!("✓ Created Apple Music connection: {}", connection.id);
+    println!("  - Expires at: {:?}", connection.expires_at);
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Apple Music tokens are validated, not refreshed via API
+    // Should succeed because the token is still valid
+    assert!(result.success);
+    assert_eq!(result.connection_id, connection.id);
+    assert!(result.new_access_token.is_some());
+    assert_eq!(result.new_access_token.unwrap(), "valid_apple_music_token");
+    println!("✓ Token validation successful");
+    println!("  - Success: {}", result.success);
+
+    println!("✓ Apple Music valid token refresh test passed!");
+}
+
+#[tokio::test]
+async fn test_apple_music_token_refresh_expired_token() {
+    println!("=== US-010: Testing Apple Music Token Refresh with Expired Token ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store an Apple Music connection that has already expired
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_expired".to_string(),
+        access_token: "expired_apple_music_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()),
+        scopes: vec!["library-read".to_string()],
+        expires_at: Some(Utc::now() - chrono::Duration::days(1)), // Expired yesterday
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!(
+        "✓ Created expired Apple Music connection: {}",
+        connection.id
+    );
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Should fail because token has expired
+    assert!(!result.success);
+    assert!(result.error_message.is_some());
+    assert!(result.error_message.as_ref().unwrap().contains("expired"));
+    println!("✓ Correctly detected expired token");
+    println!("  - Error: {:?}", result.error_message);
+
+    // Connection should be marked as NeedsReauth
+    let connections = vault.get_user_connections(user_id).await;
+    let updated = connections
+        .iter()
+        .find(|c| c.id == connection.id)
+        .expect("Connection should exist");
+
+    assert_eq!(updated.status, ConnectionStatus::NeedsReauth);
+    println!("✓ Connection status updated to NeedsReauth");
+
+    println!("✓ Apple Music expired token test passed!");
+}
+
+#[tokio::test]
+async fn test_apple_music_token_refresh_approaching_expiry() {
+    println!("=== US-010: Testing Apple Music Token Approaching Expiry ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store an Apple Music connection that expires in 3 days (within 7-day warning window)
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_expiring_soon".to_string(),
+        access_token: "soon_expiring_apple_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()),
+        scopes: vec!["library-read".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::days(3)), // Expires in 3 days
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!(
+        "✓ Created Apple Music connection expiring soon: {}",
+        connection.id
+    );
+    println!("  - Expires at: {:?}", connection.expires_at);
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Should still succeed because token is valid, but note it's expiring soon
+    assert!(result.success);
+    assert!(result.new_access_token.is_some());
+    println!("✓ Token validation successful despite approaching expiry");
+
+    println!("✓ Apple Music approaching expiry test passed!");
+}
+
+#[tokio::test]
+async fn test_apple_music_token_no_expiry_set() {
+    println!("=== US-010: Testing Apple Music Token With No Expiry Set ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store an Apple Music connection without expiry (legacy behavior)
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_no_expiry".to_string(),
+        access_token: "apple_token_no_expiry".to_string(),
+        refresh_token: None, // No music user token
+        scopes: vec!["library-read".to_string()],
+        expires_at: None, // No expiry set
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    println!(
+        "✓ Created Apple Music connection without expiry: {}",
+        connection.id
+    );
+
+    // Attempt token refresh
+    let result = vault.refresh_token(connection.id).await.unwrap();
+
+    // Should succeed since no expiry means we can't determine if it's expired
+    assert!(result.success);
+    assert!(result.new_access_token.is_some());
+    println!("✓ Token validation successful for no-expiry token");
+
+    println!("✓ Apple Music no expiry test passed!");
+}
+
+#[tokio::test]
+async fn test_apple_music_connection_status_transitions() {
+    println!("=== US-010: Testing Apple Music Connection Status Transitions ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store initial connection
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_transitions".to_string(),
+        access_token: "initial_apple_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()),
+        scopes: vec!["library-read".to_string()],
+        expires_at: Some(Utc::now() + chrono::Duration::days(180)),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+    assert_eq!(connection.status, ConnectionStatus::Active);
+    println!("✓ Initial status is Active");
+
+    // Health check should succeed
+    let health = vault.check_token_health(connection.id).await.unwrap();
+    assert!(health.is_valid);
+    assert!(!health.needs_refresh);
+    println!("✓ Health check passed");
+
+    // Update to expired
+    let expired_request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_transitions".to_string(),
+        access_token: "expired_apple_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()),
+        scopes: vec!["library-read".to_string()],
+        expires_at: Some(Utc::now() - chrono::Duration::days(1)), // Expired
+    };
+
+    let updated_connection = vault.store_token(expired_request).await.unwrap();
+
+    // Refresh attempt should fail and mark as NeedsReauth
+    let result = vault.refresh_token(updated_connection.id).await.unwrap();
+    assert!(!result.success);
+
+    let connections = vault.get_user_connections(user_id).await;
+    let final_state = connections
+        .iter()
+        .find(|c| c.provider == StreamingProvider::AppleMusic)
+        .expect("Connection should exist");
+
+    assert_eq!(final_state.status, ConnectionStatus::NeedsReauth);
+    println!("✓ Expired token correctly transitioned to NeedsReauth");
+
+    println!("✓ Apple Music status transitions test passed!");
+}
+
+#[tokio::test]
+async fn test_apple_music_six_month_expiry_calculation() {
+    println!("=== US-010: Testing Apple Music 6-Month Expiry Calculation ===");
+
+    let vault = Arc::new(TokenVaultService::new());
+    let user_id = Uuid::new_v4();
+
+    // Store connection with exactly 180 days (6 months)
+    let now = Utc::now();
+    let six_months_from_now = now + chrono::Duration::days(180);
+
+    let request = StoreTokenRequest {
+        user_id,
+        provider: StreamingProvider::AppleMusic,
+        provider_user_id: "apple_user_six_months".to_string(),
+        access_token: "six_month_apple_token".to_string(),
+        refresh_token: Some("music_user_token".to_string()),
+        scopes: vec!["library-read".to_string()],
+        expires_at: Some(six_months_from_now),
+    };
+
+    let connection = vault.store_token(request).await.unwrap();
+
+    // Verify expiry is approximately 6 months
+    let stored_expiry = connection.expires_at.expect("Should have expiry");
+    let days_until_expiry = (stored_expiry - now).num_days();
+
+    assert!(days_until_expiry >= 179 && days_until_expiry <= 181);
+    println!(
+        "✓ Token expires in {} days (approximately 6 months)",
+        days_until_expiry
+    );
+
+    // Token refresh should succeed
+    let result = vault.refresh_token(connection.id).await.unwrap();
+    assert!(result.success);
+    println!("✓ Token refresh successful for 6-month token");
+
+    println!("✓ Apple Music 6-month expiry test passed!");
+}

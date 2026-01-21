@@ -278,11 +278,7 @@ impl MusicBrainzImporter {
                 .map(|tags| {
                     let mut sorted_tags = tags.clone();
                     sorted_tags.sort_by(|a, b| b.count.cmp(&a.count));
-                    sorted_tags
-                        .into_iter()
-                        .take(5)
-                        .map(|t| t.name)
-                        .collect()
+                    sorted_tags.into_iter().take(5).map(|t| t.name).collect()
                 })
                 .unwrap_or_default();
 

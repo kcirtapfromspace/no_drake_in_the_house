@@ -111,7 +111,9 @@ pub async fn search_artists_handler(
     let local_count = search_response.artists.len();
 
     // If local results are empty or insufficient, search Apple Music catalog
-    if (search_response.artists.is_empty() || query.catalog_search) && local_count < query.limit as usize {
+    if (search_response.artists.is_empty() || query.catalog_search)
+        && local_count < query.limit as usize
+    {
         tracing::info!(
             user_id = %user.id,
             local_results = local_count,
@@ -119,7 +121,11 @@ pub async fn search_artists_handler(
         );
 
         // Search all platforms via orchestrator
-        match state.catalog_sync.search_artist_all_platforms(&query.q, query.limit as u32).await {
+        match state
+            .catalog_sync
+            .search_artist_all_platforms(&query.q, query.limit as u32)
+            .await
+        {
             Ok(platform_results) => {
                 let mut catalog_artists = Vec::new();
                 let mut persisted_ids = Vec::new();
@@ -129,7 +135,11 @@ pub async fn search_artists_handler(
                     if let Some(artists) = platform_results.get(&platform) {
                         for platform_artist in artists {
                             // Persist to database and get artist_id
-                            match state.catalog_sync.persist_platform_artist(platform_artist, None).await {
+                            match state
+                                .catalog_sync
+                                .persist_platform_artist(platform_artist, None)
+                                .await
+                            {
                                 Ok(artist_id) => {
                                     if !persisted_ids.contains(&artist_id) {
                                         persisted_ids.push(artist_id);
@@ -235,7 +245,7 @@ pub async fn search_artists_handler(
     let mut enriched: Vec<serde_json::Value> = Vec::new();
     for artist in &search_response.artists {
         let offense_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM artist_offenses WHERE artist_id = $1 AND status = 'verified'"
+            "SELECT COUNT(*) FROM artist_offenses WHERE artist_id = $1 AND status = 'verified'",
         )
         .bind(artist.id)
         .fetch_one(&state.db_pool)
@@ -539,26 +549,33 @@ pub async fn get_blocked_tracks_handler(
 
     // Parse roles filter - if primary_only is set, override roles
     let roles_filter: Option<Vec<String>> = if query.primary_only {
-        Some(vec!["primary_artist".to_string(), "featured_artist".to_string()])
+        Some(vec![
+            "primary_artist".to_string(),
+            "featured_artist".to_string(),
+        ])
     } else {
-        query.roles.map(|r| {
-            r.split(',').map(|s| s.trim().to_string()).collect()
-        })
+        query
+            .roles
+            .map(|r| r.split(',').map(|s| s.trim().to_string()).collect())
     };
 
     // Query tracks blocked via DNP artists and their credits
-    let blocked_tracks = sqlx::query_as::<_, (
-        Uuid,           // track_id
-        String,         // track_title
-        Option<Uuid>,   // album_id
-        Option<String>, // album_title
-        Option<i32>,    // duration_ms
-        Option<String>, // isrc
-        String,         // blocked_artist_name
-        Uuid,           // blocked_artist_id
-        String,         // credit_role
-        String,         // platform_ids (JSON)
-    )>(r#"
+    let blocked_tracks = sqlx::query_as::<
+        _,
+        (
+            Uuid,           // track_id
+            String,         // track_title
+            Option<Uuid>,   // album_id
+            Option<String>, // album_title
+            Option<i32>,    // duration_ms
+            Option<String>, // isrc
+            String,         // blocked_artist_name
+            Uuid,           // blocked_artist_id
+            String,         // credit_role
+            String,         // platform_ids (JSON)
+        ),
+    >(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id, a.canonical_name
             FROM user_artist_blocks uab
@@ -590,7 +607,8 @@ pub async fn get_blocked_tracks_handler(
         WHERE ($2::text[] IS NULL OR tc.role::text = ANY($2))
         ORDER BY t.id, tc.role
         LIMIT $3 OFFSET $4
-    "#)
+    "#,
+    )
     .bind(user.id)
     .bind(roles_filter.as_ref().map(|r| r.as_slice()))
     .bind(query.limit)
@@ -599,11 +617,14 @@ pub async fn get_blocked_tracks_handler(
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to query blocked tracks");
-        AppError::Internal { message: Some(format!("Database error: {}", e)) }
+        AppError::Internal {
+            message: Some(format!("Database error: {}", e)),
+        }
     })?;
 
     // Get total count
-    let total: i64 = sqlx::query_scalar(r#"
+    let total: i64 = sqlx::query_scalar(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id, a.canonical_name
             FROM user_artist_blocks uab
@@ -617,7 +638,8 @@ pub async fn get_blocked_tracks_handler(
             tc.artist_id = ba.artist_id
             OR tc.credited_name ILIKE '%' || ba.canonical_name || '%'
         )
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_one(&state.db_pool)
     .await
@@ -673,17 +695,21 @@ pub async fn get_blocked_albums_handler(
     );
 
     // Query albums by blocked artists
-    let blocked_albums = sqlx::query_as::<_, (
-        Uuid,           // album_id
-        String,         // album_title
-        Option<String>, // album_type
-        Option<i32>,    // total_tracks
-        Option<String>, // release_date
-        Option<String>, // label
-        String,         // blocked_artist_name
-        Uuid,           // blocked_artist_id
-        String,         // platform_ids (JSON)
-    )>(r#"
+    let blocked_albums = sqlx::query_as::<
+        _,
+        (
+            Uuid,           // album_id
+            String,         // album_title
+            Option<String>, // album_type
+            Option<i32>,    // total_tracks
+            Option<String>, // release_date
+            Option<String>, // label
+            String,         // blocked_artist_name
+            Uuid,           // blocked_artist_id
+            String,         // platform_ids (JSON)
+        ),
+    >(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id, a.canonical_name
             FROM user_artist_blocks uab
@@ -709,7 +735,8 @@ pub async fn get_blocked_albums_handler(
         JOIN blocked_artists ba ON aa.artist_id = ba.artist_id
         ORDER BY al.id, al.release_date DESC
         LIMIT $2 OFFSET $3
-    "#)
+    "#,
+    )
     .bind(user.id)
     .bind(query.limit)
     .bind(query.offset)
@@ -717,11 +744,14 @@ pub async fn get_blocked_albums_handler(
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to query blocked albums");
-        AppError::Internal { message: Some(format!("Database error: {}", e)) }
+        AppError::Internal {
+            message: Some(format!("Database error: {}", e)),
+        }
     })?;
 
     // Get total count
-    let total: i64 = sqlx::query_scalar(r#"
+    let total: i64 = sqlx::query_scalar(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id
             FROM user_artist_blocks uab
@@ -731,7 +761,8 @@ pub async fn get_blocked_albums_handler(
         FROM albums al
         JOIN album_artists aa ON aa.album_id = al.id
         JOIN blocked_artists ba ON aa.artist_id = ba.artist_id
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_one(&state.db_pool)
     .await
@@ -809,32 +840,40 @@ pub async fn get_revenue_impact_handler(
     .unwrap_or_default();
 
     // Calculate totals
-    let total_monthly_streams: i64 = artist_stats.iter()
+    let total_monthly_streams: i64 = artist_stats
+        .iter()
         .filter_map(|(_, _, monthly, _, _)| *monthly)
         .sum();
 
-    let total_revenue: rust_decimal::Decimal = artist_stats.iter()
+    let total_revenue: rust_decimal::Decimal = artist_stats
+        .iter()
         .filter_map(|(_, _, _, _, rev)| *rev)
         .sum();
 
     // Format artist breakdown
-    let artists: Vec<serde_json::Value> = artist_stats.iter().map(|(id, name, monthly, total, rev)| {
-        serde_json::json!({
-            "artist_id": id,
-            "name": name,
-            "monthly_streams": monthly,
-            "total_streams": total,
-            "estimated_monthly_revenue": rev.map(|r| format!("${:.2}", r))
+    let artists: Vec<serde_json::Value> = artist_stats
+        .iter()
+        .map(|(id, name, monthly, total, rev)| {
+            serde_json::json!({
+                "artist_id": id,
+                "name": name,
+                "monthly_streams": monthly,
+                "total_streams": total,
+                "estimated_monthly_revenue": rev.map(|r| format!("${:.2}", r))
+            })
         })
-    }).collect();
+        .collect();
 
     // Format rates
-    let platform_rates: Vec<serde_json::Value> = rates.iter().map(|(platform, rate)| {
-        serde_json::json!({
-            "platform": platform,
-            "rate_per_stream": format!("${:.4}", rate)
+    let platform_rates: Vec<serde_json::Value> = rates
+        .iter()
+        .map(|(platform, rate)| {
+            serde_json::json!({
+                "platform": platform,
+                "rate_per_stream": format!("${:.4}", rate)
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -866,17 +905,29 @@ pub async fn get_artist_analytics_handler(
     tracing::info!(artist_id = %artist_id, "Artist analytics request");
 
     // Get artist info
-    let artist = sqlx::query_as::<_, (String,)>(
-        "SELECT canonical_name FROM artists WHERE id = $1"
-    )
-    .bind(artist_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?
-    .ok_or_else(|| AppError::NotFound { resource: "Artist".to_string() })?;
+    let artist = sqlx::query_as::<_, (String,)>("SELECT canonical_name FROM artists WHERE id = $1")
+        .bind(artist_id)
+        .fetch_optional(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Artist".to_string(),
+        })?;
 
     // Get streaming stats per platform
-    let stats = sqlx::query_as::<_, (String, Option<i64>, Option<i64>, Option<i32>, Option<rust_decimal::Decimal>)>(r#"
+    let stats = sqlx::query_as::<
+        _,
+        (
+            String,
+            Option<i64>,
+            Option<i64>,
+            Option<i32>,
+            Option<rust_decimal::Decimal>,
+        ),
+    >(
+        r#"
         SELECT
             platform,
             monthly_streams,
@@ -886,7 +937,8 @@ pub async fn get_artist_analytics_handler(
         FROM artist_streaming_stats
         WHERE artist_id = $1
         ORDER BY estimated_monthly_revenue DESC NULLS LAST
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_all(&state.db_pool)
     .await
@@ -904,19 +956,22 @@ pub async fn get_artist_analytics_handler(
     .await
     .unwrap_or(0);
 
-    let album_count: i64 = sqlx::query_scalar(r#"
+    let album_count: i64 = sqlx::query_scalar(
+        r#"
         SELECT COUNT(DISTINCT al.id)
         FROM albums al
         JOIN album_artists aa ON aa.album_id = al.id
         WHERE aa.artist_id = $1
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(0);
 
     // Get collaborator count
-    let collaborator_count: i64 = sqlx::query_scalar(r#"
+    let collaborator_count: i64 = sqlx::query_scalar(
+        r#"
         SELECT COUNT(DISTINCT
             CASE
                 WHEN tc2.artist_id != $1 THEN tc2.artist_id
@@ -925,22 +980,26 @@ pub async fn get_artist_analytics_handler(
         FROM track_credits tc1
         JOIN track_credits tc2 ON tc1.track_id = tc2.track_id
         WHERE tc1.artist_id = $1 AND tc2.artist_id IS NOT NULL AND tc2.artist_id != $1
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(0);
 
     // Format platform stats
-    let platform_stats: Vec<serde_json::Value> = stats.iter().map(|(platform, monthly, total, pop, rev)| {
-        serde_json::json!({
-            "platform": platform,
-            "monthly_streams": monthly,
-            "total_streams": total,
-            "popularity_score": pop,
-            "estimated_monthly_revenue": rev.map(|r| format!("${:.2}", r))
+    let platform_stats: Vec<serde_json::Value> = stats
+        .iter()
+        .map(|(platform, monthly, total, pop, rev)| {
+            serde_json::json!({
+                "platform": platform,
+                "monthly_streams": monthly,
+                "total_streams": total,
+                "popularity_score": pop,
+                "estimated_monthly_revenue": rev.map(|r| format!("${:.2}", r))
+            })
         })
-    }).collect();
+        .collect();
 
     // Calculate totals
     let total_monthly: i64 = stats.iter().filter_map(|(_, m, _, _, _)| *m).sum();
@@ -1043,9 +1102,16 @@ pub async fn get_revenue_by_category_handler(
     let top_20: Vec<_> = sorted_artists.into_iter().take(20).collect();
 
     // Calculate grand totals
-    let grand_total_artists: i64 = category_revenue.iter().map(|(_, count, _, _, _)| *count).sum();
-    let grand_total_streams: i64 = category_revenue.iter().filter_map(|(_, _, streams, _, _)| *streams).sum();
-    let grand_total_revenue: rust_decimal::Decimal = category_revenue.iter()
+    let grand_total_artists: i64 = category_revenue
+        .iter()
+        .map(|(_, count, _, _, _)| *count)
+        .sum();
+    let grand_total_streams: i64 = category_revenue
+        .iter()
+        .filter_map(|(_, _, streams, _, _)| *streams)
+        .sum();
+    let grand_total_revenue: rust_decimal::Decimal = category_revenue
+        .iter()
         .filter_map(|(_, _, _, _, rev)| *rev)
         .sum();
 
@@ -1116,15 +1182,15 @@ pub async fn get_block_summary_handler(
     tracing::info!(user_id = %user.id, "Block summary request");
 
     // Get counts in parallel
-    let blocked_artists: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1"
-    )
-    .bind(user.id)
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let blocked_artists: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
-    let blocked_tracks: i64 = sqlx::query_scalar(r#"
+    let blocked_tracks: i64 = sqlx::query_scalar(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id, a.canonical_name
             FROM user_artist_blocks uab
@@ -1138,13 +1204,15 @@ pub async fn get_block_summary_handler(
             tc.artist_id = ba.artist_id
             OR tc.credited_name ILIKE '%' || ba.canonical_name || '%'
         )
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(0);
 
-    let blocked_albums: i64 = sqlx::query_scalar(r#"
+    let blocked_albums: i64 = sqlx::query_scalar(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id
             FROM user_artist_blocks uab
@@ -1154,14 +1222,16 @@ pub async fn get_block_summary_handler(
         FROM albums al
         JOIN album_artists aa ON aa.album_id = al.id
         JOIN blocked_artists ba ON aa.artist_id = ba.artist_id
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(0);
 
     // Get breakdown by role
-    let role_breakdown = sqlx::query_as::<_, (String, i64)>(r#"
+    let role_breakdown = sqlx::query_as::<_, (String, i64)>(
+        r#"
         WITH blocked_artists AS (
             SELECT uab.artist_id, a.canonical_name
             FROM user_artist_blocks uab
@@ -1177,15 +1247,14 @@ pub async fn get_block_summary_handler(
         )
         GROUP BY tc.role
         ORDER BY COUNT(DISTINCT t.id) DESC
-    "#)
+    "#,
+    )
     .bind(user.id)
     .fetch_all(&state.db_pool)
     .await
     .unwrap_or_default();
 
-    let breakdown: std::collections::HashMap<String, i64> = role_breakdown
-        .into_iter()
-        .collect();
+    let breakdown: std::collections::HashMap<String, i64> = role_breakdown.into_iter().collect();
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -1214,14 +1283,15 @@ pub async fn add_track_block_handler(
     );
 
     // Check if track is already blocked
-    let existing: Option<(Uuid,)> = sqlx::query_as(
-        "SELECT id FROM user_track_blocks WHERE user_id = $1 AND track_id = $2"
-    )
-    .bind(user.id)
-    .bind(&request.track_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    let existing: Option<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM user_track_blocks WHERE user_id = $1 AND track_id = $2")
+            .bind(user.id)
+            .bind(&request.track_id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .map_err(|e| AppError::Internal {
+                message: Some(e.to_string()),
+            })?;
 
     if existing.is_some() {
         return Ok((
@@ -1283,14 +1353,14 @@ pub async fn remove_track_block_handler(
         "Remove track block request"
     );
 
-    let result = sqlx::query(
-        "DELETE FROM user_track_blocks WHERE user_id = $1 AND track_id = $2"
-    )
-    .bind(user.id)
-    .bind(&track_id)
-    .execute(&state.db_pool)
-    .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    let result = sqlx::query("DELETE FROM user_track_blocks WHERE user_id = $1 AND track_id = $2")
+        .bind(user.id)
+        .bind(&track_id)
+        .execute(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     if result.rows_affected() == 0 {
         return Ok(Json(serde_json::json!({
@@ -1318,31 +1388,45 @@ pub async fn get_track_blocks_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, "Get track blocks request");
 
-    let blocks = sqlx::query_as::<_, (Uuid, Uuid, String, String, String, chrono::DateTime<chrono::Utc>)>(
+    let blocks = sqlx::query_as::<
+        _,
+        (
+            Uuid,
+            Uuid,
+            String,
+            String,
+            String,
+            chrono::DateTime<chrono::Utc>,
+        ),
+    >(
         r#"
         SELECT id, artist_id, track_id, track_title, track_role, created_at
         FROM user_track_blocks
         WHERE user_id = $1
         ORDER BY created_at DESC
-        "#
+        "#,
     )
     .bind(user.id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let entries: Vec<serde_json::Value> = blocks
         .into_iter()
-        .map(|(id, artist_id, track_id, track_title, track_role, created_at)| {
-            serde_json::json!({
-                "id": id,
-                "artist_id": artist_id,
-                "track_id": track_id,
-                "track_title": track_title,
-                "track_role": track_role,
-                "created_at": created_at.to_rfc3339()
-            })
-        })
+        .map(
+            |(id, artist_id, track_id, track_title, track_role, created_at)| {
+                serde_json::json!({
+                    "id": id,
+                    "artist_id": artist_id,
+                    "track_id": track_id,
+                    "track_title": track_title,
+                    "track_role": track_role,
+                    "created_at": created_at.to_rfc3339()
+                })
+            },
+        )
         .collect();
 
     Ok(Json(serde_json::json!({
@@ -1400,7 +1484,7 @@ pub async fn batch_track_blocks_handler(
         BatchAction::Unblock => {
             for track_id in &request.track_ids {
                 let result = sqlx::query(
-                    "DELETE FROM user_track_blocks WHERE user_id = $1 AND track_id = $2"
+                    "DELETE FROM user_track_blocks WHERE user_id = $1 AND track_id = $2",
                 )
                 .bind(user.id)
                 .bind(track_id)
@@ -1442,14 +1526,18 @@ async fn fetch_collaborators_with_risk(
     artist_id: Uuid,
 ) -> Vec<serde_json::Value> {
     // Query collaborators from artist_collaborations table
-    let collaborators = sqlx::query_as::<_, (
-        Uuid,           // collaborator_id
-        String,         // canonical_name
-        String,         // collaboration_type
-        i32,            // track_count
-        Option<String>, // image_url
-        i64,            // offense_count
-    )>(r#"
+    let collaborators = sqlx::query_as::<
+        _,
+        (
+            Uuid,           // collaborator_id
+            String,         // canonical_name
+            String,         // collaboration_type
+            i32,            // track_count
+            Option<String>, // image_url
+            i64,            // offense_count
+        ),
+    >(
+        r#"
         SELECT
             CASE
                 WHEN ac.artist_id_1 = $1 THEN ac.artist_id_2
@@ -1474,7 +1562,8 @@ async fn fetch_collaborators_with_risk(
         WHERE ac.artist_id_1 = $1 OR ac.artist_id_2 = $1
         ORDER BY ac.track_count DESC
         LIMIT 10
-    "#)
+    "#,
+    )
     .bind(artist_id)
     .fetch_all(pool)
     .await;
@@ -1510,12 +1599,12 @@ async fn fetch_collaborators_with_risk(
 fn calculate_connection_risk(collab_type: &str, track_count: i32) -> String {
     // Risk multipliers based on connection type
     let type_multiplier = match collab_type {
-        "featured_artist" => 0.8,   // High - direct musical involvement
-        "producer" => 0.6,          // Medium-high - creative involvement
-        "primary_artist" => 0.9,    // Very high - main collaborator
-        "writer" => 0.4,            // Medium - songwriting
-        "remixer" => 0.3,           // Lower - derivative work
-        _ => 0.2,                   // Low - other connection types
+        "featured_artist" => 0.8, // High - direct musical involvement
+        "producer" => 0.6,        // Medium-high - creative involvement
+        "primary_artist" => 0.9,  // Very high - main collaborator
+        "writer" => 0.4,          // Medium - songwriting
+        "remixer" => 0.3,         // Lower - derivative work
+        _ => 0.2,                 // Low - other connection types
     };
 
     // Track count multiplier (more tracks = higher risk)

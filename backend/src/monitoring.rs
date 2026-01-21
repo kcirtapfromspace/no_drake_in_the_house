@@ -161,7 +161,7 @@ impl MonitoringSystem {
         }
     }
 
-    /// Get current system metrics
+    /// Get current system metrics (US-022: Real system metrics)
     async fn get_system_metrics(&self) -> SystemMetrics {
         let mut sys = System::new_all();
         sys.refresh_all();
@@ -174,23 +174,40 @@ impl MonitoringSystem {
             0.0
         };
 
-        let cpu_usage_percent = sys.global_cpu_info().cpu_usage();
+        // Calculate average CPU usage across all cores (sysinfo 0.30 API)
+        let cpu_usage_percent = if sys.cpus().is_empty() {
+            0.0
+        } else {
+            sys.cpus().iter()
+                .map(|cpu| cpu.cpu_usage())
+                .sum::<f32>() / sys.cpus().len() as f32
+        };
         let uptime_seconds = self.start_time.elapsed().as_secs();
 
-        // Update metrics
-        self.metrics.update_system_metrics(
-            memory_usage_bytes,
-            cpu_usage_percent as f64,
-            uptime_seconds,
-        );
+        // Get data directory from environment or use default
+        let data_dir = std::env::var("DATA_DIR").unwrap_or_else(|_| "./data".to_string());
+
+        // Collect real system metrics using the new method (US-022)
+        self.metrics
+            .collect_real_system_metrics(std::path::Path::new(&data_dir), uptime_seconds);
+
+        // Get thread count from current process
+        let current_pid = sysinfo::get_current_pid();
+        let thread_count = if let Ok(pid) = current_pid {
+            sys.process(pid)
+                .map(|p| p.tasks().map(|t| t.len() as u32).unwrap_or(1))
+                .unwrap_or(1)
+        } else {
+            1
+        };
 
         SystemMetrics {
             memory_usage_bytes,
             memory_usage_percent,
             cpu_usage_percent,
             uptime_seconds,
-            active_connections: 0, // Would need to track this in application state
-            thread_count: sys.processes().len() as u32,
+            active_connections: 0, // Updated via db_metrics and redis_metrics
+            thread_count,
         }
     }
 

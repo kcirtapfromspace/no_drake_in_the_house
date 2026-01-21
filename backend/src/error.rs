@@ -129,6 +129,10 @@ pub enum AppError {
     #[error("External service error: {0}")]
     ExternalServiceError(String),
 
+    // Provider circuit breaker errors (US-026)
+    #[error("Provider unavailable: {provider}")]
+    ProviderUnavailable { provider: String, message: String },
+
     // Database errors
     #[error("Database connection failed")]
     DatabaseConnectionFailed,
@@ -255,7 +259,8 @@ impl AppError {
             // 503 Service Unavailable
             AppError::ServiceUnavailable
             | AppError::DatabaseConnectionFailed
-            | AppError::RedisConnectionFailed => StatusCode::SERVICE_UNAVAILABLE,
+            | AppError::RedisConnectionFailed
+            | AppError::ProviderUnavailable { .. } => StatusCode::SERVICE_UNAVAILABLE,
 
             // 500 Internal Server Error
             _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -316,6 +321,7 @@ impl AppError {
             AppError::RateLimitExceeded { .. } => "RATE_LIMIT_EXCEEDED",
             AppError::ExternalServiceUnavailable { .. } => "EXTERNAL_SERVICE_UNAVAILABLE",
             AppError::ExternalServiceError { .. } => "EXTERNAL_SERVICE_ERROR",
+            AppError::ProviderUnavailable { .. } => "PROVIDER_UNAVAILABLE",
             AppError::DatabaseConnectionFailed => "DATABASE_CONNECTION_FAILED",
             AppError::DatabaseQueryFailed(_) => "DATABASE_QUERY_FAILED",
             AppError::DatabaseTransactionFailed => "DATABASE_TRANSACTION_FAILED",
@@ -372,6 +378,9 @@ impl AppError {
                 format!("{} is currently unavailable", service)
             }
             AppError::ExternalServiceError(msg) => format!("External service error: {}", msg),
+            AppError::ProviderUnavailable { provider, message } => {
+                format!("{} is temporarily unavailable: {}", provider, message)
+            }
             AppError::OAuth(oauth_error) => oauth_error.user_message(),
             AppError::OAuthProviderError { provider, .. } => {
                 format!("Authentication with {} failed", provider)
@@ -451,6 +460,11 @@ impl AppError {
             AppError::EncryptionError(message) => Some(json!({
                 "encryption_error": message
             })),
+            AppError::ProviderUnavailable { provider, message } => Some(json!({
+                "provider": provider,
+                "message": message,
+                "circuit_breaker": true
+            })),
             _ => None,
         }
     }
@@ -483,7 +497,8 @@ impl IntoResponse for AppError {
             }
             AppError::ExternalServiceError(_)
             | AppError::ExternalServiceUnavailable { .. }
-            | AppError::OAuthProviderError { .. } => {
+            | AppError::OAuthProviderError { .. }
+            | AppError::ProviderUnavailable { .. } => {
                 tracing::warn!(
                     correlation_id = %correlation_id,
                     error_code = %error_code,

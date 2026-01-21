@@ -243,7 +243,7 @@ impl Default for AppleMusicCapabilities {
     fn default() -> Self {
         Self {
             library_read: true,
-            library_modify: false,       // Limited by Apple Music API
+            library_modify: false, // Limited by Apple Music API
             playlist_read: true,
             playlist_modify: false,      // Limited by Apple Music API
             ratings_read: true,          // Can read user ratings
@@ -962,7 +962,9 @@ mod tests {
         result.add_limitation("Rate limited".to_string());
 
         assert_eq!(result.limitations_encountered.len(), 2);
-        assert!(result.limitations_encountered.contains(&"Cannot modify library".to_string()));
+        assert!(result
+            .limitations_encountered
+            .contains(&"Cannot modify library".to_string()));
     }
 
     #[test]
@@ -984,11 +986,20 @@ mod tests {
     #[test]
     fn test_resource_type_display() {
         assert_eq!(AppleMusicResourceType::Song.to_string(), "song");
-        assert_eq!(AppleMusicResourceType::LibrarySong.to_string(), "library_song");
+        assert_eq!(
+            AppleMusicResourceType::LibrarySong.to_string(),
+            "library_song"
+        );
         assert_eq!(AppleMusicResourceType::Album.to_string(), "album");
-        assert_eq!(AppleMusicResourceType::LibraryAlbum.to_string(), "library_album");
+        assert_eq!(
+            AppleMusicResourceType::LibraryAlbum.to_string(),
+            "library_album"
+        );
         assert_eq!(AppleMusicResourceType::Playlist.to_string(), "playlist");
-        assert_eq!(AppleMusicResourceType::LibraryPlaylist.to_string(), "library_playlist");
+        assert_eq!(
+            AppleMusicResourceType::LibraryPlaylist.to_string(),
+            "library_playlist"
+        );
     }
 
     #[test]
@@ -1012,7 +1023,10 @@ mod tests {
     #[test]
     fn test_action_type_display() {
         assert_eq!(EnforcementActionType::Dislike.to_string(), "dislike");
-        assert_eq!(EnforcementActionType::RemoveRating.to_string(), "remove_rating");
+        assert_eq!(
+            EnforcementActionType::RemoveRating.to_string(),
+            "remove_rating"
+        );
     }
 
     #[test]
@@ -1021,7 +1035,8 @@ mod tests {
         let json = serde_json::to_string(&dislike).unwrap();
         assert_eq!(json, "\"dislike\"");
 
-        let deserialized: EnforcementActionType = serde_json::from_str("\"remove_rating\"").unwrap();
+        let deserialized: EnforcementActionType =
+            serde_json::from_str("\"remove_rating\"").unwrap();
         assert_eq!(deserialized, EnforcementActionType::RemoveRating);
     }
 
@@ -1289,13 +1304,11 @@ mod tests {
             total: 100,
             successful: 95,
             failed: 5,
-            errors: vec![
-                RatingError {
-                    resource_id: "song1".to_string(),
-                    resource_type: "library_song".to_string(),
-                    error_message: "Rate limited".to_string(),
-                },
-            ],
+            errors: vec![RatingError {
+                resource_id: "song1".to_string(),
+                resource_type: "library_song".to_string(),
+                error_message: "Rate limited".to_string(),
+            }],
         };
 
         assert_eq!(result.total, 100);
@@ -1345,7 +1358,11 @@ mod tests {
     fn test_search_request_creation() {
         let request = AppleMusicSearchRequest {
             term: "Drake".to_string(),
-            types: vec!["songs".to_string(), "albums".to_string(), "artists".to_string()],
+            types: vec![
+                "songs".to_string(),
+                "albums".to_string(),
+                "artists".to_string(),
+            ],
             limit: Some(25),
             offset: Some(0),
         };
@@ -1382,16 +1399,14 @@ mod tests {
     #[test]
     fn test_apple_music_error_response() {
         let response = AppleMusicErrorResponse {
-            errors: vec![
-                AppleMusicError {
-                    id: "1".to_string(),
-                    title: "Unauthorized".to_string(),
-                    detail: None,
-                    status: "401".to_string(),
-                    code: "UNAUTHORIZED".to_string(),
-                    source: None,
-                },
-            ],
+            errors: vec![AppleMusicError {
+                id: "1".to_string(),
+                title: "Unauthorized".to_string(),
+                detail: None,
+                status: "401".to_string(),
+                code: "UNAUTHORIZED".to_string(),
+                source: None,
+            }],
         };
 
         assert_eq!(response.errors.len(), 1);
@@ -1472,9 +1487,7 @@ mod tests {
             data: vec![],
             href: Some("https://api.music.apple.com/v1/catalog/us/songs".to_string()),
             next: Some("https://api.music.apple.com/v1/catalog/us/songs?offset=25".to_string()),
-            meta: Some(AppleMusicMeta {
-                total: Some(100),
-            }),
+            meta: Some(AppleMusicMeta { total: Some(100) }),
         };
 
         assert!(response.data.is_empty());

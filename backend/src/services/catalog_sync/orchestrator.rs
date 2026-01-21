@@ -483,7 +483,13 @@ impl CatalogSyncOrchestrator {
 
         let repository = ArtistRepository::new(db_pool.clone());
         repository
-            .complete_sync_run(run_id, artists_processed, artists_created, artists_updated, errors)
+            .complete_sync_run(
+                run_id,
+                artists_processed,
+                artists_created,
+                artists_updated,
+                errors,
+            )
             .await
     }
 

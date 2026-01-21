@@ -1,6 +1,7 @@
 //! Apple Music Enforcement API Handlers
 //!
 //! Endpoints for running, monitoring, and rolling back enforcement operations.
+//! All external Apple Music API calls are wrapped with a circuit breaker (US-026).
 
 use axum::{
     extract::{Path, State},
@@ -11,9 +12,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::models::oauth::OAuthProviderType;
 use crate::models::{
-    AppleMusicRatingEnforcementOptions, EnforcementPreview, RatingEnforcementResult,
-    RollbackResult, EnforcementProgress,
+    AppleMusicRatingEnforcementOptions, EnforcementPreview, EnforcementProgress,
+    RatingEnforcementResult, RollbackResult,
 };
 use crate::services::{AppleMusicEnforcementService, EnforcementHistoryItem};
 use crate::AppState;
@@ -35,8 +37,12 @@ pub struct RunEnforcementRequest {
     pub dry_run: bool,
 }
 
-fn default_true() -> bool { true }
-fn default_batch_size() -> usize { 50 }
+fn default_true() -> bool {
+    true
+}
+fn default_batch_size() -> usize {
+    50
+}
 
 impl Default for RunEnforcementRequest {
     fn default() -> Self {
@@ -122,23 +128,24 @@ pub async fn run_apple_music_enforcement(
     let is_dry_run = options.dry_run;
 
     // Create enforcement service
-    let enforcement_service = AppleMusicEnforcementService::new(
-        state.apple_music_service.clone(),
-        state.db_pool.clone(),
-    );
+    let enforcement_service =
+        AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());
 
-    // Run enforcement
-    let result = enforcement_service
-        .enforce_dnp_list(
-            user_id,
-            blocked_artists,
-            options,
-            |_progress| {
-                // Progress callback - could be used for websocket updates
-            },
-        )
+    // Run enforcement through circuit breaker (US-026)
+    // This prevents cascading failures when Apple Music API is unavailable
+    let result = state
+        .circuit_breaker
+        .execute_anyhow("apple_music", || async {
+            enforcement_service
+                .enforce_dnp_list(user_id, blocked_artists, options, |_progress| {
+                    // Progress callback - could be used for websocket updates
+                })
+                .await
+        })
         .await
-        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     let message = if is_dry_run {
         format!(
@@ -191,15 +198,21 @@ pub async fn preview_apple_music_enforcement(
         }));
     }
 
-    let enforcement_service = AppleMusicEnforcementService::new(
-        state.apple_music_service.clone(),
-        state.db_pool.clone(),
-    );
+    let enforcement_service =
+        AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());
 
-    let preview = enforcement_service
-        .preview_enforcement(user_id, blocked_artists)
+    // Preview enforcement through circuit breaker (US-026)
+    let preview = state
+        .circuit_breaker
+        .execute_anyhow("apple_music", || async {
+            enforcement_service
+                .preview_enforcement(user_id, blocked_artists)
+                .await
+        })
         .await
-        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     Ok(Json(EnforcementPreviewResponse {
         songs_to_dislike: preview.songs_to_dislike.len(),
@@ -220,15 +233,21 @@ pub async fn rollback_apple_music_enforcement(
 ) -> Result<Json<RollbackResult>, AppError> {
     let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
 
-    let enforcement_service = AppleMusicEnforcementService::new(
-        state.apple_music_service.clone(),
-        state.db_pool.clone(),
-    );
+    let enforcement_service =
+        AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());
 
-    let result = enforcement_service
-        .rollback_enforcement(user_id, run_id)
+    // Rollback enforcement through circuit breaker (US-026)
+    let result = state
+        .circuit_breaker
+        .execute_anyhow("apple_music", || async {
+            enforcement_service
+                .rollback_enforcement(user_id, run_id)
+                .await
+        })
         .await
-        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     Ok(Json(result))
 }
@@ -241,15 +260,15 @@ pub async fn get_apple_music_enforcement_history(
 ) -> Result<Json<EnforcementHistoryResponse>, AppError> {
     let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
 
-    let enforcement_service = AppleMusicEnforcementService::new(
-        state.apple_music_service.clone(),
-        state.db_pool.clone(),
-    );
+    let enforcement_service =
+        AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());
 
     let runs = enforcement_service
         .get_enforcement_history(user_id, 50)
         .await
-        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+        .map_err(|e| AppError::Internal {
+            message: Some(e.to_string()),
+        })?;
 
     Ok(Json(EnforcementHistoryResponse { runs }))
 }
@@ -287,7 +306,10 @@ pub struct AppleMusicCapabilitiesResponse {
 }
 
 // Helper function to get blocked artist names from DNP list
-async fn get_blocked_artist_names(state: &AppState, user_id: Uuid) -> Result<Vec<String>, AppError> {
+async fn get_blocked_artist_names(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<Vec<String>, AppError> {
     // Query DNP list for blocked artist names
     let rows: Vec<(Option<String>,)> = sqlx::query_as(
         r#"
@@ -308,7 +330,9 @@ async fn get_blocked_artist_names(state: &AppState, user_id: Uuid) -> Result<Vec
     .bind(user_id)
     .fetch_all(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     Ok(rows.into_iter().filter_map(|r| r.0).collect())
 }
@@ -316,7 +340,7 @@ async fn get_blocked_artist_names(state: &AppState, user_id: Uuid) -> Result<Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{BlockedSongInfo, BlockedAlbumInfo, EnforcementRunStatus};
+    use crate::models::{BlockedAlbumInfo, BlockedSongInfo, EnforcementRunStatus};
 
     // ============================================
     // RunEnforcementRequest Tests
@@ -502,15 +526,13 @@ mod tests {
             },
         ];
 
-        let albums = vec![
-            BlockedAlbumInfo {
-                library_album_id: "album-1".to_string(),
-                catalog_album_id: None,
-                name: "Bad Album".to_string(),
-                artist_name: "Bad Artist".to_string(),
-                blocked_artist_id: None,
-            },
-        ];
+        let albums = vec![BlockedAlbumInfo {
+            library_album_id: "album-1".to_string(),
+            catalog_album_id: None,
+            name: "Bad Album".to_string(),
+            artist_name: "Bad Artist".to_string(),
+            blocked_artist_id: None,
+        }];
 
         let response = EnforcementPreviewResponse {
             songs_to_dislike: songs.len(),
@@ -562,9 +584,7 @@ mod tests {
 
     #[test]
     fn test_enforcement_history_response_empty() {
-        let response = EnforcementHistoryResponse {
-            runs: Vec::new(),
-        };
+        let response = EnforcementHistoryResponse { runs: Vec::new() };
 
         assert!(response.runs.is_empty());
     }
@@ -612,22 +632,20 @@ mod tests {
     #[test]
     fn test_enforcement_history_response_serialization() {
         let response = EnforcementHistoryResponse {
-            runs: vec![
-                EnforcementHistoryItem {
-                    id: Uuid::new_v4(),
-                    user_id: Uuid::new_v4(),
-                    connection_id: Uuid::new_v4(),
-                    status: "completed".to_string(),
-                    options: AppleMusicRatingEnforcementOptions::default(),
-                    started_at: chrono::Utc::now(),
-                    completed_at: Some(chrono::Utc::now()),
-                    songs_scanned: 100,
-                    albums_scanned: 20,
-                    songs_disliked: 5,
-                    albums_disliked: 2,
-                    errors: 0,
-                },
-            ],
+            runs: vec![EnforcementHistoryItem {
+                id: Uuid::new_v4(),
+                user_id: Uuid::new_v4(),
+                connection_id: Uuid::new_v4(),
+                status: "completed".to_string(),
+                options: AppleMusicRatingEnforcementOptions::default(),
+                started_at: chrono::Utc::now(),
+                completed_at: Some(chrono::Utc::now()),
+                songs_scanned: 100,
+                albums_scanned: 20,
+                songs_disliked: 5,
+                albums_disliked: 2,
+                errors: 0,
+            }],
         };
 
         let json = serde_json::to_string(&response).unwrap();
@@ -789,7 +807,14 @@ mod tests {
 
     #[test]
     fn test_response_status_strings() {
-        let statuses = vec!["pending", "running", "completed", "failed", "rolled_back", "skipped"];
+        let statuses = vec![
+            "pending",
+            "running",
+            "completed",
+            "failed",
+            "rolled_back",
+            "skipped",
+        ];
 
         for status in statuses {
             let response = EnforcementRunResponse {
@@ -890,8 +915,14 @@ mod tests {
             ],
         };
 
-        assert!(response.enforcement_effects.iter().any(|e| e.contains("recommendations")));
-        assert!(response.enforcement_effects.iter().any(|e| e.contains("For You")));
+        assert!(response
+            .enforcement_effects
+            .iter()
+            .any(|e| e.contains("recommendations")));
+        assert!(response
+            .enforcement_effects
+            .iter()
+            .any(|e| e.contains("For You")));
     }
 
     #[test]
@@ -912,7 +943,10 @@ mod tests {
         assert!(response.limitations.iter().any(|l| l.contains("library")));
         assert!(response.limitations.iter().any(|l| l.contains("playback")));
         assert!(response.limitations.iter().any(|l| l.contains("skip")));
-        assert!(response.limitations.iter().any(|l| l.contains("artist-level")));
+        assert!(response
+            .limitations
+            .iter()
+            .any(|l| l.contains("artist-level")));
     }
 
     // ============================================

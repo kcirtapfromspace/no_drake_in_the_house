@@ -1,6 +1,12 @@
 -- Seed Drake as showcase example with full discography and offenses
 -- This provides a complete example of what the artist page can display
 
+-- First, ensure the updated_at column exists on artists table
+ALTER TABLE artists ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Backfill existing rows
+UPDATE artists SET updated_at = created_at WHERE updated_at IS NULL;
+
 -- Get Drake's existing ID or use a well-known one
 DO $$
 DECLARE

@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                noc.id,\n                noc.article_id,\n                noc.artist_id,\n                noc.offense_category::text as \"category!\",\n                noc.severity::text as \"severity!\",\n                noc.confidence,\n                noc.evidence_snippet,\n                na.title as article_title,\n                na.url as article_url,\n                na.published_at\n            FROM news_offense_classifications noc\n            JOIN news_articles na ON noc.article_id = na.id\n            WHERE noc.artist_id IS NOT NULL\n              AND noc.confidence >= $1\n              AND NOT EXISTS (\n                SELECT 1 FROM artist_offenses ao\n                WHERE ao.source_classification_id = noc.id\n              )\n            ORDER BY noc.created_at DESC\n            LIMIT $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "article_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "artist_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 3,
+        "name": "category!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "severity!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "confidence",
+        "type_info": "Float8"
+      },
+      {
+        "ordinal": 6,
+        "name": "evidence_snippet",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "article_title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 8,
+        "name": "article_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      null,
+      null,
+      false,
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "979eabda4a088178a755b48238f589906a056fb8ffb3ecc140d66174810b341e"
+}

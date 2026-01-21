@@ -10,8 +10,10 @@ pub mod oauth;
 pub mod offense;
 pub mod rate_limit;
 pub mod spotify;
+pub mod tidal;
 pub mod token_vault;
 pub mod user;
+pub mod youtube_music;
 
 use serde::Serialize;
 
@@ -50,13 +52,15 @@ pub use dnp_list::*;
 pub use oauth::*;
 pub use rate_limit::*;
 pub use spotify::*;
+pub use tidal::*;
 pub use token_vault::*;
+pub use youtube_music::*;
 // Use qualified name for audit UserProfile
 pub use audit::UserProfile as AuditUserProfile;
 pub use notification::*;
 
-// Re-export stub types for tests
-pub use crate::services::stubs::{
+// Re-export job queue types
+pub use crate::services::job_queue::{
     Job, JobHandler, JobPriority, JobProgress, JobStatus, JobType, WorkerConfig,
 };
 
@@ -172,13 +176,7 @@ pub struct LibraryScanResult {
     pub scan_duration_ms: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnforcementPlan {
-    pub user_id: Uuid,
-    pub tracks_to_remove: Vec<String>,
-    pub playlists_to_modify: Vec<String>,
-    pub estimated_duration_ms: u64,
-}
+// EnforcementPlan is re-exported from spotify module
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnforcementResult {

@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT id, refresh_token_encrypted, token_expires_at, updated_at\n            FROM oauth_accounts\n            WHERE user_id = $1 AND provider = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "refresh_token_encrypted",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "token_expires_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "94f2230a4686898524543e6a98f7871a6acd9e0de1f05136ef87e48032dfb1f3"
+}

@@ -1,7 +1,17 @@
 // Services module - include working services only
 pub mod auth;
 pub mod auth_simple;
+pub mod circuit_breaker;
+pub mod kms;
 pub mod oauth;
+
+// Spotify services (US-013: Real Spotify library scan)
+pub mod spotify;
+pub mod spotify_library;
+
+// Rate limiting and job queue for library scanning
+pub mod job_queue;
+pub mod rate_limiting;
 
 // Analytics databases (DuckDB, Kùzu, LanceDB)
 pub mod databases;
@@ -35,15 +45,26 @@ pub mod oauth_health_monitor;
 pub mod oauth_security_logger;
 pub mod oauth_spotify;
 pub mod oauth_token_manager;
+pub mod oauth_youtube_music;
 pub mod offense;
 pub mod rate_limiting_middleware;
 pub mod registration_monitoring;
 pub mod registration_performance;
+pub mod tidal;
 pub mod user;
 
 // Apple Music services
 pub mod apple_music;
 pub mod apple_music_enforcement;
+pub mod token_vault;
+pub mod token_vault_background;
+pub mod token_vault_repository;
+
+// Token refresh background job (US-011)
+pub mod token_refresh_job;
+
+// Notification service (US-027)
+pub mod notification_service;
 
 pub mod stubs;
 
@@ -85,9 +106,16 @@ pub use oauth_health_monitor::{
     RateLimitInfo,
 };
 pub use oauth_spotify::SpotifyOAuthProvider;
+pub use oauth_youtube_music::YouTubeMusicOAuthProvider;
 pub use offense::OffenseService;
 pub use rate_limiting_middleware::{registration_rate_limit_middleware, RateLimitService};
 pub use user::UserService;
+
+// Export KMS components
+pub use kms::{
+    create_kms_provider, KmsProvider, KmsProviderType, MockKmsProvider, VaultAuthMethod,
+    VaultConfig, VaultKmsProvider,
+};
 
 // Export stub services for tests
 pub use stubs::*;
@@ -154,50 +182,60 @@ pub use graph_service::{
 
 // Export analytics service components
 pub use analytics_service::{
+    // Enforcement analytics (US-024)
+    ActionTypeCount,
+    // Category revenue (simulated by offense category)
+    AlbumRevenue,
+    ArtistDiscographyRevenue,
+    // Revenue tracking
+    ArtistRevenueBreakdown,
+    // Trouble scores
+    ArtistTroubleScore,
+    CategoryArtistRevenue,
+    CategoryRevenue,
+    CategoryRevenueService,
     // Dashboard
     DashboardMetrics,
     DashboardService,
+    EnforcementAnalytics,
+    EnforcementAnalyticsQuery,
+    EnforcementAnalyticsService,
+    EnforcementStats,
+    EnforcementTimeSeriesPoint,
+    GlobalArtistRevenue,
+    GlobalCategoryRevenue,
+    OffenseCategory,
+    PayoutRate,
+    PlatformRevenue,
+    ProviderStats,
+    RecalculationSummary,
     // Reporting
     Report,
     ReportType,
     ReportingService,
-    // Revenue tracking
-    ArtistRevenueBreakdown,
-    GlobalArtistRevenue,
-    PayoutRate,
-    PlatformRevenue,
     RevenuePlatform,
     RevenueService,
-    UserPlaycount,
-    UserRevenueDistribution,
-    // Category revenue (simulated by offense category)
-    AlbumRevenue,
-    ArtistDiscographyRevenue,
-    CategoryArtistRevenue,
-    CategoryRevenue,
-    CategoryRevenueService,
-    GlobalCategoryRevenue,
-    OffenseCategory,
+    ScoreHistoryEntry,
+    ScoreWeights,
     SimulationParams,
+    TierDistribution,
     // Trends
     TimeRange,
     TrendAnalysisService,
     TrendData,
     TrendDirection,
-    // Trouble scores
-    ArtistTroubleScore,
-    RecalculationSummary,
-    ScoreHistoryEntry,
-    ScoreWeights,
-    TierDistribution,
     TroubleLeaderboardEntry,
     TroubleScoreComponents,
     TroubleScoreService,
     TroubleTier,
+    UserPlaycount,
+    UserRevenueDistribution,
 };
 
 // Export backfill orchestrator components
-pub use backfill_orchestrator::{BackfillOrchestrator, BackfillProgress, BackfillResult, BackfillStats};
+pub use backfill_orchestrator::{
+    BackfillOrchestrator, BackfillProgress, BackfillResult, BackfillStats,
+};
 
 // Export MusicBrainz importer
 pub use catalog_sync::{MusicBrainzImportStats, MusicBrainzImporter};
@@ -205,3 +243,31 @@ pub use catalog_sync::{MusicBrainzImportStats, MusicBrainzImporter};
 // Export Apple Music services
 pub use apple_music::{AppleMusicConfig, AppleMusicService, RATING_DISLIKE, RATING_LIKE};
 pub use apple_music_enforcement::{AppleMusicEnforcementService, EnforcementHistoryItem};
+
+// Export Token Vault service
+pub use token_vault::TokenVaultService;
+pub use token_vault_background::{TokenVaultBackgroundService, TokenVaultStatistics};
+pub use token_vault_repository::{ConnectionStatistics, TokenVaultRepository};
+
+// Export Token Refresh Background Job (US-011)
+pub use token_refresh_job::{RefreshCycleResult, TokenRefreshBackgroundJob, TokenRefreshMetrics};
+
+// Export Notification Service (US-027)
+pub use notification_service::NotificationService;
+
+// Export Spotify services (US-013: Real Spotify library scan)
+pub use spotify::{SpotifyConfig, SpotifyService};
+pub use spotify_library::SpotifyLibraryService;
+
+// Export rate limiting and job queue
+pub use job_queue::{
+    Job, JobHandler, JobPriority, JobProgress, JobQueueService, JobResult, JobStatus, JobType,
+    WorkerConfig, WorkerStats,
+};
+pub use rate_limiting::RateLimitingService;
+
+// Export Circuit Breaker (US-026)
+pub use circuit_breaker::{
+    CircuitBreakerConfig, CircuitBreakerError, CircuitBreakerMetrics, CircuitBreakerService,
+    CircuitBreakerStateEnum,
+};

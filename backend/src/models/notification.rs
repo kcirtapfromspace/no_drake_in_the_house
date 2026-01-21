@@ -10,6 +10,10 @@ pub enum NotificationType {
     EnforcementComplete,
     SecurityAlert,
     SystemMaintenance,
+    /// Connection needs re-authentication (US-027)
+    ConnectionNeedsReauth,
+    /// Enforcement was skipped due to connection issues (US-027)
+    EnforcementSkipped,
 }
 
 /// User notification

@@ -35,9 +35,9 @@ fn init_env() {
 /// Apple Music JWT claims
 #[derive(Debug, Serialize)]
 struct AppleMusicClaims {
-    iss: String,  // Team ID
-    iat: i64,     // Issued at
-    exp: i64,     // Expiration
+    iss: String, // Team ID
+    iat: i64,    // Issued at
+    exp: i64,    // Expiration
 }
 
 /// Apple Music search response
@@ -158,7 +158,11 @@ async fn test_generate_developer_token() {
 
     // JWT should have 3 parts separated by dots
     let parts: Vec<&str> = token.split('.').collect();
-    assert_eq!(parts.len(), 3, "JWT should have 3 parts (header.payload.signature)");
+    assert_eq!(
+        parts.len(),
+        3,
+        "JWT should have 3 parts (header.payload.signature)"
+    );
 
     println!("✅ Developer token generated successfully");
     println!("   Token length: {} chars", token.len());
@@ -180,11 +184,7 @@ async fn test_catalog_search_drake() {
 
     let response = client
         .get("https://api.music.apple.com/v1/catalog/us/search")
-        .query(&[
-            ("term", "Drake"),
-            ("types", "artists"),
-            ("limit", "5"),
-        ])
+        .query(&[("term", "Drake"), ("types", "artists"), ("limit", "5")])
         .header("Authorization", format!("Bearer {}", token))
         .send()
         .await
@@ -198,10 +198,8 @@ async fn test_catalog_search_drake() {
         panic!("API request failed with status {}: {}", status, error_body);
     }
 
-    let search_response: AppleMusicSearchResponse = response
-        .json()
-        .await
-        .expect("Failed to parse response");
+    let search_response: AppleMusicSearchResponse =
+        response.json().await.expect("Failed to parse response");
 
     let artists = search_response
         .results
@@ -210,16 +208,33 @@ async fn test_catalog_search_drake() {
 
     assert!(!artists.data.is_empty(), "Should find Drake");
 
-    let drake = artists.data.iter()
-        .find(|a| a.attributes.as_ref().map(|attr| attr.name.to_lowercase().contains("drake")).unwrap_or(false));
+    let drake = artists.data.iter().find(|a| {
+        a.attributes
+            .as_ref()
+            .map(|attr| attr.name.to_lowercase().contains("drake"))
+            .unwrap_or(false)
+    });
 
     assert!(drake.is_some(), "Should find artist named Drake");
 
     let drake = drake.unwrap();
     println!("✅ Found Drake in Apple Music catalog");
     println!("   ID: {}", drake.id);
-    println!("   Name: {}", drake.attributes.as_ref().map(|a| a.name.as_str()).unwrap_or("N/A"));
-    println!("   Genres: {:?}", drake.attributes.as_ref().and_then(|a| a.genre_names.clone()));
+    println!(
+        "   Name: {}",
+        drake
+            .attributes
+            .as_ref()
+            .map(|a| a.name.as_str())
+            .unwrap_or("N/A")
+    );
+    println!(
+        "   Genres: {:?}",
+        drake
+            .attributes
+            .as_ref()
+            .and_then(|a| a.genre_names.clone())
+    );
 }
 
 /// Test: Search Apple Music catalog for songs by Drake
@@ -249,10 +264,8 @@ async fn test_catalog_search_drake_songs() {
 
     assert!(response.status().is_success(), "Request should succeed");
 
-    let search_response: AppleMusicSearchResponse = response
-        .json()
-        .await
-        .expect("Failed to parse response");
+    let search_response: AppleMusicSearchResponse =
+        response.json().await.expect("Failed to parse response");
 
     let songs = search_response
         .results
@@ -264,7 +277,10 @@ async fn test_catalog_search_drake_songs() {
     println!("✅ Found {} Drake songs", songs.data.len());
     for song in &songs.data {
         if let Some(attrs) = &song.attributes {
-            println!("   - {} by {} (ID: {})", attrs.name, attrs.artist_name, song.id);
+            println!(
+                "   - {} by {} (ID: {})",
+                attrs.name, attrs.artist_name, song.id
+            );
         }
     }
 }
@@ -292,7 +308,10 @@ async fn test_api_rate_limit_headers() {
 
     println!("Response headers:");
     for (name, value) in response.headers() {
-        if name.as_str().contains("rate") || name.as_str().contains("limit") || name.as_str().contains("x-") {
+        if name.as_str().contains("rate")
+            || name.as_str().contains("limit")
+            || name.as_str().contains("x-")
+        {
             println!("   {}: {:?}", name, value);
         }
     }
@@ -322,11 +341,17 @@ async fn test_storefront_support() {
         .await
         .expect("Failed to send request");
 
-    assert!(response.status().is_success(), "Should access US storefront");
+    assert!(
+        response.status().is_success(),
+        "Should access US storefront"
+    );
 
     let body: serde_json::Value = response.json().await.expect("Failed to parse");
     println!("✅ US Storefront info:");
-    println!("   {}", serde_json::to_string_pretty(&body).unwrap_or_default());
+    println!(
+        "   {}",
+        serde_json::to_string_pretty(&body).unwrap_or_default()
+    );
 }
 
 /// Test: Full enforcement simulation (catalog search for blocked artist)
@@ -345,7 +370,10 @@ async fn test_enforcement_flow_simulation() {
     // Simulate: User has "Drake" on their blocklist
     let blocked_artist = "Drake";
 
-    println!("🔍 Simulating enforcement flow for blocked artist: {}", blocked_artist);
+    println!(
+        "🔍 Simulating enforcement flow for blocked artist: {}",
+        blocked_artist
+    );
 
     // Step 1: Search for the artist to get their ID
     let artist_response = client
@@ -362,7 +390,8 @@ async fn test_enforcement_flow_simulation() {
 
     assert!(artist_response.status().is_success());
 
-    let artist_data: AppleMusicSearchResponse = artist_response.json().await.expect("Failed to parse");
+    let artist_data: AppleMusicSearchResponse =
+        artist_response.json().await.expect("Failed to parse");
     let artist_id = artist_data
         .results
         .and_then(|r| r.artists)
@@ -373,7 +402,10 @@ async fn test_enforcement_flow_simulation() {
 
     // Step 2: Get artist's top songs (these would be disliked in real enforcement)
     let songs_response = client
-        .get(format!("https://api.music.apple.com/v1/catalog/us/artists/{}/songs", artist_id))
+        .get(format!(
+            "https://api.music.apple.com/v1/catalog/us/artists/{}/songs",
+            artist_id
+        ))
         .query(&[("limit", "10")])
         .header("Authorization", format!("Bearer {}", token))
         .send()
@@ -383,14 +415,20 @@ async fn test_enforcement_flow_simulation() {
     if songs_response.status().is_success() {
         let songs_data: serde_json::Value = songs_response.json().await.expect("Failed to parse");
         let song_count = songs_data["data"].as_array().map(|a| a.len()).unwrap_or(0);
-        println!("   ✓ Found {} songs by {} (would be disliked)", song_count, blocked_artist);
+        println!(
+            "   ✓ Found {} songs by {} (would be disliked)",
+            song_count, blocked_artist
+        );
     } else {
         println!("   ⚠ Could not fetch artist songs (may need different endpoint)");
     }
 
     // Step 3: Get artist's albums (these would also be disliked)
     let albums_response = client
-        .get(format!("https://api.music.apple.com/v1/catalog/us/artists/{}/albums", artist_id))
+        .get(format!(
+            "https://api.music.apple.com/v1/catalog/us/artists/{}/albums",
+            artist_id
+        ))
         .query(&[("limit", "10")])
         .header("Authorization", format!("Bearer {}", token))
         .send()
@@ -400,7 +438,10 @@ async fn test_enforcement_flow_simulation() {
     if albums_response.status().is_success() {
         let albums_data: serde_json::Value = albums_response.json().await.expect("Failed to parse");
         let album_count = albums_data["data"].as_array().map(|a| a.len()).unwrap_or(0);
-        println!("   ✓ Found {} albums by {} (would be disliked)", album_count, blocked_artist);
+        println!(
+            "   ✓ Found {} albums by {} (would be disliked)",
+            album_count, blocked_artist
+        );
     } else {
         println!("   ⚠ Could not fetch artist albums (may need different endpoint)");
     }

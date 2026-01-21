@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                uab.tags,\n                uab.note,\n                uab.created_at,\n                a.canonical_name,\n                a.external_ids,\n                a.metadata\n            FROM user_artist_blocks uab\n            JOIN artists a ON uab.artist_id = a.id\n            WHERE uab.user_id = $1 AND uab.artist_id = $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "tags",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 1,
+        "name": "note",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "canonical_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "external_ids",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "metadata",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "1a59ff989fb69a6b7601f6cb3d9fbfbc0d3a1dd8285daa0c594601b7b8483239"
+}

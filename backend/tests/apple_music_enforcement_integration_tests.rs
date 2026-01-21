@@ -643,8 +643,8 @@ async fn test_aggregate_enforcement_statistics() {
             user_id,
             connection_id,
             options_json,
-            (i + 1) * 10,  // 10, 20, 30, 40, 50
-            (i + 1) * 2    // 2, 4, 6, 8, 10
+            (i + 1) * 10, // 10, 20, 30, 40, 50
+            (i + 1) * 2   // 2, 4, 6, 8, 10
         )
         .execute(&pool)
         .await

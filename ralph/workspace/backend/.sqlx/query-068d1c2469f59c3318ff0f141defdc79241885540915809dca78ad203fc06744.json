@@ -1,0 +1,61 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO audit_log (\n                id, event_type, severity, user_id, session_id, ip_address, \n                user_agent, action, details, timestamp, correlation_id\n            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        {
+          "Custom": {
+            "name": "audit_event_type",
+            "kind": {
+              "Enum": [
+                "user_registration",
+                "user_login",
+                "user_login_failed",
+                "user_logout",
+                "password_change",
+                "totp_enabled",
+                "totp_disabled",
+                "totp_verification_failed",
+                "token_refresh",
+                "token_revoked",
+                "rate_limit_exceeded",
+                "suspicious_activity",
+                "security_violation",
+                "data_access",
+                "data_modification",
+                "admin_action",
+                "system_event"
+              ]
+            }
+          }
+        },
+        {
+          "Custom": {
+            "name": "audit_severity",
+            "kind": {
+              "Enum": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ]
+            }
+          }
+        },
+        "Uuid",
+        "Varchar",
+        "Inet",
+        "Text",
+        "Varchar",
+        "Jsonb",
+        "Timestamptz",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "068d1c2469f59c3318ff0f141defdc79241885540915809dca78ad203fc06744"
+}

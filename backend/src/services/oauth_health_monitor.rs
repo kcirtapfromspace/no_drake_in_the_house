@@ -175,6 +175,10 @@ impl OAuthHealthMonitor {
             OAuthProviderType::Apple => Self::check_apple_health(client).await,
             OAuthProviderType::GitHub => Self::check_github_health(client).await,
             OAuthProviderType::Spotify => Self::check_spotify_health(client).await,
+            // YouTube Music uses Google OAuth infrastructure
+            OAuthProviderType::YouTubeMusic => Self::check_google_health(client).await,
+            // Tidal health check not yet implemented
+            OAuthProviderType::Tidal => Ok(None),
         };
 
         let response_time = start_time.elapsed();

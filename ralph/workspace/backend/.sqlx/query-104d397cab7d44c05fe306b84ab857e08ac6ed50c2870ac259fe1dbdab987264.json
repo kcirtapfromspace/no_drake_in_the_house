@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE oauth_accounts\n            SET access_token_encrypted = $1,\n                refresh_token_encrypted = $2,\n                token_expires_at = $3,\n                updated_at = $4\n            WHERE user_id = $5 AND provider = $6\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Timestamptz",
+        "Timestamptz",
+        "Uuid",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "104d397cab7d44c05fe306b84ab857e08ac6ed50c2870ac259fe1dbdab987264"
+}

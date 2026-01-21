@@ -1,0 +1,71 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                a.id,\n                a.title,\n                a.url,\n                a.excerpt,\n                s.name as source_name,\n                a.published_at,\n                COALESCE(e.entity_count, 0) as \"entity_count!\",\n                COALESCE(o.offense_count, 0) as \"offense_count!\",\n                a.processing_status\n            FROM news_articles a\n            LEFT JOIN news_sources s ON a.source_id = s.id\n            LEFT JOIN (\n                SELECT article_id, COUNT(*) as entity_count\n                FROM news_article_entities\n                GROUP BY article_id\n            ) e ON a.id = e.article_id\n            LEFT JOIN (\n                SELECT article_id, COUNT(*) as offense_count\n                FROM news_offense_classifications\n                GROUP BY article_id\n            ) o ON a.id = o.article_id\n            WHERE a.processing_status = 'completed'\n            ORDER BY a.published_at DESC NULLS LAST, a.fetched_at DESC\n            LIMIT $1 OFFSET $2\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "excerpt",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "source_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "published_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 6,
+        "name": "entity_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 7,
+        "name": "offense_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "processing_status",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      null,
+      null,
+      true
+    ]
+  },
+  "hash": "d207b7889f649445a7a934c1629960aef5e2c8dfd816e5a4ecc0fa89460a56fe"
+}

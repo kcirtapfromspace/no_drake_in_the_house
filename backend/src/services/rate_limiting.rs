@@ -11,8 +11,8 @@ use tokio::time::{sleep, Instant};
 use uuid::Uuid;
 
 use crate::models::{
-    RateLimitConfig, RateLimitState, RateLimitResponse, BatchConfig, CircuitBreakerState,
-    CircuitState, RateLimitedRequest, RequestPriority, BatchCheckpoint,
+    BatchCheckpoint, BatchConfig, CircuitBreakerState, CircuitState, RateLimitConfig,
+    RateLimitResponse, RateLimitState, RateLimitedRequest, RequestPriority,
 };
 
 /// Rate limiting service with circuit breaker and batching support
@@ -69,13 +69,14 @@ impl RateLimitingService {
     /// Wait for rate limit window if needed
     pub async fn wait_for_rate_limit(&self, provider: &str) -> Result<Duration> {
         let state = self.get_rate_limit_state(provider).await?;
-        
+
         if state.requests_remaining == 0 {
-            let wait_duration = state.window_reset_at
+            let wait_duration = state
+                .window_reset_at
                 .signed_duration_since(Utc::now())
                 .to_std()
                 .unwrap_or(Duration::from_secs(0));
-            
+
             if wait_duration > Duration::from_secs(0) {
                 tracing::info!(
                     "Rate limit hit for {}, waiting {} seconds",
@@ -94,7 +95,7 @@ impl RateLimitingService {
                 .signed_duration_since(last_request)
                 .to_std()
                 .unwrap_or(Duration::from_secs(0));
-            
+
             if time_since_last < min_delay {
                 let delay = min_delay - time_since_last;
                 sleep(delay).await;
@@ -106,11 +107,7 @@ impl RateLimitingService {
     }
 
     /// Record a successful API request and update rate limit state
-    pub async fn record_success(
-        &self,
-        provider: &str,
-        response: RateLimitResponse,
-    ) -> Result<()> {
+    pub async fn record_success(&self, provider: &str, response: RateLimitResponse) -> Result<()> {
         // Update circuit breaker
         self.record_circuit_success(provider).await?;
 
@@ -119,7 +116,7 @@ impl RateLimitingService {
         let key = format!("rate_limit:{}", provider);
 
         let mut state = self.get_rate_limit_state(provider).await?;
-        
+
         if let Some(remaining) = response.requests_remaining {
             state.requests_remaining = remaining;
         } else if state.requests_remaining > 0 {
@@ -135,7 +132,7 @@ impl RateLimitingService {
         state.consecutive_failures = 0;
 
         let state_json = serde_json::to_string(&state)?;
-        conn.set_ex(&key, state_json, 3600).await?;
+        let _: () = conn.set_ex(&key, state_json, 3600).await?;
 
         Ok(())
     }
@@ -154,7 +151,9 @@ impl RateLimitingService {
 
         state.consecutive_failures += 1;
         state.current_backoff_seconds = std::cmp::min(
-            (config.backoff_multiplier.powi(state.consecutive_failures as i32) as u32),
+            (config
+                .backoff_multiplier
+                .powi(state.consecutive_failures as i32) as u32),
             config.max_backoff_seconds,
         );
 
@@ -167,7 +166,7 @@ impl RateLimitingService {
         }
 
         let state_json = serde_json::to_string(&state)?;
-        conn.set_ex(&key, state_json, 3600).await?;
+        let _: () = conn.set_ex(&key, state_json, 3600).await?;
 
         Ok(())
     }
@@ -176,7 +175,7 @@ impl RateLimitingService {
     pub async fn get_optimal_batch_size(&self, provider: &str, operation: &str) -> Result<u32> {
         let batch_configs = self.batch_configs.read().await;
         let key = format!("{}_{}", provider, operation);
-        
+
         if let Some(config) = batch_configs.get(&key) {
             // Adjust batch size based on current rate limit state
             let state = self.get_rate_limit_state(provider).await?;
@@ -185,7 +184,7 @@ impl RateLimitingService {
             } else {
                 config.optimal_batch_size
             };
-            
+
             Ok(adjusted_size)
         } else {
             Ok(20) // Default batch size
@@ -200,7 +199,10 @@ impl RateLimitingService {
         items: Vec<T>,
     ) -> Result<Vec<Vec<T>>> {
         let batch_size = self.get_optimal_batch_size(provider, operation).await? as usize;
-        let batches = items.chunks(batch_size).map(|chunk| chunk.to_vec()).collect();
+        let batches = items
+            .chunks(batch_size)
+            .map(|chunk| chunk.to_vec())
+            .collect();
         Ok(batches)
     }
 
@@ -235,7 +237,7 @@ impl RateLimitingService {
 
             // Wait for rate limit
             let wait_time = self.wait_for_rate_limit(provider).await?;
-            
+
             // Add minimum delay between batches (except for first batch)
             if i > 0 {
                 sleep(min_delay).await;
@@ -254,10 +256,11 @@ impl RateLimitingService {
                             retry_after_seconds: None,
                             rate_limit_hit: false,
                         },
-                    ).await?;
-                    
+                    )
+                    .await?;
+
                     results.push(Ok(result));
-                    
+
                     tracing::debug!(
                         "Batch {} completed in {}ms for {}",
                         i + 1,
@@ -269,7 +272,7 @@ impl RateLimitingService {
                     // Record failure
                     let error_msg = e.to_string();
                     self.record_failure(provider, &error_msg).await?;
-                    
+
                     tracing::warn!(
                         "Batch {} failed after {}ms for {}: {}",
                         i + 1,
@@ -277,7 +280,7 @@ impl RateLimitingService {
                         provider,
                         error_msg
                     );
-                    
+
                     results.push(Err(e));
                 }
             }
@@ -318,7 +321,7 @@ impl RateLimitingService {
     pub async fn get_checkpoint(&self, batch_id: &Uuid) -> Result<Option<BatchCheckpoint>> {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("checkpoint:{}", batch_id);
-        
+
         let checkpoint_json: Option<String> = conn.get(&key).await?;
         if let Some(json) = checkpoint_json {
             let checkpoint: BatchCheckpoint = serde_json::from_str(&json)?;
@@ -332,20 +335,19 @@ impl RateLimitingService {
     pub async fn exponential_backoff(&self, attempt: u32, base_delay_ms: u64) -> Duration {
         let max_delay = Duration::from_secs(300); // 5 minutes max
         let base_delay = Duration::from_millis(base_delay_ms);
-        
+
         let exponential_delay = base_delay * (2_u32.pow(attempt.min(10))); // Cap at 2^10
-        let jittered_delay = exponential_delay + Duration::from_millis(
-            (rand::random::<f64>() * 1000.0) as u64
-        );
-        
+        let jittered_delay =
+            exponential_delay + Duration::from_millis((rand::random::<f64>() * 1000.0) as u64);
+
         let final_delay = std::cmp::min(jittered_delay, max_delay);
-        
+
         tracing::debug!(
             "Exponential backoff: attempt {}, delay {}ms",
             attempt,
             final_delay.as_millis()
         );
-        
+
         sleep(final_delay).await;
         final_delay
     }
@@ -355,7 +357,7 @@ impl RateLimitingService {
     async fn get_rate_limit_state(&self, provider: &str) -> Result<RateLimitState> {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("rate_limit:{}", provider);
-        
+
         let state_json: Option<String> = conn.get(&key).await?;
         if let Some(json) = state_json {
             let state: RateLimitState = serde_json::from_str(&json)?;
@@ -366,21 +368,25 @@ impl RateLimitingService {
             let state = RateLimitState {
                 provider: provider.to_string(),
                 requests_remaining: config.requests_per_window,
-                window_reset_at: Utc::now() + chrono::Duration::seconds(config.window_duration_seconds as i64),
+                window_reset_at: Utc::now()
+                    + chrono::Duration::seconds(config.window_duration_seconds as i64),
                 current_backoff_seconds: 0,
                 consecutive_failures: 0,
                 last_request_at: None,
             };
-            
+
             let state_json = serde_json::to_string(&state)?;
-            conn.set_ex(&key, state_json, config.window_duration_seconds as u64).await?;
+            let _: () = conn
+                .set_ex(&key, state_json, config.window_duration_seconds as u64)
+                .await?;
             Ok(state)
         }
     }
 
     async fn get_config(&self, provider: &str) -> Result<RateLimitConfig> {
         let configs = self.configs.read().await;
-        configs.get(provider)
+        configs
+            .get(provider)
             .cloned()
             .ok_or_else(|| anyhow!("No rate limit config for provider: {}", provider))
     }
@@ -402,7 +408,7 @@ impl RateLimitingService {
                 provider: provider.to_string(),
                 ..Default::default()
             });
-        
+
         breaker.record_success();
         Ok(())
     }
@@ -415,16 +421,16 @@ impl RateLimitingService {
                 provider: provider.to_string(),
                 ..Default::default()
             });
-        
+
         breaker.record_failure();
-        
+
         tracing::warn!(
             "Circuit breaker for {} recorded failure. State: {:?}, Failures: {}",
             provider,
             breaker.state,
             breaker.failure_count
         );
-        
+
         Ok(())
     }
 
@@ -432,9 +438,9 @@ impl RateLimitingService {
         let mut conn = self.redis_pool.get().await?;
         let key = format!("checkpoint:{}", checkpoint.batch_id);
         let checkpoint_json = serde_json::to_string(checkpoint)?;
-        
+
         // Store checkpoint for 24 hours
-        conn.set_ex(&key, checkpoint_json, 86400).await?;
+        let _: () = conn.set_ex(&key, checkpoint_json, 86400).await?;
         Ok(())
     }
 }
@@ -492,25 +498,25 @@ mod tests {
     #[tokio::test]
     async fn test_circuit_breaker_transitions() {
         let mut breaker = CircuitBreakerState::default();
-        
+
         // Initially closed
         assert_eq!(breaker.state, CircuitState::Closed);
         assert!(breaker.should_allow_request());
-        
+
         // Record failures to open circuit
         for _ in 0..5 {
             breaker.record_failure();
         }
         assert_eq!(breaker.state, CircuitState::Open);
-        
+
         // Should not allow requests when open
         assert!(!breaker.should_allow_request());
-        
+
         // Transition to half-open
         breaker.transition_to_half_open();
         assert_eq!(breaker.state, CircuitState::HalfOpen);
         assert!(breaker.should_allow_request());
-        
+
         // Record successes to close circuit
         for _ in 0..3 {
             breaker.record_success();
@@ -527,10 +533,10 @@ mod tests {
             "remove_tracks".to_string(),
             100,
         );
-        
+
         assert_eq!(checkpoint.progress_percentage(), 0.0);
         assert!(!checkpoint.is_complete());
-        
+
         checkpoint.update_progress(
             50,
             5,
@@ -538,10 +544,10 @@ mod tests {
             Some("track_123".to_string()),
             serde_json::json!({"current_playlist": "playlist_456"}),
         );
-        
+
         assert_eq!(checkpoint.progress_percentage(), 55.0);
         assert!(!checkpoint.is_complete());
-        
+
         checkpoint.update_progress(
             90,
             10,
@@ -549,7 +555,7 @@ mod tests {
             Some("track_999".to_string()),
             serde_json::json!({"completed": true}),
         );
-        
+
         assert_eq!(checkpoint.progress_percentage(), 100.0);
         assert!(checkpoint.is_complete());
     }

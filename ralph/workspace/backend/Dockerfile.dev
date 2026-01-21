@@ -1,0 +1,148 @@
+# syntax=docker/dockerfile:1.4
+# Ultra-optimized development Dockerfile for Rust backend with live updates
+FROM rust:1.82-slim as chef
+
+# Install cargo-chef and development tools for better dependency caching
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN cargo install cargo-chef --locked
+
+WORKDIR /app
+
+FROM chef as planner
+# Copy Cargo files and src structure for dependency analysis
+COPY Cargo.toml Cargo.lock ./
+# Copy src directory structure so cargo-chef can understand the binary targets
+COPY src ./src
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef as builder
+
+# Install system dependencies with cache mount
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    ca-certificates \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build dependencies first (this layer will be heavily cached)
+COPY --from=planner /app/recipe.json recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo chef cook --release --recipe-path recipe.json
+
+# Copy source code and additional files
+COPY . .
+
+# Build the application with optimizations for development
+# Set offline mode for SQLx to avoid database connection requirement during build
+ENV SQLX_OFFLINE=true
+ENV CARGO_INCREMENTAL=1
+ENV RUST_BACKTRACE=1
+
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build --bin music-streaming-blocklist-backend && \
+    cp target/debug/music-streaming-blocklist-backend /tmp/backend
+
+# Development runtime stage - optimized for live updates
+FROM debian:bookworm-slim as development
+
+# Install runtime dependencies and development tools
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    ca-certificates \
+    libpq5 \
+    curl \
+    postgresql-client \
+    redis-tools \
+    htop \
+    procps \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy the binary, migrations, and SQLx metadata
+COPY --from=builder /tmp/backend ./backend
+COPY migrations ./migrations
+COPY .sqlx ./.sqlx
+
+# Create non-root user with proper permissions
+RUN useradd -r -s /bin/bash -u 1001 -m kiro && \
+    chown -R kiro:kiro /app && \
+    chmod +x /app/backend
+
+# Switch to non-root user
+USER kiro
+
+# Set up optimized environment for development
+ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=1
+ENV DATABASE_URL=postgres://kiro:password@postgres:5432/kiro
+ENV REDIS_URL=redis://redis:6379
+ENV SQLX_OFFLINE=true
+ENV CARGO_INCREMENTAL=1
+ENV OAUTH_DEV_MODE=true
+
+EXPOSE 3000
+
+# Enhanced health check for development
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Default command
+CMD ["./backend"]
+
+# Production-ready stage (for comparison and optional use)
+FROM debian:bookworm-slim as production
+
+# Install minimal runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    ca-certificates \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy only the binary and migrations
+COPY --from=builder /tmp/backend ./backend
+COPY migrations ./migrations
+
+# Create non-root user
+RUN useradd -r -s /bin/false -u 1001 kiro && \
+    chown -R kiro:kiro /app && \
+    chmod +x /app/backend
+
+USER kiro
+
+# Production environment
+ENV RUST_LOG=info
+ENV DATABASE_URL=postgres://kiro:password@postgres:5432/kiro
+ENV REDIS_URL=redis://redis:6379
+
+EXPOSE 3000
+
+# Production health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+CMD ["./backend"]

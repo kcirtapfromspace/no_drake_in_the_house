@@ -1,16 +1,67 @@
 use async_trait::async_trait;
 use base64::Engine as _;
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::error::{AppError, Result};
 use crate::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 use crate::services::oauth::{BaseOAuthProvider, OAuthProvider};
+
+/// Apple's JSON Web Key Set (JWKS) response structure
+#[derive(Debug, Clone, Deserialize)]
+pub struct AppleJWKS {
+    pub keys: Vec<AppleJWK>,
+}
+
+/// Apple's JSON Web Key structure
+#[derive(Debug, Clone, Deserialize)]
+pub struct AppleJWK {
+    pub kty: String, // Key type (RSA)
+    pub kid: String, // Key ID
+    pub alg: String, // Algorithm (RS256)
+    #[serde(rename = "use")]
+    pub key_use: String, // Key usage (sig)
+    pub n: String,   // RSA modulus (base64url encoded)
+    pub e: String,   // RSA exponent (base64url encoded)
+}
+
+/// Apple ID token claims
+#[derive(Debug, Clone, Deserialize)]
+pub struct AppleIdTokenClaims {
+    pub iss: String,                    // Issuer (https://appleid.apple.com)
+    pub sub: String,                    // Subject (user ID)
+    pub aud: String,                    // Audience (client ID)
+    pub iat: i64,                       // Issued at
+    pub exp: i64,                       // Expiration
+    pub email: Option<String>,          // User email
+    pub email_verified: Option<bool>,   // Email verified (may be string or bool)
+    pub is_private_email: Option<bool>, // True if using Apple's relay email
+    pub auth_time: Option<i64>,         // Time of authentication
+    pub nonce_supported: Option<bool>,  // Nonce supported
+    pub real_user_status: Option<i64>, // Real user status (0=unsupported, 1=unknown, 2=likely_real)
+    pub c_hash: Option<String>,        // Code hash
+    pub at_hash: Option<String>,       // Access token hash
+    pub transfer_sub: Option<String>,  // Transfer subject (for app transfer)
+}
+
+/// Cached Apple public keys with expiration
+#[derive(Clone)]
+pub struct AppleKeyCache {
+    keys: Arc<RwLock<Option<CachedKeys>>>,
+}
+
+#[derive(Clone)]
+struct CachedKeys {
+    jwks: AppleJWKS,
+    fetched_at: chrono::DateTime<Utc>,
+}
 
 /// Apple Sign In JWT claims for client secret generation
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,10 +84,47 @@ pub struct AppleOAuthConfig {
     pub scopes: Vec<String>,
 }
 
+impl AppleKeyCache {
+    /// Create a new key cache
+    pub fn new() -> Self {
+        Self {
+            keys: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// Get cached keys if still valid (cache for 24 hours)
+    pub async fn get(&self) -> Option<AppleJWKS> {
+        let guard = self.keys.read().await;
+        if let Some(cached) = guard.as_ref() {
+            // Keys are valid for 24 hours
+            if Utc::now() - cached.fetched_at < Duration::hours(24) {
+                return Some(cached.jwks.clone());
+            }
+        }
+        None
+    }
+
+    /// Store keys in cache
+    pub async fn set(&self, jwks: AppleJWKS) {
+        let mut guard = self.keys.write().await;
+        *guard = Some(CachedKeys {
+            jwks,
+            fetched_at: Utc::now(),
+        });
+    }
+}
+
+impl Default for AppleKeyCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Apple Sign In provider implementation
 pub struct AppleOAuthProvider {
     base: BaseOAuthProvider,
     apple_config: AppleOAuthConfig,
+    key_cache: AppleKeyCache,
 }
 
 impl AppleOAuthProvider {
@@ -92,7 +180,11 @@ impl AppleOAuthProvider {
             None,           // Apple doesn't support token revocation
         );
 
-        let provider = Self { base, apple_config };
+        let provider = Self {
+            base,
+            apple_config,
+            key_cache: AppleKeyCache::new(),
+        };
 
         // Validate configuration on creation
         provider.validate_config()?;
@@ -219,8 +311,172 @@ impl AppleOAuthProvider {
         Ok(token)
     }
 
-    /// Parse Apple ID token to extract user information with proper verification
-    fn parse_id_token(&self, id_token: &str) -> Result<OAuthUserInfo> {
+    /// Fetch Apple's public keys for JWT verification
+    async fn fetch_apple_public_keys(&self) -> Result<AppleJWKS> {
+        // Check cache first
+        if let Some(cached) = self.key_cache.get().await {
+            return Ok(cached);
+        }
+
+        // Fetch from Apple
+        let response = self
+            .base
+            .client
+            .get("https://appleid.apple.com/auth/keys")
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to fetch Apple public keys: {}", e))
+            })?;
+
+        if !response.status().is_success() {
+            return Err(AppError::ExternalServiceError(
+                "Failed to fetch Apple public keys".to_string(),
+            ));
+        }
+
+        let jwks: AppleJWKS = response.json().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e))
+        })?;
+
+        // Cache the keys
+        self.key_cache.set(jwks.clone()).await;
+
+        Ok(jwks)
+    }
+
+    /// Find the JWK matching the key ID from the token header
+    fn find_key_by_kid<'a>(jwks: &'a AppleJWKS, kid: &str) -> Option<&'a AppleJWK> {
+        jwks.keys.iter().find(|key| key.kid == kid)
+    }
+
+    /// Create a decoding key from Apple's JWK
+    fn create_decoding_key(jwk: &AppleJWK) -> Result<DecodingKey> {
+        // Apple uses RS256 algorithm with RSA keys
+        // The n and e values are base64url encoded without padding
+        DecodingKey::from_rsa_components(&jwk.n, &jwk.e).map_err(|e| AppError::OAuthProviderError {
+            provider: "Apple".to_string(),
+            message: format!("Failed to create decoding key from Apple JWK: {}", e),
+        })
+    }
+
+    /// Validate and parse Apple ID token with full JWT signature verification
+    pub async fn validate_id_token(&self, id_token: &str) -> Result<OAuthUserInfo> {
+        // Fetch Apple's public keys
+        let jwks = self.fetch_apple_public_keys().await?;
+
+        // Get the key ID from the token header
+        let header =
+            jsonwebtoken::decode_header(id_token).map_err(|e| AppError::OAuthProviderError {
+                provider: "Apple".to_string(),
+                message: format!("Failed to decode ID token header: {}", e),
+            })?;
+
+        let kid = header.kid.ok_or_else(|| AppError::OAuthProviderError {
+            provider: "Apple".to_string(),
+            message: "Missing key ID in Apple ID token header".to_string(),
+        })?;
+
+        // Find the matching public key
+        let jwk =
+            Self::find_key_by_kid(&jwks, &kid).ok_or_else(|| AppError::OAuthProviderError {
+                provider: "Apple".to_string(),
+                message: format!("No matching public key found for kid: {}", kid),
+            })?;
+
+        // Verify the algorithm matches
+        if jwk.alg != "RS256" {
+            return Err(AppError::OAuthProviderError {
+                provider: "Apple".to_string(),
+                message: format!("Unexpected algorithm: {}", jwk.alg),
+            });
+        }
+
+        // Create the decoding key from the JWK
+        let decoding_key = Self::create_decoding_key(jwk)?;
+
+        // Configure validation
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&[&self.apple_config.client_id]);
+        validation.set_issuer(&["https://appleid.apple.com"]);
+        validation.leeway = 300; // 5 minutes clock skew tolerance
+
+        // Decode and verify the token
+        let token_data = decode::<AppleIdTokenClaims>(id_token, &decoding_key, &validation)
+            .map_err(|e| {
+                let message = match e.kind() {
+                    jsonwebtoken::errors::ErrorKind::ExpiredSignature => {
+                        "Apple ID token has expired".to_string()
+                    }
+                    jsonwebtoken::errors::ErrorKind::InvalidAudience => {
+                        "Apple ID token audience mismatch".to_string()
+                    }
+                    jsonwebtoken::errors::ErrorKind::InvalidIssuer => {
+                        "Apple ID token issuer mismatch".to_string()
+                    }
+                    jsonwebtoken::errors::ErrorKind::InvalidSignature => {
+                        "Apple ID token signature verification failed".to_string()
+                    }
+                    _ => format!("Apple ID token validation failed: {}", e),
+                };
+                AppError::OAuthProviderError {
+                    provider: "Apple".to_string(),
+                    message,
+                }
+            })?;
+
+        let claims = token_data.claims;
+
+        // Build provider data with Apple-specific claims
+        let mut provider_data = HashMap::new();
+
+        // Handle is_private_email (Apple's relay email feature)
+        if let Some(is_private) = claims.is_private_email {
+            provider_data.insert(
+                "is_private_email".to_string(),
+                serde_json::Value::Bool(is_private),
+            );
+        }
+
+        if let Some(auth_time) = claims.auth_time {
+            provider_data.insert(
+                "auth_time".to_string(),
+                serde_json::Value::Number(auth_time.into()),
+            );
+        }
+
+        if let Some(nonce_supported) = claims.nonce_supported {
+            provider_data.insert(
+                "nonce_supported".to_string(),
+                serde_json::Value::Bool(nonce_supported),
+            );
+        }
+
+        // Store real_user_status if available (useful for detecting bots)
+        if let Some(real_user_status) = claims.real_user_status {
+            provider_data.insert(
+                "real_user_status".to_string(),
+                serde_json::Value::Number(real_user_status.into()),
+            );
+        }
+
+        Ok(OAuthUserInfo {
+            provider_user_id: claims.sub,
+            email: claims.email,
+            email_verified: claims.email_verified,
+            display_name: None, // Apple doesn't provide this in ID token
+            first_name: None,   // Name is only sent in first authorization callback
+            last_name: None,
+            avatar_url: None, // Apple doesn't provide avatars
+            locale: None,     // Apple doesn't provide locale
+            provider_data,
+        })
+    }
+
+    /// Parse Apple ID token without signature verification (fallback for testing)
+    /// This should only be used when Apple's public keys are unavailable
+    fn parse_id_token_unverified(&self, id_token: &str) -> Result<OAuthUserInfo> {
         // Parse the JWT header to get the key ID
         let parts: Vec<&str> = id_token.split('.').collect();
         if parts.len() != 3 {
@@ -229,34 +485,6 @@ impl AppleOAuthProvider {
                 message: "Invalid ID token format".to_string(),
             });
         }
-
-        // Decode header to get key ID
-        let header_payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(parts[0])
-            .map_err(|e| AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: format!("Failed to decode ID token header: {}", e),
-            })?;
-
-        let header: Value =
-            serde_json::from_slice(&header_payload).map_err(|e| AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: format!("Failed to parse ID token header: {}", e),
-            })?;
-
-        let _key_id = header["kid"]
-            .as_str()
-            .ok_or_else(|| AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: "Missing key ID in Apple ID token header".to_string(),
-            })?;
-
-        // For now, we'll decode the payload without signature verification
-        // In a full production implementation, you would:
-        // 1. Fetch Apple's public keys from https://appleid.apple.com/auth/keys
-        // 2. Find the key matching the kid from the header
-        // 3. Verify the JWT signature using that public key
-        // 4. Verify the token hasn't expired and other claims
 
         let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
             .decode(parts[1])
@@ -287,7 +515,6 @@ impl AppleOAuthProvider {
         // Check issued at time (not too far in the future)
         if let Some(iat) = claims["iat"].as_i64() {
             if now < iat - 300 {
-                // Allow 5 minutes clock skew
                 return Err(AppError::OAuthProviderError {
                     provider: "Apple".to_string(),
                     message: "Apple ID token issued in the future".to_string(),
@@ -364,30 +591,10 @@ impl AppleOAuthProvider {
         })
     }
 
-    /// Fetch and verify Apple's public keys for JWT verification
-    /// This would be used in a full production implementation
-    #[allow(dead_code)]
-    async fn fetch_apple_public_keys(&self) -> Result<Value> {
-        let response = self
-            .base
-            .client
-            .get("https://appleid.apple.com/auth/keys")
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to fetch Apple public keys: {}", e))
-            })?;
-
-        if !response.status().is_success() {
-            return Err(AppError::ExternalServiceError(
-                "Failed to fetch Apple public keys".to_string(),
-            ));
-        }
-
-        response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e))
-        })
+    /// Parse Apple ID token without full signature verification (for testing or fallback)
+    /// This method is useful when Apple's public keys are unavailable
+    pub fn parse_id_token(&self, id_token: &str) -> Result<OAuthUserInfo> {
+        self.parse_id_token_unverified(id_token)
     }
 
     /// Parse user data from Apple's authorization response
@@ -457,6 +664,7 @@ impl OAuthProvider for AppleOAuthProvider {
             .post(&self.base.token_endpoint)
             .header("Content-Type", "application/x-www-form-urlencoded")
             .header("Accept", "application/json")
+            .form(&params)
             .send()
             .await
             .map_err(|e| {
@@ -677,6 +885,20 @@ impl OAuthProvider for AppleOAuthProvider {
     async fn revoke_token(&self, _token: &str) -> Result<()> {
         // Apple doesn't support token revocation
         Ok(())
+    }
+
+    /// Validate Apple ID token with full JWT signature verification using Apple's JWKS
+    ///
+    /// This method:
+    /// 1. Fetches Apple's public keys from the JWKS endpoint (with 24-hour caching)
+    /// 2. Decodes the JWT header to find the key ID (kid)
+    /// 3. Finds the matching public key from Apple's JWKS
+    /// 4. Validates the JWT signature using RS256 algorithm
+    /// 5. Validates claims (iss, aud, exp, iat)
+    /// 6. Extracts user info including email, email_verified, is_private_email
+    async fn validate_id_token(&self, id_token: &str) -> Result<OAuthUserInfo> {
+        // Use the full JWKS-based validation
+        self.validate_id_token(id_token).await
     }
 
     fn validate_config(&self) -> Result<()> {

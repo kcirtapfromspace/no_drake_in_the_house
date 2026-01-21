@@ -10,6 +10,8 @@ pub enum OAuthProviderType {
     Apple,
     GitHub,
     Spotify,
+    YouTubeMusic,
+    Tidal,
 }
 
 impl std::fmt::Display for OAuthProviderType {
@@ -19,6 +21,8 @@ impl std::fmt::Display for OAuthProviderType {
             OAuthProviderType::Apple => write!(f, "apple"),
             OAuthProviderType::GitHub => write!(f, "github"),
             OAuthProviderType::Spotify => write!(f, "spotify"),
+            OAuthProviderType::YouTubeMusic => write!(f, "youtube_music"),
+            OAuthProviderType::Tidal => write!(f, "tidal"),
         }
     }
 }
@@ -32,6 +36,8 @@ impl std::str::FromStr for OAuthProviderType {
             "apple" => Ok(OAuthProviderType::Apple),
             "github" => Ok(OAuthProviderType::GitHub),
             "spotify" => Ok(OAuthProviderType::Spotify),
+            "youtube_music" | "youtubemusic" => Ok(OAuthProviderType::YouTubeMusic),
+            "tidal" => Ok(OAuthProviderType::Tidal),
             _ => Err(format!("Unknown OAuth provider: {}", s)),
         }
     }

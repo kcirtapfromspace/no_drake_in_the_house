@@ -496,3 +496,141 @@ impl std::fmt::Display for EntityType {
         }
     }
 }
+
+/// Result of a Spotify library scan with detailed counts and items
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpotifyLibraryScanResult {
+    /// The full library data
+    pub library: SpotifyLibrary,
+    /// Summary counts for the scan
+    pub counts: LibraryScanCounts,
+    /// Scan metadata
+    pub metadata: LibraryScanMetadata,
+}
+
+/// Summary counts from a library scan
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LibraryScanCounts {
+    /// Total liked songs
+    pub liked_songs_count: u32,
+    /// Total playlists
+    pub playlists_count: u32,
+    /// Total tracks across all playlists
+    pub playlist_tracks_count: u32,
+    /// Total followed artists
+    pub followed_artists_count: u32,
+    /// Total saved albums
+    pub saved_albums_count: u32,
+    /// Total unique tracks (deduplicated across liked songs and playlists)
+    pub total_unique_tracks: u32,
+    /// Total unique artists found
+    pub total_unique_artists: u32,
+}
+
+/// Metadata about the library scan
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryScanMetadata {
+    /// When the scan started
+    pub started_at: DateTime<Utc>,
+    /// When the scan completed
+    pub completed_at: DateTime<Utc>,
+    /// Total duration in milliseconds
+    pub duration_ms: u64,
+    /// Number of API requests made
+    pub api_requests_count: u32,
+    /// Number of rate limit retries encountered
+    pub rate_limit_retries: u32,
+    /// Whether the scan was complete or partial
+    pub is_complete: bool,
+    /// Any errors encountered during scanning (non-fatal)
+    pub warnings: Vec<String>,
+}
+
+impl SpotifyLibraryScanResult {
+    /// Create a new scan result from library data and timing info
+    pub fn new(
+        library: SpotifyLibrary,
+        started_at: DateTime<Utc>,
+        api_requests_count: u32,
+        rate_limit_retries: u32,
+        warnings: Vec<String>,
+    ) -> Self {
+        let completed_at = Utc::now();
+        let duration_ms = (completed_at - started_at).num_milliseconds() as u64;
+
+        // Calculate counts
+        let liked_songs_count = library.liked_songs.len() as u32;
+        let playlists_count = library.playlists.len() as u32;
+        let playlist_tracks_count: u32 = library
+            .playlists
+            .iter()
+            .map(|p| p.tracks.items.as_ref().map(|t| t.len() as u32).unwrap_or(0))
+            .sum();
+        let followed_artists_count = library.followed_artists.len() as u32;
+        let saved_albums_count = library.saved_albums.len() as u32;
+
+        // Calculate unique tracks and artists
+        let mut unique_track_ids = std::collections::HashSet::new();
+        let mut unique_artist_ids = std::collections::HashSet::new();
+
+        // From liked songs
+        for saved_track in &library.liked_songs {
+            unique_track_ids.insert(saved_track.track.id.clone());
+            for artist in &saved_track.track.artists {
+                unique_artist_ids.insert(artist.id.clone());
+            }
+        }
+
+        // From playlists
+        for playlist in &library.playlists {
+            if let Some(ref items) = playlist.tracks.items {
+                for playlist_track in items {
+                    if let Some(ref track) = playlist_track.track {
+                        unique_track_ids.insert(track.id.clone());
+                        for artist in &track.artists {
+                            unique_artist_ids.insert(artist.id.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        // From followed artists
+        for followed in &library.followed_artists {
+            unique_artist_ids.insert(followed.artist.id.clone());
+        }
+
+        // From saved albums
+        for album in &library.saved_albums {
+            for artist in &album.artists {
+                unique_artist_ids.insert(artist.id.clone());
+            }
+        }
+
+        let counts = LibraryScanCounts {
+            liked_songs_count,
+            playlists_count,
+            playlist_tracks_count,
+            followed_artists_count,
+            saved_albums_count,
+            total_unique_tracks: unique_track_ids.len() as u32,
+            total_unique_artists: unique_artist_ids.len() as u32,
+        };
+
+        let metadata = LibraryScanMetadata {
+            started_at,
+            completed_at,
+            duration_ms,
+            api_requests_count,
+            rate_limit_retries,
+            is_complete: warnings.is_empty(),
+            warnings,
+        };
+
+        Self {
+            library,
+            counts,
+            metadata,
+        }
+    }
+}

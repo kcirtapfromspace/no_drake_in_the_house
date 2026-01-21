@@ -1,0 +1,93 @@
+diff --git a/backend/src/services/user.rs b/backend/src/services/user.rs
+index 7fa39df..f5a9db2 100644
+--- a/backend/src/services/user.rs
++++ b/backend/src/services/user.rs
+@@ -1,5 +1,6 @@
+ use crate::error::{AppError, Result};
+-use crate::models::UserSettings;
++use crate::models::oauth::OAuthProviderType;
++use crate::models::{OAuthAccountInfo, UserSettings};
+ use chrono::{DateTime, Utc};
+ use serde::{Deserialize, Serialize};
+ use sqlx::PgPool;
+@@ -77,9 +78,11 @@ impl UserService {
+             SELECT 
+                 id, 
+                 email, 
+                 password_hash,
++                email_verified,
+                 created_at, 
+                 updated_at, 
++                last_login,
+                 settings
+             FROM users 
+             WHERE id = $1
+@@ -101,15 +104,16 @@ impl UserService {
+ 
+         // Check if user has TOTP enabled (would need to check auth service or separate table)
+         let totp_enabled = self.check_totp_enabled(user_id).await?;
++        let oauth_accounts = self.load_oauth_account_infos(user_id).await?;
+ 
+         Ok(UserProfile {
+             id: user.id,
+             email: user.email,
+-            email_verified: false, // Would need to add this field to users table
++            email_verified: user.email_verified.unwrap_or(false),
+             totp_enabled,
+-            oauth_accounts: Vec::new(), // TODO: Load OAuth accounts from database
++            oauth_accounts,
+             created_at: user.created_at.unwrap_or_else(|| Utc::now()),
+             updated_at: user.updated_at.unwrap_or_else(|| Utc::now()),
+-            last_login: None, // Would need to add this field to users table
++            last_login: user.last_login,
+             settings,
+         })
+     }
+@@ -311,6 +315,41 @@ impl UserService {
+         }
+     }
+ 
++    async fn load_oauth_account_infos(&self, user_id: Uuid) -> Result<Vec<OAuthAccountInfo>> {
++        let rows = sqlx::query!(
++            r#"
++            SELECT 
++                provider,
++                provider_user_id,
++                email,
++                display_name,
++                avatar_url,
++                created_at,
++                last_used_at
++            FROM oauth_accounts
++            WHERE user_id = $1
++            ORDER BY created_at ASC
++            "#,
++            user_id
++        )
++        .fetch_all(&self.db_pool)
++        .await
++        .map_err(AppError::DatabaseQueryFailed)?;
++
++        let mut accounts = Vec::with_capacity(rows.len());
++        for row in rows {
++            let provider = row.provider.parse::<OAuthProviderType>().map_err(|e| {
++                AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e))
++            })?;
++
++            accounts.push(OAuthAccountInfo {
++                provider,
++                provider_user_id: row.provider_user_id,
++                email: row.email,
++                display_name: row.display_name,
++                avatar_url: row.avatar_url,
++                connected_at: row.created_at.unwrap_or_else(|| Utc::now()),
++                last_used_at: row.last_used_at,
++            });
++        }
++
++        Ok(accounts)
++    }
++
+     /// Export DNP list data for user
+     async fn export_dnp_data(&self, user_id: Uuid) -> Result<Vec<DnpListExport>> {
+         let entries = sqlx::query!(

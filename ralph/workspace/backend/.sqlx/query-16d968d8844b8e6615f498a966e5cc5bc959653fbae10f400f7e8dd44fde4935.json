@@ -1,0 +1,26 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT DISTINCT user_id, provider\n            FROM oauth_accounts \n            WHERE token_expires_at IS NOT NULL \n            AND token_expires_at < NOW() \n            AND refresh_token_encrypted IS NOT NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "provider",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "16d968d8844b8e6615f498a966e5cc5bc959653fbae10f400f7e8dd44fde4935"
+}

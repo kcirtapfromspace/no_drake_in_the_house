@@ -7,19 +7,25 @@
 //! - System health monitoring
 //! - Artist trouble scores
 //! - Revenue tracking and distribution
+//! - Enforcement analytics
 
 pub mod category_revenue;
 pub mod dashboard;
+pub mod enforcement;
 pub mod reporting;
 pub mod revenue;
 pub mod trends;
 pub mod trouble_score;
 
 pub use category_revenue::{
-    ArtistDiscographyRevenue, AlbumRevenue, CategoryArtistRevenue, CategoryRevenue,
+    AlbumRevenue, ArtistDiscographyRevenue, CategoryArtistRevenue, CategoryRevenue,
     CategoryRevenueService, GlobalCategoryRevenue, OffenseCategory, SimulationParams,
 };
 pub use dashboard::{DashboardMetrics, DashboardService, TimeRange};
+pub use enforcement::{
+    ActionTypeCount, EnforcementAnalytics, EnforcementAnalyticsQuery, EnforcementAnalyticsService,
+    EnforcementStats, EnforcementTimeSeriesPoint, ProviderStats,
+};
 pub use reporting::{Report, ReportType, ReportingService};
 pub use revenue::{
     ArtistRevenueBreakdown, GlobalArtistRevenue, PayoutRate, Platform as RevenuePlatform,

@@ -1,6 +1,6 @@
 use crate::models::oauth::{
     AccountLinkRequest, OAuthAccount, OAuthAccountHealth, OAuthConnectionStatus, OAuthFlowResponse,
-    OAuthProviderType, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
+    OAuthProviderType, OAuthState, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
     TokenExpirationStatus, TokenNotificationTarget, TokenRefreshSchedule, TokenRefreshSummary,
 };
 use crate::models::user::{MergeAccountsRequest, MergeAccountsResponse};
@@ -2172,61 +2172,28 @@ impl AuthService {
         Ok(())
     }
 
-    /// Extract user info from Apple ID token
+    /// Extract user info from Apple ID token with full JWT signature verification
+    ///
+    /// This method uses Apple's JWKS (JSON Web Key Set) to verify the ID token signature,
+    /// ensuring the token was actually issued by Apple and hasn't been tampered with.
+    ///
+    /// The validation includes:
+    /// - JWT signature verification using Apple's public keys (RS256)
+    /// - Issuer validation (must be "https://appleid.apple.com")
+    /// - Audience validation (must match our client_id)
+    /// - Expiration and issued-at time validation
     async fn extract_apple_user_info(&self, id_token: &str) -> Result<OAuthUserInfo> {
-        // In a production implementation, you would verify the JWT signature
-        // For now, we'll decode without verification for demonstration
-        let parts: Vec<&str> = id_token.split('.').collect();
-        if parts.len() != 3 {
-            return Err(AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: "Invalid ID token format".to_string(),
-            });
-        }
-
-        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(parts[1])
-            .map_err(|e| AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: format!("Failed to decode ID token payload: {}", e),
-            })?;
-
-        let claims: serde_json::Value =
-            serde_json::from_slice(&payload).map_err(|e| AppError::OAuthProviderError {
-                provider: "Apple".to_string(),
-                message: format!("Failed to parse ID token claims: {}", e),
-            })?;
-
-        let provider_user_id = claims["sub"]
-            .as_str()
+        // Get the Apple OAuth provider to use its validate_id_token method
+        let provider = self
+            .oauth_providers
+            .get(&OAuthProviderType::Apple)
             .ok_or_else(|| AppError::OAuthProviderError {
                 provider: "Apple".to_string(),
-                message: "Missing user ID in Apple ID token".to_string(),
-            })?
-            .to_string();
+                message: "Apple OAuth provider not configured".to_string(),
+            })?;
 
-        let email = claims["email"].as_str().map(|s| s.to_string());
-        let email_verified = claims["email_verified"].as_bool();
-
-        let mut provider_data = HashMap::new();
-        if let Some(is_private_email) = claims["is_private_email"].as_bool() {
-            provider_data.insert(
-                "is_private_email".to_string(),
-                serde_json::Value::Bool(is_private_email),
-            );
-        }
-
-        Ok(OAuthUserInfo {
-            provider_user_id,
-            email,
-            email_verified,
-            display_name: None,
-            first_name: None,
-            last_name: None,
-            avatar_url: None,
-            locale: None,
-            provider_data,
-        })
+        // Use the provider's validate_id_token method which performs full JWKS verification
+        provider.validate_id_token(id_token).await
     }
 
     /// Get available OAuth providers
@@ -3385,6 +3352,17 @@ impl AuthService {
     pub async fn get_user_oauth_accounts(&self, _user_id: Uuid) -> Result<Vec<OAuthAccount>> {
         // Temporarily return empty list until SQLx cache is updated
         Ok(vec![])
+    }
+
+    /// Validate OAuth state token and return the associated state
+    /// This is used to retrieve the original redirect_uri for callbacks
+    pub fn validate_oauth_state(
+        &self,
+        state_token: &str,
+        provider: &OAuthProviderType,
+    ) -> Result<OAuthState> {
+        self.oauth_state_manager
+            .validate_and_consume_state(state_token, provider)
     }
 
     // TODO: Re-enable once SQLx cache is updated

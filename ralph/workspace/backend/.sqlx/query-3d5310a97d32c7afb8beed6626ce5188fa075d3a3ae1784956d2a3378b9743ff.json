@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3d5310a97d32c7afb8beed6626ce5188fa075d3a3ae1784956d2a3378b9743ff"
+}

@@ -464,7 +464,44 @@ impl OAuthProvider for GitHubOAuthProvider {
             ))
         })?;
 
-        self.parse_user_info(user_data)
+        let mut user_info = self.parse_user_info(user_data)?;
+
+        // If email is not in user info (private email), fetch from /user/emails endpoint
+        if user_info.email.is_none() {
+            tracing::debug!("GitHub user has private email, fetching from /user/emails endpoint");
+            if let Ok(emails) = self.get_user_emails(access_token).await {
+                // Find primary verified email first
+                for email_data in &emails {
+                    let is_primary = email_data["primary"].as_bool().unwrap_or(false);
+                    let is_verified = email_data["verified"].as_bool().unwrap_or(false);
+                    if is_primary && is_verified {
+                        if let Some(email) = email_data["email"].as_str() {
+                            user_info.email = Some(email.to_string());
+                            user_info.email_verified = Some(true);
+                            tracing::debug!(email = %email, "Found primary verified email from GitHub");
+                            break;
+                        }
+                    }
+                }
+
+                // Fallback to any verified email if no primary found
+                if user_info.email.is_none() {
+                    for email_data in &emails {
+                        let is_verified = email_data["verified"].as_bool().unwrap_or(false);
+                        if is_verified {
+                            if let Some(email) = email_data["email"].as_str() {
+                                user_info.email = Some(email.to_string());
+                                user_info.email_verified = Some(true);
+                                tracing::debug!(email = %email, "Found verified email from GitHub (fallback)");
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(user_info)
     }
 
     async fn refresh_token(&self, _refresh_token: &str) -> Result<OAuthTokens> {

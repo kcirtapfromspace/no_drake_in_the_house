@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE platform_sync_runs\n            SET status = 'failed',\n                completed_at = NOW(),\n                error_log = $2\n            WHERE id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b870f83eaf90e90b7cd10ec2250e95ae8adbf3daec45a8636dbe90e62aa272a1"
+}

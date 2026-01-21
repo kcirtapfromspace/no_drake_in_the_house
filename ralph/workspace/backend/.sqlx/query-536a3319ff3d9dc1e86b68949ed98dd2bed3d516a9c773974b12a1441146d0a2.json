@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, timestamp)\n            VALUES ($1, $2, $3, $4, NOW())\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Varchar",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "536a3319ff3d9dc1e86b68949ed98dd2bed3d516a9c773974b12a1441146d0a2"
+}

@@ -1,0 +1,79 @@
+# syntax=docker/dockerfile:1.4
+# Ultra-fast development Dockerfile with maximum caching optimization
+FROM rust:1.82-slim as chef
+
+# Install cargo-chef for dependency caching
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+FROM chef as planner
+# Copy only what's needed for dependency analysis
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef as builder
+
+# Install system dependencies with aggressive caching
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build dependencies with maximum cache efficiency
+COPY --from=planner /app/recipe.json recipe.json
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo chef cook --recipe-path recipe.json
+
+# Copy source and build with debug symbols for development
+COPY . .
+# Set offline mode for SQLx to avoid database connection requirement during build
+ENV SQLX_OFFLINE=true
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,target=/app/target,sharing=locked \
+    cargo build && \
+    cp target/debug/music-streaming-blocklist-backend /tmp/backend
+
+# Minimal runtime for fast startup
+FROM debian:bookworm-slim
+
+# Install runtime dependencies
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && apt-get install -y \
+    ca-certificates \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy binary and migrations
+COPY --from=builder /tmp/backend ./backend
+COPY migrations ./migrations
+
+# Create non-root user
+RUN useradd -r -s /bin/false -u 1001 kiro && \
+    chown -R kiro:kiro /app
+
+USER kiro
+
+# Development environment variables
+ENV RUST_LOG=debug
+ENV RUST_BACKTRACE=1
+
+EXPOSE 3000
+
+# Fast health check for development
+HEALTHCHECK --interval=10s --timeout=2s --start-period=3s --retries=2 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+CMD ["./backend"]

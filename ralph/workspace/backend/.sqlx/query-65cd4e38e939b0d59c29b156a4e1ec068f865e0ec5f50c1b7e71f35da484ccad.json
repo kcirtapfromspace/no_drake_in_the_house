@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT \n                cl.name,\n                cl.description,\n                s.created_at,\n                s.auto_update\n            FROM user_list_subscriptions s\n            JOIN community_lists cl ON s.list_id = cl.id\n            WHERE s.user_id = $1\n            ORDER BY s.created_at DESC\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "auto_update",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "65cd4e38e939b0d59c29b156a4e1ec068f865e0ec5f50c1b7e71f35da484ccad"
+}

@@ -7,12 +7,12 @@ use axum::{
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::models::offense::{
     AddEvidenceRequest, CreateOffenseRequest, FlaggedArtist, ImportLibraryRequest,
     LibraryScanResponse, OffenseSeverity, OffenseWithEvidence,
 };
-use crate::models::AuthenticatedUser;
+use crate::models::{AuthenticatedUser, Claims};
 use crate::services::offense::OffenseService;
 use crate::AppState;
 
@@ -85,13 +85,32 @@ pub async fn add_evidence(
     Ok((StatusCode::CREATED, Json(evidence)))
 }
 
-/// Verify an offense (moderator only - TODO: add role check)
+/// Verify an offense (moderator only)
+/// Requires moderator or admin role to verify offenses
 pub async fn verify_offense(
     State(state): State<AppState>,
     user: AuthenticatedUser,
+    claims: Claims,
     Path(offense_id): Path<Uuid>,
 ) -> Result<StatusCode> {
-    // TODO: Check if user has moderator role
+    // Check if user has moderator role
+    if !claims.has_moderator_access() {
+        tracing::warn!(
+            user_id = %user.id,
+            offense_id = %offense_id,
+            role = ?claims.role,
+            "Unauthorized attempt to verify offense - moderator role required"
+        );
+        return Err(AppError::InsufficientPermissions);
+    }
+
+    tracing::info!(
+        user_id = %user.id,
+        offense_id = %offense_id,
+        role = ?claims.role,
+        "Moderator verifying offense"
+    );
+
     let offense_service = OffenseService::new(&state.db_pool);
     offense_service.verify_offense(offense_id, user.id).await?;
     Ok(StatusCode::OK)

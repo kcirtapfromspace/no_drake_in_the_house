@@ -3,6 +3,7 @@
   import ArtistSearch from './ArtistSearch.svelte';
   import DnpEntry from './DnpEntry.svelte';
   import BulkActions from './BulkActions.svelte';
+  import { Skeleton, Breadcrumb } from './ui';
   
   let searchQuery = '';
   let selectedTag = '';
@@ -64,11 +65,12 @@
 </script>
 
 <div class="px-4 py-6 sm:px-0">
+  <Breadcrumb />
   <div class="mb-6">
     <div class="flex justify-between items-center">
       <div>
-        <h2 class="text-zinc-4002xl font-bold text-white">Do-Not-Play List</h2>
-        <p class="mt-1 text-zinc-400 text-zinc-400">
+        <h2 class="text-2xl font-bold text-white">Do-Not-Play List</h2>
+        <p class="mt-1 text-zinc-300">
           Manage artists you want to avoid across your streaming services.
         </p>
       </div>
@@ -145,19 +147,20 @@
   <!-- DNP List -->
   <div class="shadow overflow-hidden sm:rounded-uswds-md" style="background: #27272a;">
     {#if $dnpStore.isLoading}
-      <div class="p-uswds-6 text-center">
-        <svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p class="mt-2 text-zinc-400 text-zinc-400">Loading DNP list...</p>
+      <div class="p-6" role="status" aria-label="Loading DNP list">
+        <div class="space-y-4">
+          {#each Array(5) as _}
+            <Skeleton variant="card" />
+          {/each}
+        </div>
+        <span class="sr-only">Loading DNP list...</span>
       </div>
     {:else if $dnpStore.error}
       <div class="p-uswds-6 text-center">
         <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <p class="mt-2 text-zinc-400 text-zinc-400">{$dnpStore.error}</p>
+        <p class="mt-2 text-zinc-300">{$dnpStore.error}</p>
         <button
           on:click={() => dnpActions.fetchDnpList()}
           class="mt-2 text-zinc-400 text-primary hover:text-indigo-500"
@@ -172,7 +175,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
           </svg>
           <h3 class="mt-2 text-zinc-400 font-medium text-white">No artists in your DNP list</h3>
-          <p class="mt-1 text-zinc-400 text-zinc-400">Get started by adding artists you want to avoid.</p>
+          <p class="mt-1 text-zinc-300">Get started by adding artists you want to avoid.</p>
           <div class="mt-6">
             <button
               on:click={() => showAddForm = true}
@@ -189,7 +192,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <h3 class="mt-2 text-zinc-400 font-medium text-white">No artists match your search</h3>
-          <p class="mt-1 text-zinc-400 text-zinc-400">Try adjusting your search terms or filters.</p>
+          <p class="mt-1 text-zinc-300">Try adjusting your search terms or filters.</p>
         {/if}
       </div>
     {:else}
@@ -204,7 +207,7 @@
               class="icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg"
               style="border: 2px solid #52525b;"
             />
-            <label for="select-all" class="ml-3 text-zinc-400 text-zinc-300">
+            <label for="select-all" class="ml-3 text-zinc-300">
               {filteredEntries.length} artist{filteredEntries.length !== 1 ? 's' : ''}
               {#if selectedEntries.size > 0}
                 ({selectedEntries.size} selected)
@@ -240,18 +243,18 @@
     <div class="mt-6 rounded-uswds-lg p-uswds-4" style="background: #3f3f46;">
       <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-3">
         <div class="text-center">
-          <div class="text-zinc-4002xl font-bold text-white">{$dnpStore.entries.length}</div>
-          <div class="text-zinc-400 text-zinc-400">Total Artists</div>
+          <div class="text-2xl font-bold text-white">{$dnpStore.entries.length}</div>
+          <div class="text-zinc-300">Total Artists</div>
         </div>
         <div class="text-center">
-          <div class="text-zinc-4002xl font-bold text-white">{$dnpTags.length}</div>
-          <div class="text-zinc-400 text-zinc-400">Unique Tags</div>
+          <div class="text-2xl font-bold text-white">{$dnpTags.length}</div>
+          <div class="text-zinc-300">Unique Tags</div>
         </div>
         <div class="text-center">
-          <div class="text-zinc-4002xl font-bold text-white">
+          <div class="text-2xl font-bold text-white">
             {$dnpStore.entries.filter(e => e.note).length}
           </div>
-          <div class="text-zinc-400 text-zinc-400">With Notes</div>
+          <div class="text-zinc-300">With Notes</div>
         </div>
       </div>
     </div>

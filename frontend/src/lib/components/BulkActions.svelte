@@ -20,7 +20,7 @@
       <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
-      <p class="ml-3 text-zinc-400 text-zinc-300">
+      <p class="ml-3 text-zinc-300">
         <span class="font-medium">{selectedCount}</span>
         {selectedCount === 1 ? 'artist' : 'artists'} selected
       </p>

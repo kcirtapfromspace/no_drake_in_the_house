@@ -112,7 +112,7 @@ export function navigateTo(route: Route, params?: Record<string, string>) {
 
     const meta = routeMeta[route];
     window.history.pushState({ route, params }, meta.title, path);
-    document.title = `${meta.title} - No Drake`;
+    document.title = `${meta.title} - No Drake in the House`;
   }
 }
 
@@ -152,7 +152,7 @@ export function initRouter() {
     const { route: initialRoute, params: initialParams } = parseRoute(window.location.pathname);
     currentRoute.set(initialRoute);
     routeParams.set(initialParams);
-    document.title = `${routeMeta[initialRoute].title} - No Drake`;
+    document.title = `${routeMeta[initialRoute].title} - No Drake in the House`;
   }
 }
 

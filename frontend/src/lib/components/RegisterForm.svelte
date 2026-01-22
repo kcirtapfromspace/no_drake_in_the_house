@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  
+  import { FormError } from './ui';
+
   const dispatch = createEventDispatcher();
   
   export let isLoading = false;
@@ -61,10 +62,10 @@
 
 <div class="register-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0">
   <div>
-    <h2 class="text-center text-zinc-4002xl sm:text-zinc-4003xl font-extrabold text-zinc-400darker">
+    <h2 class="text-center text-2xl sm:text-3xl font-extrabold text-white">
       Create your account
     </h2>
-    <p class="mt-2 text-center text-zinc-400 text-zinc-400darker">
+    <p class="mt-2 text-center text-zinc-300">
       Join the music blocklist community
     </p>
   </div>
@@ -296,7 +297,7 @@
         />
       </div>
       <div class="flex-1 text-zinc-400">
-        <label for="terms-accepted" class="text-zinc-400darker leading-relaxed cursor-pointer">
+        <label for="terms-accepted" class="text-zinc-300 leading-relaxed cursor-pointer">
           I agree to the 
           <a href="/terms" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline font-medium">
             Terms of Service
@@ -307,9 +308,9 @@
           </a>
         </label>
         {#if fieldErrors.terms_accepted}
-          <p class="mt-1 text-zinc-400 text-zinc-400">{fieldErrors.terms_accepted}</p>
+          <p class="mt-1 text-red-400">{fieldErrors.terms_accepted}</p>
         {:else if !termsAccepted && formValid === false}
-          <p class="mt-1 text-zinc-400 text-zinc-400">You must accept the terms to continue</p>
+          <p class="mt-1 text-red-400">You must accept the terms to continue</p>
         {/if}
       </div>
     </div>
@@ -329,18 +330,7 @@
     {/if}
 
     <!-- Error Message -->
-    {#if error}
-      <div class="alert-uswds alert-uswds-error">
-        <div class="alert__icon">
-          <svg class="icon-uswds icon-uswds--lg icon-uswds--error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="alert__content">
-          <p class="alert__text">{error}</p>
-        </div>
-      </div>
-    {/if}
+    <FormError message={error} id="register-error" />
 
     <!-- Submit Button -->
     <div style="margin-top: var(--space-6);">

@@ -71,20 +71,32 @@ impl UserService {
 
     /// Get user profile by ID
     pub async fn get_profile(&self, user_id: Uuid) -> Result<UserProfile> {
-        let user = sqlx::query!(
+        // Use dynamic query to avoid SQLx offline mode issues
+        let user: (
+            Uuid,
+            String,
+            Option<bool>,
+            Option<bool>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+            Option<serde_json::Value>,
+        ) = sqlx::query_as(
             r#"
-            SELECT 
-                id, 
-                email, 
-                password_hash,
-                created_at, 
-                updated_at, 
-                settings
-            FROM users 
-            WHERE id = $1
-            "#,
-            user_id
+                SELECT
+                    id,
+                    email,
+                    email_verified,
+                    totp_enabled,
+                    last_login,
+                    created_at,
+                    updated_at,
+                    settings
+                FROM users
+                WHERE id = $1
+                "#,
         )
+        .bind(user_id)
         .fetch_optional(&self.db_pool)
         .await
         .map_err(AppError::DatabaseQueryFailed)?
@@ -92,25 +104,100 @@ impl UserService {
             resource: "User not found".to_string(),
         })?;
 
+        let (
+            id,
+            email,
+            email_verified,
+            totp_enabled,
+            last_login,
+            created_at,
+            updated_at,
+            settings_json,
+        ) = user;
+
         // Parse settings from JSONB
         let settings: UserSettings =
-            serde_json::from_value(user.settings.unwrap_or_else(|| serde_json::json!({})))
+            serde_json::from_value(settings_json.unwrap_or_else(|| serde_json::json!({})))
                 .unwrap_or_default();
 
-        // Check if user has TOTP enabled (would need to check auth service or separate table)
-        let totp_enabled = self.check_totp_enabled(user_id).await?;
+        // Fetch OAuth accounts from database
+        let oauth_accounts = self.get_oauth_accounts(user_id).await?;
 
         Ok(UserProfile {
-            id: user.id,
-            email: user.email,
-            email_verified: false, // Would need to add this field to users table
-            totp_enabled,
-            oauth_accounts: Vec::new(), // TODO: Load OAuth accounts from database
-            created_at: user.created_at.unwrap_or_else(|| Utc::now()),
-            updated_at: user.updated_at.unwrap_or_else(|| Utc::now()),
-            last_login: None, // Would need to add this field to users table
+            id,
+            email,
+            email_verified: email_verified.unwrap_or(false),
+            totp_enabled: totp_enabled.unwrap_or(false),
+            oauth_accounts,
+            created_at: created_at.unwrap_or_else(Utc::now),
+            updated_at: updated_at.unwrap_or_else(Utc::now),
+            last_login,
             settings,
         })
+    }
+
+    /// Get OAuth accounts for a user
+    async fn get_oauth_accounts(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<crate::models::OAuthAccountInfo>> {
+        use crate::models::oauth::OAuthProviderType;
+        use std::str::FromStr;
+
+        // Use dynamic query to avoid SQLx offline mode issues
+        let accounts: Vec<(
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+        )> = sqlx::query_as(
+            r#"
+                SELECT
+                    provider,
+                    provider_user_id,
+                    email,
+                    display_name,
+                    avatar_url,
+                    created_at,
+                    last_used_at
+                FROM oauth_accounts
+                WHERE user_id = $1
+                ORDER BY created_at DESC
+                "#,
+        )
+        .bind(user_id)
+        .fetch_all(&self.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
+        Ok(accounts
+            .into_iter()
+            .map(
+                |(
+                    provider,
+                    provider_user_id,
+                    email,
+                    display_name,
+                    avatar_url,
+                    created_at,
+                    last_used_at,
+                )| {
+                    crate::models::OAuthAccountInfo {
+                        provider: OAuthProviderType::from_str(&provider)
+                            .unwrap_or(OAuthProviderType::Google),
+                        provider_user_id,
+                        email,
+                        display_name,
+                        avatar_url,
+                        connected_at: created_at.unwrap_or_else(Utc::now),
+                        last_used_at,
+                    }
+                },
+            )
+            .collect())
     }
 
     /// Update user profile
@@ -302,25 +389,6 @@ impl UserService {
             data_retention_days: 90, // Audit logs retained for 90 days for compliance
             cleanup_summary,
         })
-    }
-
-    /// Check if user has TOTP enabled (helper method)
-    async fn check_totp_enabled(&self, user_id: Uuid) -> Result<bool> {
-        // This would typically check a separate auth table or call the auth service
-        // For now, we'll check if there's any TOTP-related data in the user record
-        let result = sqlx::query!("SELECT settings FROM users WHERE id = $1", user_id)
-            .fetch_optional(&self.db_pool)
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
-
-        if let Some(row) = result {
-            let settings: UserSettings =
-                serde_json::from_value(row.settings.unwrap_or_else(|| serde_json::json!({})))
-                    .unwrap_or_default();
-            Ok(settings.two_factor_enabled)
-        } else {
-            Ok(false)
-        }
     }
 
     /// Export DNP list data for user

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
-  
+  import { FormError } from './ui';
+
   const dispatch = createEventDispatcher();
   
   export let qrCodeUrl = '';
@@ -39,10 +40,10 @@
 
 <div class="max-w-md mx-auto space-y-6">
   <div class="text-center">
-    <h2 class="text-zinc-4002xl font-bold text-zinc-400darker">
+    <h2 class="text-2xl font-bold text-white">
       Set up Two-Factor Authentication
     </h2>
-    <p class="mt-2 text-zinc-400 text-zinc-400darker">
+    <p class="mt-2 text-zinc-300">
       Add an extra layer of security to your account
     </p>
   </div>
@@ -50,8 +51,8 @@
   {#if step === 1}
     <!-- QR Code Setup Step -->
     <div class="space-y-4">
-      <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-6 text-center">
-        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">
+      <div class="bg-zinc-800 rounded-lg p-6 text-center">
+        <h3 class="font-medium text-zinc-300 mb-4">
           Step 1: Scan QR Code
         </h3>
         
@@ -64,12 +65,12 @@
             />
           </div>
         {:else}
-          <div class="w-48 h-48 mx-auto bg-zinc-700lightest rounded-uswds-lg flex items-center justify-center">
+          <div class="w-48 h-48 mx-auto bg-zinc-800 rounded-lg flex items-center justify-center">
             <div class="animate-spin rounded-full icon icon-xl  border-b-2 border-indigo-600"></div>
           </div>
         {/if}
         
-        <p class="mt-4 text-zinc-400 text-zinc-400darker">
+        <p class="mt-4 text-zinc-300">
           Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
         </p>
       </div>
@@ -105,15 +106,15 @@
   {:else if step === 2}
     <!-- Verification Step -->
     <div class="space-y-4">
-      <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-6 text-center">
-        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">
+      <div class="bg-zinc-800 rounded-lg p-6 text-center">
+        <h3 class="font-medium text-zinc-300 mb-4">
           Step 2: Verify Setup
         </h3>
-        
-        <p class="text-zinc-400 text-zinc-400darker mb-4">
+
+        <p class="text-zinc-300 mb-4">
           Enter the 6-digit code from your authenticator app to complete setup
         </p>
-        
+
         <div class="max-w-xs mx-auto">
           <input
             type="text"
@@ -121,30 +122,17 @@
             maxlength="6"
             pattern="[0-9]{6}"
             placeholder="000000"
-            class="block w-full text-center text-zinc-4002xl font-mono px-3 py-3 rounded-lg text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            class="block w-full text-center text-2xl font-mono px-3 py-3 rounded-lg text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             class:border-red-300={verificationCode.length > 0 && !codeValid}
             style="background: #3f3f46; border: 1px solid #52525b;"
           />
           {#if verificationCode.length > 0 && !codeValid}
-            <p class="mt-1 text-zinc-400 text-zinc-400">Please enter a 6-digit code</p>
+            <p class="mt-1 text-red-400">Please enter a 6-digit code</p>
           {/if}
         </div>
       </div>
 
-      {#if error}
-        <div class="rounded-uswds-md bg-red-50 p-uswds-4">
-          <div class="flex">
-            <div class="">
-              <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-            </div>
-            <div class="ml-3">
-              <p class="text-zinc-400 text-zinc-400">{error}</p>
-            </div>
-          </div>
-        </div>
-      {/if}
+      <FormError message={error} id="2fa-setup-error" />
 
       <div class="flex space-x-3">
         <button
@@ -183,10 +171,10 @@
       </div>
       
       <div>
-        <h3 class="text-zinc-400 font-medium text-zinc-400darker">
+        <h3 class="font-medium text-white">
           Two-Factor Authentication Enabled!
         </h3>
-        <p class="mt-2 text-zinc-400 text-zinc-400darker">
+        <p class="mt-2 text-zinc-300">
           Your account is now protected with 2FA. You'll need to enter a code from your authenticator app each time you sign in.
         </p>
       </div>
@@ -222,7 +210,7 @@
       <button
         type="button"
         on:click={handleCancel}
-        class="text-zinc-400 text-zinc-400 hover:text-zinc-300"
+        class="text-red-400 hover:text-zinc-300"
       >
         Skip for now
       </button>

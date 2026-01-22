@@ -15,7 +15,7 @@ test.describe('Mobile Responsiveness', () => {
       await page.goto('/');
 
       // Logo should be visible
-      await expect(page.getByRole('heading', { name: 'No Drake' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'No Drake in the House' })).toBeVisible();
 
       // Form should be usable
       await expect(page.getByLabel('Email')).toBeVisible();

@@ -2,6 +2,45 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+/// User roles for role-based access control
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UserRole {
+    /// Regular user with standard permissions
+    User,
+    /// Moderator can verify offenses and manage content
+    Moderator,
+    /// Admin has full system access
+    Admin,
+}
+
+impl Default for UserRole {
+    fn default() -> Self {
+        UserRole::User
+    }
+}
+
+impl UserRole {
+    /// Check if this role has moderator-level access or higher
+    pub fn is_moderator_or_higher(&self) -> bool {
+        matches!(self, UserRole::Moderator | UserRole::Admin)
+    }
+
+    /// Check if this role has admin-level access
+    pub fn is_admin(&self) -> bool {
+        matches!(self, UserRole::Admin)
+    }
+
+    /// Convert from string
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "admin" => UserRole::Admin,
+            "moderator" => UserRole::Moderator,
+            _ => UserRole::User,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user_id
@@ -11,6 +50,9 @@ pub struct Claims {
     pub jti: String, // JWT ID for token tracking
     pub token_type: TokenType,
     pub scopes: Vec<String>,
+    /// User's role for RBAC (defaults to User if not present for backwards compatibility)
+    #[serde(default)]
+    pub role: UserRole,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -55,7 +97,28 @@ impl Claims {
             jti: Uuid::new_v4().to_string(),
             token_type: TokenType::Access,
             scopes: vec!["read".to_string(), "write".to_string()],
+            role: UserRole::User,
         }
+    }
+
+    /// Create access token with a specific role
+    pub fn new_access_token_with_role(
+        user_id: Uuid,
+        email: String,
+        expires_in_seconds: i64,
+        role: UserRole,
+    ) -> Self {
+        let mut claims = Self::new_access_token(user_id, email, expires_in_seconds);
+        claims.role = role;
+        // Add admin scope if admin role
+        if role.is_admin() {
+            claims.scopes.push("admin".to_string());
+        }
+        // Add moderator scope if moderator or higher
+        if role.is_moderator_or_higher() {
+            claims.scopes.push("moderate".to_string());
+        }
+        claims
     }
 
     pub fn new_refresh_token(user_id: Uuid, email: String, expires_in_seconds: i64) -> Self {
@@ -68,7 +131,18 @@ impl Claims {
             jti: Uuid::new_v4().to_string(),
             token_type: TokenType::Refresh,
             scopes: vec!["refresh".to_string()],
+            role: UserRole::User,
         }
+    }
+
+    /// Check if this token has moderator-level access
+    pub fn has_moderator_access(&self) -> bool {
+        self.role.is_moderator_or_higher() || self.scopes.contains(&"moderate".to_string())
+    }
+
+    /// Check if this token has admin-level access
+    pub fn has_admin_access(&self) -> bool {
+        self.role.is_admin() || self.scopes.contains(&"admin".to_string())
     }
 
     pub fn is_expired(&self) -> bool {

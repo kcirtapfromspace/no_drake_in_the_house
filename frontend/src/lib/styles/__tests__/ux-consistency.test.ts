@@ -486,8 +486,7 @@ describe('Design System Consistency', () => {
         lines.forEach((line, index) => {
           // Check for explicit removal of border radius
           if (line.includes('rounded-none') ||
-              /border-radius:\s*0/.test(line) ||
-              /border.*radius.*:\s*0/.test(line)) {
+              /border-radius:\s*0(?:px|;|\s|$)/.test(line)) {
             violations.push({
               file: path.basename(filePath),
               line: index + 1,

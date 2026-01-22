@@ -158,6 +158,15 @@
 .text-green-700 { color: #15803d; }
 .text-green-900 { color: #14532d; }
 
+/* UX-008: High contrast text colors for dark backgrounds (WCAG AA compliant) */
+/* zinc-400 (#a1a1aa) on zinc-900 (#18181b) = 3.9:1 ratio - FAILS AA */
+/* zinc-300 (#d4d4d8) on zinc-900 (#18181b) = 7.1:1 ratio - PASSES AA */
+.text-secondary-accessible { color: #d4d4d8; } /* Use instead of text-zinc-400 on dark */
+.text-muted-accessible { color: #a1a1aa; } /* Only for large text (18px+) */
+.text-primary-on-dark { color: #ffffff; }
+.text-secondary-on-dark { color: #d4d4d8; }
+.text-tertiary-on-dark { color: #a1a1aa; } /* Large text only */
+
 /* USWDS Colors */
 .text-uswds-sm { font-size: 0.875rem; }
 .text-uswds-lg { font-size: 1.125rem; }
@@ -208,6 +217,56 @@
 .focus\:ring-2:focus { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
 .focus\:ring-offset-2:focus { box-shadow: 0 0 0 2px white, 0 0 0 4px rgba(59, 130, 246, 0.5); }
 .focus\:ring-indigo-500:focus { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.5); }
+
+/* UX-004: Enhanced focus-visible states for keyboard navigation */
+:focus-visible {
+  outline: 2px solid #f43f5e;
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #f43f5e;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.15);
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: #f43f5e;
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  transition: top 150ms ease-in-out;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* USWDS Spacing */
 .p-uswds-4 { padding: 1rem; }
@@ -369,11 +428,31 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
 	animation: spin 1s linear infinite;
 }
 
-/* Accessibility enhancements */
+/* Accessibility: Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-	* {
+	*,
+	*::before,
+	*::after {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	/* Disable animated spinners completely */
+	.animate-spin,
+	.animate-pulse {
+		animation: none !important;
+	}
+
+	/* Remove transform-based animations */
+	*:hover,
+	*:focus {
+		transform: none !important;
+	}
+
+	/* Ensure no smooth scrolling */
+	html {
+		scroll-behavior: auto !important;
 	}
 }

@@ -146,7 +146,7 @@ pub async fn get_dashboard_handler(
     .unwrap_or(0);
 
     let new_users: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '1 day' * $1"
+        "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '1 day' * $1",
     )
     .bind(days)
     .fetch_one(&state.db_pool)
@@ -159,7 +159,7 @@ pub async fn get_dashboard_handler(
         .unwrap_or(0);
 
     let new_blocks: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM user_artist_blocks WHERE created_at > NOW() - INTERVAL '1 day' * $1"
+        "SELECT COUNT(*) FROM user_artist_blocks WHERE created_at > NOW() - INTERVAL '1 day' * $1",
     )
     .bind(days)
     .fetch_one(&state.db_pool)
@@ -178,15 +178,14 @@ pub async fn get_dashboard_handler(
         .await
         .unwrap_or(0);
 
-    let verified_offenses: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM artist_offenses WHERE status = 'verified'"
-    )
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let verified_offenses: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM artist_offenses WHERE status = 'verified'")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     let recent_offenses: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM artist_offenses WHERE created_at > NOW() - INTERVAL '1 day' * $1"
+        "SELECT COUNT(*) FROM artist_offenses WHERE created_at > NOW() - INTERVAL '1 day' * $1",
     )
     .bind(days)
     .fetch_one(&state.db_pool)
@@ -199,10 +198,11 @@ pub async fn get_dashboard_handler(
         .await
         .unwrap_or(0);
 
-    let total_subscriptions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_list_subscriptions")
-        .fetch_one(&state.db_pool)
-        .await
-        .unwrap_or(0);
+    let total_subscriptions: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_list_subscriptions")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     // Calculate content filtered from community lists
     let content_filtered_from_lists: i64 = sqlx::query_scalar(
@@ -211,7 +211,7 @@ pub async fn get_dashboard_handler(
         FROM tracks t
         JOIN track_credits tc ON tc.track_id = t.id
         JOIN community_list_items cli ON tc.artist_id = cli.artist_id
-        "#
+        "#,
     )
     .fetch_one(&state.db_pool)
     .await
@@ -226,7 +226,7 @@ pub async fn get_dashboard_handler(
         WHERE ao.status = 'verified'
         ORDER BY ao.created_at DESC
         LIMIT 5
-        "#
+        "#,
     )
     .fetch_all(&state.db_pool)
     .await
@@ -300,41 +300,37 @@ pub async fn get_user_quick_stats_handler(
     tracing::info!(user_id = %user.id, "Get user quick stats request");
 
     // Fetch real blocked artist count
-    let blocked_artists: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1"
-    )
-    .bind(user.id)
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let blocked_artists: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     // Fetch community list subscriptions
-    let list_subscriptions: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM user_list_subscriptions WHERE user_id = $1"
-    )
-    .bind(user.id)
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let list_subscriptions: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_list_subscriptions WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     // Fetch last activity from sessions
-    let last_activity: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
-        "SELECT MAX(created_at) FROM user_sessions WHERE user_id = $1"
-    )
-    .bind(user.id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .ok()
-    .flatten();
+    let last_activity: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT MAX(created_at) FROM user_sessions WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .ok()
+            .flatten();
 
     // Fetch blocked tracks count
-    let blocked_tracks: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM user_track_blocks WHERE user_id = $1"
-    )
-    .bind(user.id)
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let blocked_tracks: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_track_blocks WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -367,9 +363,8 @@ pub async fn get_system_health_handler(
         let conn_result = state.redis_pool.get().await;
         let result = match conn_result {
             Ok(mut conn) => {
-                let ping_result: std::result::Result<String, redis::RedisError> = redis::cmd("PING")
-                    .query_async(&mut *conn)
-                    .await;
+                let ping_result: std::result::Result<String, redis::RedisError> =
+                    redis::cmd("PING").query_async(&mut *conn).await;
                 ping_result.is_ok()
             }
             Err(_) => false,
@@ -1920,8 +1915,9 @@ async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Va
         .collect();
 
     // Query recent failures from action_items
-    let recent_failures = sqlx::query_as::<_, (Uuid, String, String, chrono::DateTime<chrono::Utc>)>(
-        r#"
+    let recent_failures =
+        sqlx::query_as::<_, (Uuid, String, String, chrono::DateTime<chrono::Utc>)>(
+            r#"
         SELECT
             ai.id,
             ab.provider,
@@ -1934,10 +1930,10 @@ async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Va
         ORDER BY ai.created_at DESC
         LIMIT 10
         "#,
-    )
-    .fetch_all(&state.db_pool)
-    .await
-    .unwrap_or_default();
+        )
+        .fetch_all(&state.db_pool)
+        .await
+        .unwrap_or_default();
 
     let failures_list: Vec<serde_json::Value> = recent_failures
         .iter()

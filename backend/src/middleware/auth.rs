@@ -57,20 +57,16 @@ where
     type Rejection = (StatusCode, Json<serde_json::Value>);
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        parts
-            .extensions
-            .get::<Claims>()
-            .cloned()
-            .ok_or_else(|| {
-                (
-                    StatusCode::UNAUTHORIZED,
-                    Json(json!({
-                        "success": false,
-                        "error_code": "AUTH_TOKEN_REQUIRED",
-                        "message": "Authentication required"
-                    })),
-                )
-            })
+        parts.extensions.get::<Claims>().cloned().ok_or_else(|| {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error_code": "AUTH_TOKEN_REQUIRED",
+                    "message": "Authentication required"
+                })),
+            )
+        })
     }
 }
 

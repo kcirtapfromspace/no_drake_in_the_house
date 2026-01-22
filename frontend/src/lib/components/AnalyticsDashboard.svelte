@@ -11,6 +11,7 @@
   import { syncStore, syncActions, isAnySyncRunning } from '../stores/sync';
   import { navigateTo } from '../utils/simple-router';
   import CategoryRevenueBreakdown from './CategoryRevenueBreakdown.svelte';
+  import { Skeleton } from './ui';
 
   // Tab state
   type Tab = 'overview' | 'revenue' | 'sync';
@@ -362,8 +363,23 @@
 
     <!-- Loading state -->
     {#if $analyticsStore.isLoading || $syncStore.isLoading}
-      <div class="flex justify-center py-12">
-        <div class="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <div role="status" aria-label="Loading analytics data">
+        <!-- Stats skeleton -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {#each Array(4) as _}
+            <Skeleton variant="rectangular" height="100px" />
+          {/each}
+        </div>
+        <!-- Content skeleton -->
+        <div class="space-y-6">
+          <Skeleton variant="rectangular" height="200px" />
+          <Skeleton variant="rectangular" height="150px" />
+          <div class="grid md:grid-cols-2 gap-6">
+            <Skeleton variant="rectangular" height="250px" />
+            <Skeleton variant="rectangular" height="250px" />
+          </div>
+        </div>
+        <span class="sr-only">Loading analytics data...</span>
       </div>
     {:else}
       <!-- ==================== OVERVIEW TAB ==================== -->

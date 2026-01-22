@@ -4,6 +4,7 @@
   import { connectionActions, hasActiveSpotifyConnection } from '../stores/connections';
   import { navigateTo } from '../utils/simple-router';
   import { currentUser } from '../stores/auth';
+  import { Breadcrumb } from './ui';
 
   let searchQuery = '';
   let searchResults: any[] = [];
@@ -92,6 +93,7 @@
   <!-- Warm welcome header -->
   <div style="background: #27272a; border-bottom: 2px solid #52525b;">
     <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <Breadcrumb />
       <h1 class="text-3xl font-bold text-white mb-2">
         Hey {firstName}! 👋
       </h1>

@@ -3,6 +3,7 @@
   import ArtistSearch from './ArtistSearch.svelte';
   import DnpEntry from './DnpEntry.svelte';
   import BulkActions from './BulkActions.svelte';
+  import { Skeleton, Breadcrumb } from './ui';
   
   let searchQuery = '';
   let selectedTag = '';
@@ -64,6 +65,7 @@
 </script>
 
 <div class="px-4 py-6 sm:px-0">
+  <Breadcrumb />
   <div class="mb-6">
     <div class="flex justify-between items-center">
       <div>
@@ -145,12 +147,13 @@
   <!-- DNP List -->
   <div class="shadow overflow-hidden sm:rounded-uswds-md" style="background: #27272a;">
     {#if $dnpStore.isLoading}
-      <div class="p-uswds-6 text-center">
-        <svg aria-hidden="true" class="animate-spin mx-auto icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p class="mt-2 text-zinc-400 text-zinc-400">Loading DNP list...</p>
+      <div class="p-6" role="status" aria-label="Loading DNP list">
+        <div class="space-y-4">
+          {#each Array(5) as _}
+            <Skeleton variant="card" />
+          {/each}
+        </div>
+        <span class="sr-only">Loading DNP list...</span>
       </div>
     {:else if $dnpStore.error}
       <div class="p-uswds-6 text-center">

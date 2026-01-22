@@ -1,7 +1,8 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import SocialLoginButtons from './SocialLoginButtons.svelte';
-  
+  import { FormError } from './ui';
+
   const dispatch = createEventDispatcher();
   
   export let isLoading = false;
@@ -154,18 +155,7 @@
     {/if}
 
     <!-- Error Message -->
-    {#if error}
-      <div class="alert-uswds alert-uswds-error">
-        <div class="alert__icon">
-          <svg class="icon-uswds icon-uswds--lg icon-uswds--error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-          </svg>
-        </div>
-        <div class="alert__content">
-          <p class="alert__text">{error}</p>
-        </div>
-      </div>
-    {/if}
+    <FormError message={error} id="login-error" />
 
     <!-- Submit Button -->
     <div style="margin-top: var(--space-6);">

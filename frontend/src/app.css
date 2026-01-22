@@ -1763,3 +1763,32 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
   color: var(--color-text-muted);
   margin-top: 0.25rem;
 }
+
+/* Accessibility: Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	/* Disable animated spinners completely */
+	.animate-spin,
+	.animate-pulse {
+		animation: none !important;
+	}
+
+	/* Remove transform-based animations */
+	*:hover,
+	*:focus {
+		transform: none !important;
+	}
+
+	/* Ensure no smooth scrolling */
+	html {
+		scroll-behavior: auto !important;
+	}
+}

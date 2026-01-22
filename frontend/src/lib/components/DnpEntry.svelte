@@ -82,7 +82,7 @@
   }
 </script>
 
-<li class="px-4 py-4 sm:px-6 {selected ? 'bg-indigo-50' : 'hover:bg-zinc-700lightest'}">
+<li class="px-4 py-4 sm:px-6 {selected ? 'bg-indigo-50' : 'hover:bg-zinc-800'}">
   <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
     <!-- Mobile: Checkbox and Actions Row -->
     <div class="flex items-center justify-between sm:hidden">
@@ -130,8 +130,8 @@
           class="avatar avatar--xl sm:avatar--lg object-cover"
         />
       {:else}
-        <div class="avatar avatar--xl sm:avatar--lg bg-zinc-700lightest avatar__placeholder">
-          <svg aria-hidden="true" class="icon-uswds icon-uswds--lg sm:icon icon-md sm: text-zinc-400darker" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div class="avatar avatar--xl sm:avatar--lg bg-zinc-800 avatar__placeholder">
+          <svg aria-hidden="true" class="icon-uswds icon-uswds--lg sm:icon icon-md sm: text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         </div>
@@ -142,12 +142,12 @@
     <div class="flex-1 min-w-0">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div class="flex-1 min-w-0">
-          <p class="text-zinc-400 font-medium text-zinc-400darker truncate">
+          <p class="text-zinc-400 font-medium text-zinc-300 truncate">
             {entry.artist.canonical_name}
           </p>
           
           {#if entry.artist.metadata.genres && entry.artist.metadata.genres.length > 0}
-            <p class="text-zinc-400 text-zinc-400darker truncate">
+            <p class="text-zinc-300 truncate">
               {entry.artist.metadata.genres.slice(0, 2).join(', ')}
             </p>
           {/if}
@@ -163,7 +163,7 @@
             </div>
             
             <!-- Added Date -->
-            <span class="text-zinc-400 text-zinc-400darker whitespace-nowrap">
+            <span class="text-zinc-300 whitespace-nowrap">
               Added {formatDate(entry.created_at)}
             </span>
           </div>
@@ -195,7 +195,7 @@
           {#if entry.tags.length > 0}
             <div class="flex flex-wrap gap-uswds-1 mb-2">
               {#each entry.tags as tag}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-zinc-400 font-medium bg-zinc-700lightest text-zinc-400darker">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-zinc-400 font-medium bg-zinc-800 text-zinc-300">
                   {tag}
                 </span>
               {/each}
@@ -203,7 +203,7 @@
           {/if}
           
           {#if entry.note}
-            <p class="text-zinc-400 text-zinc-400darker italic">
+            <p class="text-zinc-300 italic">
               "{entry.note}"
             </p>
           {/if}
@@ -221,7 +221,7 @@
                 type="text"
                 bind:value={editTags}
                 placeholder="comma-separated tags"
-                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-400 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 style="background: #3f3f46; border: 2px solid #52525b;"
               />
             </div>
@@ -233,14 +233,14 @@
                 bind:value={editNote}
                 rows="2"
                 placeholder="Personal note..."
-                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-400 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 style="background: #3f3f46; border: 2px solid #52525b;"
               ></textarea>
             </div>
           </div>
 
           {#if error}
-            <p class="text-zinc-400 text-zinc-400">{error}</p>
+            <p class="text-red-400">{error}</p>
           {/if}
 
           <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">

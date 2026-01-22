@@ -63,7 +63,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
         </svg>
       </div>
-      <h1 class="text-3xl font-bold text-white tracking-tight">No Drake</h1>
+      <h1 class="text-3xl font-bold text-white tracking-tight">No Drake in the House</h1>
       <p class="text-zinc-300 mt-2">Take control of your music</p>
     </div>
 

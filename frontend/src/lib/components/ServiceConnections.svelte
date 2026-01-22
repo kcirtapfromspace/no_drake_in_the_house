@@ -112,8 +112,8 @@
 
 <div class="px-4 py-6 sm:px-0">
   <div class="mb-6">
-    <h2 class="text-zinc-4002xl font-bold text-zinc-400darker">Service Connections</h2>
-    <p class="mt-1 text-zinc-400 text-zinc-400darker">
+    <h2 class="text-2xl font-bold text-zinc-300">Service Connections</h2>
+    <p class="mt-1 text-zinc-300">
       Connect your streaming service accounts to manage your blocklist across platforms.
     </p>
   </div>
@@ -127,7 +127,7 @@
           </svg>
         </div>
         <div class="ml-3">
-          <p class="text-zinc-400 text-zinc-400">{error}</p>
+          <p class="text-zinc-300">{error}</p>
         </div>
       </div>
     </div>
@@ -157,19 +157,19 @@
               </div>
               <div class="mt-1">
                 {#if $spotifyConnection}
-                  <p class="text-zinc-400 text-zinc-400">
+                  <p class="text-zinc-300">
                     Connected {formatDate($spotifyConnection.created_at)}
                     {#if $spotifyConnection.provider_user_id}
                       - User ID: {$spotifyConnection.provider_user_id}
                     {/if}
                   </p>
                   {#if $spotifyConnection.scopes.length > 0}
-                    <p class="text-zinc-400 text-zinc-400 mt-1">
+                    <p class="text-zinc-300 mt-1">
                       Permissions: {$spotifyConnection.scopes.join(', ')}
                     </p>
                   {/if}
                 {:else}
-                  <p class="text-zinc-400 text-zinc-400">
+                  <p class="text-zinc-300">
                     Connect your Spotify account to manage your music library
                   </p>
                 {/if}
@@ -234,14 +234,14 @@
               </div>
               <div class="mt-1">
                 {#if $appleMusicConnection}
-                  <p class="text-zinc-400 text-zinc-400">
+                  <p class="text-zinc-300">
                     Connected {formatDate($appleMusicConnection.created_at)}
                   </p>
                   <p class="text-zinc-400 text-zinc-500 text-xs mt-1">
                     Enforcement: Dislikes songs/albums from blocked artists
                   </p>
                 {:else}
-                  <p class="text-zinc-400 text-zinc-400">
+                  <p class="text-zinc-300">
                     Connect to dislike songs from blocked artists in your library
                   </p>
                 {/if}
@@ -303,7 +303,7 @@
                   Coming Soon
                 </span>
               </div>
-              <p class="text-zinc-400 text-zinc-400 mt-1">
+              <p class="text-zinc-300 mt-1">
                 YouTube Music integration will be available in a future update
               </p>
             </div>
@@ -332,7 +332,7 @@
         <h3 class="text-zinc-400 font-medium text-zinc-400">
           About Service Connections
         </h3>
-        <div class="mt-2 text-zinc-400 text-zinc-400">
+        <div class="mt-2 text-zinc-300">
           <p>
             Service connections allow you to apply your Do-Not-Play list across different streaming platforms. 
             Each connection is secured with OAuth 2.0 and only requests the minimum permissions needed to manage your blocklist.

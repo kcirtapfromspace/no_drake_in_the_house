@@ -137,7 +137,7 @@ export async function configureMusicKit(): Promise<MusicKit.MusicKitInstance> {
   musicKitInstance = await window.MusicKit.configure({
     developerToken,
     app: {
-      name: 'No Drake In The House',
+      name: 'No Drake in the House',
       build: '1.0.0',
     },
   });

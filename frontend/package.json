@@ -9,6 +9,7 @@
     "dev": "rollup -c -w",
     "start": "sirv public --no-clear --single",
     "serve": "npm run build && npm start",
+    "lint": "svelte-check --tsconfig ./tsconfig.json --threshold warning",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "vitest run",

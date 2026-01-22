@@ -15,8 +15,8 @@
 <div class="space-y-6">
   <!-- Aggressiveness Level -->
   <div>
-    <h4 class="text-zinc-400 font-medium text-zinc-400darker">Enforcement Aggressiveness</h4>
-    <p class="text-zinc-400 leading-5 text-zinc-400darker">
+    <h4 class="text-zinc-400 font-medium text-zinc-300">Enforcement Aggressiveness</h4>
+    <p class="text-zinc-400 leading-5 text-zinc-300">
       Choose how thoroughly to apply your blocklist across your music library.
     </p>
     <fieldset class="mt-4">
@@ -31,11 +31,11 @@
             on:change={() => updateAggressiveness('conservative')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-zinc-600"
           />
-          <label for="conservative" class="ml-3 block text-zinc-400 font-medium text-zinc-400darker">
+          <label for="conservative" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
             Conservative
           </label>
         </div>
-        <div class="ml-7 text-zinc-400 text-zinc-400darker">
+        <div class="ml-7 text-zinc-300">
           Only remove explicitly saved/liked content. Preserves playlists and recommendations.
         </div>
 
@@ -48,11 +48,11 @@
             on:change={() => updateAggressiveness('moderate')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-zinc-600"
           />
-          <label for="moderate" class="ml-3 block text-zinc-400 font-medium text-zinc-400darker">
+          <label for="moderate" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
             Moderate (Recommended)
           </label>
         </div>
-        <div class="ml-7 text-zinc-400 text-zinc-400darker">
+        <div class="ml-7 text-zinc-300">
           Remove from saved content and playlists. Filters recommendations where possible.
         </div>
 
@@ -65,11 +65,11 @@
             on:change={() => updateAggressiveness('aggressive')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-zinc-600"
           />
-          <label for="aggressive" class="ml-3 block text-zinc-400 font-medium text-zinc-400darker">
+          <label for="aggressive" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
             Aggressive
           </label>
         </div>
-        <div class="ml-7 text-zinc-400 text-zinc-400darker">
+        <div class="ml-7 text-zinc-300">
           Maximum removal including radio seeds, recommendations, and related content.
         </div>
       </div>
@@ -78,8 +78,8 @@
 
   <!-- Collaboration and Featuring Options -->
   <div>
-    <h4 class="text-zinc-400 font-medium text-zinc-400darker">Collaboration Handling</h4>
-    <p class="text-zinc-400 leading-5 text-zinc-400darker">
+    <h4 class="text-zinc-400 font-medium text-zinc-300">Collaboration Handling</h4>
+    <p class="text-zinc-400 leading-5 text-zinc-300">
       Configure how to handle songs where blocked artists appear as collaborators or featured artists.
     </p>
     <div class="mt-4 space-y-4">
@@ -94,10 +94,10 @@
           />
         </div>
         <div class="ml-3 text-zinc-400">
-          <label for="block-collabs" class="font-medium text-zinc-400darker">
+          <label for="block-collabs" class="font-medium text-zinc-300">
             Block collaborations
           </label>
-          <p class="text-zinc-400darker">
+          <p class="text-zinc-300">
             Remove songs where blocked artists are listed as collaborators or co-writers.
           </p>
         </div>
@@ -114,10 +114,10 @@
           />
         </div>
         <div class="ml-3 text-zinc-400">
-          <label for="block-featuring" class="font-medium text-zinc-400darker">
+          <label for="block-featuring" class="font-medium text-zinc-300">
             Block featuring
           </label>
-          <p class="text-zinc-400darker">
+          <p class="text-zinc-300">
             Remove songs where blocked artists are featured (e.g., "Song Title (feat. Blocked Artist)").
           </p>
         </div>
@@ -134,10 +134,10 @@
           />
         </div>
         <div class="ml-3 text-zinc-400">
-          <label for="block-songwriter-only" class="font-medium text-zinc-400darker">
+          <label for="block-songwriter-only" class="font-medium text-zinc-300">
             Block songwriter credits only
           </label>
-          <p class="text-zinc-400darker">
+          <p class="text-zinc-300">
             Remove songs where blocked artists are credited only as songwriters (most restrictive).
           </p>
         </div>
@@ -158,7 +158,7 @@
           <h3 class="text-zinc-400 font-medium text-yellow-400">
             Aggressive Settings Warning
           </h3>
-          <div class="mt-2 text-zinc-400 text-zinc-300">
+          <div class="mt-2 text-zinc-300">
             <p>
               These settings may remove a significant amount of content from your library. 
               We recommend reviewing the enforcement preview carefully before executing.

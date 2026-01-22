@@ -13,7 +13,7 @@ test.describe('Authentication', () => {
       await page.goto('/');
 
       // Check for login form elements
-      await expect(page.getByRole('heading', { name: 'No Drake' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'No Drake in the House' })).toBeVisible();
       await expect(page.getByText('Take control of your music')).toBeVisible();
       await expect(page.getByLabel('Email')).toBeVisible();
       await expect(page.getByLabel('Password')).toBeVisible();

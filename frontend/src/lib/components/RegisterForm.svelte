@@ -62,10 +62,10 @@
 
 <div class="register-form-container w-full max-w-md mx-auto space-y-6 px-4 sm:px-0">
   <div>
-    <h2 class="text-center text-zinc-4002xl sm:text-zinc-4003xl font-extrabold text-zinc-400darker">
+    <h2 class="text-center text-2xl sm:text-3xl font-extrabold text-white">
       Create your account
     </h2>
-    <p class="mt-2 text-center text-zinc-400 text-zinc-400darker">
+    <p class="mt-2 text-center text-zinc-300">
       Join the music blocklist community
     </p>
   </div>
@@ -297,7 +297,7 @@
         />
       </div>
       <div class="flex-1 text-zinc-400">
-        <label for="terms-accepted" class="text-zinc-400darker leading-relaxed cursor-pointer">
+        <label for="terms-accepted" class="text-zinc-300 leading-relaxed cursor-pointer">
           I agree to the 
           <a href="/terms" target="_blank" class="text-indigo-600 hover:text-indigo-500 underline font-medium">
             Terms of Service
@@ -308,9 +308,9 @@
           </a>
         </label>
         {#if fieldErrors.terms_accepted}
-          <p class="mt-1 text-zinc-400 text-zinc-400">{fieldErrors.terms_accepted}</p>
+          <p class="mt-1 text-red-400">{fieldErrors.terms_accepted}</p>
         {:else if !termsAccepted && formValid === false}
-          <p class="mt-1 text-zinc-400 text-zinc-400">You must accept the terms to continue</p>
+          <p class="mt-1 text-red-400">You must accept the terms to continue</p>
         {/if}
       </div>
     </div>

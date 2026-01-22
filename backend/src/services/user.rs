@@ -72,9 +72,17 @@ impl UserService {
     /// Get user profile by ID
     pub async fn get_profile(&self, user_id: Uuid) -> Result<UserProfile> {
         // Use dynamic query to avoid SQLx offline mode issues
-        let user: (Uuid, String, Option<bool>, Option<bool>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<serde_json::Value>) =
-            sqlx::query_as(
-                r#"
+        let user: (
+            Uuid,
+            String,
+            Option<bool>,
+            Option<bool>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+            Option<serde_json::Value>,
+        ) = sqlx::query_as(
+            r#"
                 SELECT
                     id,
                     email,
@@ -87,16 +95,25 @@ impl UserService {
                 FROM users
                 WHERE id = $1
                 "#,
-            )
-            .bind(user_id)
-            .fetch_optional(&self.db_pool)
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?
-            .ok_or_else(|| AppError::NotFound {
-                resource: "User not found".to_string(),
-            })?;
+        )
+        .bind(user_id)
+        .fetch_optional(&self.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?
+        .ok_or_else(|| AppError::NotFound {
+            resource: "User not found".to_string(),
+        })?;
 
-        let (id, email, email_verified, totp_enabled, last_login, created_at, updated_at, settings_json) = user;
+        let (
+            id,
+            email,
+            email_verified,
+            totp_enabled,
+            last_login,
+            created_at,
+            updated_at,
+            settings_json,
+        ) = user;
 
         // Parse settings from JSONB
         let settings: UserSettings =
@@ -120,14 +137,24 @@ impl UserService {
     }
 
     /// Get OAuth accounts for a user
-    async fn get_oauth_accounts(&self, user_id: Uuid) -> Result<Vec<crate::models::OAuthAccountInfo>> {
+    async fn get_oauth_accounts(
+        &self,
+        user_id: Uuid,
+    ) -> Result<Vec<crate::models::OAuthAccountInfo>> {
         use crate::models::oauth::OAuthProviderType;
         use std::str::FromStr;
 
         // Use dynamic query to avoid SQLx offline mode issues
-        let accounts: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> =
-            sqlx::query_as(
-                r#"
+        let accounts: Vec<(
+            String,
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+            Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>,
+        )> = sqlx::query_as(
+            r#"
                 SELECT
                     provider,
                     provider_user_id,
@@ -140,26 +167,36 @@ impl UserService {
                 WHERE user_id = $1
                 ORDER BY created_at DESC
                 "#,
-            )
-            .bind(user_id)
-            .fetch_all(&self.db_pool)
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
+        )
+        .bind(user_id)
+        .fetch_all(&self.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(accounts
             .into_iter()
-            .map(|(provider, provider_user_id, email, display_name, avatar_url, created_at, last_used_at)| {
-                crate::models::OAuthAccountInfo {
-                    provider: OAuthProviderType::from_str(&provider)
-                        .unwrap_or(OAuthProviderType::Google),
+            .map(
+                |(
+                    provider,
                     provider_user_id,
                     email,
                     display_name,
                     avatar_url,
-                    connected_at: created_at.unwrap_or_else(Utc::now),
+                    created_at,
                     last_used_at,
-                }
-            })
+                )| {
+                    crate::models::OAuthAccountInfo {
+                        provider: OAuthProviderType::from_str(&provider)
+                            .unwrap_or(OAuthProviderType::Google),
+                        provider_user_id,
+                        email,
+                        display_name,
+                        avatar_url,
+                        connected_at: created_at.unwrap_or_else(Utc::now),
+                        last_used_at,
+                    }
+                },
+            )
             .collect())
     }
 

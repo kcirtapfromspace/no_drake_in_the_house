@@ -5,6 +5,7 @@
   import CommunityListDetail from './CommunityListDetail.svelte';
   import CreateCommunityList from './CreateCommunityList.svelte';
   import MySubscriptions from './MySubscriptions.svelte';
+  import { Skeleton, Breadcrumb } from './ui';
 
   let activeTab = 'browse';
   let showCreateForm = false;
@@ -33,6 +34,7 @@
 </script>
 
 <div class="px-4 py-6 sm:px-0">
+  <Breadcrumb />
   <div class="mb-6">
     <div class="flex justify-between items-center">
       <div>
@@ -134,12 +136,13 @@
 
         <!-- Lists Grid -->
         {#if $communityStore.isLoading}
-          <div class="text-center py-12">
-            <svg aria-hidden="true" class="animate-spin mx-auto w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-2 text-sm text-zinc-400">Loading community lists...</p>
+          <div role="status" aria-label="Loading community lists">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {#each Array(6) as _}
+                <Skeleton variant="card" />
+              {/each}
+            </div>
+            <span class="sr-only">Loading community lists...</span>
           </div>
         {:else if $communityStore.error}
           <div class="text-center py-12">

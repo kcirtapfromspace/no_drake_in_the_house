@@ -38,14 +38,14 @@
       </svg>
     </div>
     
-    <h2 class="mt-4 text-zinc-4002xl font-bold text-zinc-400darker">
+    <h2 class="mt-4 text-2xl font-bold text-white">
       Two-Factor Authentication
     </h2>
-    <p class="mt-2 text-zinc-400 text-zinc-400darker">
+    <p class="mt-2 text-zinc-300">
       Enter the 6-digit code from your authenticator app
     </p>
     {#if email}
-      <p class="text-zinc-400 text-zinc-400darker">
+      <p class="text-zinc-300">
         Signing in as <span class="font-medium">{email}</span>
       </p>
     {/if}
@@ -54,7 +54,7 @@
   <div class="space-y-4">
     <!-- Code Input -->
     <div>
-      <label for="verification-code" class="block text-zinc-400 font-medium text-zinc-400darker text-center mb-2">
+      <label for="verification-code" class="block font-medium text-zinc-300 text-center mb-2">
         Authentication Code
       </label>
       <div class="max-w-xs mx-auto">
@@ -66,13 +66,13 @@
           pattern="[0-9]{6}"
           placeholder="000000"
           autocomplete="one-time-code"
-          class="block w-full text-center text-zinc-4002xl font-mono px-3 py-3 rounded-lg text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          class="block w-full text-center text-2xl font-mono px-3 py-3 rounded-lg text-zinc-300 placeholder-zinc-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
           class:border-red-300={verificationCode.length > 0 && !codeValid}
           class:border-green-300={codeValid}
           style="background: #3f3f46; border: 1px solid #52525b;"
         />
         {#if verificationCode.length > 0 && !codeValid}
-          <p class="mt-1 text-zinc-400 text-zinc-400 text-center">Please enter a 6-digit code</p>
+          <p class="mt-1 text-red-400 text-center">Please enter a 6-digit code</p>
         {/if}
       </div>
     </div>
@@ -83,7 +83,7 @@
     <!-- Loading State -->
     {#if isLoading}
       <div class="text-center">
-        <div class="flex items-center px-4 py-2 text-zinc-400 text-zinc-400darker">
+        <div class="flex items-center px-4 py-2 text-zinc-300">
           <svg aria-hidden="true" class="animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -106,7 +106,7 @@
 
     <!-- Help Text -->
     <div class="text-center space-y-2">
-      <p class="text-zinc-400 text-zinc-400darker">
+      <p class="text-zinc-300">
         The code will automatically verify when you enter all 6 digits
       </p>
       
@@ -123,7 +123,7 @@
           <button
             type="button"
             on:click={handleBack}
-            class="text-zinc-400 text-zinc-400 hover:text-zinc-300"
+            class="text-red-400 hover:text-zinc-300"
           >
             ← Back to login
           </button>
@@ -133,11 +133,11 @@
   </div>
 
   <!-- Troubleshooting -->
-  <div class="bg-zinc-700lightest rounded-uswds-lg p-uswds-4">
-    <h4 class="text-zinc-400 font-medium text-zinc-400darker mb-2">
+  <div class="bg-zinc-800 rounded-lg p-4">
+    <h4 class="font-medium text-zinc-300 mb-2">
       Having trouble?
     </h4>
-    <ul class="text-zinc-400 text-zinc-400darker space-y-1">
+    <ul class="text-zinc-300 space-y-1">
       <li>• Make sure your device's time is correct</li>
       <li>• Try generating a new code in your authenticator app</li>
       <li>• Check that you're using the right account in your app</li>

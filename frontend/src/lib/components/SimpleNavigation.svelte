@@ -55,8 +55,8 @@
           on:click={() => handleNavigation('dashboard')}
           class="flex-shrink-0 flex items-center cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <span class="text-2xl mr-2" role="img" aria-label="No Drake">🚫🦆</span>
-          <h1 class="text-lg font-bold text-white hidden sm:block">No Drake</h1>
+          <span class="text-2xl mr-2" role="img" aria-label="No Drake in the House">🚫🦆</span>
+          <h1 class="text-lg font-bold text-white hidden sm:block">No Drake in the House</h1>
         </button>
 
         <!-- Desktop navigation -->

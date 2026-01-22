@@ -249,8 +249,8 @@
 <div class="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
   <!-- Header -->
   <div class="mb-8">
-    <h1 class="text-zinc-4002xl font-bold text-zinc-400darker">Account Settings</h1>
-    <p class="mt-1 text-zinc-400 text-zinc-400darker">
+    <h1 class="text-2xl font-bold text-zinc-300">Account Settings</h1>
+    <p class="mt-1 text-zinc-300">
       Manage your account information, security settings, and preferences.
     </p>
   </div>
@@ -263,7 +263,7 @@
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
         </svg>
         <div class="ml-3">
-          <p class="text-zinc-400 text-zinc-400">{error}</p>
+          <p class="text-red-400">{error}</p>
         </div>
       </div>
     </div>
@@ -276,7 +276,7 @@
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
         </svg>
         <div class="ml-3">
-          <p class="text-zinc-400 text-zinc-400">{success}</p>
+          <p class="text-red-400">{success}</p>
         </div>
       </div>
     </div>
@@ -285,7 +285,7 @@
   {#if isLoading && !profile}
     <div class="text-center py-12">
       <div class="animate-spin rounded-full icon icon-xl  border-b-2 border-indigo-600 mx-auto"></div>
-      <p class="mt-2 text-zinc-400darker">Loading profile...</p>
+      <p class="mt-2 text-zinc-300">Loading profile...</p>
     </div>
   {:else if profile}
     <!-- Tab Navigation -->
@@ -329,7 +329,7 @@
       <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
         <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
           <h3 class="text-zinc-400 font-medium text-white">Profile Information</h3>
-          <p class="mt-1 text-zinc-400 text-zinc-400">
+          <p class="mt-1 text-red-400">
             Update your account's profile information and email address.
           </p>
         </div>
@@ -350,7 +350,7 @@
                 </div>
               {:else}
                 <div class="mt-1 flex items-center justify-between">
-                  <span class="text-zinc-400 text-zinc-300">{profile.email}</span>
+                  <span class="text-zinc-300">{profile.email}</span>
                   <button
                     on:click={() => editingProfile = true}
                     class="text-zinc-400 text-indigo-600 hover:text-indigo-500"
@@ -365,16 +365,16 @@
             <div class="grid grid-cols-1 gap-uswds-6 sm:grid-cols-2">
               <div>
                 <span class="block text-zinc-400 font-medium text-zinc-300">Account Created</span>
-                <p class="mt-1 text-zinc-400 text-zinc-400">{formatDate(profile.created_at)}</p>
+                <p class="mt-1 text-red-400">{formatDate(profile.created_at)}</p>
               </div>
               <div>
                 <span class="block text-zinc-400 font-medium text-zinc-300">Last Updated</span>
-                <p class="mt-1 text-zinc-400 text-zinc-400">{formatDate(profile.updated_at)}</p>
+                <p class="mt-1 text-red-400">{formatDate(profile.updated_at)}</p>
               </div>
               {#if profile.last_login}
                 <div>
                   <span class="block text-zinc-400 font-medium text-zinc-300">Last Login</span>
-                  <p class="mt-1 text-zinc-400 text-zinc-400">{formatDate(profile.last_login)}</p>
+                  <p class="mt-1 text-red-400">{formatDate(profile.last_login)}</p>
                 </div>
               {/if}
             </div>
@@ -412,7 +412,7 @@
         <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
             <h3 class="text-zinc-400 font-medium text-white">Two-Factor Authentication</h3>
-            <p class="mt-1 text-zinc-400 text-zinc-400">
+            <p class="mt-1 text-red-400">
               Add an extra layer of security to your account with 2FA.
             </p>
           </div>
@@ -422,7 +422,7 @@
                 <p class="text-zinc-400 font-medium text-zinc-300">
                   Status: {profile.totp_enabled ? 'Enabled' : 'Disabled'}
                 </p>
-                <p class="text-zinc-400 text-zinc-400">
+                <p class="text-red-400">
                   {profile.totp_enabled 
                     ? 'Your account is protected with 2FA' 
                     : 'Enable 2FA to secure your account'}
@@ -458,7 +458,7 @@
           <h3 class="text-zinc-400 leading-6 font-medium text-white">
             Linked Accounts
           </h3>
-          <p class="mt-1 text-zinc-400 text-zinc-400">
+          <p class="mt-1 text-red-400">
             Manage your connected social accounts for easier sign-in and profile synchronization.
           </p>
         </div>
@@ -535,7 +535,7 @@
       <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
         <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
           <h3 class="text-zinc-400 font-medium text-white">Preferences</h3>
-          <p class="mt-1 text-zinc-400 text-zinc-400">
+          <p class="mt-1 text-red-400">
             Customize your experience and notification settings.
           </p>
         </div>
@@ -545,7 +545,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <span class="text-zinc-400 font-medium text-zinc-300">Email Notifications</span>
-                <p class="text-zinc-400 text-zinc-400">Receive email updates about your account activity</p>
+                <p class="text-red-400">Receive email updates about your account activity</p>
               </div>
               <label class="relative flex items-center cursor-pointer">
                 <input
@@ -561,7 +561,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <span class="text-zinc-400 font-medium text-zinc-300">Privacy Mode</span>
-                <p class="text-zinc-400 text-zinc-400">Hide your activity from other users</p>
+                <p class="text-red-400">Hide your activity from other users</p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
                 <input
@@ -595,7 +595,7 @@
         <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
             <h3 class="text-zinc-400 font-medium text-white">Data Export</h3>
-            <p class="mt-1 text-zinc-400 text-zinc-400">
+            <p class="mt-1 text-red-400">
               Download a copy of all your data for your records.
             </p>
           </div>
@@ -614,7 +614,7 @@
         <div class="rounded-xl border-red-200" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4 border-b border-red-200">
             <h3 class="text-zinc-400 font-medium text-zinc-400">Delete Account</h3>
-            <p class="mt-1 text-zinc-400 text-zinc-400">
+            <p class="mt-1 text-red-400">
               Permanently delete your account and all associated data.
             </p>
           </div>
@@ -637,7 +637,7 @@
                       <h3 class="text-zinc-400 font-medium text-zinc-400">
                         This action cannot be undone
                       </h3>
-                      <p class="mt-2 text-zinc-400 text-zinc-400">
+                      <p class="mt-2 text-red-400">
                         This will permanently delete your account, DNP lists, and all associated data.
                       </p>
                     </div>
@@ -714,7 +714,7 @@
         <h3 class="text-zinc-400 font-medium text-white mb-4">
           Disable Two-Factor Authentication
         </h3>
-        <p class="text-zinc-400 text-zinc-400 mb-6">
+        <p class="text-red-400 mb-6">
           Enter your 2FA code to disable two-factor authentication
         </p>
 

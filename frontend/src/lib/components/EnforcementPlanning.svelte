@@ -50,8 +50,8 @@
 
 <div class="px-4 py-6 sm:px-0">
   <div class="mb-6">
-    <h2 class="text-zinc-4002xl font-bold text-zinc-400darker">Enforcement Planning</h2>
-    <p class="mt-1 text-zinc-400 text-zinc-400darker">
+    <h2 class="text-2xl font-bold text-zinc-300">Enforcement Planning</h2>
+    <p class="mt-1 text-zinc-300">
       Plan and execute blocklist enforcement across your connected streaming services.
     </p>
   </div>
@@ -69,7 +69,7 @@
           <h3 class="text-zinc-400 font-medium text-yellow-400">
             Setup Required
           </h3>
-          <div class="mt-2 text-zinc-400 text-zinc-300">
+          <div class="mt-2 text-zinc-300">
             <p>Before you can plan enforcement, you need:</p>
             <ul class="list-disc list-inside mt-1 space-y-1">
               {#if !hasAnyConnection}
@@ -90,20 +90,20 @@
     <nav class="flex space-x-8 px-6" aria-label="Tabs">
       <button
         on:click={() => setActiveTab('plan')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'plan' ? 'border-indigo-500 text-primary' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'plan' ? 'border-indigo-500 text-primary' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Plan Enforcement
       </button>
       <button
         on:click={() => setActiveTab('execute')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
         disabled={!$hasActivePlan}
       >
         Execute Plan
       </button>
       <button
         on:click={() => setActiveTab('history')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400darker hover:text-zinc-300 hover:border-zinc-500'}"
+        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Action History
       </button>
@@ -115,7 +115,7 @@
     <div class="space-y-6">
       <!-- Enforcement Options -->
       <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
-        <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">Enforcement Options</h3>
+        <h3 class="text-zinc-400 font-medium text-zinc-300 mb-4">Enforcement Options</h3>
         <EnforcementOptions />
       </div>
 
@@ -123,10 +123,10 @@
       {#if $hasActivePlan}
         <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-zinc-400 font-medium text-zinc-400darker">Enforcement Preview</h3>
+            <h3 class="text-zinc-400 font-medium text-zinc-300">Enforcement Preview</h3>
             <button
               on:click={() => enforcementActions.clearPlan()}
-              class="text-zinc-400 text-zinc-400darker hover:text-zinc-300"
+              class="text-zinc-300 hover:text-zinc-300"
             >
               Clear Plan
             </button>
@@ -136,8 +136,8 @@
       {:else}
         <!-- Create Plan -->
         <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
-          <h3 class="text-zinc-400 font-medium text-zinc-400darker mb-4">Create Enforcement Plan</h3>
-          <p class="text-zinc-400 text-zinc-400darker mb-4">
+          <h3 class="text-zinc-400 font-medium text-zinc-300 mb-4">Create Enforcement Plan</h3>
+          <p class="text-zinc-300 mb-4">
             Generate a dry-run preview to see what changes will be made to your music library.
           </p>
 
@@ -222,10 +222,10 @@
               </svg>
             </div>
             <div class="ml-3">
-              <p class="text-zinc-400 text-zinc-400">{$enforcementStore.error}</p>
+              <p class="text-red-400">{$enforcementStore.error}</p>
               <button
                 on:click={() => enforcementActions.clearError()}
-                class="mt-2 text-zinc-400 text-zinc-400 hover:text-red-500"
+                class="mt-2 text-red-400 hover:text-red-500"
               >
                 Dismiss
               </button>

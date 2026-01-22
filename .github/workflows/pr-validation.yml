@@ -4,6 +4,11 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   validate-pr:
     name: Validate Pull Request
@@ -157,6 +162,8 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    # Continue on error since this requires Dependency Graph to be enabled in repo settings
+    continue-on-error: true
 
     steps:
     - name: Checkout code
@@ -164,6 +171,7 @@ jobs:
 
     - name: Dependency Review
       uses: actions/dependency-review-action@v4
+      continue-on-error: true
       with:
         fail-on-severity: moderate
         allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC

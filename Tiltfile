@@ -1,208 +1,160 @@
-# Enhanced Tiltfile for optimal Kubernetes development experience
-# Optimized for fast feedback, comprehensive monitoring, and developer productivity
-
-# Load Tilt extensions
-load('ext://restart_process', 'docker_build_with_restart')
+# Tiltfile for Minikube development with local registry
+#
+# One-time setup:
+#   ./scripts/setup-registry.sh    # registry + minikube with insecure-registry
+#   ./scripts/tilt-build.sh        # pre-warm cargo cache (first time only)
+#
+# Then:
+#   tilt up
 
 # =============================================================================
-# CONFIGURATION & PERFORMANCE SETTINGS
+# CONFIGURATION
 # =============================================================================
 
-# Development namespace
 namespace = "kiro-dev"
 k8s_namespace(namespace)
 
-# Performance optimizations for fastest feedback loop
 update_settings(
-    max_parallel_updates=6,
-    k8s_upsert_timeout_secs=90,
+    max_parallel_updates=3,
+    k8s_upsert_timeout_secs=900,
     suppress_unused_image_warnings=None
 )
 
-# Advanced Docker build optimization
-docker_prune_settings(
-    num_builds=5,
-    keep_recent=3
+# Disable Docker prune to preserve build cache (Rust builds are very slow)
+docker_prune_settings(disable=True)
+
+# =============================================================================
+# MINIKUBE DETECTION
+# =============================================================================
+
+context = str(local('kubectl config current-context', quiet=True)).strip()
+if 'minikube' not in context:
+    fail("Expected minikube context, got: " + context + ". Run: kubectl config use-context minikube")
+
+# =============================================================================
+# LOCAL REGISTRY
+# =============================================================================
+
+# Push images to localhost:5001, pull from host.minikube.internal:5001 inside cluster
+default_registry('localhost:5001', host_from_cluster='host.minikube.internal:5001')
+
+# =============================================================================
+# SHARED: Strip minikube Docker env vars so builds use HOST Docker daemon
+# (where BuildKit cache lives). Tilt injects DOCKER_HOST etc. for minikube.
+# =============================================================================
+
+_strip_mk = 'env -u DOCKER_HOST -u DOCKER_TLS_VERIFY -u DOCKER_CERT_PATH -u MINIKUBE_ACTIVE_DOCKERD '
+
+# =============================================================================
+# FRONTEND BUILD
+# =============================================================================
+
+# Build on host, package into nginx, push to registry
+custom_build(
+    'kiro/frontend',
+    'set -e && ' +
+    'cd frontend && npm run build && cd .. && ' +
+    _strip_mk + 'docker build -t $EXPECTED_REF -f ./frontend/Dockerfile.runtime ./frontend && ' +
+    _strip_mk + 'docker push $EXPECTED_REF',
+    deps=['./frontend/src', './frontend/public/index.html', './frontend/public/global.css', './frontend/public/favicon.svg', './frontend/package.json', './frontend/rollup.config.js', './frontend/tsconfig.json'],
+    skips_local_docker=True,
+    live_update=[],
 )
 
 # =============================================================================
-# MULTI-PLATFORM KUBERNETES DETECTION
+# BACKEND BUILD
 # =============================================================================
 
-def detect_k8s_platform():
-    # Get current context - using a simpler approach for Starlark compatibility
-    context = str(local('kubectl config current-context', quiet=True)).strip()
-    
-    if 'minikube' in context:
-        return {
-            'platform': 'minikube',
-            'registry': '',
-            'load_balancer': False,
-            'docker_env': True
-        }
-    elif 'k3s' in context or 'k3d' in context:
-        return {
-            'platform': 'k3s',
-            'registry': 'localhost:5000/',
-            'load_balancer': True,
-            'docker_env': False
-        }
-    elif 'kind' in context:
-        return {
-            'platform': 'kind',
-            'registry': '',
-            'load_balancer': False,
-            'docker_env': False
-        }
-    elif 'docker-desktop' in context:
-        return {
-            'platform': 'docker-desktop',
-            'registry': '',
-            'load_balancer': True,
-            'docker_env': False
-        }
-    else:
-        return {
-            'platform': 'generic',
-            'registry': '',
-            'load_balancer': False,
-            'docker_env': False
-        }
-
-# Detect platform and configure accordingly
-k8s_config = detect_k8s_platform()
-print("🔍 Detected Kubernetes platform: " + k8s_config['platform'])
-
-# =============================================================================
-# OPTIMIZED DOCKER BUILDS WITH LIVE UPDATES
-# =============================================================================
-
-# Backend build with live updates and optimized caching
-backend_image = k8s_config['registry'] + 'kiro/backend'
-docker_build(
-    backend_image,
-    context='./backend',
-    dockerfile='./backend/Dockerfile.dev',
-    only=[
-        './src',
-        './Cargo.toml',
-        './Cargo.lock',
-        './migrations',
-        './.sqlx'
-    ],
-    # For Rust, we need to rebuild the entire image when source changes
-    # since the runtime container doesn't have Rust toolchain
-    build_args={
-        'BUILDKIT_INLINE_CACHE': '1',
-        'SQLX_OFFLINE': 'true'
-    }
-)
-
-# Frontend build with live updates and hot reloading
-frontend_image = k8s_config['registry'] + 'kiro/frontend'
-docker_build(
-    frontend_image,
-    context='./frontend',
-    dockerfile='./frontend/Dockerfile.fast',
-    only=[
-        './src',
-        './public',
-        './package.json',
-        './package-lock.json',
-        './rollup.config.js',
-        './tsconfig.json',
-        './nginx.conf',
-        './nginx-dev.conf'
-    ],
-    live_update=[
-        sync('./frontend/src', '/app/src'),
-        sync('./frontend/public', '/app/public'),
-        run('VITE_API_URL=http://localhost:3000 VITE_ENVIRONMENT=development npm run build:dev', trigger=['./frontend/src'])
-    ],
-    build_args={
-        'BUILDKIT_INLINE_CACHE': '1',
-        'NODE_ENV': 'development',
-        'VITE_API_URL': 'http://localhost:3000'
-    }
+# Build in Docker (Dockerfile.dev builder target), extract binary to .build-output/,
+# package into minimal runtime image (Dockerfile.runtime), push to registry.
+custom_build(
+    'kiro/backend',
+    'set -e && ' +
+    # Step 1: Build in Docker using Dockerfile.dev builder target (BuildKit cache)
+    _strip_mk + 'DOCKER_BUILDKIT=1 docker build ' +
+        '-t kiro-backend-builder ' +
+        '-f ./backend/Dockerfile.dev ' +
+        '--target builder ' +
+        './backend && ' +
+    # Step 2: Extract compiled binary to .build-output/ (small context for runtime image)
+    'mkdir -p ./backend/.build-output && ' +
+    _strip_mk + 'docker rm -f kiro-extract >/dev/null 2>&1 || true && ' +
+    _strip_mk + 'docker create --name kiro-extract kiro-backend-builder && ' +
+    _strip_mk + 'docker cp kiro-extract:/tmp/backend ./backend/.build-output/backend && ' +
+    _strip_mk + 'docker rm kiro-extract && ' +
+    # Step 3: Build minimal runtime image
+    _strip_mk + 'docker build -t $EXPECTED_REF -f ./backend/Dockerfile.runtime ./backend && ' +
+    # Step 4: Push to registry
+    _strip_mk + 'docker push $EXPECTED_REF',
+    deps=['./backend/src', './backend/Cargo.toml', './backend/Cargo.lock', './backend/migrations', './backend/.sqlx', './backend/.cargo'],
+    skips_local_docker=True,
+    live_update=[],
 )
 
 # =============================================================================
-# KUBERNETES RESOURCE DEPLOYMENT
+# KUBERNETES RESOURCES
 # =============================================================================
 
-# Deploy Kubernetes manifests
 k8s_yaml('./k8s/dev-manifests.yaml')
 
 # =============================================================================
-# RESOURCE CONFIGURATION WITH OPTIMIZED DEPENDENCIES
+# RESOURCE CONFIGURATION
 # =============================================================================
 
-# Database resources (foundational layer)
 k8s_resource('postgres',
-    port_forwards=['5432:5432'] if not k8s_config['load_balancer'] else [],
-    labels=['database', 'foundation'],
+    port_forwards=['15432:5432'],
+    labels=['database'],
     resource_deps=[],
     auto_init=True,
     pod_readiness='wait'
 )
 
 k8s_resource('redis',
-    port_forwards=['6379:6379'] if not k8s_config['load_balancer'] else [],
-    labels=['cache', 'foundation'],
+    port_forwards=['16379:6379'],
+    labels=['cache'],
     resource_deps=[],
     auto_init=True,
     pod_readiness='wait'
 )
 
-# Backend service (runs migrations automatically on startup)
 k8s_resource('backend',
-    port_forwards=['3000:3000'] if not k8s_config['load_balancer'] else [],
-    labels=['api', 'core'],
+    port_forwards=['3000:3000'],
+    labels=['api'],
     resource_deps=['postgres', 'redis'],
     auto_init=True,
     pod_readiness='wait'
 )
 
-
-
-# Frontend service (depends on backend)
 k8s_resource('frontend',
-    port_forwards=['5000:5000'] if not k8s_config['load_balancer'] else [],
-    labels=['web', 'ui'],
+    port_forwards=['5000:5000'],
+    labels=['web'],
     resource_deps=['backend'],
     auto_init=True,
     pod_readiness='wait'
 )
 
 # =============================================================================
-# MANUAL TRIGGER COMMANDS FOR DEVELOPMENT WORKFLOW
+# MANUAL TRIGGERS
 # =============================================================================
 
-# Simple database migration trigger - restarts backend which runs migrations automatically
 local_resource(
     'db-migrate',
-    cmd='kubectl rollout restart deployment/backend -n ' + namespace + ' && kubectl rollout status deployment/backend -n ' + namespace,
+    cmd='kubectl rollout restart deployment/backend -n ' + namespace + ' && kubectl rollout status deployment/backend -n ' + namespace + ' --timeout=120s',
     resource_deps=['backend'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['database']
+    labels=['ops']
 )
 
-# Simple database reset
 local_resource(
     'db-reset',
     cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- psql -U kiro -d postgres -c "DROP DATABASE IF EXISTS kiro; CREATE DATABASE kiro;"',
     resource_deps=['postgres'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
-    labels=['database']
+    labels=['ops']
 )
 
-
-
-
-
-# Simple test triggers
 local_resource(
     'backend-tests',
     cmd='cd backend && SQLX_OFFLINE=true cargo test',
@@ -220,30 +172,24 @@ local_resource(
 )
 
 # =============================================================================
-# DEVELOPER EXPERIENCE ENHANCEMENTS
+# STARTUP INFO
 # =============================================================================
 
-# Print comprehensive startup information
-print("🚀 Enhanced Kiro Development Environment")
+print("=" * 60)
+print("  No Drake in the House - Minikube Dev Environment")
 print("=" * 60)
 print("")
-print("🔍 Platform: " + k8s_config['platform'])
-print("📦 Namespace: " + namespace)
+print("Services (after pods are ready):")
+print("  Backend API:  http://localhost:3000")
+print("  Frontend:     http://localhost:5000")
+print("  PostgreSQL:   localhost:15432 (user: kiro, pass: password, db: kiro)")
+print("  Redis:        localhost:16379")
 print("")
-print("📡 Service Endpoints:")
-print("  🔗 Backend API:    http://localhost:3000")
-print("  🔗 Frontend Web:   http://localhost:5000")
-print("  🔗 PostgreSQL:     localhost:5432 (user: kiro, pass: password, db: kiro)")
-print("  🔗 Redis:          localhost:6379")
-print("💡 Quick Start:")
-print("  1. Wait for services to show 'Ready' in Tilt UI")
-print("  2. Backend runs migrations automatically on startup")
-print("  3. Start coding - changes auto-reload!")
+print("Registry:       localhost:5001")
 print("")
-print("🔧 Manual Triggers:")
-print("  • db-migrate: Restart backend (runs migrations)")
-print("  • db-reset: Reset database")
-print("  • health-check: Check all services")
-print("  • backend-tests / frontend-tests: Run tests")
+print("First time? Run:")
+print("  1. ./scripts/setup-registry.sh   (one-time)")
+print("  2. ./scripts/tilt-build.sh       (pre-warm cargo cache)")
 print("")
+print("Manual triggers: db-migrate, db-reset, backend-tests, frontend-tests")
 print("=" * 60)

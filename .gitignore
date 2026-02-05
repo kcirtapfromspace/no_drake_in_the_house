@@ -119,6 +119,7 @@ temp/
 *.kubeconfig
 kubeconfig
 .helm/
+.build-output/
 
 # ===================
 # Misc

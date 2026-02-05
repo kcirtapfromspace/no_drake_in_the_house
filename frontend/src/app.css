@@ -1,4 +1,4 @@
-/* unified-design-system.css is imported via main.ts (JS-level import) so rollup resolves it */
+@import './lib/styles/unified-design-system.css';
 
 /*
   Unified Design System Compatibility Layer

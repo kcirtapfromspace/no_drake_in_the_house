@@ -2,29 +2,29 @@ import { writable, derived } from 'svelte/store';
 
 export type Theme = 'light' | 'dark' | 'system';
 
-// Get initial theme from localStorage or default to system
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'system';
-
-  const stored = localStorage.getItem('theme');
-  if (stored === 'light' || stored === 'dark' || stored === 'system') {
-    return stored;
-  }
+  const stored = localStorage.getItem('theme-preference');
+  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
   return 'system';
 }
 
-// Get the actual resolved theme (light or dark)
 function getResolvedTheme(theme: Theme): 'light' | 'dark' {
   if (theme === 'system') {
     if (typeof window !== 'undefined') {
       return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
-    return 'light';
+    return 'dark';
   }
   return theme;
 }
 
-// Create the theme store
+function applyTheme(theme: Theme) {
+  if (typeof window === 'undefined') return;
+  const resolved = getResolvedTheme(theme);
+  document.documentElement.setAttribute('data-theme', resolved);
+}
+
 function createThemeStore() {
   const { subscribe, set, update } = writable<Theme>(getInitialTheme());
 
@@ -34,9 +34,23 @@ function createThemeStore() {
     setTheme(newTheme: Theme) {
       set(newTheme);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('theme', newTheme);
+        localStorage.setItem('theme-preference', newTheme);
         applyTheme(newTheme);
       }
+    },
+
+    cycle() {
+      update(current => {
+        // Cycle: system -> light -> dark -> system
+        const order: Theme[] = ['system', 'light', 'dark'];
+        const idx = order.indexOf(current);
+        const next = order[(idx + 1) % order.length];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('theme-preference', next);
+          applyTheme(next);
+        }
+        return next;
+      });
     },
 
     toggle() {
@@ -44,7 +58,7 @@ function createThemeStore() {
         const resolved = getResolvedTheme(current);
         const newTheme: Theme = resolved === 'light' ? 'dark' : 'light';
         if (typeof window !== 'undefined') {
-          localStorage.setItem('theme', newTheme);
+          localStorage.setItem('theme-preference', newTheme);
           applyTheme(newTheme);
         }
         return newTheme;
@@ -53,10 +67,8 @@ function createThemeStore() {
 
     init() {
       if (typeof window !== 'undefined') {
-        const theme = getInitialTheme();
-        applyTheme(theme);
+        applyTheme(getInitialTheme());
 
-        // Listen for system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
           update(current => {
             if (current === 'system') {
@@ -70,24 +82,6 @@ function createThemeStore() {
   };
 }
 
-// Apply theme to document
-function applyTheme(theme: Theme) {
-  if (typeof window === 'undefined') return;
-
-  const resolved = getResolvedTheme(theme);
-  const root = document.documentElement;
-
-  if (resolved === 'dark') {
-    root.classList.add('dark');
-  } else {
-    root.classList.remove('dark');
-  }
-}
-
 export const theme = createThemeStore();
-
-// Derived store for the resolved theme
 export const resolvedTheme = derived(theme, ($theme) => getResolvedTheme($theme));
-
-// Derived store for checking if dark mode is active
 export const isDarkMode = derived(resolvedTheme, ($resolved) => $resolved === 'dark');

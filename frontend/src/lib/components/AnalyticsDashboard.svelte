@@ -55,11 +55,11 @@
   ];
 
   const platformList = [
-    { id: 'deezer', name: 'Deezer', icon: '🎵', alwaysAvailable: true },
-    { id: 'spotify', name: 'Spotify', icon: '🎧', alwaysAvailable: false },
-    { id: 'apple_music', name: 'Apple Music', icon: '🍎', alwaysAvailable: false },
-    { id: 'tidal', name: 'Tidal', icon: '🌊', alwaysAvailable: false },
-    { id: 'youtube_music', name: 'YouTube Music', icon: '▶️', alwaysAvailable: false },
+    { id: 'deezer', name: 'Deezer', abbr: 'DZ', alwaysAvailable: true },
+    { id: 'spotify', name: 'Spotify', abbr: 'SP', alwaysAvailable: false },
+    { id: 'apple_music', name: 'Apple Music', abbr: 'AM', alwaysAvailable: false },
+    { id: 'tidal', name: 'Tidal', abbr: 'TI', alwaysAvailable: false },
+    { id: 'youtube_music', name: 'YouTube Music', abbr: 'YT', alwaysAvailable: false },
   ];
 
   onMount(async () => {
@@ -181,9 +181,9 @@
 
   function getTrendIcon(trend: 'up' | 'down' | 'stable' | 'rising' | 'falling'): string {
     switch (trend) {
-      case 'up': case 'rising': return '📈';
-      case 'down': case 'falling': return '📉';
-      default: return '➡️';
+      case 'up': case 'rising': return '\u2197';
+      case 'down': case 'falling': return '\u2198';
+      default: return '\u2192';
     }
   }
 
@@ -196,7 +196,7 @@
   }
 
   function getHealthIcon(healthy: boolean): string {
-    return healthy ? '✅' : '❌';
+    return healthy ? '\u2713' : '\u2717';
   }
 
   function getHealthColor(healthy: boolean): string {
@@ -230,10 +230,10 @@
 
   function getSyncStatusIcon(status: string): string {
     switch (status) {
-      case 'running': return '🔄';
-      case 'completed': return '✅';
-      case 'error': case 'failed': return '❌';
-      default: return '⏸️';
+      case 'running': return '\u21BB';
+      case 'completed': return '\u2713';
+      case 'error': case 'failed': return '\u2717';
+      default: return '\u23F8';
     }
   }
 
@@ -284,7 +284,8 @@
               on:click={openReportModal}
               class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors flex items-center gap-2"
             >
-              <span>📊</span> Generate Report
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              Generate Report
             </button>
           </div>
         {:else if activeTab === 'revenue'}
@@ -301,34 +302,35 @@
       </div>
 
       <!-- Tab Navigation -->
-      <div class="flex gap-1 mt-6">
+      <div class="analytics-tabs">
         <button
           type="button"
           on:click={() => handleTabChange('overview')}
-          class="px-4 py-2 rounded-full text-sm font-medium transition-all"
-          style={activeTab === 'overview' ? 'background: #3B82F6; color: white;' : 'color: #9CA3AF;'}
+          class="analytics-tab"
+          class:analytics-tab--active={activeTab === 'overview'}
         >
-          📊 Overview
+          <svg class="analytics-tab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Overview
         </button>
         <button
           type="button"
           on:click={() => handleTabChange('revenue')}
-          class="px-4 py-2 rounded-full text-sm font-medium transition-all"
-          style={activeTab === 'revenue' ? 'background: #3B82F6; color: white;' : 'color: #9CA3AF;'}
+          class="analytics-tab"
+          class:analytics-tab--active={activeTab === 'revenue'}
         >
-          💰 Revenue
+          <svg class="analytics-tab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          Revenue
         </button>
         <button
           type="button"
           on:click={() => handleTabChange('sync')}
-          class="px-4 py-2 rounded-full text-sm font-medium transition-all flex items-center gap-2"
-          style={activeTab === 'sync' ? 'background: #3B82F6; color: white;' : 'color: #9CA3AF;'}
+          class="analytics-tab"
+          class:analytics-tab--active={activeTab === 'sync'}
         >
-          🔄 Sync
+          <svg class="analytics-tab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Sync
           {#if $isAnySyncRunning}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
-              Running
-            </span>
+            <span class="analytics-tab__badge">Running</span>
           {/if}
         </button>
       </div>
@@ -338,9 +340,9 @@
   <div class="max-w-6xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
     <!-- Error display -->
     {#if $analyticsStore.error}
-      <div class="rounded-xl p-4 mb-6" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);">
+      <div class="rounded-xl p-4 mb-6 bg-red-500/15 border border-red-500/30">
         <div class="flex items-center gap-2 text-red-400">
-          <span>❌</span>
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <span>{$analyticsStore.error}</span>
           <button type="button" on:click={analyticsActions.clearError} class="ml-auto text-red-400 hover:text-red-300">
             Dismiss
@@ -350,9 +352,9 @@
     {/if}
 
     {#if $syncStore.error && activeTab === 'sync'}
-      <div class="rounded-xl p-4 mb-6" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);">
+      <div class="rounded-xl p-4 mb-6 bg-red-500/15 border border-red-500/30">
         <div class="flex items-center gap-2 text-red-400">
-          <span>❌</span>
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
           <span>{$syncStore.error}</span>
           <button type="button" on:click={syncActions.clearError} class="ml-auto text-red-400 hover:text-red-300">
             Dismiss
@@ -388,8 +390,8 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-blue-900/50">
-                👥
+              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-900/50">
+                <svg class="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.total_users)}</div>
@@ -400,8 +402,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-green-900/50">
-                🟢
+              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-green-900/50">
+                <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.active_users_today)}</div>
@@ -412,8 +414,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-red-900/50">
-                🚫
+              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-red-900/50">
+                <svg class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.total_blocked_artists)}</div>
@@ -424,8 +426,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl bg-purple-900/50">
-                🔔
+              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-purple-900/50">
+                <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.offense_detections_today)}</div>
@@ -468,8 +470,8 @@
               <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {
                 $isSystemHealthy ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
               }">
-                {systemHealth.overall === 'healthy' ? '💚 Healthy' :
-                 systemHealth.overall === 'degraded' ? '💛 Degraded' : '❤️ Unhealthy'}
+                {systemHealth.overall === 'healthy' ? 'Healthy' :
+                 systemHealth.overall === 'degraded' ? 'Degraded' : 'Unhealthy'}
               </span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -553,7 +555,8 @@
           <!-- Rising Artists -->
           <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <span>📈</span> Rising Artists
+              <svg class="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              Rising Artists
             </h2>
             {#if $risingArtists.length === 0}
               <p class="text-zinc-400 text-sm">No rising artists detected.</p>
@@ -578,7 +581,8 @@
           <!-- Falling Artists -->
           <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <span>📉</span> Falling Artists
+              <svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+              Falling Artists
             </h2>
             {#if $fallingArtists.length === 0}
               <p class="text-zinc-400 text-sm">No falling artists detected.</p>
@@ -642,8 +646,8 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-600 shadow-sm">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 bg-blue-900/50 rounded-full flex items-center justify-center text-xl">
-                🎧
+              <div class="w-12 h-12 bg-blue-900/50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-3v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="15" r="3"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">
@@ -656,8 +660,8 @@
 
           <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-600 shadow-sm">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 bg-green-900/50 rounded-full flex items-center justify-center text-xl">
-                💰
+              <div class="w-12 h-12 bg-green-900/50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">
@@ -670,8 +674,8 @@
 
           <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-600 shadow-sm">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 bg-red-900/50 rounded-full flex items-center justify-center text-xl">
-                ⚠️
+              <div class="w-12 h-12 bg-red-900/50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-red-400">
@@ -684,8 +688,8 @@
 
           <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-600 shadow-sm">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 bg-purple-900/50 rounded-full flex items-center justify-center text-xl">
-                📊
+              <div class="w-12 h-12 bg-purple-900/50 rounded-full flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-purple-400">
@@ -866,15 +870,15 @@
                 status?.status === 'error' ? 'bg-red-900/30 border-red-700' :
                 'bg-zinc-700 border-zinc-600'
               }">
-                <div class="text-2xl mb-2">{platform.icon}</div>
+                <div class="text-2xl mb-2">{platform.abbr}</div>
                 <div class="font-medium text-white">{platform.name}</div>
                 <div class="text-xs text-zinc-400 mt-1">
                   {#if status?.status === 'running'}
-                    <span class="text-blue-400">🔄 Syncing...</span>
+                    <span class="text-blue-400">Syncing...</span>
                   {:else if status?.artists_count}
                     {formatNumber(status.artists_count)} artists
                   {:else if platform.alwaysAvailable}
-                    <span class="text-green-400">✅ Ready</span>
+                    <span class="text-green-400">Ready</span>
                   {:else}
                     <span class="text-zinc-400">No credentials</span>
                   {/if}
@@ -916,7 +920,7 @@
                       : ''
                   }"
                 >
-                  {platform.icon} {platform.name}
+                  {platform.abbr} {platform.name}
                 </button>
               {/each}
             </div>
@@ -961,9 +965,9 @@
               <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
               Triggering...
             {:else if $isAnySyncRunning}
-              🔄 Sync in Progress...
+              Sync in Progress...
             {:else}
-              🚀 Start Catalog Sync
+              Start Catalog Sync
             {/if}
           </button>
         </div>
@@ -1019,8 +1023,8 @@
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="bg-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-zinc-600" on:click|stopPropagation role="document">
       <div class="flex items-center mb-6">
-        <div class="w-14 h-14 bg-purple-900/50 rounded-full flex items-center justify-center text-2xl mr-4">
-          📊
+        <div class="w-14 h-14 bg-purple-900/50 rounded-full flex items-center justify-center mr-4">
+          <svg class="w-7 h-7 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         </div>
         <div>
           <h3 class="text-xl font-bold text-white">Generate Report</h3>
@@ -1094,3 +1098,58 @@
     </div>
   </div>
 {/if}
+
+<style>
+  .analytics-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 1.5rem;
+  }
+
+  .analytics-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 150ms ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #9CA3AF;
+  }
+
+  .analytics-tab:hover {
+    color: #d1d5db;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .analytics-tab--active {
+    background: #3B82F6;
+    color: white;
+  }
+
+  .analytics-tab--active:hover {
+    background: #2563eb;
+    color: white;
+  }
+
+  .analytics-tab__icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .analytics-tab__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+  }
+</style>

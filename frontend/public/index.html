@@ -7,8 +7,27 @@
 	<title>No Drake in the House</title>
 
 	<link rel='icon' type='image/svg+xml' href='/favicon.svg'>
+
+	<!-- Preload DM Sans for fast rendering -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
 	<link rel='stylesheet' href='/global.css'>
 	<link rel='stylesheet' href='/build/bundle.css'>
+
+	<!-- FOUC prevention: set data-theme before first paint -->
+	<script>
+	(function() {
+		var stored = localStorage.getItem('theme-preference');
+		var theme;
+		if (stored === 'light' || stored === 'dark') {
+			theme = stored;
+		} else {
+			theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+		}
+		document.documentElement.setAttribute('data-theme', theme);
+	})();
+	</script>
 
 	<script defer src='/build/bundle.js'></script>
 </head>

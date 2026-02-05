@@ -5,26 +5,26 @@ html, body {
 }
 
 body {
-	color: #ffffff;
-	background-color: #000000;
+	color: var(--color-text-primary, #f0f0f2);
+	background-color: var(--color-bg-page, #0c0c0f);
 	margin: 0;
 	padding: 0;
 	box-sizing: border-box;
-	font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+	font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 a {
-	color: #f43f5e;
+	color: var(--color-brand-primary, #f43f5e);
 	text-decoration: none;
 }
 
 a:hover {
 	text-decoration: underline;
-	color: #fb7185;
+	opacity: 0.85;
 }
 
 a:visited {
-	color: #e11d48;
+	color: var(--color-brand-primary, #f43f5e);
 }
 
 label {

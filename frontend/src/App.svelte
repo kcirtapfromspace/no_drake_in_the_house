@@ -55,14 +55,14 @@
 </script>
 
 {#if !isInitialized}
-	<div class="min-h-screen flex items-center justify-center bg-gray-900">
+	<div class="min-h-screen flex items-center justify-center bg-zinc-900">
 		<div class="text-center">
 			<div class="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
 			<p class="mt-4 text-gray-400">Loading...</p>
 		</div>
 	</div>
 {:else if initError && !$isAuthenticated}
-	<div class="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4">
+	<div class="min-h-screen flex items-center justify-center bg-zinc-900 py-12 px-4">
 		<div class="max-w-md w-full text-center">
 			<div class="w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4">
 				<svg class="w-8 h-8 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -74,6 +74,7 @@
 				Unable to connect to the server. Please check your internet connection and try again.
 			</p>
 			<button
+				type="button"
 				on:click={handleRetry}
 				disabled={isRetrying}
 				class="px-6 py-3 bg-rose-500 hover:bg-rose-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
@@ -93,12 +94,13 @@
 {:else if $currentRoute === 'oauth-callback'}
 	<OAuthCallback />
 {:else if $currentRoute === 'oauth-error'}
-	<div class="min-h-screen flex items-center justify-center bg-gray-900 py-12 px-4">
+	<div class="min-h-screen flex items-center justify-center bg-zinc-900 py-12 px-4">
 		<div class="max-w-md w-full text-center">
 			<div class="text-red-500 text-6xl mb-4">!</div>
 			<h2 class="text-2xl font-bold text-white mb-2">Connection Failed</h2>
 			<p class="text-gray-400 mb-6">There was a problem connecting your account. Please try again.</p>
 			<button
+				type="button"
 				on:click={() => window.location.href = '/'}
 				class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
 			>
@@ -127,9 +129,3 @@
 {:else}
 	<Login />
 {/if}
-
-<style>
-	:global(body) {
-		background-color: rgb(17, 24, 39);
-	}
-</style>

@@ -126,6 +126,7 @@ plan-*.md
 *.kubeconfig
 kubeconfig
 .helm/
+.build-output/
 
 # ===================
 # Misc

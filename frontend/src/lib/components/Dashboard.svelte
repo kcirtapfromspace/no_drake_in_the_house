@@ -17,12 +17,12 @@
 
   // Common reasons for blocking
   const commonReasons = [
-    { label: 'Domestic violence', icon: '🚫' },
-    { label: 'Sexual misconduct', icon: '⚠️' },
-    { label: 'Hate speech', icon: '🗣️' },
-    { label: 'Criminal behavior', icon: '⚖️' },
-    { label: 'Harmful to children', icon: '👶' },
-    { label: 'Other', icon: '📝' },
+    { label: 'Domestic violence', icon: '\u2716' },
+    { label: 'Sexual misconduct', icon: '\u26A0' },
+    { label: 'Hate speech', icon: '\u2691' },
+    { label: 'Criminal behavior', icon: '\u2696' },
+    { label: 'Harmful to children', icon: '\u26D4' },
+    { label: 'Other', icon: '\u2710' },
   ];
 
   onMount(async () => {
@@ -89,9 +89,9 @@
   $: blockedArtists = $dnpStore.entries || [];
 </script>
 
-<div class="min-h-screen" style="background: linear-gradient(to bottom, #3f3f46, #27272a);">
+<div class="min-h-screen bg-gradient-page">
   <!-- Warm welcome header -->
-  <div style="background: #27272a; border-bottom: 2px solid #52525b;">
+  <div class="bg-zinc-800 border-b-2 border-zinc-700">
     <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
       <Breadcrumb />
       <h1 class="text-3xl font-bold text-white mb-2">
@@ -105,7 +105,7 @@
 
   <div class="max-w-4xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
     <!-- Main search card - the primary action -->
-    <div class="rounded-2xl shadow-lg p-6 mb-8" style="background: #27272a; border: 2px solid #52525b;">
+    <div class="rounded-2xl shadow-lg p-6 mb-8 surface-card" >
       <div class="text-center mb-6">
         <h2 class="text-xl font-semibold text-white mb-2">
           Block an Artist
@@ -117,14 +117,7 @@
 
       <!-- Search input -->
       <div class="relative max-w-xl mx-auto">
-        <input
-          type="text"
-          bind:value={searchQuery}
-          on:input={handleSearch}
-          placeholder="Search for an artist (e.g., Chris Brown, R. Kelly...)"
-          class="w-full px-5 py-4 text-lg rounded-lg text-zinc-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all"
-          style="background: #3f3f46; border: 2px solid #52525b;"
-        />
+        <input type="text" bind:value={searchQuery} on:input={handleSearch} placeholder="Search for an artist (e.g., Chris Brown, R. Kelly...)" class="w-full px-5 py-4 text-lg rounded-lg text-zinc-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all surface-panel" />
         {#if isSearching}
           <div class="absolute right-4 top-1/2 -translate-y-1/2">
             <div class="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
@@ -139,10 +132,10 @@
             <button
               type="button"
               on:click={() => openBlockModal(artist)}
-              class="w-full flex items-center p-4 hover:bg-indigo-900 rounded-xl transition-colors text-left group"
-              style="background: #3f3f46;"
+              class="w-full flex items-center p-4 hover:bg-indigo-900 rounded-xl transition-colors text-left group bg-zinc-700"
+             
             >
-              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl mr-4" style="background: #52525b;">
+              <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl mr-4 bg-zinc-600">
                 🎤
               </div>
               <div class="flex-1">
@@ -172,10 +165,10 @@
 
     <!-- Stats row -->
     <div class="grid grid-cols-2 gap-4 mb-8">
-      <div class="rounded-xl p-5 shadow-sm" style="background: #27272a; border: 2px solid #52525b;">
+      <div class="rounded-xl p-5 shadow-sm surface-card" >
         <div class="flex items-center">
-          <div class="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center text-2xl mr-4">
-            🚫
+          <div class="w-12 h-12 bg-red-900/50 rounded-full flex items-center justify-center mr-4">
+            <svg class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
           </div>
           <div>
             <div class="text-2xl font-bold text-white">{$dnpCount}</div>
@@ -187,12 +180,16 @@
       <button
         type="button"
         on:click={() => navigateTo('connections')}
-        class="rounded-xl p-5 shadow-sm hover:border-indigo-200 transition-colors text-left"
-        style="background: #27272a; border: 2px solid #52525b;"
+        class="rounded-xl p-5 shadow-sm hover:border-indigo-200 transition-colors text-left surface-card"
+       
       >
         <div class="flex items-center">
-          <div class="w-12 h-12 {$hasActiveSpotifyConnection ? 'bg-green-100' : 'bg-yellow-100'} rounded-full flex items-center justify-center text-2xl mr-4">
-            {$hasActiveSpotifyConnection ? '✅' : '🔗'}
+          <div class="w-12 h-12 {$hasActiveSpotifyConnection ? 'bg-green-900/50' : 'bg-yellow-900/50'} rounded-full flex items-center justify-center mr-4">
+            {#if $hasActiveSpotifyConnection}
+              <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            {:else}
+              <svg class="w-6 h-6 text-yellow-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            {/if}
           </div>
           <div>
             <div class="text-lg font-semibold text-white">
@@ -222,10 +219,10 @@
 
         <div class="space-y-3">
           {#each blockedArtists.slice(0, 5) as entry}
-            <div class="rounded-xl p-4 shadow-sm" style="background: #27272a; border: 2px solid #52525b;">
+            <div class="rounded-xl p-4 shadow-sm surface-card" >
               <div class="flex items-start">
-                <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-lg mr-3 flex-shrink-0">
-                  🚫
+                <div class="w-10 h-10 bg-red-900/50 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                  <svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="font-medium text-white">{entry.artist.canonical_name}</div>
@@ -235,7 +232,7 @@
                   {#if entry.tags?.length}
                     <div class="flex flex-wrap gap-1 mt-2">
                       {#each entry.tags.slice(0, 3) as tag}
-                        <span class="px-2 py-0.5 text-zinc-300 text-xs rounded-full" style="background: #3f3f46;">
+                        <span class="px-2 py-0.5 text-zinc-300 text-xs rounded-full bg-zinc-700" >
                           {tag}
                         </span>
                       {/each}
@@ -249,8 +246,8 @@
       </div>
     {:else}
       <!-- Empty state with guidance -->
-      <div class="rounded-2xl p-8 text-center mb-8" style="background: linear-gradient(to bottom right, #3f3f46, #52525b);">
-        <div class="text-5xl mb-4">🎵</div>
+      <div class="rounded-2xl p-8 text-center mb-8 bg-gradient-card">
+        <div class="mb-4"><svg class="w-12 h-12 text-zinc-500 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-3v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="15" r="3"/></svg></div>
         <h3 class="text-xl font-semibold text-white mb-2">
           Your blocklist is empty
         </h3>
@@ -264,12 +261,12 @@
     <button
       type="button"
       on:click={() => navigateTo('community')}
-      class="w-full rounded-2xl p-6 shadow-sm hover:border-indigo-200 transition-colors text-left"
-      style="background: #27272a; border: 2px solid #52525b;"
+      class="w-full rounded-2xl p-6 shadow-sm hover:border-indigo-200 transition-colors text-left surface-card"
+     
     >
       <div class="flex items-center">
-        <div class="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center text-2xl mr-4">
-          👥
+        <div class="w-14 h-14 bg-purple-900/50 rounded-xl flex items-center justify-center mr-4">
+          <svg class="w-7 h-7 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
         </div>
         <div class="flex-1">
           <h3 class="font-semibold text-white mb-1">Community Lists</h3>
@@ -286,10 +283,10 @@
 <!-- Block Modal -->
 {#if showBlockModal && selectedArtist}
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" on:click={closeBlockModal} role="dialog" aria-modal="true">
-    <div class="rounded-2xl max-w-lg w-full p-6 shadow-xl" style="background: #27272a;" on:click|stopPropagation role="document">
+    <div class="rounded-2xl max-w-lg w-full p-6 shadow-xl bg-zinc-800" on:click|stopPropagation role="document">
       <div class="flex items-center mb-6">
-        <div class="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-2xl mr-4">
-          🚫
+        <div class="w-14 h-14 bg-red-900/50 rounded-full flex items-center justify-center mr-4">
+          <svg class="w-7 h-7 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         </div>
         <div>
           <h3 class="text-xl font-bold text-white">Block {selectedArtist.canonical_name}</h3>
@@ -321,24 +318,12 @@
         <label for="evidence" class="block text-sm font-medium text-zinc-300 mb-2">
           Add evidence or news link (optional)
         </label>
-        <textarea
-          id="evidence"
-          bind:value={blockEvidence}
-          placeholder="Paste a news article link or describe what happened..."
-          rows="3"
-          class="w-full px-4 py-3 rounded-lg text-zinc-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-none"
-          style="background: #3f3f46; border: 2px solid #52525b;"
-        ></textarea>
+        <textarea id="evidence" bind:value={blockEvidence} placeholder="Paste a news article link or describe what happened..." rows="3" class="w-full px-4 py-3 rounded-lg text-zinc-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 resize-none surface-panel" ></textarea>
       </div>
 
       <!-- Actions -->
       <div class="flex gap-3">
-        <button
-          type="button"
-          on:click={closeBlockModal}
-          class="flex-1 px-4 py-3 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium transition-colors"
-          style="background: #3f3f46; border: 2px solid #52525b;"
-        >
+        <button type="button" on:click={closeBlockModal} class="flex-1 px-4 py-3 text-zinc-300 rounded-lg hover:bg-zinc-700 font-medium transition-colors surface-panel" >
           Cancel
         </button>
         <button

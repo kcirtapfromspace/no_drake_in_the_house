@@ -10,15 +10,15 @@
   let showAddForm = false;
   let selectedEntries = new Set();
 
-  $: filteredEntries = ($dnpStore.entries && Array.isArray($dnpStore.entries)) 
+  $: filteredEntries = ($dnpStore.entries && Array.isArray($dnpStore.entries))
     ? $dnpStore.entries.filter(entry => {
-        const matchesSearch = !searchQuery || 
-          entry.artist.canonical_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          entry.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          (entry.note && entry.note.toLowerCase().includes(searchQuery.toLowerCase()));
-        
-        const matchesTag = !selectedTag || entry.tags.includes(selectedTag);
-        
+        const matchesSearch = !searchQuery ||
+          entry.artist?.canonical_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          entry.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          entry.note?.toLowerCase().includes(searchQuery.toLowerCase());
+
+        const matchesTag = !selectedTag || entry.tags?.includes(selectedTag);
+
         return matchesSearch && matchesTag;
       })
     : [];
@@ -74,7 +74,7 @@
           Manage artists you want to avoid across your streaming services.
         </p>
       </div>
-      <button
+      <button type="button"
         on:click={() => showAddForm = !showAddForm}
         class="flex items-center px-4 py-2 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
@@ -88,14 +88,14 @@
 
   <!-- Add Artist Form -->
   {#if showAddForm}
-    <div class="mb-6 shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
+    <div class="mb-6 shadow rounded-uswds-lg p-uswds-6 bg-zinc-800" >
       <h3 class="text-zinc-400 font-medium text-white mb-4">Add Artist to DNP List</h3>
       <ArtistSearch on:artistAdded={handleArtistAdded} />
     </div>
   {/if}
 
   <!-- Filters and Search -->
-  <div class="mb-6 shadow rounded-uswds-lg p-uswds-4" style="background: #27272a;">
+  <div class="mb-6 shadow rounded-uswds-lg p-uswds-4 bg-zinc-800" >
     <div class="flex flex-col sm:flex-row gap-uswds-4">
       <div class="flex-1">
         <label for="search" class="sr-only">Search artists</label>
@@ -105,25 +105,13 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <input
-            id="search"
-            bind:value={searchQuery}
-            type="text"
-            placeholder="Search artists, tags, or notes..."
-            class="block w-full pl-10 pr-3 py-2 rounded-lg leading-5 text-zinc-300 placeholder-zinc-500 focus:outline-none focus:placeholder-zinc-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400"
-            style="background: #3f3f46; border: 2px solid #52525b;"
-          />
+          <input id="search" bind:value={searchQuery} type="text" placeholder="Search artists, tags, or notes..." class="block w-full pl-10 pr-3 py-2 rounded-lg leading-5 text-zinc-300 placeholder-zinc-500 focus:outline-none focus:placeholder-zinc-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400 surface-panel" />
         </div>
       </div>
       
       <div class="sm:w-48">
         <label for="tag-filter" class="sr-only">Filter by tag</label>
-        <select
-          id="tag-filter"
-          bind:value={selectedTag}
-          class="block w-full pl-3 pr-10 py-2 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400 rounded-lg"
-          style="background: #3f3f46; border: 2px solid #52525b;"
-        >
+        <select id="tag-filter" bind:value={selectedTag} class="block w-full pl-3 pr-10 py-2 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400 rounded-lg surface-panel" >
           <option value="">All tags</option>
           {#each $dnpTags as tag}
             <option value={tag}>{tag}</option>
@@ -145,7 +133,7 @@
   {/if}
 
   <!-- DNP List -->
-  <div class="shadow overflow-hidden sm:rounded-uswds-md" style="background: #27272a;">
+  <div class="shadow overflow-hidden sm:rounded-uswds-md bg-zinc-800" >
     {#if $dnpStore.isLoading}
       <div class="p-6" role="status" aria-label="Loading DNP list">
         <div class="space-y-4">
@@ -161,7 +149,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <p class="mt-2 text-zinc-300">{$dnpStore.error}</p>
-        <button
+        <button type="button"
           on:click={() => dnpActions.fetchDnpList()}
           class="mt-2 text-zinc-400 text-primary hover:text-indigo-500"
         >
@@ -177,7 +165,7 @@
           <h3 class="mt-2 text-zinc-400 font-medium text-white">No artists in your DNP list</h3>
           <p class="mt-1 text-zinc-300">Get started by adding artists you want to avoid.</p>
           <div class="mt-6">
-            <button
+            <button type="button"
               on:click={() => showAddForm = true}
               class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-zinc-400 font-medium rounded-uswds-md text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
@@ -196,7 +184,7 @@
         {/if}
       </div>
     {:else}
-      <div class="px-4 py-3 sm:px-6" style="background: #3f3f46; border-bottom: 2px solid #52525b;">
+      <div class="px-4 py-3 sm:px-6 bg-zinc-700 border-b-2 border-zinc-700" >
         <div class="flex items-center justify-between">
           <div class="flex items-center">
             <input
@@ -204,8 +192,8 @@
               type="checkbox"
               checked={selectedEntries.size === filteredEntries.length && filteredEntries.length > 0}
               on:change={toggleSelectAll}
-              class="icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg"
-              style="border: 2px solid #52525b;"
+              class="icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg border-2 border-zinc-700"
+             
             />
             <label for="select-all" class="ml-3 text-zinc-300">
               {filteredEntries.length} artist{filteredEntries.length !== 1 ? 's' : ''}
@@ -216,7 +204,7 @@
           </div>
           
           {#if searchQuery || selectedTag}
-            <button
+            <button type="button"
               on:click={() => { searchQuery = ''; selectedTag = ''; }}
               class="text-zinc-400 text-indigo-600 hover:text-indigo-500"
             >
@@ -240,7 +228,7 @@
 
   <!-- Stats -->
   {#if $dnpStore.entries.length > 0}
-    <div class="mt-6 rounded-uswds-lg p-uswds-4" style="background: #3f3f46;">
+    <div class="mt-6 rounded-uswds-lg p-uswds-4 bg-zinc-700" >
       <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-3">
         <div class="text-center">
           <div class="text-2xl font-bold text-white">{$dnpStore.entries.length}</div>

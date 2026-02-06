@@ -806,7 +806,7 @@
   }
 
   function determineEvidenceStrength(evidence: any[]): 'strong' | 'moderate' | 'weak' {
-    if (!evidence.length) return 'weak';
+    if (!evidence?.length) return 'weak';
     const tierACount = evidence.filter(e =>
       e.source_type === 'court_record' || e.tier === 'tier_a'
     ).length;

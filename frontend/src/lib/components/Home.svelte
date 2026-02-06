@@ -166,7 +166,7 @@
   async function loadDnpList() {
     try {
       const result = await apiClient.get<Array<{artist_id: string}>>('/api/v1/dnp/list');
-      if (result.success && result.data) {
+      if (result.success && Array.isArray(result.data)) {
         dnpList = new Set(result.data.map(item => item.artist_id));
       }
     } catch (e) {

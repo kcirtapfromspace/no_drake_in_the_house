@@ -462,67 +462,8 @@
           </div>
         {/if}
 
-        <!-- System Health -->
-        {#if systemHealth}
-          <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm mb-8">
-            <div class="flex items-center justify-between mb-4">
-              <h2 class="text-lg font-semibold text-white">System Health</h2>
-              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium {
-                $isSystemHealthy ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'
-              }">
-                {systemHealth.overall === 'healthy' ? 'Healthy' :
-                 systemHealth.overall === 'degraded' ? 'Degraded' : 'Unhealthy'}
-              </span>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases?.postgres)}>
-                  {getHealthIcon(systemHealth.databases?.postgres)}
-                </div>
-                <div class="text-sm font-medium mt-1 text-white">PostgreSQL</div>
-                {#if systemHealth.latencies_ms?.postgres}
-                  <div class="text-xs text-zinc-400">{systemHealth.latencies_ms.postgres}ms</div>
-                {/if}
-              </div>
-              <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases?.redis)}>
-                  {getHealthIcon(systemHealth.databases?.redis)}
-                </div>
-                <div class="text-sm font-medium mt-1 text-white">Redis</div>
-                {#if systemHealth.latencies_ms?.redis}
-                  <div class="text-xs text-zinc-400">{systemHealth.latencies_ms.redis}ms</div>
-                {/if}
-              </div>
-              <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases?.duckdb)}>
-                  {getHealthIcon(systemHealth.databases?.duckdb)}
-                </div>
-                <div class="text-sm font-medium mt-1 text-white">DuckDB</div>
-                {#if systemHealth.latencies_ms?.duckdb}
-                  <div class="text-xs text-zinc-400">{systemHealth.latencies_ms.duckdb}ms</div>
-                {/if}
-              </div>
-              <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases?.kuzu)}>
-                  {getHealthIcon(systemHealth.databases?.kuzu)}
-                </div>
-                <div class="text-sm font-medium mt-1 text-white">Kuzu</div>
-                {#if systemHealth.latencies_ms?.kuzu}
-                  <div class="text-xs text-zinc-400">{systemHealth.latencies_ms.kuzu}ms</div>
-                {/if}
-              </div>
-              <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases?.lancedb)}>
-                  {getHealthIcon(systemHealth.databases?.lancedb)}
-                </div>
-                <div class="text-sm font-medium mt-1 text-white">LanceDB</div>
-                {#if systemHealth.latencies_ms?.lancedb}
-                  <div class="text-xs text-zinc-400">{systemHealth.latencies_ms.lancedb}ms</div>
-                {/if}
-              </div>
-            </div>
-          </div>
-        {/if}
+        <!-- System Health - Hidden from users (admin-only feature) -->
+        <!-- TODO: Move to admin dashboard when implemented -->
 
         <!-- Trend Summary -->
         {#if trendSummary}

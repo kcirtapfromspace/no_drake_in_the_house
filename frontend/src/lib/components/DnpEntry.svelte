@@ -73,7 +73,7 @@
     const badges = [];
     if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-100 text-green-800' });
     if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
-    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-blue-100 text-blue-800' });
+    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-indigo-100 text-indigo-300' });
     return badges;
   }
 
@@ -86,22 +86,16 @@
   <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
     <!-- Mobile: Checkbox and Actions Row -->
     <div class="flex items-center justify-between sm:hidden">
-      <input
-        type="checkbox"
-        checked={selected}
-        on:change={toggleSelect}
-        class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 rounded-lg"
-        style="border: 2px solid #52525b;"
-      />
+      <input type="checkbox" checked={selected} on:change={toggleSelect} class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 rounded-lg border border-zinc-700" />
       <div class="flex items-center space-x-2">
         {#if !isEditing}
-          <button
+          <button type="button"
             on:click={startEdit}
             class="text-indigo-600 hover:text-indigo-900 text-zinc-400"
           >
             Edit
           </button>
-          <button
+          <button type="button"
             on:click={removeArtist}
             disabled={isRemoving}
             class="text-zinc-400 hover:text-red-900 text-zinc-400 disabled:opacity-50"
@@ -113,13 +107,7 @@
     </div>
 
     <!-- Desktop: Checkbox -->
-    <input
-      type="checkbox"
-      checked={selected}
-      on:change={toggleSelect}
-      class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg"
-      style="border: 2px solid #52525b;"
-    />
+    <input type="checkbox" checked={selected} on:change={toggleSelect} class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg border border-zinc-700" />
 
     <!-- Artist Image -->
     <div class="flex-shrink-0">
@@ -146,7 +134,7 @@
             {entry.artist.canonical_name}
           </p>
           
-          {#if entry.artist.metadata.genres && entry.artist.metadata.genres.length > 0}
+          {#if entry.artist?.metadata?.genres?.length > 0}
             <p class="text-zinc-300 truncate">
               {entry.artist.metadata.genres.slice(0, 2).join(', ')}
             </p>
@@ -172,13 +160,13 @@
         <!-- Desktop Actions -->
         <div class="hidden sm:flex items-center space-x-2 ml-4">
           {#if !isEditing}
-            <button
+            <button type="button"
               on:click={startEdit}
               class="text-indigo-600 hover:text-indigo-900 text-zinc-400 whitespace-nowrap"
             >
               Edit
             </button>
-            <button
+            <button type="button"
               on:click={removeArtist}
               disabled={isRemoving}
               class="text-zinc-400 hover:text-red-900 text-zinc-400 disabled:opacity-50 whitespace-nowrap"
@@ -216,26 +204,12 @@
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-uswds-3">
             <div>
               <label for="edit-tags-{entry.artist.id}" class="block text-zinc-400 font-medium text-zinc-300">Tags</label>
-              <input
-                id="edit-tags-{entry.artist.id}"
-                type="text"
-                bind:value={editTags}
-                placeholder="comma-separated tags"
-                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                style="background: #3f3f46; border: 2px solid #52525b;"
-              />
+              <input id="edit-tags-{entry.artist.id}" type="text" bind:value={editTags} placeholder="comma-separated tags" class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 surface-panel" />
             </div>
             
             <div class="sm:col-span-2">
               <label for="edit-note-{entry.artist.id}" class="block text-zinc-400 font-medium text-zinc-300">Note</label>
-              <textarea
-                id="edit-note-{entry.artist.id}"
-                bind:value={editNote}
-                rows="2"
-                placeholder="Personal note..."
-                class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                style="background: #3f3f46; border: 2px solid #52525b;"
-              ></textarea>
+              <textarea id="edit-note-{entry.artist.id}" bind:value={editNote} rows="2" placeholder="Personal note..." class="mt-1 block w-full rounded-lg px-2 py-1 text-zinc-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 surface-panel" ></textarea>
             </div>
           </div>
 
@@ -244,12 +218,7 @@
           {/if}
 
           <div class="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
-            <button
-              type="button"
-              on:click={cancelEdit}
-              class="w-full sm:w-auto px-3 py-2 sm:py-1 rounded-lg text-zinc-400 sm:text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700"
-              style="background: #3f3f46; border: 2px solid #52525b;"
-            >
+            <button type="button" on:click={cancelEdit} class="w-full sm:w-auto px-3 py-2 sm:py-1 rounded-lg text-zinc-400 sm:text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700 surface-panel" >
               Cancel
             </button>
             <button

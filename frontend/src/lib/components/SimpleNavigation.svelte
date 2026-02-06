@@ -18,6 +18,7 @@
   function handleNavigation(route: Route) {
     navigateTo(route);
     mobileMenuOpen = false;
+    userMenuOpen = false;
   }
 
   async function handleLogout() {
@@ -44,7 +45,7 @@
 
 <svelte:window on:click={handleClickOutside} />
 
-<nav class="shadow-sm sticky top-0 z-50" style="background: #27272a; border-bottom: 1px solid #52525b;">
+<nav class="shadow-sm sticky top-0 z-50 bg-zinc-800 border-b border-zinc-700" >
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="flex justify-between h-16">
       <!-- Logo and main navigation -->
@@ -126,8 +127,8 @@
           </button>
 
           {#if userMenuOpen}
-            <div class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-50" style="background: #27272a; border: 1px solid #52525b;">
-              <div class="px-4 py-2" style="border-bottom: 1px solid #52525b;">
+            <div class="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 z-50 surface-card-thin" >
+              <div class="px-4 py-2 border-b border-zinc-700" >
                 <p class="text-sm font-medium text-white truncate">{$currentUser?.email || 'User'}</p>
               </div>
               <button
@@ -178,7 +179,7 @@
 
   <!-- Mobile navigation -->
   {#if mobileMenuOpen}
-    <div class="md:hidden" style="border-top: 1px solid #52525b; background: #27272a;">
+    <div class="md:hidden bg-zinc-800 border-t border-zinc-700">
       <div class="px-2 pt-2 pb-3 space-y-1">
         {#each navItems as item}
           <button
@@ -225,7 +226,7 @@
       </div>
 
       <!-- Mobile user section -->
-      <div class="px-4 py-4" style="border-top: 1px solid #52525b;">
+      <div class="px-4 py-4 border-t border-zinc-700" >
         <div class="flex items-center mb-3">
           <div class="w-10 h-10 rounded-full bg-indigo-900 flex items-center justify-center">
             <span class="text-indigo-300 font-medium">

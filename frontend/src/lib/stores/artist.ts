@@ -349,7 +349,7 @@ export function getStatusColor(status: ArtistStatus): { bg: string; text: string
     case 'flagged':
       return { bg: '#DC2626', text: '#FFFFFF', border: '#EF4444' };
     case 'certified_creeper':
-      return { bg: '#DB2777', text: '#FFFFFF', border: '#EC4899' }; // Pink for certified creeper
+      return { bg: '#DB2777', text: '#FFFFFF', border: '#EC4899' };
     case 'clean':
       return { bg: '#10B981', text: '#FFFFFF', border: '#34D399' };
     default:
@@ -460,18 +460,18 @@ export function getEvidenceStrengthLabel(strength: EvidenceStrength): { label: s
   }
 }
 
-// Category colors matching the design system
-export const CATEGORY_COLORS: Record<string, { icon: string; bg: string; name: string }> = {
-  violence_physical_harm: { icon: '#DC2626', bg: 'rgba(220, 38, 38, 0.15)', name: 'Violence & Physical Harm' },
-  sexual_misconduct: { icon: '#DB2777', bg: 'rgba(219, 39, 119, 0.15)', name: 'Sexual Misconduct' },
-  exploitation_abuse: { icon: '#9333EA', bg: 'rgba(147, 51, 234, 0.15)', name: 'Exploitation & Abuse' },
-  hate_extremism: { icon: '#7C3AED', bg: 'rgba(124, 58, 237, 0.15)', name: 'Hate & Extremism' },
-  fraud_financial: { icon: '#059669', bg: 'rgba(5, 150, 105, 0.15)', name: 'Fraud & Financial Crime' },
-  weapons_organized_crime: { icon: '#B91C1C', bg: 'rgba(185, 28, 28, 0.15)', name: 'Weapons & Organized Crime' },
-  harassment_coercion: { icon: '#EA580C', bg: 'rgba(234, 88, 12, 0.15)', name: 'Harassment & Coercion' },
-  substance_trafficking: { icon: '#0891B2', bg: 'rgba(8, 145, 178, 0.15)', name: 'Substance & Trafficking' },
-  legal_proceedings: { icon: '#4B5563', bg: 'rgba(75, 85, 99, 0.15)', name: 'Legal Proceedings' },
-  reputational_risk: { icon: '#6B7280', bg: 'rgba(107, 114, 128, 0.15)', name: 'Reputational Risk (Non-Criminal)' },
+// Category colors - vibrant for dark backgrounds
+export const CATEGORY_COLORS: Record<string, { icon: string; bg: string; cardBg: string; name: string }> = {
+  violence_physical_harm: { icon: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', cardBg: '#0c0606', name: 'Violence & Physical Harm' },
+  sexual_misconduct: { icon: '#EC4899', bg: 'rgba(236, 72, 153, 0.15)', cardBg: '#0c060a', name: 'Sexual Misconduct' },
+  exploitation_abuse: { icon: '#A855F7', bg: 'rgba(168, 85, 247, 0.15)', cardBg: '#0a060c', name: 'Exploitation & Abuse' },
+  hate_extremism: { icon: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.15)', cardBg: '#08060c', name: 'Hate & Extremism' },
+  fraud_financial: { icon: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', cardBg: '#060c0a', name: 'Fraud & Financial Crime' },
+  weapons_organized_crime: { icon: '#DC2626', bg: 'rgba(220, 38, 38, 0.15)', cardBg: '#0c0505', name: 'Weapons & Organized Crime' },
+  harassment_coercion: { icon: '#F97316', bg: 'rgba(249, 115, 22, 0.15)', cardBg: '#0c0806', name: 'Harassment & Coercion' },
+  substance_trafficking: { icon: '#06B6D4', bg: 'rgba(6, 182, 212, 0.15)', cardBg: '#060a0c', name: 'Substance & Trafficking' },
+  legal_proceedings: { icon: '#6B7280', bg: 'rgba(107, 114, 128, 0.15)', cardBg: '#080808', name: 'Legal Proceedings' },
+  reputational_risk: { icon: '#9CA3AF', bg: 'rgba(156, 163, 175, 0.15)', cardBg: '#080808', name: 'Reputational Risk (Non-Criminal)' },
 };
 
 export function getCategoryColor(categoryId: string): { icon: string; bg: string; name: string } {

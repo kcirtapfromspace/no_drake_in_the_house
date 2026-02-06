@@ -38,8 +38,9 @@
   }
 
   function getSuccessRate(batch: any) {
-    const total = batch.summary.totalItems;
-    const completed = batch.summary.completedItems;
+    if (!batch?.summary) return 0;
+    const total = batch.summary.totalItems ?? 0;
+    const completed = batch.summary.completedItems ?? 0;
     return total > 0 ? Math.round((completed / total) * 100) : 0;
   }
 </script>
@@ -76,15 +77,15 @@
     </div>
   {:else}
     <!-- History List -->
-    <div class="overflow-hidden rounded-lg" style="background: #27272a; border: 2px solid #52525b;">
-      <ul class="divide-y" style="border-color: #3f3f46;">
+    <div class="overflow-hidden rounded-lg surface-card" >
+    <ul class="divide-y divide-zinc-800">
         {#each actionHistory as batch}
           <li>
             <div class="px-4 py-4 sm:px-6">
               <div class="flex items-center justify-between">
                 <div class="flex items-center">
                   <div class="flex-shrink-0">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: rgba(244, 63, 94, 0.15);">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-rose-500/15">
                       <svg class="w-5 h-5 text-rose-400" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
                       </svg>
@@ -129,8 +130,8 @@
                     <button
                       type="button"
                       on:click={() => rollbackBatch(batch.id)}
-                      class="inline-flex items-center px-3 py-2 text-sm leading-4 font-medium rounded-lg text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-                      style="background: #3f3f46; border: 1px solid #52525b;"
+                      class="inline-flex items-center px-3 py-2 text-sm leading-4 font-medium rounded-lg text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 surface-panel-thin"
+                     
                     >
                       <svg aria-hidden="true" class="-ml-0.5 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -144,19 +145,19 @@
               <!-- Detailed Stats -->
               <div class="mt-4">
                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div class="text-center p-2 rounded-lg" style="background: #3f3f46;">
+                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
                     <div class="text-lg font-semibold text-white">{batch.summary.totalItems}</div>
                     <div class="text-xs text-zinc-400">Total</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg" style="background: #3f3f46;">
+                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
                     <div class="text-lg font-semibold text-green-400">{batch.summary.completedItems}</div>
                     <div class="text-xs text-zinc-400">Completed</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg" style="background: #3f3f46;">
+                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
                     <div class="text-lg font-semibold text-red-400">{batch.summary.failedItems}</div>
                     <div class="text-xs text-zinc-400">Failed</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg" style="background: #3f3f46;">
+                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
                     <div class="text-lg font-semibold text-yellow-400">{batch.summary.skippedItems}</div>
                     <div class="text-xs text-zinc-400">Skipped</div>
                   </div>
@@ -164,7 +165,7 @@
               </div>
 
               <!-- Options Used -->
-              <div class="mt-3 pt-3" style="border-top: 1px solid #3f3f46;">
+              <div class="mt-3 pt-3 border-t border-zinc-700" >
                 <div class="text-xs text-zinc-400">
                   <span class="font-medium text-zinc-300">Options:</span>
                   {batch.options.aggressiveness} aggressiveness
@@ -181,10 +182,10 @@
   {/if}
 
   <!-- Info Box -->
-  <div class="rounded-lg p-4" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4);">
+  <div class="rounded-lg p-4 bg-indigo-900/30 border border-rose-500/40" >
     <div class="flex">
       <div class="flex-shrink-0">
-        <svg aria-hidden="true" class="w-5 h-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+        <svg aria-hidden="true" class="w-5 h-5 text-rose-400" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
         </svg>
       </div>

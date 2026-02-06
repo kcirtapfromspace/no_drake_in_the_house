@@ -55,9 +55,9 @@
 
   function getProviderBadges(artist: any) {
     const badges = [];
-    if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'text-green-400 bg-green-400/15' });
-    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'text-zinc-300 bg-zinc-300/15' });
-    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'text-blue-400 bg-blue-400/15' });
+    if (artist?.external_ids?.spotify) badges.push({ name: 'Spotify', color: 'text-green-400 bg-green-400/15' });
+    if (artist?.external_ids?.apple) badges.push({ name: 'Apple', color: 'text-zinc-300 bg-zinc-300/15' });
+    if (artist?.external_ids?.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'text-blue-400 bg-blue-400/15' });
     return badges;
   }
 </script>
@@ -65,7 +65,7 @@
 {#if list}
   <div class="space-y-6">
     <!-- Header -->
-    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+    <div class="rounded-lg p-6 surface-card" >
       <div class="flex items-center justify-between mb-4">
         <button
           type="button"
@@ -94,15 +94,15 @@
           <p class="mt-2 text-zinc-300">{list.description}</p>
 
           <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+            <div class="text-center p-3 rounded-lg bg-zinc-700" >
               <div class="text-lg font-semibold text-white">{list.artists?.length || 0}</div>
               <div class="text-sm text-zinc-400">Artists</div>
             </div>
-            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+            <div class="text-center p-3 rounded-lg bg-zinc-700" >
               <div class="text-lg font-semibold text-white">{list.subscriber_count || 0}</div>
               <div class="text-sm text-zinc-400">Subscribers</div>
             </div>
-            <div class="text-center p-3 rounded-lg" style="background: #3f3f46;">
+            <div class="text-center p-3 rounded-lg bg-zinc-700" >
               <div class="text-lg font-semibold text-white">{list.update_cadence}</div>
               <div class="text-sm text-zinc-400">Updates</div>
             </div>
@@ -136,7 +136,7 @@
 
     <!-- Subscription Options Modal -->
     {#if showSubscriptionOptions}
-      <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #f43f5e;">
+      <div class="rounded-lg p-6 bg-zinc-800 border-2 border-rose-500">
         <h3 class="text-lg font-medium text-white mb-4">Subscription Options</h3>
 
         <div class="space-y-4">
@@ -194,8 +194,8 @@
           <button
             type="button"
             on:click={() => showSubscriptionOptions = false}
-            class="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-            style="background: #3f3f46; border: 1px solid #52525b;"
+            class="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 surface-panel-thin"
+           
           >
             Cancel
           </button>
@@ -211,7 +211,7 @@
     {/if}
 
     <!-- Criteria and Governance -->
-    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+    <div class="rounded-lg p-6 surface-card" >
       <h3 class="text-lg font-medium text-white mb-4">List Criteria & Governance</h3>
 
       <div class="space-y-4">
@@ -248,7 +248,7 @@
     </div>
 
     <!-- Artists List -->
-    <div class="rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+    <div class="rounded-lg p-6 surface-card" >
       <h3 class="text-lg font-medium text-white mb-4">
         Artists ({list.artists?.length || 0})
       </h3>
@@ -264,7 +264,7 @@
       {:else if list.artists && list.artists.length > 0}
         <div class="space-y-3 max-h-96 overflow-y-auto">
           {#each list.artists as item}
-            <div class="flex items-center justify-between py-3 px-4 rounded-lg" style="background: #3f3f46;">
+            <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-zinc-700" >
               <div class="flex items-center space-x-3">
                 {#if item.artist.metadata.image}
                   <img
@@ -273,7 +273,7 @@
                     class="w-10 h-10 rounded-full object-cover"
                   />
                 {:else}
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center" style="background: #52525b;">
+                  <div class="w-10 h-10 rounded-full flex items-center justify-center bg-zinc-600">
                     <svg aria-hidden="true" class="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>

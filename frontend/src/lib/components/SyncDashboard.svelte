@@ -27,7 +27,7 @@
 
   function getStatusColor(status: string): string {
     switch (status) {
-      case 'running': return 'bg-blue-500/20 text-blue-400';
+      case 'running': return 'bg-rose-500/10 text-rose-400';
       case 'completed': return 'bg-green-500/20 text-green-400';
       case 'error': case 'failed': return 'bg-red-500/20 text-red-400';
       case 'cancelled': return 'bg-zinc-500/20 text-zinc-300';
@@ -163,12 +163,12 @@
             </div>
           </div>
           <div class="flex items-center gap-4 text-sm text-zinc-400">
-            {#each $syncStore.health.platforms as platform}
+            {#each ($syncStore.health?.platforms || []) as platform}
               <div class="flex items-center gap-1">
-                <span class={platform.is_healthy ? 'text-green-500' : 'text-red-500'}>
-                  {platform.is_healthy ? '●' : '○'}
+                <span class={platform?.is_healthy ? 'text-green-500' : 'text-red-500'}>
+                  {platform?.is_healthy ? '●' : '○'}
                 </span>
-                <span class="capitalize">{platform.platform}</span>
+                <span class="capitalize">{platform?.platform || 'unknown'}</span>
               </div>
             {/each}
           </div>
@@ -277,7 +277,7 @@
                     <span class="capitalize font-medium">{run.platform}</span>
                   </td>
                   <td class="px-4 py-3">
-                    <span class="px-2 py-0.5 rounded text-xs {run.sync_type === 'full' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+                    <span class="px-2 py-0.5 rounded text-xs {run.sync_type === 'full' ? 'bg-purple-100 text-purple-700' : 'bg-indigo-100 text-indigo-300'}">
                       {run.sync_type}
                     </span>
                   </td>

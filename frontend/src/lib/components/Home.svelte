@@ -75,14 +75,14 @@
     }
   }
 
-  $: uniqueBlockedArtists = blockedArtists.reduce((acc, artist) => {
+  $: uniqueBlockedArtists = (blockedArtists || []).reduce((acc, artist) => {
     if (!acc.some(a => a.id === artist.id) && !exceptedArtists.has(artist.id)) {
       acc.push(artist);
     }
     return acc;
   }, [] as BlockedArtist[]);
 
-  $: exceptedFromCategories = blockedArtists.filter(a => exceptedArtists.has(a.id))
+  $: exceptedFromCategories = (blockedArtists || []).filter(a => exceptedArtists.has(a.id))
     .reduce((acc, artist) => {
       if (!acc.some(a => a.id === artist.id)) {
         acc.push(artist);

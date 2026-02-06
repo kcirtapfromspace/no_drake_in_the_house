@@ -476,8 +476,8 @@
             </div>
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases.postgres)}>
-                  {getHealthIcon(systemHealth.databases.postgres)}
+                <div class={getHealthColor(systemHealth.databases?.postgres)}>
+                  {getHealthIcon(systemHealth.databases?.postgres)}
                 </div>
                 <div class="text-sm font-medium mt-1 text-white">PostgreSQL</div>
                 {#if systemHealth.latencies_ms?.postgres}
@@ -485,8 +485,8 @@
                 {/if}
               </div>
               <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases.redis)}>
-                  {getHealthIcon(systemHealth.databases.redis)}
+                <div class={getHealthColor(systemHealth.databases?.redis)}>
+                  {getHealthIcon(systemHealth.databases?.redis)}
                 </div>
                 <div class="text-sm font-medium mt-1 text-white">Redis</div>
                 {#if systemHealth.latencies_ms?.redis}
@@ -494,8 +494,8 @@
                 {/if}
               </div>
               <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases.duckdb)}>
-                  {getHealthIcon(systemHealth.databases.duckdb)}
+                <div class={getHealthColor(systemHealth.databases?.duckdb)}>
+                  {getHealthIcon(systemHealth.databases?.duckdb)}
                 </div>
                 <div class="text-sm font-medium mt-1 text-white">DuckDB</div>
                 {#if systemHealth.latencies_ms?.duckdb}
@@ -503,8 +503,8 @@
                 {/if}
               </div>
               <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases.kuzu)}>
-                  {getHealthIcon(systemHealth.databases.kuzu)}
+                <div class={getHealthColor(systemHealth.databases?.kuzu)}>
+                  {getHealthIcon(systemHealth.databases?.kuzu)}
                 </div>
                 <div class="text-sm font-medium mt-1 text-white">Kuzu</div>
                 {#if systemHealth.latencies_ms?.kuzu}
@@ -512,8 +512,8 @@
                 {/if}
               </div>
               <div class="text-center p-3 rounded-lg bg-zinc-700">
-                <div class={getHealthColor(systemHealth.databases.lancedb)}>
-                  {getHealthIcon(systemHealth.databases.lancedb)}
+                <div class={getHealthColor(systemHealth.databases?.lancedb)}>
+                  {getHealthIcon(systemHealth.databases?.lancedb)}
                 </div>
                 <div class="text-sm font-medium mt-1 text-white">LanceDB</div>
                 {#if systemHealth.latencies_ms?.lancedb}

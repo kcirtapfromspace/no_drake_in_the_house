@@ -875,7 +875,7 @@
   $: confidenceLabel = profile ? getConfidenceLabel(profile.confidence) : '';
 </script>
 
-<div class="min-h-screen" style="background: #18181b;">
+<div class="min-h-screen bg-zinc-900" >
   {#if isLoading}
     <div class="flex items-center justify-center min-h-screen">
       <div class="text-center">
@@ -885,11 +885,11 @@
     </div>
   {:else if error}
     <div class="flex items-center justify-center min-h-screen">
-      <div class="text-center max-w-md p-8 rounded-xl" style="background: #27272a; border: 1px solid #52525b;">
+      <div class="text-center max-w-md p-8 rounded-xl surface-card-thin" >
         <div class="text-6xl text-rose-500 mb-4">!</div>
         <h2 class="text-2xl font-bold text-white mb-2">Error Loading Profile</h2>
         <p class="text-zinc-300 mb-6">{error}</p>
-        <button
+        <button type="button"
           on:click={() => navigateTo('home')}
           class="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-medium transition-colors"
         >
@@ -899,14 +899,14 @@
     </div>
   {:else if profile}
     <!-- Clean Header Section -->
-    <div class="pt-6 pb-8" style="background: #18181b;">
+    <div class="pt-6 pb-8 bg-zinc-900" >
       <!-- Back Button -->
       <nav class="max-w-7xl mx-auto px-6 mb-6">
         <button
           type="button"
           on:click={() => navigateTo('home')}
-          class="flex items-center gap-2 px-4 py-2 rounded-full text-zinc-300 hover:text-white transition-all hover:bg-zinc-800"
-          style="border: 1px solid #3f3f46;"
+          class="flex items-center gap-2 px-4 py-2 rounded-full text-zinc-300 hover:text-white transition-all hover:bg-zinc-900 border border-zinc-900"
+         
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -935,8 +935,8 @@
           {:else}
             <div class="flex-shrink-0">
               <div
-                class="w-32 h-32 rounded-xl shadow-xl flex items-center justify-center text-4xl font-bold"
-                style="background: linear-gradient(135deg, #3f3f46, #27272a); color: #71717a; border: 2px solid #3f3f46;"
+                class="w-32 h-32 rounded-xl shadow-xl flex items-center justify-center text-4xl font-bold bg-gradient-panel-soft border-2 border-zinc-900 text-zinc-500"
+               
               >
                 {profile.canonical_name.charAt(0)}
               </div>
@@ -956,7 +956,7 @@
 
               <!-- Confidence Level (only show for medium/high) -->
               {#if profile.confidence !== 'low'}
-                <div class="flex items-center gap-2 px-2 py-1 rounded-full" style="background: #27272a; border: 1px solid #3f3f46;">
+                <div class="flex items-center gap-2 px-2 py-1 rounded-full bg-zinc-900 border border-zinc-900">
                   <div class="flex gap-0.5">
                     {#each [0, 1, 2] as i}
                       <div
@@ -964,7 +964,7 @@
                         style="background: {
                           (profile.confidence === 'high') ||
                           (profile.confidence === 'medium' && i < 2)
-                            ? '#10B981' : '#52525b'
+                            ? '#10b981' : '#52525b'
                         };"
                       ></div>
                     {/each}
@@ -1069,17 +1069,17 @@
                 <!-- Blocking Options Dropdown -->
                 {#if showBlockingOptions}
                   <div
-                    class="absolute right-0 mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden"
-                    style="background: #27272a; border: 1px solid #3f3f46;"
+                    class="absolute right-0 mt-2 w-64 rounded-xl shadow-xl z-50 overflow-hidden bg-zinc-900 border border-zinc-900"
+                   
                   >
                     <div class="p-2">
                       <div class="text-xs text-zinc-500 px-3 py-2 font-medium uppercase tracking-wider">Blocking Options</div>
                       <button
                         type="button"
                         on:click={() => { toggleRoleBlocking('main', true); showBlockingOptions = false; }}
-                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg flex items-center gap-3"
                       >
-                        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
                         Block All Main Tracks
@@ -1087,7 +1087,7 @@
                       <button
                         type="button"
                         on:click={() => { toggleRoleBlocking('featured', true); showBlockingOptions = false; }}
-                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg flex items-center gap-3"
                       >
                         <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -1097,7 +1097,7 @@
                       <button
                         type="button"
                         on:click={() => { toggleRoleBlocking('producer', true); showBlockingOptions = false; }}
-                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg flex items-center gap-3"
                       >
                         <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
@@ -1107,14 +1107,14 @@
                       <button
                         type="button"
                         on:click={() => { toggleRoleBlocking('writer', true); showBlockingOptions = false; }}
-                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-700 rounded-lg flex items-center gap-3"
+                        class="w-full px-3 py-2 text-left text-sm text-zinc-200 hover:bg-zinc-800 rounded-lg flex items-center gap-3"
                       >
                         <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                         Block Writer Credits
                       </button>
-                      <div class="my-2 border-t border-zinc-700"></div>
+                      <div class="my-2 border-t border-zinc-800"></div>
                       <button
                         type="button"
                         on:click={() => {
@@ -1124,7 +1124,7 @@
                           toggleRoleBlocking('writer', true);
                           showBlockingOptions = false;
                         }}
-                        class="w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-red-900/20 rounded-lg flex items-center gap-3 font-medium"
+                        class="w-full px-3 py-2 text-left text-sm text-rose-400 hover:bg-rose-500,0.12)] rounded-lg flex items-center gap-3 font-medium"
                       >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1141,8 +1141,8 @@
                 <button
                   type="button"
                   on:click={() => activeTab = 'evidence'}
-                  class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 hover:bg-zinc-600"
-                  style="background: #3f3f46; color: white; border: 1px solid #52525b;"
+                  class="flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 hover:bg-zinc-700 surface-panel-thin text-white"
+                 
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1152,8 +1152,8 @@
                 <button
                   type="button"
                   on:click={() => showReportModal = true}
-                  class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 hover:bg-zinc-600"
-                  style="background: #27272a; color: #a1a1aa; border: 1px solid #52525b;"
+                  class="px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-1 hover:bg-zinc-700 surface-card-thin text-zinc-400"
+                 
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -1167,9 +1167,9 @@
       </div>
 
     <!-- Tab Navigation -->
-    <div class="sticky top-0 z-40" style="background: #18181b;">
+    <div class="sticky top-0 z-40 bg-zinc-900" >
       <div class="max-w-7xl mx-auto px-6 py-3">
-        <div class="inline-flex gap-2 p-1.5 rounded-xl" style="background: #27272a;">
+        <div class="inline-flex gap-2 p-1.5 rounded-xl bg-zinc-900" >
           <button
             type="button"
             on:click={() => activeTab = 'evidence'}
@@ -1229,8 +1229,8 @@
             </h2>
 
             {#if profile.offenses.length === 0}
-              <div class="text-center py-16 rounded-2xl" style="background: #18181b; border: 1px solid #3f3f46;">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: rgba(16, 185, 129, 0.2);">
+              <div class="text-center py-16 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-green-500/20">
                   <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -1247,51 +1247,53 @@
                   {@const isExpanded = expandedOffenseId === offense.id}
 
                   <div
-                    class="rounded-2xl overflow-hidden transition-all"
-                    style="background: #18181b; border: 1px solid {isExpanded ? catColor.icon : '#3f3f46'};"
+                    class="rounded-2xl overflow-hidden transition-all relative group/card"
+                    style="background: {catColor.cardBg}; border: 2px solid {catColor.icon}; box-shadow: 0 0 40px {catColor.bg};"
                   >
+                    <!-- Category accent stripe with glow -->
+                    <div class="absolute left-0 top-0 bottom-0 w-2 rounded-l-2xl" style="background: {catColor.icon};"></div>
                     <!-- Offense Header -->
                     <button
                       type="button"
                       on:click={() => expandedOffenseId = isExpanded ? null : offense.id}
-                      class="w-full p-6 text-left"
+                      class="w-full p-6 pl-8 text-left transition-all hover:bg-white/[0.02] bg-transparent border-none"
                     >
                       <div class="flex items-start gap-4">
-                        <!-- Timeline Indicator -->
+                        <!-- Timeline Indicator with glow -->
                         <div class="flex-shrink-0 flex flex-col items-center">
                           <div
-                            class="w-12 h-12 rounded-xl flex items-center justify-center"
-                            style="background: {catColor.bg};"
+                            class="w-12 h-12 rounded-xl flex items-center justify-center relative"
+                            style="background: {catColor.bg}; box-shadow: 0 0 20px {catColor.icon}40, 0 0 40px {catColor.icon}20;"
                           >
                             <svg class="w-6 h-6" style="color: {catColor.icon};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </div>
                           {#if index < profile.offenses.length - 1}
-                            <div class="w-0.5 h-full min-h-[20px] mt-2" style="background: #52525b;"></div>
+                            <div class="w-0.5 h-full min-h-[20px] mt-2" style="background: linear-gradient(180deg, {catColor.icon}60, transparent);"></div>
                           {/if}
                         </div>
 
                         <!-- Offense Content -->
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center flex-wrap gap-2 mb-2">
-                            <!-- Category Badge -->
+                            <!-- Category Badge with glow -->
                             <span
-                              class="px-3 py-1 text-xs font-medium rounded-full"
-                              style="background: {catColor.bg}; color: {catColor.icon};"
+                              class="px-3 py-1 text-xs font-semibold rounded-full border"
+                              style="background: {catColor.bg}; color: {catColor.icon}; border-color: {catColor.icon}50; box-shadow: 0 0 12px {catColor.icon}30;"
                             >
                               {offense.category.name}
                             </span>
 
                             <!-- Procedural State Badge -->
-                            <span class="px-3 py-1 text-xs font-medium rounded-full text-zinc-200" style="background: #3f3f46;">
+                            <span class="px-3 py-1 text-xs font-medium rounded-full text-zinc-200 bg-zinc-800" >
                               {getProceduralStateLabel(offense.procedural_state)}
                             </span>
 
-                            <!-- Evidence Strength -->
+                            <!-- Evidence Strength with glow -->
                             <span
-                              class="px-3 py-1 text-xs font-medium rounded-full"
-                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.15); color: {evidenceStrength.color};"
+                              class="px-3 py-1 text-xs font-semibold rounded-full border"
+                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.15); color: {evidenceStrength.color}; border-color: {evidenceStrength.color}50; box-shadow: 0 0 12px {evidenceStrength.color}30;"
                             >
                               {evidenceStrength.label} Evidence
                             </span>
@@ -1301,7 +1303,7 @@
                           <p class="text-zinc-300 leading-relaxed line-clamp-2">{offense.description}</p>
 
                           {#if offense.incident_date}
-                            <p class="text-sm text-zinc-400 mt-3 flex items-center gap-2">
+                            <p class="text-sm text-zinc-300 mt-3 flex items-center gap-2">
                               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                               </svg>
@@ -1325,7 +1327,10 @@
 
                     <!-- Expanded Evidence Section -->
                     {#if isExpanded}
-                      <div class="px-6 pb-6" style="border-top: 1px solid #52525b;">
+                      <div
+                        class="px-6 pb-6"
+                        style="background: linear-gradient(180deg, {catColor.icon}20 0%, {catColor.icon}08 40%, transparent 100%); box-shadow: inset 0 1px 0 {catColor.icon}40;"
+                      >
                         <div class="pt-6">
                           <h4 class="text-sm font-medium text-zinc-300 uppercase tracking-wider mb-4">
                             Sources ({offense.evidence.length})
@@ -1337,13 +1342,7 @@
                             <div class="space-y-3">
                               {#each offense.evidence as evidence}
                                 {@const tierInfo = getSourceTierLabel(evidence.source.tier)}
-                                <a
-                                  href={evidence.source.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  class="flex items-start gap-4 p-4 rounded-lg transition-all hover:bg-zinc-600"
-                                  style="background: #3f3f46; border: 1px solid #52525b;"
-                                >
+                                <a href={evidence.source.url} target="_blank" rel="noopener noreferrer" class="flex items-start gap-4 p-4 rounded-lg transition-all hover:bg-white/5 bg-black/20" >
                                   <!-- Tier Badge -->
                                   <div
                                     class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-xs font-bold"
@@ -1392,8 +1391,8 @@
           <!-- Sidebar -->
           <div class="lg:col-span-1 space-y-6">
             <!-- Source Reliability Legend -->
-            <div class="rounded-3xl p-6" style="background: linear-gradient(145deg, #1f1f23, #18181b); border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-              <h3 class="text-lg font-semibold mb-5" style="color: #fafafa;">Source Reliability</h3>
+            <div class="rounded-3xl p-6 bg-gradient-deep shadow-deep">
+              <h3 class="text-lg font-semibold mb-5 text-stone-50">Source Reliability</h3>
               <div class="space-y-3">
                 {#each ['tier_a', 'tier_b', 'tier_c', 'tier_d'] as tier}
                   {@const tierInfo = getSourceTierLabel(tier)}
@@ -1414,8 +1413,8 @@
             </div>
 
             <!-- Quick Stats -->
-            <div class="rounded-3xl p-6" style="background: linear-gradient(145deg, #1f1f23, #18181b); border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-              <h3 class="text-lg font-semibold mb-5" style="color: #fafafa;">Profile Summary</h3>
+            <div class="rounded-3xl p-6 bg-gradient-deep shadow-deep">
+              <h3 class="text-lg font-semibold mb-5 text-stone-50">Profile Summary</h3>
               <div class="space-y-4">
                 <div class="flex justify-between">
                   <span class="text-zinc-300">Total Incidents</span>
@@ -1447,8 +1446,8 @@
 
             <!-- Recent News -->
             {#if profile.canonical_name === 'Drake'}
-            <div class="rounded-3xl p-6" style="background: linear-gradient(145deg, #1f1f23, #18181b); border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-              <h3 class="text-lg font-semibold mb-5 flex items-center gap-2" style="color: #fafafa;">
+            <div class="rounded-3xl p-6 bg-gradient-deep shadow-deep">
+              <h3 class="text-lg font-semibold mb-5 flex items-center gap-2 text-stone-50">
                 <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
                 </svg>
@@ -1482,70 +1481,49 @@
         <div class="space-y-6">
           <!-- Catalog Summary -->
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <button
-              type="button"
-              on:click={() => toggleRoleBlocking('main', catalog.filter(t => t.role === 'main' && t.isBlocked).length < catalog.filter(t => t.role === 'main').length)}
-              class="p-4 rounded-xl text-left transition-all hover:scale-[1.02]"
-              style="background: #27272a; border: 1px solid #3f3f46;"
-            >
-              <div class="flex items-center justify-between">
-                <div class="text-2xl font-bold text-white">{catalog.filter(t => t.role === 'main').length}</div>
-                <div class="w-8 h-5 rounded-full transition-all {catalog.filter(t => t.role === 'main' && t.isBlocked).length === catalog.filter(t => t.role === 'main').length ? 'bg-green-500' : 'bg-zinc-600'}">
-                  <div class="w-4 h-4 mt-0.5 rounded-full bg-white shadow transition-all {catalog.filter(t => t.role === 'main' && t.isBlocked).length === catalog.filter(t => t.role === 'main').length ? 'ml-3.5' : 'ml-0.5'}"></div>
+            {#each [
+              { role: 'main', label: 'Main Artist' },
+              { role: 'featured', label: 'Featured On' },
+              { role: 'producer', label: 'Producer' },
+              { role: 'writer', label: 'Writer' }
+            ] as cat}
+              {@const total = catalog.filter(t => t.role === cat.role).length}
+              {@const blocked = catalog.filter(t => t.role === cat.role && t.isBlocked).length}
+              {@const allBlocked = blocked === total && total > 0}
+              <button
+                type="button"
+                on:click={() => toggleRoleBlocking(cat.role, !allBlocked)}
+                class="p-4 rounded-xl text-left transition-all hover:scale-[1.02] border {allBlocked ? 'bg-rose-500/10 border-rose-500/30' : 'bg-zinc-900 border-zinc-800/50'}"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="text-2xl font-bold text-white">{total}</div>
+                  {#if allBlocked}
+                    <div class="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/20 border border-rose-500/40">
+                      <svg class="w-3 h-3 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                      </svg>
+                      <span class="text-xs font-semibold text-rose-400">ALL</span>
+                    </div>
+                  {:else if blocked > 0}
+                    <div class="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+                      <span class="text-xs font-medium text-amber-400">{blocked}/{total}</span>
+                    </div>
+                  {:else}
+                    <div class="px-2 py-0.5 rounded bg-zinc-800/50 border border-zinc-700/30">
+                      <span class="text-xs font-medium text-zinc-500">None</span>
+                    </div>
+                  {/if}
                 </div>
-              </div>
-              <div class="text-sm text-zinc-400">Main Artist</div>
-              <div class="text-xs text-green-400 mt-1">{catalog.filter(t => t.role === 'main' && t.isBlocked).length} blocked</div>
-            </button>
-            <button
-              type="button"
-              on:click={() => toggleRoleBlocking('featured', catalog.filter(t => t.role === 'featured' && t.isBlocked).length < catalog.filter(t => t.role === 'featured').length)}
-              class="p-4 rounded-xl text-left transition-all hover:scale-[1.02]"
-              style="background: #27272a; border: 1px solid #3f3f46;"
-            >
-              <div class="flex items-center justify-between">
-                <div class="text-2xl font-bold text-white">{catalog.filter(t => t.role === 'featured').length}</div>
-                <div class="w-8 h-5 rounded-full transition-all {catalog.filter(t => t.role === 'featured' && t.isBlocked).length === catalog.filter(t => t.role === 'featured').length ? 'bg-green-500' : 'bg-zinc-600'}">
-                  <div class="w-4 h-4 mt-0.5 rounded-full bg-white shadow transition-all {catalog.filter(t => t.role === 'featured' && t.isBlocked).length === catalog.filter(t => t.role === 'featured').length ? 'ml-3.5' : 'ml-0.5'}"></div>
+                <div class="text-sm text-zinc-400 mt-1">{cat.label}</div>
+                <div class="text-xs mt-1 {blocked > 0 ? 'text-rose-400' : 'text-zinc-500'}">
+                  {blocked > 0 ? `${blocked} blocked` : 'Click to block all'}
                 </div>
-              </div>
-              <div class="text-sm text-zinc-400">Featured On</div>
-              <div class="text-xs text-green-400 mt-1">{catalog.filter(t => t.role === 'featured' && t.isBlocked).length} blocked</div>
-            </button>
-            <button
-              type="button"
-              on:click={() => toggleRoleBlocking('producer', catalog.filter(t => t.role === 'producer' && t.isBlocked).length < catalog.filter(t => t.role === 'producer').length)}
-              class="p-4 rounded-xl text-left transition-all hover:scale-[1.02]"
-              style="background: #27272a; border: 1px solid #3f3f46;"
-            >
-              <div class="flex items-center justify-between">
-                <div class="text-2xl font-bold text-white">{catalog.filter(t => t.role === 'producer').length}</div>
-                <div class="w-8 h-5 rounded-full transition-all {catalog.filter(t => t.role === 'producer' && t.isBlocked).length === catalog.filter(t => t.role === 'producer').length ? 'bg-green-500' : 'bg-zinc-600'}">
-                  <div class="w-4 h-4 mt-0.5 rounded-full bg-white shadow transition-all {catalog.filter(t => t.role === 'producer' && t.isBlocked).length === catalog.filter(t => t.role === 'producer').length ? 'ml-3.5' : 'ml-0.5'}"></div>
-                </div>
-              </div>
-              <div class="text-sm text-zinc-400">Producer</div>
-              <div class="text-xs text-amber-400 mt-1">{catalog.filter(t => t.role === 'producer' && t.isBlocked).length} blocked</div>
-            </button>
-            <button
-              type="button"
-              on:click={() => toggleRoleBlocking('writer', catalog.filter(t => t.role === 'writer' && t.isBlocked).length < catalog.filter(t => t.role === 'writer').length)}
-              class="p-4 rounded-xl text-left transition-all hover:scale-[1.02]"
-              style="background: #27272a; border: 1px solid #3f3f46;"
-            >
-              <div class="flex items-center justify-between">
-                <div class="text-2xl font-bold text-white">{catalog.filter(t => t.role === 'writer').length}</div>
-                <div class="w-8 h-5 rounded-full transition-all {catalog.filter(t => t.role === 'writer' && t.isBlocked).length === catalog.filter(t => t.role === 'writer').length ? 'bg-green-500' : 'bg-zinc-600'}">
-                  <div class="w-4 h-4 mt-0.5 rounded-full bg-white shadow transition-all {catalog.filter(t => t.role === 'writer' && t.isBlocked).length === catalog.filter(t => t.role === 'writer').length ? 'ml-3.5' : 'ml-0.5'}"></div>
-                </div>
-              </div>
-              <div class="text-sm text-zinc-400">Writer</div>
-              <div class="text-xs text-amber-400 mt-1">{catalog.filter(t => t.role === 'writer' && t.isBlocked).length} blocked</div>
-            </button>
+              </button>
+            {/each}
           </div>
 
           <!-- Blocking Progress & Filter -->
-          <div class="p-4 rounded-xl" style="background: linear-gradient(135deg, #27272a, #18181b); border: 1px solid #3f3f46;">
+          <div class="p-4 rounded-xl bg-gradient-panel border border-zinc-900">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-3">
                 <span class="text-sm font-medium text-zinc-300">Catalog Blocking Status</span>
@@ -1553,30 +1531,45 @@
                   <button
                     type="button"
                     on:click={() => catalogFilter = 'all'}
-                    class="px-2 py-1 text-xs rounded transition-all {catalogFilter === 'all' ? 'bg-zinc-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}"
+                    class="px-2.5 py-1 text-xs rounded-md transition-all {catalogFilter === 'all' ? 'bg-zinc-700 text-white' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}"
                   >All</button>
                   <button
                     type="button"
                     on:click={() => catalogFilter = 'blocked'}
-                    class="px-2 py-1 text-xs rounded transition-all {catalogFilter === 'blocked' ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}"
-                  >Blocked</button>
+                    class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1 {catalogFilter === 'blocked' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}"
+                  >
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                    </svg>
+                    Blocked
+                  </button>
                   <button
                     type="button"
                     on:click={() => catalogFilter = 'unblocked'}
-                    class="px-2 py-1 text-xs rounded transition-all {catalogFilter === 'unblocked' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}"
-                  >Unblocked</button>
+                    class="px-2.5 py-1 text-xs rounded-md transition-all flex items-center gap-1 {catalogFilter === 'unblocked' ? 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/50' : 'bg-zinc-900 text-zinc-400 hover:bg-zinc-800'}"
+                  >
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="9" />
+                    </svg>
+                    Allowed
+                  </button>
                 </div>
               </div>
-              <span class="text-sm text-green-400">{catalog.filter(t => t.isBlocked).length} / {catalog.length} blocked</span>
+              <!-- Blocked counter with clear semantics -->
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-rose-400 font-medium">{catalog.filter(t => t.isBlocked).length}</span>
+                <span class="text-sm text-zinc-500">of {catalog.length} blocked</span>
+              </div>
             </div>
-            <div class="h-2 rounded-full overflow-hidden" style="background: #3f3f46;">
+            <!-- Progress bar: red for blocked, gray for allowed -->
+            <div class="h-2 rounded-full overflow-hidden bg-zinc-800/50">
               <div
                 class="h-full rounded-full transition-all"
-                style="width: {(catalog.filter(t => t.isBlocked).length / catalog.length * 100)}%; background: linear-gradient(90deg, #22C55E, #16A34A);"
+                style="width: {(catalog.filter(t => t.isBlocked).length / catalog.length * 100)}%; background: linear-gradient(90deg, #f43f5e, #e11d48);"
               ></div>
             </div>
             <p class="text-xs text-zinc-500 mt-2">
-              Click category cards above to toggle all tracks in that category. Click individual track toggles below for granular control.
+              <span class="text-rose-400">●</span> Blocked tracks won't play • <span class="text-zinc-400">○</span> Allowed tracks play normally
             </p>
           </div>
 
@@ -1592,33 +1585,47 @@
 
             <div class="space-y-3">
               {#each catalogAlbums as album}
-                <div class="rounded-xl overflow-hidden" style="background: #27272a; border: 1px solid #3f3f46;">
+                <div class="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-900">
                   <!-- Album Header (clickable) -->
                   <button
                     type="button"
-                    class="w-full p-4 flex items-center gap-4 hover:bg-zinc-700/50 transition-colors text-left"
+                    class="w-full p-4 flex items-center gap-4 hover:bg-zinc-800/50 transition-colors text-left"
                     on:click={() => toggleCatalogAlbum(album.name)}
                   >
-                    <!-- Block Icon (left side) - Prohibition Sign with clear color states -->
+                    <!-- Block Toggle (left side) - Crystal clear state indication -->
                     <button
                       type="button"
                       on:click|stopPropagation={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)}
-                      class="flex-shrink-0 transition-all hover:scale-110 p-1 rounded-full"
-                      style="background: {album.blockedCount === album.totalCount ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)'};"
-                      title={album.blockedCount === album.totalCount ? 'Unblock all tracks' : 'Block all tracks'}
+                      class="flex-shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 group relative"
+                      title={album.blockedCount === album.totalCount ? 'Click to ALLOW all tracks' : 'Click to BLOCK all tracks'}
                     >
                       {#if album.blockedCount === album.totalCount}
-                        <!-- Blocked state: Red prohibition sign -->
-                        <svg class="w-6 h-6 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M5.5 5.5l13 13" />
-                        </svg>
+                        <!-- BLOCKED STATE: Vibrant rose on dark -->
+                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all bg-rose-500/20 border border-rose-500/40 group-hover:bg-rose-500/30">
+                          <svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M5.5 5.5l13 13" />
+                          </svg>
+                          <span class="text-xs font-semibold uppercase tracking-wide text-rose-400">Blocked</span>
+                        </div>
+                      {:else if album.blockedCount > 0}
+                        <!-- PARTIAL STATE: Vibrant amber -->
+                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all bg-amber-500/20 border border-amber-500/40 group-hover:bg-amber-500/30">
+                          <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 8v4m0 4h.01" stroke-linecap="round" />
+                          </svg>
+                          <span class="text-xs font-medium text-amber-400">{album.blockedCount}/{album.totalCount}</span>
+                        </div>
                       {:else}
-                        <!-- Unblocked state: Green checkmark circle -->
-                        <svg class="w-6 h-6 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
+                        <!-- ALLOWED STATE: Subtle warm gray -->
+                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800/30 border border-zinc-700/30 group-hover:bg-zinc-700/40 group-hover:border-zinc-500/50 transition-all">
+                          <svg class="w-4 h-4 text-zinc-400 group-hover:text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M8 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
+                          </svg>
+                          <span class="text-xs font-medium text-zinc-400 group-hover:text-zinc-300">Allowed</span>
+                        </div>
                       {/if}
                     </button>
 
@@ -1633,7 +1640,7 @@
                       <img
                         src={album.cover}
                         alt={album.name}
-                        class="w-10 h-10 rounded object-cover bg-zinc-700 transition-all group-hover:ring-2 group-hover:ring-white/30"
+                        class="w-10 h-10 rounded object-cover bg-zinc-800 transition-all group-hover:ring-2 group-hover:ring-white/30"
                         on:error={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
                       />
                       <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded">
@@ -1646,21 +1653,21 @@
 
                     <!-- Album Info -->
                     <div class="flex-1 min-w-0">
-                      <div class="font-semibold text-zinc-100 truncate">{album.name}</div>
+                      <div class="font-semibold text-stone-100 truncate">{album.name}</div>
                       <div class="text-sm text-zinc-400">{album.year} · {album.totalCount} tracks</div>
                       <div class="flex items-center gap-2 mt-1">
-                        <div class="h-1.5 flex-1 max-w-32 rounded-full overflow-hidden bg-zinc-700">
+                        <div class="h-1.5 flex-1 max-w-32 rounded-full overflow-hidden bg-zinc-800/50">
                           <div
                             class="h-full rounded-full transition-all"
-                            style="width: {(album.blockedCount / album.totalCount * 100)}%; background: linear-gradient(90deg, #22C55E, #16A34A);"
+                            style="width: {(album.blockedCount / album.totalCount * 100)}%; background: {album.blockedCount > 0 ? 'linear-gradient(90deg, #f43f5e, #e11d48)' : 'transparent'};"
                           ></div>
                         </div>
-                        <span class="text-xs text-green-400">{album.blockedCount}/{album.totalCount}</span>
+                        <span class="text-xs {album.blockedCount > 0 ? 'text-rose-400' : 'text-zinc-500'}">{album.blockedCount}/{album.totalCount} blocked</span>
                       </div>
                     </div>
 
                     <!-- Expand/Collapse Icon (plus/minus) -->
-                    <div class="w-6 h-6 rounded-full border border-zinc-600 flex items-center justify-center flex-shrink-0">
+                    <div class="w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center flex-shrink-0">
                       {#if expandedCatalogAlbums.has(album.name)}
                         <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
@@ -1675,10 +1682,10 @@
 
                   <!-- Expanded Track List -->
                   {#if expandedCatalogAlbums.has(album.name)}
-                    <div class="border-t border-zinc-700">
+                    <div class="border-t border-zinc-800">
                       <table class="w-full text-sm">
                         <thead>
-                          <tr class="text-left text-zinc-500 bg-zinc-800/50">
+                          <tr class="text-left text-zinc-500 bg-zinc-900/50">
                             <th class="py-2 px-4 font-medium w-12"></th>
                             <th class="py-2 px-4 font-medium w-10">#</th>
                             <th class="py-2 px-4 font-medium">Title</th>
@@ -1687,33 +1694,34 @@
                         </thead>
                         <tbody>
                           {#each album.tracks as track, idx}
-                            <tr class="border-t border-zinc-800/50 hover:bg-zinc-800/30">
+                            <tr class="border-t border-zinc-900/50 hover:bg-zinc-900/30">
                               <td class="py-2 px-4">
                                 <button
                                   type="button"
                                   on:click|stopPropagation={() => toggleTrackBlock(track.id)}
-                                  class="transition-all hover:scale-110 p-0.5 rounded-full"
-                                  style="background: {track.isBlocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(34, 197, 94, 0.15)'};"
-                                  title={track.isBlocked ? 'Click to unblock' : 'Click to block'}
+                                  class="transition-all duration-200 hover:scale-105 active:scale-95 group"
+                                  title={track.isBlocked ? 'Click to ALLOW this track' : 'Click to BLOCK this track'}
                                 >
                                   {#if track.isBlocked}
-                                    <!-- Blocked: Red prohibition sign -->
-                                    <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                      <circle cx="12" cy="12" r="9" />
-                                      <path d="M5.5 5.5l13 13" />
-                                    </svg>
+                                    <!-- BLOCKED: Vibrant rose circle with X -->
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center transition-all bg-rose-500/20 border-2 border-rose-500 group-hover:bg-rose-500/30">
+                                      <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                                      </svg>
+                                    </div>
                                   {:else}
-                                    <!-- Unblocked: Green checkmark -->
-                                    <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                      <circle cx="12" cy="12" r="9" />
-                                      <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
+                                    <!-- ALLOWED: Empty circle - shows X on hover -->
+                                    <div class="w-7 h-7 rounded-full border-2 border-zinc-600 flex items-center justify-center group-hover:border-rose-400/50 group-hover:bg-rose-500/10 transition-all">
+                                      <svg class="w-3.5 h-3.5 text-zinc-700 group-hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                                      </svg>
+                                    </div>
                                   {/if}
                                 </button>
                               </td>
                               <td class="py-2 px-4 text-zinc-500">{idx + 1}</td>
                               <td class="py-2 px-4">
-                                <div class="font-medium {track.isBlocked ? 'text-zinc-200' : 'text-zinc-500'}">{track.title}</div>
+                                <div class="font-medium {track.isBlocked ? 'line-through text-rose-300/70 decoration-rose-500/50' : 'text-zinc-200'}">{track.title}</div>
                                 {#if track.collaborators}
                                   <div class="text-xs text-zinc-500">feat. {track.collaborators.join(', ')}</div>
                                 {/if}
@@ -1743,7 +1751,7 @@
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
                 <thead>
-                  <tr class="text-left text-zinc-500 border-b border-zinc-800">
+                  <tr class="text-left text-zinc-500 border-b border-zinc-900">
                     <th class="pb-2 font-medium w-12"></th>
                     <th class="pb-2 font-medium">Title</th>
                     <th class="pb-2 font-medium">Main Artist</th>
@@ -1753,22 +1761,33 @@
                 </thead>
                 <tbody>
                   {#each filteredCatalog.filter(t => t.role === 'featured') as track}
-                    <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                    <tr class="border-b border-zinc-900/50 hover:bg-zinc-900/30">
                       <td class="py-3">
                         <button
                           type="button"
                           on:click|stopPropagation={() => toggleTrackBlock(track.id)}
-                          class="transition-all hover:scale-110"
-                          title={track.isBlocked ? 'Click to unblock' : 'Click to block'}
+                          class="transition-all duration-200 hover:scale-105 active:scale-95 group"
+                          title={track.isBlocked ? 'Click to ALLOW this track' : 'Click to BLOCK this track'}
                         >
-                          <svg class="w-5 h-5 {track.isBlocked ? 'text-red-500' : 'text-zinc-600'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="9" />
-                            <path d="M5.5 5.5l13 13" />
-                          </svg>
+                          {#if track.isBlocked}
+                            <!-- BLOCKED: Filled red circle with X -->
+                            <div class="w-6 h-6 rounded-full bg-rose-500,0.15)] border-2 border-rose-500 flex items-center justify-center group-hover:bg-rose-500,0.2)] transition-all">
+                              <svg class="w-3 h-3 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                              </svg>
+                            </div>
+                          {:else}
+                            <!-- ALLOWED: Empty circle - click to block -->
+                            <div class="w-6 h-6 rounded-full border-2 border-zinc-700 flex items-center justify-center group-hover:border-zinc-400 group-hover:bg-rose-500,0.08)] transition-all">
+                              <svg class="w-3 h-3 text-zinc-700 group-hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                              </svg>
+                            </div>
+                          {/if}
                         </button>
                       </td>
                       <td class="py-3">
-                        <div class="font-medium {track.isBlocked ? 'text-zinc-200' : 'text-zinc-500'}">{track.title}</div>
+                        <div class="font-medium {track.isBlocked ? 'line-through text-rose-300/70 decoration-rose-500/50' : 'text-zinc-200'}">{track.title}</div>
                       </td>
                       <td class="py-3 text-zinc-400">{track.collaborators?.join(', ') || '—'}</td>
                       <td class="py-3 text-zinc-500">{track.album || '—'}</td>
@@ -1796,7 +1815,7 @@
               <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                   <thead>
-                    <tr class="text-left text-zinc-500 border-b border-zinc-800">
+                    <tr class="text-left text-zinc-500 border-b border-zinc-900">
                       <th class="pb-2 font-medium w-12"></th>
                       <th class="pb-2 font-medium">Title</th>
                       <th class="pb-2 font-medium">Role</th>
@@ -1806,22 +1825,33 @@
                   </thead>
                   <tbody>
                     {#each filteredCatalog.filter(t => t.role === 'producer' || t.role === 'writer') as track}
-                      <tr class="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                      <tr class="border-b border-zinc-900/50 hover:bg-zinc-900/30">
                         <td class="py-3">
                           <button
                             type="button"
                             on:click|stopPropagation={() => toggleTrackBlock(track.id)}
-                            class="transition-all hover:scale-110"
-                            title={track.isBlocked ? 'Click to unblock' : 'Click to block'}
+                            class="transition-all duration-200 hover:scale-105 active:scale-95 group"
+                            title={track.isBlocked ? 'Click to ALLOW this track' : 'Click to BLOCK this track'}
                           >
-                            <svg class="w-5 h-5 {track.isBlocked ? 'text-red-500' : 'text-zinc-600'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                              <circle cx="12" cy="12" r="9" />
-                              <path d="M5.5 5.5l13 13" />
-                            </svg>
+                            {#if track.isBlocked}
+                              <!-- BLOCKED: Filled red circle with X -->
+                              <div class="w-6 h-6 rounded-full bg-rose-500,0.15)] border-2 border-rose-500 flex items-center justify-center group-hover:bg-rose-500,0.2)] transition-all">
+                                <svg class="w-3 h-3 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                  <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                                </svg>
+                              </div>
+                            {:else}
+                              <!-- ALLOWED: Empty circle - click to block -->
+                              <div class="w-6 h-6 rounded-full border-2 border-zinc-700 flex items-center justify-center group-hover:border-zinc-400 group-hover:bg-rose-500,0.08)] transition-all">
+                                <svg class="w-3 h-3 text-zinc-700 group-hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                                  <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" />
+                                </svg>
+                              </div>
+                            {/if}
                           </button>
                         </td>
                         <td class="py-3">
-                          <div class="font-medium {track.isBlocked ? 'text-zinc-200' : 'text-zinc-500'}">{track.title}</div>
+                          <div class="font-medium {track.isBlocked ? 'line-through text-rose-300/70 decoration-rose-500/50' : 'text-zinc-200'}">{track.title}</div>
                         </td>
                         <td class="py-3">
                           <span class="px-2 py-0.5 rounded text-xs font-medium capitalize {track.role === 'producer' ? 'bg-purple-900/30 text-purple-400' : 'bg-blue-900/30 text-blue-400'}">
@@ -1839,7 +1869,7 @@
           {/if}
 
           <!-- Catalog Info -->
-          <div class="p-4 rounded-xl" style="background: #18181b; border: 1px solid #3f3f46;">
+          <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-900">
             <div class="flex items-start gap-3">
               <svg class="w-5 h-5 text-zinc-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1871,7 +1901,7 @@
           <!-- Secondary: Platform-specific data (only if available and non-zero) -->
           {#if profile.streaming_metrics?.platform_breakdown?.length > 0}
             <div class="bg-zinc-900 rounded-2xl p-6">
-              <h3 class="text-lg font-semibold text-zinc-100 mb-6">Platform Distribution</h3>
+              <h3 class="text-lg font-semibold text-stone-100 mb-6">Platform Distribution</h3>
               <div class="space-y-5">
                 {#each profile.streaming_metrics.platform_breakdown as platform}
                   <div>
@@ -1879,14 +1909,14 @@
                       <span class="text-zinc-200 capitalize font-medium">{platform.platform}</span>
                       <span class="text-zinc-300">{formatNumber(platform.streams)} ({platform.percentage}%)</span>
                     </div>
-                    <div class="h-3 rounded-full overflow-hidden bg-zinc-800">
+                    <div class="h-3 rounded-full overflow-hidden bg-zinc-900">
                       <div
                         class="h-full rounded-full transition-all"
                         style="width: {platform.percentage}%; background: {
                           platform.platform === 'spotify' ? '#1DB954' :
                           platform.platform === 'apple' ? '#FC3C44' :
                           platform.platform === 'youtube' ? '#FF0000' :
-                          '#3B82F6'
+                          '#f43f5e'
                         };"
                       ></div>
                     </div>
@@ -1899,13 +1929,13 @@
           <!-- Tertiary: Top Tracks (only if available) -->
           {#if profile.streaming_metrics?.top_tracks?.length > 0}
             <div class="bg-zinc-900 rounded-2xl p-6">
-              <h3 class="text-lg font-semibold text-zinc-100 mb-6">Top Tracks</h3>
+              <h3 class="text-lg font-semibold text-stone-100 mb-6">Top Tracks</h3>
               <div class="space-y-3">
                 {#each profile.streaming_metrics.top_tracks.slice(0, 5) as track, index}
-                  <div class="flex items-center gap-4 p-4 rounded-xl bg-zinc-800/30 hover:bg-zinc-800/60 transition-colors">
+                  <div class="flex items-center gap-4 p-4 rounded-xl bg-zinc-900/30 hover:bg-zinc-900/60 transition-colors">
                     <span class="text-2xl font-bold text-zinc-500 w-8 text-center">{index + 1}</span>
                     <div class="flex-1 min-w-0">
-                      <p class="text-zinc-100 font-medium truncate">{track.title}</p>
+                      <p class="text-stone-100 font-medium truncate">{track.title}</p>
                       <p class="text-sm text-zinc-400 mt-0.5">{formatNumber(track.streams)} streams</p>
                     </div>
                     {#if track.revenue_estimate}
@@ -1945,8 +1975,8 @@
             </h2>
 
             {#if !profile.credits?.writers?.length}
-              <div class="text-center py-12 rounded-2xl" style="background: #18181b; border: 1px solid #3f3f46;">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: #27272a;">
+              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
                   <svg class="w-8 h-8 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
@@ -1957,19 +1987,19 @@
               <div class="space-y-3">
                 {#each profile.credits.writers as writer}
                   <div
-                    class="p-4 rounded-xl transition-all hover:bg-zinc-700"
-                    style="background: #18181b; border: 1px solid {writer.is_flagged ? '#EF4444' : '#3f3f46'};"
+                    class="p-4 rounded-xl transition-all hover:bg-zinc-800"
+                    style="background: #0a0a0c; border: 1px solid {writer.is_flagged ? '#ef4444' : '#3f3f46'};"
                   >
                     <div class="flex items-center justify-between">
                       <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold" style="background: #3f3f46; color: #a1a1aa;">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-zinc-800 text-zinc-400">
                           {writer.name.charAt(0)}
                         </div>
                         <div>
                           <div class="flex items-center gap-2">
                             <span class="font-medium text-white">{writer.name}</span>
                             {#if writer.is_flagged}
-                              <span class="px-2 py-0.5 text-xs rounded-full bg-red-900 text-red-300">Flagged</span>
+                              <span class="px-2 py-0.5 text-xs rounded-full bg-rose-900 text-rose-300">Flagged</span>
                             {/if}
                           </div>
                           {#if writer.note}
@@ -2001,8 +2031,8 @@
             </h2>
 
             {#if !profile.credits?.producers?.length}
-              <div class="text-center py-12 rounded-2xl" style="background: #18181b; border: 1px solid #3f3f46;">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: #27272a;">
+              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
                   <svg class="w-8 h-8 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
@@ -2013,8 +2043,8 @@
               <div class="space-y-3">
                 {#each profile.credits.producers as producer}
                   <div
-                    class="p-4 rounded-xl transition-all hover:bg-zinc-700"
-                    style="background: #18181b; border: 1px solid {producer.is_flagged ? '#EF4444' : '#3f3f46'};"
+                    class="p-4 rounded-xl transition-all hover:bg-zinc-800"
+                    style="background: #0a0a0c; border: 1px solid {producer.is_flagged ? '#ef4444' : '#3f3f46'};"
                   >
                     <div class="flex items-center justify-between">
                       <div class="flex items-center gap-3">
@@ -2029,7 +2059,7 @@
                           <div class="flex items-center gap-2">
                             <span class="font-medium text-white">{producer.name}</span>
                             {#if producer.is_flagged}
-                              <span class="px-2 py-0.5 text-xs rounded-full bg-red-900 text-red-300">Flagged</span>
+                              <span class="px-2 py-0.5 text-xs rounded-full bg-rose-900 text-rose-300">Flagged</span>
                             {/if}
                           </div>
                           <p class="text-xs text-zinc-500 capitalize">{producer.role}</p>
@@ -2048,7 +2078,7 @@
         </div>
 
         <!-- Credits Info Box -->
-        <div class="mt-8 p-6 rounded-2xl" style="background: linear-gradient(145deg, #1f1f23, #18181b); border: 1px solid #3f3f46;">
+        <div class="mt-8 p-6 rounded-2xl bg-gradient-deep border border-zinc-900">
           <h3 class="text-lg font-semibold text-white mb-3 flex items-center gap-2">
             <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -2074,8 +2104,8 @@
             </h2>
 
             {#if profile.collaborators.length === 0}
-              <div class="text-center py-16 rounded-2xl" style="background: #18181b; border: 1px solid #3f3f46;">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style="background: #27272a;">
+              <div class="text-center py-16 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
                   <svg class="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
@@ -2090,7 +2120,7 @@
                   <button
                     type="button"
                     class="group p-4 rounded-2xl text-left transition-all hover:scale-[1.02]"
-                    style="background: #18181b; border: 1px solid {collab.is_flagged ? '#EF4444' : '#3f3f46'};"
+                    style="background: #0a0a0c; border: 1px solid {collab.is_flagged ? '#ef4444' : '#3f3f46'};"
                     on:click={() => {
                       // Navigate to collaborator profile
                       window.location.href = `#artist/${collab.id}`;
@@ -2098,7 +2128,7 @@
                       loadArtist();
                     }}
                   >
-                    <div class="relative aspect-square mb-3 rounded-xl overflow-hidden" style="background: linear-gradient(135deg, #3f3f46, #27272a);">
+                    <div class="relative aspect-square mb-3 rounded-xl overflow-hidden bg-gradient-panel-soft">
                       {#if collab.image_url}
                         <img src={collab.image_url} alt={collab.name} class="w-full h-full object-cover" />
                       {:else}
@@ -2108,7 +2138,7 @@
                       {/if}
 
                       {#if collab.is_flagged}
-                        <div class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-red-500">
+                        <div class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-rose-500">
                           <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                           </svg>
@@ -2127,11 +2157,11 @@
 
           <!-- Sidebar -->
           <div class="lg:col-span-1 space-y-4">
-            <div class="rounded-3xl p-6" style="background: linear-gradient(145deg, #1f1f23, #18181b); box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-              <h3 class="text-lg font-semibold mb-4" style="color: #fafafa;">Connection Warning</h3>
-              <p class="text-sm leading-relaxed" style="color: #d4d4d8;">
+            <div class="rounded-3xl p-6 bg-gradient-deep shadow-deep">
+              <h3 class="text-lg font-semibold mb-4 text-stone-50">Connection Warning</h3>
+              <p class="text-sm leading-relaxed text-zinc-300">
                 Connections shown represent professional collaborations only.
-                <strong style="color: #fafafa;">Guilt is never transferred</strong> across connections.
+                <strong class="text-stone-50">Guilt is never transferred</strong> across connections.
                 A collaboration with a flagged artist does not imply involvement in their misconduct.
               </p>
             </div>
@@ -2139,8 +2169,8 @@
             <button
               type="button"
               on:click={() => navigateTo('graph')}
-              class="w-full px-4 py-3 rounded-2xl font-medium transition-all flex items-center justify-center gap-2 hover:bg-blue-600"
-              style="background: #3B82F6; color: white;"
+              class="w-full px-4 py-3 rounded-2xl font-medium transition-all flex items-center justify-center gap-2 hover:bg-indigo-700 bg-indigo-600 text-white"
+             
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -2154,17 +2184,17 @@
 
     <!-- Report Error Modal -->
     {#if showReportModal}
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.85);">
+      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85">
         <div
-          class="w-full max-w-md rounded-2xl p-6"
-          style="background: #18181b; border: 1px solid #3f3f46;"
+          class="w-full max-w-md rounded-2xl p-6 bg-zinc-900 border border-zinc-900"
+         
         >
           <div class="flex items-center justify-between mb-6">
             <h3 class="text-xl font-bold text-white">Report an Error</h3>
             <button
               type="button"
               on:click={() => showReportModal = false}
-              class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-600"
+              class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700"
             >
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -2175,12 +2205,7 @@
           <div class="space-y-4">
             <div>
               <label for="error-type" class="block text-sm font-medium text-zinc-300 mb-2">Error Type</label>
-              <select
-                id="error-type"
-                bind:value={reportCategory}
-                class="w-full px-4 py-3 rounded-lg text-white"
-                style="background: #3f3f46; border: 1px solid #52525b;"
-              >
+              <select id="error-type" bind:value={reportCategory} class="w-full px-4 py-3 rounded-lg text-white surface-panel-thin" >
                 <option value="factual_error">Factual Error</option>
                 <option value="wrong_artist">Wrong Artist</option>
                 <option value="outdated_info">Outdated Information</option>
@@ -2192,22 +2217,15 @@
 
             <div>
               <label for="error-description" class="block text-sm font-medium text-zinc-300 mb-2">Description</label>
-              <textarea
-                id="error-description"
-                bind:value={reportDescription}
-                rows="4"
-                placeholder="Describe the error and provide any supporting information..."
-                class="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-500 resize-none"
-                style="background: #3f3f46; border: 1px solid #52525b;"
-              ></textarea>
+              <textarea id="error-description" bind:value={reportDescription} rows="4" placeholder="Describe the error and provide any supporting information..." class="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-500 resize-none surface-panel-thin" ></textarea>
             </div>
 
             <div class="flex gap-3 pt-2">
               <button
                 type="button"
                 on:click={() => showReportModal = false}
-                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors hover:bg-zinc-600"
-                style="background: #3f3f46; color: white; border: 1px solid #52525b;"
+                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors hover:bg-zinc-700 surface-panel-thin text-white"
+               
               >
                 Cancel
               </button>
@@ -2215,8 +2233,8 @@
                 type="button"
                 on:click={submitReport}
                 disabled={!reportDescription.trim()}
-                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 hover:bg-rose-700"
-                style="background: #e11d48; color: white;"
+                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 hover:bg-rose-700 bg-rose-600 text-white"
+               
               >
                 Submit Report
               </button>
@@ -2229,8 +2247,8 @@
     <!-- Album Cover Modal -->
     {#if showAlbumCoverModal && selectedAlbumCover}
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        style="background: rgba(0,0,0,0.9);"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
+       
         on:click={closeAlbumCoverModal}
         on:keydown={(e) => e.key === 'Escape' && closeAlbumCoverModal()}
         role="dialog"
@@ -2242,7 +2260,7 @@
           <button
             type="button"
             on:click={closeAlbumCoverModal}
-            class="absolute -top-12 right-0 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
+            class="absolute -top-12 right-0 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             aria-label="Close"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

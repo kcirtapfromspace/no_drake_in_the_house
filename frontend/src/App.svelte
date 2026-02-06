@@ -2,6 +2,7 @@
 	import { onMount } from "svelte";
 	import { isAuthenticated, authActions } from "./lib/stores/auth";
 	import { initRouter, currentRoute, routeParams } from "./lib/utils/simple-router";
+	import { theme } from "./lib/stores/theme";
 	import Login from "./lib/components/Login.svelte";
 	import Home from "./lib/components/Home.svelte";
 	import Settings from "./lib/components/Settings.svelte";
@@ -23,6 +24,7 @@
 		isRetrying = true;
 
 		try {
+			theme.init();
 			initRouter();
 
 			// Create a timeout promise
@@ -55,14 +57,14 @@
 </script>
 
 {#if !isInitialized}
-	<div class="min-h-screen flex items-center justify-center bg-zinc-900">
+	<div class="min-h-screen flex items-center justify-center surface-page">
 		<div class="text-center">
-			<div class="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-			<p class="mt-4 text-gray-400">Loading...</p>
+			<div class="w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+			<p class="mt-4 text-secondary">Loading...</p>
 		</div>
 	</div>
 {:else if initError && !$isAuthenticated}
-	<div class="min-h-screen flex items-center justify-center bg-zinc-900 py-12 px-4">
+	<div class="min-h-screen flex items-center justify-center surface-page py-12 px-4">
 		<div class="max-w-md w-full text-center">
 			<div class="w-16 h-16 rounded-full bg-rose-500/20 flex items-center justify-center mx-auto mb-4">
 				<svg class="w-8 h-8 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -110,20 +112,24 @@
 	</div>
 {:else if $isAuthenticated}
 	{#if $currentRoute === 'artist-profile'}
-		<ArtistProfile artistId={$routeParams.id || ''} />
+		{#key $routeParams.id}
+			<ArtistProfile artistId={$routeParams.id || ''} />
+		{/key}
 	{:else}
 		<Layout>
-			{#if $currentRoute === 'settings'}
-				<Settings />
-			{:else if $currentRoute === 'sync'}
-				<SyncDashboard />
-			{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
-				<AnalyticsDashboard />
-			{:else if $currentRoute === 'graph'}
-				<GraphExplorer />
-			{:else}
-				<Home />
-			{/if}
+			{#key $currentRoute}
+				{#if $currentRoute === 'settings'}
+					<Settings />
+				{:else if $currentRoute === 'sync'}
+					<SyncDashboard />
+				{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
+					<AnalyticsDashboard />
+				{:else if $currentRoute === 'graph'}
+					<GraphExplorer />
+				{:else}
+					<Home />
+				{/if}
+			{/key}
 		</Layout>
 	{/if}
 {:else}

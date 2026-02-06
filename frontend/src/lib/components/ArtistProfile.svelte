@@ -1036,7 +1036,7 @@
                     class="px-6 py-3 rounded-l-full font-bold text-lg transition-all disabled:opacity-50 hover:opacity-90 flex items-center gap-2"
                     style="{isBlocked
                       ? 'background: rgba(34, 197, 94, 0.2); color: #22C55E; border: 2px solid rgba(34, 197, 94, 0.4); border-right: none;'
-                      : 'background: #DC2626; color: white; border-right: none;'}"
+                      : 'background: #E11D48; color: white; border-right: none;'}"
                   >
                     {#if isBlockingInProgress}
                       <div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
@@ -1058,7 +1058,7 @@
                     class="px-3 py-3 rounded-r-full font-bold transition-all hover:opacity-90 flex items-center"
                     style="{isBlocked
                       ? 'background: rgba(34, 197, 94, 0.2); color: #22C55E; border: 2px solid rgba(34, 197, 94, 0.4); border-left: 1px solid rgba(34, 197, 94, 0.3);'
-                      : 'background: #DC2626; color: white; border-left: 1px solid rgba(255,255,255,0.2);'}"
+                      : 'background: #E11D48; color: white; border-left: 1px solid rgba(255,255,255,0.2);'}"
                   >
                     <svg class="w-4 h-4 transition-transform {showBlockingOptions ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />

@@ -69,9 +69,9 @@
 
   function getProviderBadges(artist: any) {
     const badges = [];
-    if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-900 text-green-300' });
-    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
-    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-blue-900 text-blue-300' });
+    if (artist?.external_ids?.spotify) badges.push({ name: 'Spotify', color: 'bg-green-900 text-green-300' });
+    if (artist?.external_ids?.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
+    if (artist?.external_ids?.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-indigo-900 text-indigo-300' });
     return badges;
   }
 </script>
@@ -96,6 +96,7 @@
           type="button"
           on:click={clearSelection}
           class="absolute inset-y-0 right-0 pr-3 flex items-center"
+          aria-label="Clear selected artist"
         >
           <svg aria-hidden="true" class="h-5 w-5 text-zinc-400 hover:text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

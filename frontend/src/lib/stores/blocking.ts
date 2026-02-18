@@ -268,9 +268,9 @@ function createBlockingStore() {
       return result;
     },
 
-    // Add a custom toast
-    addToast: (toast: Omit<Toast, 'id' | 'createdAt'>) => {
-      const id = `toast-${Date.now()}`;
+    // Add a custom toast and return its generated ID
+    addToast: (toast: Omit<Toast, 'id' | 'createdAt'>): string => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       update(state => ({
         ...state,
         toasts: [

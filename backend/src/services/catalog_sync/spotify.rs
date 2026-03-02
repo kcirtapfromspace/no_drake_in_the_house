@@ -196,9 +196,11 @@ struct SpotifyArtist {
     id: String,
     name: String,
     genres: Vec<String>,
-    popularity: u32,
+    #[serde(default)]
+    popularity: Option<u32>,
     images: Vec<SpotifyImage>,
     external_urls: HashMap<String, String>,
+    #[serde(default)]
     followers: Option<SpotifyFollowers>,
 }
 
@@ -238,6 +240,7 @@ struct SpotifyTrack {
     name: String,
     duration_ms: u64,
     explicit: bool,
+    #[serde(default)]
     external_ids: Option<SpotifyExternalIds>,
     artists: Vec<SpotifySimpleArtist>,
     album: Option<SpotifySimpleAlbum>,
@@ -263,7 +266,7 @@ struct SpotifySimpleAlbum {
 }
 
 #[derive(Debug, Deserialize)]
-struct SpotifyTopTracksResponse {
+struct SpotifyRecommendationsResponse {
     tracks: Vec<SpotifyTrack>,
 }
 
@@ -276,6 +279,7 @@ struct SpotifyAlbum {
     release_date: Option<String>,
     images: Vec<SpotifyImage>,
     artists: Vec<SpotifySimpleArtist>,
+    #[serde(default)]
     external_ids: Option<SpotifyAlbumExternalIds>,
 }
 
@@ -299,11 +303,6 @@ struct SpotifyAlbumTracksResponse {
     items: Vec<SpotifyTrack>,
 }
 
-#[derive(Debug, Deserialize)]
-struct SpotifyRelatedArtistsResponse {
-    artists: Vec<SpotifyArtist>,
-}
-
 impl From<SpotifyArtist> for PlatformArtist {
     fn from(artist: SpotifyArtist) -> Self {
         PlatformArtist {
@@ -311,7 +310,10 @@ impl From<SpotifyArtist> for PlatformArtist {
             platform: Platform::Spotify,
             name: artist.name,
             genres: artist.genres,
-            popularity: artist.followers.map(|f| f.total),
+            popularity: artist
+                .popularity
+                .map(|p| p as u64)
+                .or(artist.followers.map(|f| f.total)),
             image_url: artist.images.first().map(|i| i.url.clone()),
             external_urls: artist.external_urls,
             metadata: HashMap::new(),
@@ -377,7 +379,7 @@ impl PlatformCatalogWorker for SpotifySyncWorker {
         let endpoint = format!(
             "/search?q={}&type=artist&limit={}",
             encoded_query,
-            limit.min(50)
+            limit.min(10)
         );
 
         let response: SpotifySearchResponse = self.api_request(&endpoint).await?;
@@ -398,14 +400,13 @@ impl PlatformCatalogWorker for SpotifySyncWorker {
         platform_id: &str,
         limit: u32,
     ) -> Result<Vec<PlatformTrack>> {
-        let endpoint = format!("/artists/{}/top-tracks?market=US", platform_id);
-        let response: SpotifyTopTracksResponse = self.api_request(&endpoint).await?;
-        Ok(response
-            .tracks
-            .into_iter()
-            .take(limit as usize)
-            .map(Into::into)
-            .collect())
+        let endpoint = format!(
+            "/recommendations?seed_artists={}&limit={}&market=US",
+            platform_id,
+            limit.min(10)
+        );
+        let response: SpotifyRecommendationsResponse = self.api_request(&endpoint).await?;
+        Ok(response.tracks.into_iter().map(Into::into).collect())
     }
 
     async fn get_artist_albums(
@@ -430,10 +431,10 @@ impl PlatformCatalogWorker for SpotifySyncWorker {
         Ok(response.items.into_iter().map(Into::into).collect())
     }
 
-    async fn get_related_artists(&self, platform_id: &str) -> Result<Vec<PlatformArtist>> {
-        let endpoint = format!("/artists/{}/related-artists", platform_id);
-        let response: SpotifyRelatedArtistsResponse = self.api_request(&endpoint).await?;
-        Ok(response.artists.into_iter().map(Into::into).collect())
+    async fn get_related_artists(&self, _platform_id: &str) -> Result<Vec<PlatformArtist>> {
+        // Spotify removed the /artists/{id}/related-artists endpoint (Feb 2026).
+        // No viable replacement exists in the current API.
+        Ok(Vec::new())
     }
 
     async fn sync_incremental(
@@ -523,7 +524,7 @@ mod tests {
             id: "123".to_string(),
             name: "Test Artist".to_string(),
             genres: vec!["rock".to_string()],
-            popularity: 80,
+            popularity: Some(80),
             images: vec![SpotifyImage {
                 url: "https://example.com/image.jpg".to_string(),
                 height: Some(300),
@@ -536,6 +537,7 @@ mod tests {
         let platform_artist: PlatformArtist = spotify_artist.into();
         assert_eq!(platform_artist.platform, Platform::Spotify);
         assert_eq!(platform_artist.name, "Test Artist");
-        assert_eq!(platform_artist.popularity, Some(1000000));
+        // popularity field takes precedence over followers
+        assert_eq!(platform_artist.popularity, Some(80));
     }
 }

@@ -12,6 +12,7 @@ pub struct SpotifyTrack {
     pub album: SpotifyAlbum,
     pub duration_ms: u32,
     pub explicit: bool,
+    #[serde(default)]
     pub popularity: Option<u32>,
     pub preview_url: Option<String>,
     pub external_urls: HashMap<String, String>,
@@ -29,7 +30,9 @@ pub struct SpotifyArtist {
     pub uri: String,
     pub genres: Option<Vec<String>>,
     pub images: Option<Vec<SpotifyImage>>,
+    #[serde(default)]
     pub popularity: Option<u32>,
+    #[serde(default)]
     pub followers: Option<SpotifyFollowers>,
 }
 
@@ -56,6 +59,7 @@ pub struct SpotifyPlaylist {
     pub owner: SpotifyUser,
     pub public: Option<bool>,
     pub collaborative: bool,
+    #[serde(alias = "items")]
     pub tracks: SpotifyPlaylistTracks,
     pub external_urls: HashMap<String, String>,
     pub images: Vec<SpotifyImage>,

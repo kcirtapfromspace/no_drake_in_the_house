@@ -70,8 +70,11 @@ pub struct SpotifyCallbackRequest {
 pub struct SpotifyUserProfile {
     pub id: String,
     pub display_name: Option<String>,
+    #[serde(default)]
     pub email: Option<String>,
+    #[serde(default)]
     pub country: Option<String>,
+    #[serde(default)]
     pub product: Option<String>,
 }
 
@@ -454,8 +457,12 @@ impl SpotifyService {
             return Err(anyhow!("Cannot remove more than 50 tracks at once"));
         }
 
-        let url = "https://api.spotify.com/v1/me/tracks";
-        let body = serde_json::json!({ "ids": track_ids });
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = track_ids
+            .iter()
+            .map(|id| format!("spotify:track:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
         let response = self
             .make_api_request(connection, "DELETE", url, Some(body))
@@ -492,10 +499,10 @@ impl SpotifyService {
         }
 
         let url = format!(
-            "https://api.spotify.com/v1/playlists/{}/tracks",
+            "https://api.spotify.com/v1/playlists/{}/items",
             playlist_id
         );
-        let body = serde_json::json!({ "tracks": tracks });
+        let body = serde_json::json!({ "items": tracks });
 
         let response = self
             .make_api_request(connection, "DELETE", &url, Some(body))
@@ -541,13 +548,15 @@ impl SpotifyService {
             return Err(anyhow!("Cannot unfollow more than 50 artists at once"));
         }
 
-        let url = format!(
-            "https://api.spotify.com/v1/me/following?type=artist&ids={}",
-            artist_ids.join(",")
-        );
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = artist_ids
+            .iter()
+            .map(|id| format!("spotify:artist:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
         let response = self
-            .make_api_request(connection, "DELETE", &url, None)
+            .make_api_request(connection, "DELETE", url, Some(body))
             .await?;
 
         if response.status().is_success() {
@@ -579,8 +588,12 @@ impl SpotifyService {
             return Err(anyhow!("Cannot remove more than 50 albums at once"));
         }
 
-        let url = "https://api.spotify.com/v1/me/albums";
-        let body = serde_json::json!({ "ids": album_ids });
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = album_ids
+            .iter()
+            .map(|id| format!("spotify:album:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
         let response = self
             .make_api_request(connection, "DELETE", url, Some(body))
@@ -614,8 +627,12 @@ impl SpotifyService {
             return Err(anyhow!("Cannot add more than 50 tracks at once"));
         }
 
-        let url = "https://api.spotify.com/v1/me/tracks";
-        let body = serde_json::json!({ "ids": track_ids });
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = track_ids
+            .iter()
+            .map(|id| format!("spotify:track:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
         let response = self
             .make_api_request(connection, "PUT", url, Some(body))
@@ -649,12 +666,16 @@ impl SpotifyService {
             return Err(anyhow!("Cannot follow more than 50 artists at once"));
         }
 
-        let url = format!(
-            "https://api.spotify.com/v1/me/following?type=artist&ids={}",
-            artist_ids.join(",")
-        );
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = artist_ids
+            .iter()
+            .map(|id| format!("spotify:artist:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
-        let response = self.make_api_request(connection, "PUT", &url, None).await?;
+        let response = self
+            .make_api_request(connection, "PUT", url, Some(body))
+            .await?;
 
         if response.status().is_success() {
             tracing::info!("Successfully followed {} artists", artist_ids.len());
@@ -684,8 +705,12 @@ impl SpotifyService {
             return Err(anyhow!("Cannot add more than 50 albums at once"));
         }
 
-        let url = "https://api.spotify.com/v1/me/albums";
-        let body = serde_json::json!({ "ids": album_ids });
+        let url = "https://api.spotify.com/v1/me/library";
+        let uris: Vec<String> = album_ids
+            .iter()
+            .map(|id| format!("spotify:album:{}", id))
+            .collect();
+        let body = serde_json::json!({ "uris": uris });
 
         let response = self
             .make_api_request(connection, "PUT", url, Some(body))
@@ -722,7 +747,7 @@ impl SpotifyService {
         }
 
         let url = format!(
-            "https://api.spotify.com/v1/playlists/{}/tracks",
+            "https://api.spotify.com/v1/playlists/{}/items",
             playlist_id
         );
         let mut body = serde_json::json!({ "uris": track_uris });
@@ -1173,7 +1198,7 @@ impl SpotifyService {
         rate_limit_retries: &AtomicU32,
     ) -> Result<SpotifyPlaylist> {
         let url = format!(
-            "https://api.spotify.com/v1/playlists/{}?fields=id,name,description,owner,public,collaborative,tracks.total,tracks.items(added_at,added_by,is_local,track(id,name,artists,album,duration_ms,explicit,popularity,preview_url,external_urls,is_local,is_playable)),external_urls,images,snapshot_id",
+            "https://api.spotify.com/v1/playlists/{}?fields=id,name,description,owner,public,collaborative,items.total,items.items(added_at,added_by,is_local,track(id,name,artists,album,duration_ms,explicit,preview_url,external_urls,is_local,is_playable)),external_urls,images,snapshot_id",
             playlist_id
         );
 

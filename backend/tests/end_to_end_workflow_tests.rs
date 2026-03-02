@@ -629,16 +629,16 @@ async fn setup_spotify_mocks(mock_server: &MockServer) {
         .mount(mock_server)
         .await;
 
-    // Enforcement endpoints
+    // Enforcement endpoints (consolidated /me/library)
     Mock::given(method("DELETE"))
-        .and(path("/v1/me/tracks"))
+        .and(path("/v1/me/library"))
         .respond_with(ResponseTemplate::new(200))
         .mount(mock_server)
         .await;
 
-    Mock::given(method("DELETE"))
-        .and(path("/v1/me/following"))
-        .respond_with(ResponseTemplate::new(204))
+    Mock::given(method("PUT"))
+        .and(path("/v1/me/library"))
+        .respond_with(ResponseTemplate::new(200))
         .mount(mock_server)
         .await;
 }

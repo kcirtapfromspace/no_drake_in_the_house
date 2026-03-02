@@ -565,7 +565,7 @@ impl EnforcementJobHandler {
         Ok(results)
     }
 
-    /// Execute batch removal of liked songs via DELETE /v1/me/tracks
+    /// Execute batch removal of liked songs via DELETE /v1/me/library
     async fn execute_remove_liked_songs_batch(
         &self,
         connection: &Connection,
@@ -690,7 +690,7 @@ impl EnforcementJobHandler {
         Ok(results)
     }
 
-    /// Execute batch unfollowing of artists via DELETE /v1/me/following
+    /// Execute batch unfollowing of artists via DELETE /v1/me/library
     async fn execute_unfollow_artists_batch(
         &self,
         connection: &Connection,
@@ -809,7 +809,7 @@ impl EnforcementJobHandler {
         Ok(results)
     }
 
-    /// Execute batch removal of playlist tracks via DELETE /v1/playlists/{id}/tracks
+    /// Execute batch removal of playlist tracks via DELETE /v1/playlists/{id}/items
     async fn execute_remove_playlist_tracks_batch(
         &self,
         connection: &Connection,
@@ -952,7 +952,7 @@ impl EnforcementJobHandler {
         Ok(results)
     }
 
-    /// Execute batch removal of saved albums via DELETE /v1/me/albums
+    /// Execute batch removal of saved albums via DELETE /v1/me/library
     async fn execute_remove_saved_albums_batch(
         &self,
         connection: &Connection,
@@ -1377,7 +1377,7 @@ impl RollbackJobHandler {
 
         // Execute rollback batches
 
-        // 1. Re-add liked songs via PUT /v1/me/tracks
+        // 1. Re-add liked songs via PUT /v1/me/library
         let (added, failed) = self.execute_add_tracks_rollback(
             &connection,
             rollback_batch_id,
@@ -1387,7 +1387,7 @@ impl RollbackJobHandler {
         actions_rolled_back += added;
         actions_failed += failed;
 
-        // 2. Re-follow artists via PUT /v1/me/following
+        // 2. Re-follow artists via PUT /v1/me/library
         let (added, failed) = self.execute_follow_artists_rollback(
             &connection,
             rollback_batch_id,
@@ -1397,7 +1397,7 @@ impl RollbackJobHandler {
         actions_rolled_back += added;
         actions_failed += failed;
 
-        // 3. Re-add playlist tracks (best effort) via POST /v1/playlists/{id}/tracks
+        // 3. Re-add playlist tracks (best effort) via POST /v1/playlists/{id}/items
         let (added, failed) = self.execute_add_playlist_tracks_rollback(
             &connection,
             rollback_batch_id,
@@ -1407,7 +1407,7 @@ impl RollbackJobHandler {
         actions_rolled_back += added;
         actions_failed += failed;
 
-        // 4. Re-add saved albums via PUT /v1/me/albums
+        // 4. Re-add saved albums via PUT /v1/me/library
         let (added, failed) = self.execute_add_albums_rollback(
             &connection,
             rollback_batch_id,
@@ -1475,7 +1475,7 @@ impl RollbackJobHandler {
         }))
     }
 
-    /// Re-add liked songs via PUT /v1/me/tracks
+    /// Re-add liked songs via PUT /v1/me/library
     async fn execute_add_tracks_rollback(
         &self,
         connection: &Connection,
@@ -1552,7 +1552,7 @@ impl RollbackJobHandler {
         Ok((success_count, fail_count))
     }
 
-    /// Re-follow artists via PUT /v1/me/following
+    /// Re-follow artists via PUT /v1/me/library
     async fn execute_follow_artists_rollback(
         &self,
         connection: &Connection,
@@ -1628,7 +1628,7 @@ impl RollbackJobHandler {
         Ok((success_count, fail_count))
     }
 
-    /// Re-add playlist tracks (best effort) via POST /v1/playlists/{id}/tracks
+    /// Re-add playlist tracks (best effort) via POST /v1/playlists/{id}/items
     async fn execute_add_playlist_tracks_rollback(
         &self,
         connection: &Connection,
@@ -1749,7 +1749,7 @@ impl RollbackJobHandler {
         Ok((success_count, fail_count))
     }
 
-    /// Re-add saved albums via PUT /v1/me/albums
+    /// Re-add saved albums via PUT /v1/me/library
     async fn execute_add_albums_rollback(
         &self,
         connection: &Connection,

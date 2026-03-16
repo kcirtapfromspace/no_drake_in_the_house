@@ -38,6 +38,10 @@ function loadEnv() {
 const envVars = loadEnv();
 
 const production = !process.env.ROLLUP_WATCH;
+const defaultApiUrl = production ? '' : 'http://localhost:3000';
+const defaultEnvironment = production ? 'production' : 'development';
+const defaultHotReload = production ? 'false' : 'true';
+const defaultDebugMode = production ? 'false' : 'true';
 
 function serve() {
 	let server;
@@ -72,15 +76,15 @@ export default {
 		replace({
 			preventAssignment: true,
 			values: {
-				'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || envVars.VITE_API_URL || 'http://localhost:3000'),
+				'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || envVars.VITE_API_URL || defaultApiUrl),
 				'import.meta.env.VITE_API_VERSION': JSON.stringify(process.env.VITE_API_VERSION || envVars.VITE_API_VERSION || 'v1'),
 				'import.meta.env.VITE_APP_NAME': JSON.stringify(process.env.VITE_APP_NAME || envVars.VITE_APP_NAME || 'No Drake in the House'),
-				'import.meta.env.VITE_ENVIRONMENT': JSON.stringify(process.env.VITE_ENVIRONMENT || envVars.VITE_ENVIRONMENT || 'development'),
+				'import.meta.env.VITE_ENVIRONMENT': JSON.stringify(process.env.VITE_ENVIRONMENT || envVars.VITE_ENVIRONMENT || defaultEnvironment),
 				'import.meta.env.VITE_ENABLE_2FA': JSON.stringify(process.env.VITE_ENABLE_2FA || envVars.VITE_ENABLE_2FA || 'true'),
 				'import.meta.env.VITE_ENABLE_COMMUNITY_LISTS': JSON.stringify(process.env.VITE_ENABLE_COMMUNITY_LISTS || envVars.VITE_ENABLE_COMMUNITY_LISTS || 'true'),
 				'import.meta.env.VITE_ENABLE_ANALYTICS': JSON.stringify(process.env.VITE_ENABLE_ANALYTICS || envVars.VITE_ENABLE_ANALYTICS || 'false'),
-				'import.meta.env.VITE_HOT_RELOAD': JSON.stringify(process.env.VITE_HOT_RELOAD || envVars.VITE_HOT_RELOAD || 'true'),
-				'import.meta.env.VITE_DEBUG_MODE': JSON.stringify(process.env.VITE_DEBUG_MODE || envVars.VITE_DEBUG_MODE || 'true'),
+				'import.meta.env.VITE_HOT_RELOAD': JSON.stringify(process.env.VITE_HOT_RELOAD || envVars.VITE_HOT_RELOAD || defaultHotReload),
+				'import.meta.env.VITE_DEBUG_MODE': JSON.stringify(process.env.VITE_DEBUG_MODE || envVars.VITE_DEBUG_MODE || defaultDebugMode),
 				'import.meta.env.VITE_SPOTIFY_CLIENT_ID': JSON.stringify(process.env.VITE_SPOTIFY_CLIENT_ID || envVars.VITE_SPOTIFY_CLIENT_ID || ''),
 				'import.meta.env.VITE_APPLE_MUSIC_DEVELOPER_TOKEN': JSON.stringify(process.env.VITE_APPLE_MUSIC_DEVELOPER_TOKEN || envVars.VITE_APPLE_MUSIC_DEVELOPER_TOKEN || ''),
 				'import.meta.env.VITE_DEFAULT_THEME': JSON.stringify(process.env.VITE_DEFAULT_THEME || envVars.VITE_DEFAULT_THEME || 'light'),

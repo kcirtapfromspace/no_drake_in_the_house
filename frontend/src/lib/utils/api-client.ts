@@ -3,6 +3,8 @@
  * Handles authentication, error handling, and retry logic
  */
 
+import { config } from './config';
+
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -24,8 +26,8 @@ export class ApiClient {
   private maxRetries: number = 3;
   private retryDelay: number = 1000; // Base delay in ms
 
-  constructor(baseUrl: string = 'http://localhost:3000') {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl: string = config.apiUrl) {
+    this.baseUrl = baseUrl.replace(/\/+$/, '');
   }
 
   /**
@@ -154,11 +156,20 @@ export class ApiClient {
     };
   }
 
+  private resolveUrl(endpoint: string): string {
+    if (/^https?:\/\//i.test(endpoint)) {
+      return endpoint;
+    }
+
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    return this.baseUrl ? `${this.baseUrl}${normalizedEndpoint}` : normalizedEndpoint;
+  }
+
   /**
    * GET request
    */
   async get<T>(endpoint: string, includeAuth: boolean = true): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
       fetch(url, {
@@ -176,7 +187,7 @@ export class ApiClient {
     data?: any, 
     includeAuth: boolean = true
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
       fetch(url, {
@@ -195,7 +206,7 @@ export class ApiClient {
     data?: any, 
     includeAuth: boolean = true
   ): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
       fetch(url, {
@@ -210,7 +221,7 @@ export class ApiClient {
    * DELETE request
    */
   async delete<T>(endpoint: string, includeAuth: boolean = true): Promise<ApiResponse<T>> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
       fetch(url, {

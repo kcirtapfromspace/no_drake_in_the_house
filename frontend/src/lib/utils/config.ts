@@ -1,8 +1,39 @@
 // Configuration utilities for environment-based settings
 
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
+
+const inferApiUrl = () => {
+  const explicitApiUrl = import.meta.env.VITE_API_URL;
+  if (explicitApiUrl) {
+    return normalizeBaseUrl(explicitApiUrl);
+  }
+
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const { protocol, hostname } = window.location;
+
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3000';
+  }
+
+  const renderHostnameMatch = hostname.match(/^(.*)-frontend\.onrender\.com$/);
+  if (renderHostnameMatch) {
+    return `${protocol}//${renderHostnameMatch[1]}-backend.onrender.com`;
+  }
+
+  const customDomainMatch = hostname.match(/^app\.(.+)$/);
+  if (customDomainMatch) {
+    return `${protocol}//api.${customDomainMatch[1]}`;
+  }
+
+  return '';
+};
+
 export const config = {
   // API Configuration
-  apiUrl: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  apiUrl: inferApiUrl(),
   apiVersion: import.meta.env.VITE_API_VERSION || 'v1',
   
   // App Configuration

@@ -69,7 +69,7 @@
 <div class="min-h-screen bg-black">
   <!-- Navigation Bar -->
   <nav class="sticky top-0 z-50 bg-black border-b border-zinc-800">
-    <div class="max-w-6xl mx-auto px-6 py-4">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4">
       <div class="flex items-center justify-between">
         <!-- Logo -->
         <button
@@ -77,12 +77,15 @@
           on:click={() => handleNavigation('home')}
           class="flex items-center gap-3"
         >
-          <div class="w-10 h-10 rounded-full flex items-center justify-center bg-rose-500">
+          <div class="flex h-10 w-10 items-center justify-center rounded-full bg-rose-500 shadow-lg shadow-rose-500/20">
             <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
           </div>
-          <span class="text-xl font-bold text-white hidden sm:block">No Drake</span>
+          <div class="hidden sm:flex flex-col items-start leading-none">
+            <span class="text-[0.65rem] font-bold uppercase tracking-widest text-rose-300">No Drake</span>
+            <span class="mt-1 text-lg font-bold text-white">in the House</span>
+          </div>
         </button>
 
         <!-- Nav Links -->

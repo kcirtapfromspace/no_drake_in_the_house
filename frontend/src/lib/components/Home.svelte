@@ -86,6 +86,8 @@
     }
     return acc;
   }, [] as BlockedArtist[]);
+  $: activeCategoryCount = categoryLists.filter(category => category.subscribed).length;
+  $: connectedPlatformCount = getConnectedPlatforms().length;
 
   // Get excepted artists that would be blocked by current categories
   $: exceptedFromCategories = blockedArtists.filter(a => exceptedArtists.has(a.id))
@@ -366,13 +368,47 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="max-w-6xl mx-auto px-6 py-8">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
   <!-- Hero Search Section -->
-  <section class="mb-12">
-    <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">Clean Your Feed</h1>
-    <p class="text-zinc-300 text-lg mb-8">Search and block artists with documented misconduct</p>
+  <section class="mb-10 sm:mb-12">
+    <div class="rounded-3xl border border-zinc-200/80 bg-white/95 px-5 py-5 shadow-2xl sm:px-8 sm:py-8">
+      <div class="flex flex-wrap gap-3">
+        <span class="inline-flex items-center rounded-full border border-zinc-200 bg-zinc-100 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-zinc-600">
+          Spotify + Apple Music
+        </span>
+        <span class="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-rose-400">
+          Evidence-led filters
+        </span>
+      </div>
 
-    <div class="relative max-w-2xl">
+      <div class="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(15rem,0.85fr)] lg:items-end">
+        <div>
+          <p class="mb-4 text-xs font-bold uppercase tracking-widest text-rose-500">No Drake in the House</p>
+          <h1 class="max-w-[11ch] text-4xl font-black leading-none tracking-tight text-zinc-950 sm:text-5xl lg:text-6xl">
+            Clean your feed without flattening your taste.
+          </h1>
+          <p class="mt-5 max-w-2xl text-base leading-8 text-zinc-600 sm:text-lg">
+            Search artists, block by category, and keep exceptions where you need them across Spotify and Apple Music.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-4">
+            <span class="block text-2xl font-bold text-zinc-950">{activeCategoryCount}</span>
+            <span class="mt-2 block text-xs font-medium uppercase tracking-widest text-zinc-400">Active categories</span>
+          </div>
+          <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-4">
+            <span class="block text-2xl font-bold text-zinc-950">{uniqueBlockedArtists.length}</span>
+            <span class="mt-2 block text-xs font-medium uppercase tracking-widest text-zinc-400">Artists blocked</span>
+          </div>
+          <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-4">
+            <span class="block text-2xl font-bold text-zinc-950">{connectedPlatformCount}</span>
+            <span class="mt-2 block text-xs font-medium uppercase tracking-widest text-zinc-400">Connected services</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative mt-6 max-w-3xl">
       <div class="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 z-10">
         {#if isSearching}
           <div class="w-5 h-5 border-2 border-zinc-600 border-t-white rounded-full animate-spin"></div>
@@ -387,23 +423,23 @@
         bind:value={searchQuery}
         on:input={handleSearchInput}
         placeholder="Search any artist..."
-        class="w-full pl-12 pr-4 py-4 rounded-full bg-zinc-900 border border-zinc-700 text-white placeholder-neutral-500 focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all"
+        class="w-full rounded-2xl border border-zinc-200 bg-white py-4 pl-12 pr-4 text-zinc-950 placeholder-neutral-400 transition-all focus:border-rose-300 focus:outline-none focus:ring-2 focus:ring-rose-100"
       />
 
       <!-- Search Results Dropdown -->
       {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
-        <div class="absolute top-full left-0 right-0 mt-2 rounded-2xl bg-zinc-900 border border-zinc-700 overflow-hidden shadow-xl z-20">
+        <div class="absolute top-full left-0 right-0 z-20 mt-2 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl">
           {#if searchResults.length > 0}
             <div class="max-h-80 overflow-y-auto">
               {#each searchResults as artist, i}
                 <button
                   type="button"
-                  class="w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-zinc-800 {i !== searchResults.length - 1 ? 'border-b border-zinc-800' : ''}"
+                  class="w-full flex items-center gap-3 px-4 py-3 text-left transition-all hover:bg-zinc-50 {i !== searchResults.length - 1 ? 'border-b border-zinc-100' : ''}"
                   on:click={() => goToArtist(artist.id, artist.canonical_name)}
                 >
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2">
-                      <span class="font-medium text-white">{artist.canonical_name}</span>
+                      <span class="font-medium text-zinc-950">{artist.canonical_name}</span>
                       {#if artist.has_offenses}
                         <span class="flex-shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-rose-500/20 text-rose-400">
                           {artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}
@@ -422,11 +458,12 @@
             </div>
           {:else}
             <div class="px-4 py-6 text-center">
-              <p class="text-zinc-400">No artists found for "<span class="text-white">{searchQuery}</span>"</p>
+              <p class="text-zinc-500">No artists found for "<span class="text-zinc-950">{searchQuery}</span>"</p>
             </div>
           {/if}
         </div>
       {/if}
+    </div>
     </div>
   </section>
 

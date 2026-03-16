@@ -60,138 +60,165 @@
 
   <div class="login__shell">
     <div class="login__card">
-      <div class="login__eyebrow" aria-hidden="true">
-        <span class="login__eyebrow-pill">Spotify + Apple Music</span>
-        <span class="login__eyebrow-pill login__eyebrow-pill--muted">Evidence-led filters</span>
-      </div>
-
-      <div class="login__logo">
-        <div class="login__icon">
-          <svg class="login__icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
+      <section class="login__brand-panel">
+        <div class="login__eyebrow" aria-hidden="true">
+          <span class="login__eyebrow-pill">Spotify + Apple Music</span>
+          <span class="login__eyebrow-pill login__eyebrow-pill--muted">Evidence-led filters</span>
         </div>
-        <h1 class="login__title">No Drake in the House</h1>
-        <p class="login__subtitle">Take control of your music without nuking your whole library.</p>
-      </div>
 
-      <form on:submit|preventDefault={handleSubmit} class="login__form">
-        {#if error}
-          <div class="login__alert login__alert--error" role="alert">
-            <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <div class="login__logo">
+          <div class="login__icon">
+            <svg class="login__icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
-            <span class="login__alert-text">{error}</span>
           </div>
-        {/if}
-
-        {#if success}
-          <div class="login__alert login__alert--success" role="alert">
-            <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span class="login__alert-text">{success}</span>
-          </div>
-        {/if}
-
-        <div class="login__field">
-          <label for="email" class="login__label">Email</label>
-          <input
-            id="email"
-            type="email"
-            bind:value={email}
-            placeholder="name@example.com"
-            autocomplete="email"
-            required
-            class="login__input"
-          />
+          <h1 class="login__title">
+            <span class="login__title-brand">No Drake in the House</span>
+            <span class="login__title-main">Clean your feed without collateral damage.</span>
+          </h1>
+          <p class="login__subtitle">Search artists, block by category, and keep exceptions where you need them across Spotify and Apple Music.</p>
         </div>
 
-        <div class="login__field">
-          <label for="password" class="login__label">Password</label>
-          <input
-            id="password"
-            type="password"
-            bind:value={password}
-            placeholder="Password"
-            autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
-            required
-            minlength="8"
-            class="login__input"
-          />
+        <p class="login__manifesto">
+          Built for people who want sharper filters, not scorched-earth playlists.
+          The product stays opinionated about evidence while giving you room to manage exceptions.
+        </p>
+
+        <div class="login__features">
+          <div class="login__feature">
+            <div class="login__feature-icon">
+              <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="login__feature-copy">
+              <span class="login__feature-title">Evidence-led artist blocklists</span>
+              <span class="login__feature-text">Category-based filters backed by documented offenses.</span>
+            </div>
+          </div>
+          <div class="login__feature">
+            <div class="login__feature-icon">
+              <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="login__feature-copy">
+              <span class="login__feature-title">Spotify + Apple Music</span>
+              <span class="login__feature-text">One account, shared policy across your connected services.</span>
+            </div>
+          </div>
+          <div class="login__feature">
+            <div class="login__feature-icon">
+              <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="login__feature-copy">
+              <span class="login__feature-title">Features and collaborations included</span>
+              <span class="login__feature-text">Keep problem artists out of the edge cases, not just the obvious tracks.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="login__form-panel">
+        <div class="login__form-copy">
+          <p class="login__form-kicker">{mode === 'login' ? 'Welcome back' : 'Create your account'}</p>
+          <h2 class="login__form-title">
+            {mode === 'login' ? 'Sign in to manage your filters.' : 'Start building a cleaner library.'}
+          </h2>
+          <p class="login__form-subtitle">
+            {mode === 'login'
+              ? 'Pick up where you left off and keep your blocklists in sync.'
+              : 'Create an account and start shaping what stays out of your rotation.'}
+          </p>
         </div>
 
-        {#if mode === 'register'}
+        <form on:submit|preventDefault={handleSubmit} class="login__form">
+          {#if error}
+            <div class="login__alert login__alert--error" role="alert">
+              <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="login__alert-text">{error}</span>
+            </div>
+          {/if}
+
+          {#if success}
+            <div class="login__alert login__alert--success" role="alert">
+              <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span class="login__alert-text">{success}</span>
+            </div>
+          {/if}
+
           <div class="login__field">
-            <label for="confirmPassword" class="login__label">Confirm Password</label>
+            <label for="email" class="login__label">Email</label>
             <input
-              id="confirmPassword"
+              id="email"
+              type="email"
+              bind:value={email}
+              placeholder="name@example.com"
+              autocomplete="email"
+              required
+              class="login__input"
+            />
+          </div>
+
+          <div class="login__field">
+            <label for="password" class="login__label">Password</label>
+            <input
+              id="password"
               type="password"
-              bind:value={confirmPassword}
-              placeholder="Confirm password"
-              autocomplete="new-password"
+              bind:value={password}
+              placeholder="Password"
+              autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
               required
               minlength="8"
               class="login__input"
             />
           </div>
-        {/if}
 
-        <button
-          type="submit"
-          disabled={isLoading}
-          class="login__submit"
-        >
-          {#if isLoading}
-            <div class="login__spinner"></div>
+          {#if mode === 'register'}
+            <div class="login__field">
+              <label for="confirmPassword" class="login__label">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                type="password"
+                bind:value={confirmPassword}
+                placeholder="Confirm password"
+                autocomplete="new-password"
+                required
+                minlength="8"
+                class="login__input"
+              />
+            </div>
           {/if}
-          {mode === 'login' ? 'Sign in' : 'Create account'}
-        </button>
-      </form>
 
-      <div class="login__divider" aria-hidden="true">
-        <div class="login__divider-line"></div>
-        <span class="login__divider-text">or</span>
-        <div class="login__divider-line"></div>
-      </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            class="login__submit"
+          >
+            {#if isLoading}
+              <div class="login__spinner"></div>
+            {/if}
+            {mode === 'login' ? 'Sign in' : 'Create account'}
+          </button>
+        </form>
 
-      <div class="login__switch">
-        <span class="login__switch-text">{mode === 'login' ? "Don't have an account?" : 'Already have an account?'}</span>
-        <button
-          type="button"
-          on:click={switchMode}
-          class="login__switch-btn"
-        >
-          {mode === 'login' ? 'Sign up' : 'Sign in'}
-        </button>
-      </div>
-
-      <div class="login__features">
-        <div class="login__feature">
-          <div class="login__feature-icon">
-            <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <span class="login__feature-text">Evidence-based artist blocklists</span>
+        <div class="login__switch">
+          <span class="login__switch-text">{mode === 'login' ? "Don't have an account?" : 'Already have an account?'}</span>
+          <button
+            type="button"
+            on:click={switchMode}
+            class="login__switch-btn"
+          >
+            {mode === 'login' ? 'Sign up' : 'Sign in'}
+          </button>
         </div>
-        <div class="login__feature">
-          <div class="login__feature-icon">
-            <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <span class="login__feature-text">Works with Spotify and Apple Music</span>
-        </div>
-        <div class="login__feature">
-          <div class="login__feature-icon">
-            <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <span class="login__feature-text">Blocks features and collaborations</span>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
 </div>
@@ -227,6 +254,7 @@
       radial-gradient(circle at top, rgba(244, 63, 94, 0.16), transparent 28%),
       radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 26%),
       linear-gradient(180deg, #09090b 0%, #111113 48%, #050507 100%);
+    box-sizing: border-box;
   }
 
   .login__glow {
@@ -266,10 +294,8 @@
 
   .login__card {
     position: relative;
-    width: min(100%, 26rem);
-    max-height: calc(100svh - 1.75rem);
+    width: min(100%, 58rem);
     margin-inline: auto;
-    padding: clamp(1rem, 3vw, 1.5rem);
     border-radius: var(--login-radius-xl);
     border: 1px solid var(--login-border);
     background:
@@ -277,10 +303,9 @@
       rgba(9, 9, 11, 0.86);
     box-shadow: var(--login-shadow);
     backdrop-filter: blur(18px);
-    overflow-x: hidden;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+    display: grid;
+    grid-template-columns: minmax(0, 0.94fr) minmax(0, 1.06fr);
+    overflow: hidden;
   }
 
   .login__card::before {
@@ -297,12 +322,36 @@
     pointer-events: none;
   }
 
+  .login__brand-panel,
+  .login__form-panel {
+    position: relative;
+    z-index: 1;
+    padding: clamp(1.1rem, 2.5vw, 1.85rem);
+  }
+
+  .login__brand-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.25rem;
+    background:
+      radial-gradient(circle at top left, rgba(244, 63, 94, 0.16), transparent 38%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .login__form-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1rem;
+  }
+
   .login__eyebrow {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    justify-content: center;
-    margin-bottom: 1rem;
+    justify-content: flex-start;
   }
 
   .login__eyebrow-pill {
@@ -328,16 +377,15 @@
   }
 
   .login__logo {
-    text-align: center;
-    margin-bottom: 1.25rem;
+    text-align: left;
   }
 
   .login__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 4rem;
-    height: 4rem;
+    width: 3.5rem;
+    height: 3.5rem;
     border-radius: var(--login-radius-pill);
     margin-bottom: 0.875rem;
     background:
@@ -347,14 +395,30 @@
   }
 
   .login__icon-svg {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 1.5rem;
+    height: 1.5rem;
     color: white;
     max-width: none;
     max-height: none;
   }
 
   .login__title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin: 0;
+    min-width: 0;
+  }
+
+  .login__title-brand {
+    color: #fda4af;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .login__title-main {
     font-size: clamp(1.75rem, 4vw, 2rem);
     font-weight: 700;
     color: var(--login-text-primary);
@@ -363,11 +427,50 @@
   }
 
   .login__subtitle {
-    max-width: 20rem;
-    margin: 0.625rem auto 0;
+    max-width: 24rem;
+    margin: 0.625rem 0 0;
     color: var(--login-text-secondary);
     font-size: 0.9375rem;
     line-height: 1.55;
+  }
+
+  .login__manifesto {
+    max-width: 28rem;
+    margin: 0;
+    color: var(--login-text-muted);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+
+  .login__form-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .login__form-kicker {
+    margin: 0;
+    color: #fda4af;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .login__form-title {
+    margin: 0;
+    color: var(--login-text-primary);
+    font-size: clamp(1.4rem, 2.4vw, 1.8rem);
+    line-height: 1.15;
+    letter-spacing: -0.03em;
+  }
+
+  .login__form-subtitle {
+    margin: 0;
+    color: var(--login-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    max-width: 24rem;
   }
 
   .login__form {
@@ -523,29 +626,10 @@
     animation: spin 1s linear infinite;
   }
 
-  .login__divider {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    margin: 1.125rem 0 0.875rem;
-  }
-
-  .login__divider-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--login-border), transparent);
-  }
-
-  .login__divider-text {
-    color: var(--login-text-muted);
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
   .login__switch {
-    text-align: center;
+    text-align: left;
     font-size: 0.9375rem;
+    padding-top: 0.125rem;
   }
 
   .login__switch-text {
@@ -574,22 +658,20 @@
   }
 
   .login__features {
-    margin-top: 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--login-border);
+    margin-top: auto;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.625rem;
+    gap: 0.75rem;
   }
 
   .login__feature {
     display: flex;
     align-items: flex-start;
     gap: 0.625rem;
-    padding: 0.625rem 0.75rem;
+    padding: 0.75rem 0.8rem;
     border-radius: calc(var(--login-radius-lg) + 0.125rem);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.03);
   }
 
   .login__feature:nth-child(3) {
@@ -615,9 +697,22 @@
     max-height: none;
   }
 
+  .login__feature-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .login__feature-title {
+    color: var(--login-text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
   .login__feature-text {
-    color: #e4e4e7;
-    font-size: 0.8125rem;
+    color: #d4d4d8;
+    font-size: 0.76rem;
     line-height: 1.45;
   }
 
@@ -625,23 +720,146 @@
     to { transform: rotate(360deg); }
   }
 
+  @media (max-width: 880px) {
+    .login {
+      padding-block: 0.75rem;
+    }
+
+    .login__shell {
+      min-height: auto;
+      align-items: flex-start;
+    }
+
+    .login__card {
+      grid-template-columns: 1fr;
+      width: min(100%, 30rem);
+      overflow: hidden;
+    }
+
+    .login__brand-panel {
+      order: 1;
+      gap: 0.8rem;
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 0.9rem;
+    }
+
+    .login__form-panel {
+      order: 2;
+      gap: 0.85rem;
+      padding-top: 0.95rem;
+    }
+
+    .login__eyebrow {
+      gap: 0.4rem;
+    }
+
+    .login__eyebrow-pill {
+      min-height: 1.75rem;
+      padding: 0.28rem 0.65rem;
+      font-size: 0.625rem;
+    }
+
+    .login__logo {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 0.85rem;
+      align-items: flex-start;
+    }
+
+    .login__title {
+      grid-column: 2;
+    }
+
+    .login__subtitle {
+      grid-column: 1 / -1;
+    }
+
+    .login__icon {
+      width: 2.85rem;
+      height: 2.85rem;
+      margin-bottom: 0;
+    }
+
+    .login__icon-svg {
+      width: 1.2rem;
+      height: 1.2rem;
+    }
+
+    .login__title {
+      gap: 0.24rem;
+    }
+
+    .login__title-brand {
+      font-size: 0.64rem;
+    }
+
+    .login__title-main {
+      font-size: clamp(1.25rem, 6vw, 1.65rem);
+    }
+
+    .login__subtitle {
+      margin-top: 0.35rem;
+      font-size: 0.875rem;
+      line-height: 1.45;
+      max-width: none;
+    }
+
+    .login__manifesto,
+    .login__features {
+      display: none;
+    }
+
+    .login__form-copy {
+      gap: 0.25rem;
+    }
+
+    .login__form-kicker {
+      font-size: 0.6875rem;
+    }
+
+    .login__form-title {
+      font-size: 1.25rem;
+    }
+
+    .login__form-subtitle {
+      font-size: 0.85rem;
+      line-height: 1.45;
+    }
+
+    .login__form {
+      gap: 0.75rem;
+    }
+
+    .login__label {
+      margin-bottom: 0.3rem;
+      font-size: 0.8125rem;
+    }
+
+    .login__input,
+    .login__submit {
+      min-height: 2.875rem;
+    }
+  }
+
   @media (max-width: 420px) {
     .login {
       padding-inline: 0.75rem;
     }
 
-    .login__card {
-      width: 100%;
-      max-height: calc(100svh - 1rem);
-      padding: 0.95rem;
+    .login__brand-panel,
+    .login__form-panel {
+      padding: 0.9rem;
     }
 
-    .login__features {
-      grid-template-columns: 1fr;
+    .login__title-main {
+      font-size: 1.2rem;
     }
 
-    .login__feature:nth-child(3) {
-      grid-column: auto;
+    .login__subtitle,
+    .login__form-subtitle,
+    .login__switch {
+      font-size: 0.8125rem;
     }
   }
 
@@ -650,32 +868,41 @@
       padding-block: 0.625rem;
     }
 
-    .login__shell {
-      align-items: flex-start;
-      min-height: auto;
-    }
-
-    .login__eyebrow {
-      margin-bottom: 0.75rem;
-    }
-
-    .login__logo {
-      margin-bottom: 1rem;
+    .login__brand-panel,
+    .login__form-panel {
+      padding: 1rem 1.1rem;
     }
 
     .login__features {
-      margin-top: 1rem;
-      padding-top: 0.875rem;
+      gap: 0.6rem;
+    }
+
+    .login__feature {
+      padding: 0.625rem 0.7rem;
     }
   }
 
-  @media (min-width: 640px) {
-    .login {
-      padding-inline: 1.5rem;
+  @media (max-height: 760px) {
+    .login__manifesto,
+    .login__features {
+      display: none;
     }
 
-    .login__card {
-      padding: 1.5rem;
+    .login__brand-panel,
+    .login__form-panel {
+      padding: 0.95rem 1rem;
+    }
+
+    .login__title-main {
+      font-size: clamp(1.5rem, 3.2vw, 1.8rem);
+    }
+
+    .login__form-title {
+      font-size: 1.3rem;
+    }
+
+    .login__form-subtitle {
+      font-size: 0.85rem;
     }
   }
 </style>

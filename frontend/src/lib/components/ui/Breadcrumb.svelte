@@ -18,6 +18,7 @@
     'revenue-impact': { label: 'Revenue Impact', parent: 'analytics' },
     'graph': { label: 'Graph Explorer', parent: 'home' },
     'settings': { label: 'Settings', parent: 'home' },
+    'service-health': { label: 'Service Health', parent: 'settings' },
     'profile': { label: 'Profile', parent: 'settings' },
     'artist-profile': { label: 'Artist Profile', parent: 'dnp' },
     'oauth-callback': { label: 'Connecting', parent: 'connections' },

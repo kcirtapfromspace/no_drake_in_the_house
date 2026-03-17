@@ -17,7 +17,7 @@
     type Evidence,
     type SourceTier
   } from '../stores/artist';
-  import { navigateTo } from '../utils/simple-router';
+  import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import { apiClient } from '../utils/api-client';
   import ArtistDiscographyRevenue from './ArtistDiscographyRevenue.svelte';
 
@@ -229,6 +229,27 @@
   let isBlocked = false;
   let isBlockingInProgress = false;
   let dnpList: Set<string> = new Set();
+
+  function normalizeDnpArtistIds(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((item) => (item as { artist_id?: string; id?: string }).artist_id || (item as { artist_id?: string; id?: string }).id || '')
+        .filter(Boolean);
+    }
+
+    if (value && typeof value === 'object') {
+      for (const key of ['entries', 'artists', 'items', 'data']) {
+        const nested = (value as Record<string, unknown>)[key];
+        if (Array.isArray(nested)) {
+          return nested
+            .map((item) => (item as { artist_id?: string; id?: string }).artist_id || (item as { artist_id?: string; id?: string }).id || '')
+            .filter(Boolean);
+        }
+      }
+    }
+
+    return [];
+  }
 
   onMount(async () => {
     await loadArtist();
@@ -695,9 +716,9 @@
 
   async function loadDnpStatus() {
     try {
-      const result = await apiClient.get<Array<{ artist_id: string }>>('/api/v1/dnp/list');
+      const result = await apiClient.get<unknown>('/api/v1/dnp/list');
       if (result.success && result.data) {
-        dnpList = new Set(result.data.map(item => item.artist_id));
+        dnpList = new Set(normalizeDnpArtistIds(result.data));
         isBlocked = dnpList.has(artistId);
       }
     } catch (e) {
@@ -2026,12 +2047,7 @@
                     type="button"
                     class="group p-4 rounded-2xl text-left transition-all hover:scale-[1.02]"
                     style="background: #0a0a0c; border: 1px solid {collab.is_flagged ? '#ef4444' : '#3f3f46'};"
-                    on:click={() => {
-                      // Navigate to collaborator profile
-                      window.location.href = `#artist/${collab.id}`;
-                      artistId = collab.id;
-                      loadArtist();
-                    }}
+                    on:click={() => navigateToArtist(collab.id)}
                   >
                     <div class="relative aspect-square mb-3 rounded-xl overflow-hidden bg-gradient-panel-soft">
                       {#if collab.image_url}

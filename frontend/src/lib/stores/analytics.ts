@@ -299,6 +299,247 @@ const initialState: AnalyticsState = {
   error: null,
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getNestedRecord(
+  value: unknown,
+  keys: string[]
+): Record<string, unknown> | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  for (const key of keys) {
+    const nested = asRecord(record[key]);
+    if (nested) return nested;
+  }
+
+  return null;
+}
+
+function getArray<T>(value: unknown, keys: string[] = []): T[] {
+  if (Array.isArray(value)) return value as T[];
+
+  const record = asRecord(value);
+  if (!record) return [];
+
+  for (const key of keys) {
+    const nested = record[key];
+    if (Array.isArray(nested)) {
+      return nested as T[];
+    }
+  }
+
+  return [];
+}
+
+function getNumber(
+  value: Record<string, unknown> | null,
+  keys: string[],
+  fallback: number = 0
+): number {
+  if (!value) return fallback;
+
+  for (const key of keys) {
+    const candidate = value[key];
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate;
+    }
+
+    if (typeof candidate === 'string') {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return fallback;
+}
+
+function getOptionalNumber(
+  value: Record<string, unknown> | null,
+  keys: string[]
+): number | undefined {
+  if (!value) return undefined;
+
+  for (const key of keys) {
+    const candidate = value[key];
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return candidate;
+    }
+
+    if (typeof candidate === 'string') {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function getString(
+  value: Record<string, unknown> | null,
+  keys: string[],
+  fallback: string = ''
+): string {
+  if (!value) return fallback;
+
+  for (const key of keys) {
+    const candidate = value[key];
+    if (typeof candidate === 'string' && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
+function getBoolean(
+  value: Record<string, unknown> | null,
+  keys: string[],
+  fallback: boolean = false
+): boolean {
+  if (!value) return fallback;
+
+  for (const key of keys) {
+    const candidate = value[key];
+    if (typeof candidate === 'boolean') {
+      return candidate;
+    }
+  }
+
+  return fallback;
+}
+
+function normalizeDashboardMetrics(data: unknown): DashboardMetrics {
+  const root = asRecord(data);
+  const userMetrics = getNestedRecord(data, ['user_metrics']);
+  const communityMetrics = getNestedRecord(data, ['community_list_metrics']);
+  const contentMetrics = getNestedRecord(data, ['content_metrics']);
+  const recentOffenses = getArray<unknown>(root?.recent_offenses, ['entries', 'items']);
+
+  return {
+    total_users: getNumber(root, ['total_users'], getNumber(userMetrics, ['total_users'])),
+    active_users_today: getNumber(root, ['active_users_today'], getNumber(userMetrics, ['active_users'])),
+    total_blocked_artists: getNumber(root, ['total_blocked_artists'], getNumber(userMetrics, ['total_blocks'])),
+    total_subscriptions: getNumber(root, ['total_subscriptions'], getNumber(communityMetrics, ['total_subscriptions'])),
+    offense_detections_today: getNumber(
+      root,
+      ['offense_detections_today'],
+      getNumber(contentMetrics, ['recent_offenses'], recentOffenses.length)
+    ),
+    sync_runs_today: getNumber(root, ['sync_runs_today']),
+  };
+}
+
+function normalizeUserQuickStats(data: unknown): UserQuickStats {
+  const root = asRecord(data);
+
+  return {
+    blocked_artists: getNumber(root, ['blocked_artists']),
+    subscriptions: getNumber(root, ['subscriptions', 'list_subscriptions']),
+    manual_blocks: getNumber(root, ['manual_blocks', 'blocked_tracks']),
+    last_sync: getString(root, ['last_sync', 'last_activity'], ''),
+  };
+}
+
+function normalizeSystemHealth(data: unknown): SystemHealth {
+  const root = asRecord(data);
+  const latencies = getNestedRecord(data, ['latencies_ms']);
+
+  return {
+    overall: (getString(root, ['overall', 'overall_status'], 'unhealthy') as SystemHealth['overall']),
+    databases: {
+      postgres: getBoolean(root, ['postgres', 'postgres_healthy']),
+      redis: getBoolean(root, ['redis', 'redis_healthy']),
+      duckdb: getBoolean(root, ['duckdb', 'duckdb_healthy']),
+      kuzu: getBoolean(root, ['kuzu', 'kuzu_healthy']),
+      lancedb: getBoolean(root, ['lancedb', 'lancedb_healthy']),
+    },
+    latencies_ms: {
+      postgres: getOptionalNumber(latencies, ['postgres']) ?? getOptionalNumber(root, ['postgres_latency_ms']),
+      redis: getOptionalNumber(latencies, ['redis']) ?? getOptionalNumber(root, ['redis_latency_ms']),
+      duckdb: getOptionalNumber(latencies, ['duckdb']) ?? getOptionalNumber(root, ['duckdb_latency_ms']),
+      kuzu: getOptionalNumber(latencies, ['kuzu']) ?? getOptionalNumber(root, ['kuzu_latency_ms']),
+      lancedb: getOptionalNumber(latencies, ['lancedb']) ?? getOptionalNumber(root, ['lancedb_latency_ms']),
+    },
+  };
+}
+
+function normalizeTrendDirection(value: string): TrendData['trend'] {
+  if (value === 'up' || value === 'down' || value === 'stable') {
+    return value;
+  }
+
+  if (value === 'rising') return 'up';
+  if (value === 'falling') return 'down';
+  return 'stable';
+}
+
+function normalizeTrendSummary(data: unknown): TrendData {
+  const root = asRecord(data);
+  const contentTrend = getNestedRecord(data, ['content_volume_trend']);
+  const activityTrend = getNestedRecord(data, ['user_activity_trend']);
+  const dataPoints = getArray<Record<string, unknown>>(root?.data_points, ['entries', 'items'])
+    .map((point) => ({
+      date: getString(point, ['date', 'label'], ''),
+      value: getNumber(point, ['value', 'count', 'total']),
+    }))
+    .filter((point) => point.date.length > 0);
+
+  return {
+    period: getString(root, ['period'], 'Current selection'),
+    data_points: dataPoints,
+    change_percent: getNumber(root, ['change_percent'], getNumber(contentTrend, ['change_percentage'], getNumber(activityTrend, ['change_percentage']))),
+    trend: normalizeTrendDirection(getString(root, ['trend'], getString(contentTrend, ['direction'], getString(activityTrend, ['direction'], 'stable')))),
+  };
+}
+
+function normalizeArtistTrends(
+  data: unknown,
+  fallbackTrend: ArtistTrend['trend']
+): ArtistTrend[] {
+  return getArray<Record<string, unknown>>(data, ['artists', 'entries', 'items'])
+    .map((artist) => ({
+      artist_id: getString(artist, ['artist_id', 'id']),
+      artist_name: getString(artist, ['artist_name', 'canonical_name', 'name'], 'Unknown Artist'),
+      mentions: getNumber(artist, ['mentions', 'mention_count', 'count']),
+      sentiment: getNumber(artist, ['sentiment', 'sentiment_score']),
+      offense_count: getNumber(artist, ['offense_count', 'offenses']),
+      trend: (getString(artist, ['trend'], fallbackTrend) as ArtistTrend['trend']),
+    }))
+    .filter((artist) => artist.artist_id.length > 0);
+}
+
+function normalizeRevenueDistribution(data: unknown): UserRevenueDistribution {
+  const root = asRecord(data);
+  const subscriptionCost = getString(root, ['subscription_cost'], '');
+
+  return {
+    user_id: getString(root, ['user_id']),
+    platform: getString(root, ['platform'], 'all'),
+    period: getString(root, ['period']),
+    total_streams: getNumber(root, ['total_streams']),
+    total_revenue: getString(root, ['total_revenue'], '0'),
+    subscription_cost: subscriptionCost || undefined,
+    revenue_to_clean_artists: getString(root, ['revenue_to_clean_artists'], '0'),
+    revenue_to_problematic_artists: getString(root, ['revenue_to_problematic_artists'], '0'),
+    problematic_percentage: getNumber(root, ['problematic_percentage']),
+    top_artists: getArray<ArtistRevenueBreakdown>(data, ['top_artists', 'artists']),
+    top_problematic_artists: getArray<ArtistRevenueBreakdown>(data, ['top_problematic_artists', 'problematic_artists', 'artists']),
+  };
+}
+
+function normalizePayoutRates(data: unknown): PayoutRate[] {
+  return getArray<PayoutRate>(data, ['rates', 'entries', 'items']);
+}
+
 // Store
 export const analyticsStore = writable<AnalyticsState>(initialState);
 
@@ -330,9 +571,10 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const dashboard = normalizeDashboardMetrics(result.data);
         analyticsStore.update(s => ({
           ...s,
-          dashboard: result.data!,
+          dashboard,
           isLoading: false,
         }));
         return { success: true };
@@ -362,9 +604,10 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const userStats = normalizeUserQuickStats(result.data);
         analyticsStore.update(s => ({
           ...s,
-          userStats: result.data!,
+          userStats,
         }));
         return { success: true };
       } else {
@@ -383,11 +626,12 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const health = normalizeSystemHealth(result.data);
         analyticsStore.update(s => ({
           ...s,
-          systemHealth: result.data!,
+          systemHealth: health,
         }));
-        return { success: true, health: result.data };
+        return { success: true, health };
       } else {
         return { success: false, message: result.message };
       }
@@ -404,11 +648,25 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const summary = normalizeTrendSummary(result.data);
+        const rising = normalizeArtistTrends(
+          asRecord(result.data)?.top_rising_artists ?? [],
+          'rising'
+        );
+        const falling = normalizeArtistTrends(
+          asRecord(result.data)?.top_falling_artists ?? [],
+          'falling'
+        );
         analyticsStore.update(s => ({
           ...s,
           trends: {
             ...s.trends,
-            summary: result.data!,
+            summary,
+            artists: [
+              ...s.trends.artists.filter((artist) => artist.trend !== 'rising' && artist.trend !== 'falling'),
+              ...rising,
+              ...falling,
+            ],
           },
         }));
         return { success: true };
@@ -428,13 +686,14 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const artists = normalizeArtistTrends(result.data, 'rising');
         analyticsStore.update(s => ({
           ...s,
           trends: {
             ...s.trends,
             artists: [
               ...s.trends.artists.filter(a => a.trend !== 'rising'),
-              ...result.data!.artists.map(a => ({ ...a, trend: 'rising' as const })),
+              ...artists,
             ],
           },
         }));
@@ -455,13 +714,14 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const artists = normalizeArtistTrends(result.data, 'falling');
         analyticsStore.update(s => ({
           ...s,
           trends: {
             ...s.trends,
             artists: [
               ...s.trends.artists.filter(a => a.trend !== 'falling'),
-              ...result.data!.artists.map(a => ({ ...a, trend: 'falling' as const })),
+              ...artists,
             ],
           },
         }));
@@ -617,9 +877,10 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const distribution = normalizeRevenueDistribution(result.data);
         analyticsStore.update(s => ({
           ...s,
-          revenueDistribution: result.data!,
+          revenueDistribution: distribution,
         }));
         return { success: true };
       } else {
@@ -659,9 +920,10 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const artists = getArray<ArtistRevenueBreakdown>(result.data, ['artists', 'entries', 'items']);
         analyticsStore.update(s => ({
           ...s,
-          problematicArtistRevenue: result.data!.artists,
+          problematicArtistRevenue: artists,
         }));
         return { success: true };
       } else {
@@ -680,9 +942,10 @@ export const analyticsActions = {
       );
 
       if (result.success && result.data) {
+        const rates = normalizePayoutRates(result.data);
         analyticsStore.update(s => ({
           ...s,
-          payoutRates: result.data!.rates,
+          payoutRates: rates,
         }));
         return { success: true };
       } else {

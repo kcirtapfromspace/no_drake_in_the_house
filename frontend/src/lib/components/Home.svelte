@@ -74,15 +74,15 @@
   }
 
   function normalizeCategoryLists(value: unknown): CategoryList[] {
-    return extractArray<CategoryList>(value, ['categories', 'items', 'data']);
+    return extractArray<CategoryList>(value, ['categories', 'entries', 'items', 'data']);
   }
 
   function normalizeArtists(value: unknown): BlockedArtist[] {
-    return extractArray<BlockedArtist>(value, ['artists', 'blocked_artists', 'items', 'data']);
+    return extractArray<BlockedArtist>(value, ['artists', 'blocked_artists', 'entries', 'items', 'data']);
   }
 
   function normalizeDnpArtistIds(value: unknown): string[] {
-    return extractArray<{ artist_id?: string; id?: string }>(value, ['artists', 'items', 'data'])
+    return extractArray<{ artist_id?: string; id?: string }>(value, ['entries', 'artists', 'items', 'data'])
       .map((item) => item.artist_id || item.id || '')
       .filter(Boolean);
   }

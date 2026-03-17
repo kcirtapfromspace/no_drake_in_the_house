@@ -817,7 +817,6 @@
       syncActions.fetchHealth(),
       connectionActions.fetchConnections(),
     ]);
-    void connectionActions.prepareAppleMusic();
     await Promise.all([
       refreshLibraryStats(),
       refreshTasteGrade(),

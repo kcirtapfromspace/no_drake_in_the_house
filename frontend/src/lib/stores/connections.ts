@@ -55,6 +55,19 @@ export const hasActiveAppleMusicConnection = derived(
 
 // Connection actions
 export const connectionActions = {
+  prepareAppleMusic: async () => {
+    try {
+      await musicKit.configureMusicKit();
+      return { success: true };
+    } catch (error) {
+      console.warn('Apple Music prewarm skipped:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to prepare Apple Music',
+      };
+    }
+  },
+
   fetchConnections: async () => {
     connectionsStore.update(state => ({ ...state, isLoading: true, error: null }));
     

@@ -5,6 +5,7 @@ export type Route =
   | 'home'
   | 'dashboard'
   | 'settings'
+  | 'service-health'
   | 'profile'
   | 'blocklist'
   | 'library-scan'
@@ -28,6 +29,7 @@ const pathToRoute: Record<string, Route> = {
   '/home': 'home',
   '/dashboard': 'dashboard',
   '/settings': 'settings',
+  '/service-health': 'service-health',
   '/profile': 'profile',
   '/blocklist': 'blocklist',
   '/library-scan': 'library-scan',
@@ -47,6 +49,7 @@ const routeToPath: Record<Route, string> = {
   'home': '/',
   'dashboard': '/dashboard',
   'settings': '/settings',
+  'service-health': '/service-health',
   'profile': '/profile',
   'blocklist': '/blocklist',
   'library-scan': '/library-scan',
@@ -70,6 +73,7 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'home': { title: 'Home', description: 'Your music blocklist dashboard' },
   'dashboard': { title: 'Dashboard', description: 'Your music blocklist dashboard' },
   'settings': { title: 'Settings', description: 'Account and connection settings' },
+  'service-health': { title: 'Service Health', description: 'Backend and service health' },
   'profile': { title: 'Profile', description: 'Your profile settings' },
   'blocklist': { title: 'Blocklist', description: 'Manage your blocked artists' },
   'library-scan': { title: 'Scan Library', description: 'Scan your music library' },
@@ -98,21 +102,36 @@ export const routeParams = writable<Record<string, string>>({});
 export const currentRouteMeta = derived(currentRoute, $route => routeMeta[$route]);
 
 // Navigation function
-export function navigateTo(route: Route, params?: Record<string, string>) {
+export function navigateTo(routeOrPath: Route | string, params?: Record<string, string>) {
+  let route: Route;
+  let resolvedParams = params || {};
+  let path: string;
+
+  if (typeof routeOrPath === 'string' && routeOrPath.startsWith('/')) {
+    const parsed = parseRoute(routeOrPath);
+    route = parsed.route;
+    resolvedParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : parsed.params;
+    path = route === 'artist-profile' && resolvedParams.id
+      ? `/artist/${resolvedParams.id}`
+      : routeToPath[route] || routeOrPath;
+  } else {
+    route = routeOrPath as Route;
+    path = routeToPath[route] || '/';
+  }
+
   currentRoute.set(route);
-  routeParams.set(params || {});
+  routeParams.set(resolvedParams);
 
   if (typeof window !== 'undefined') {
-    let path = routeToPath[route] || '/';
-
     // Handle dynamic routes
-    if (route === 'artist-profile' && params?.id) {
-      path = `/artist/${params.id}`;
+    if (route === 'artist-profile' && resolvedParams?.id) {
+      path = `/artist/${resolvedParams.id}`;
     }
 
     const meta = routeMeta[route];
-    window.history.pushState({ route, params }, meta.title, path);
+    window.history.pushState({ route, params: resolvedParams }, meta.title, path);
     document.title = `${meta.title} - No Drake`;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }
 }
 

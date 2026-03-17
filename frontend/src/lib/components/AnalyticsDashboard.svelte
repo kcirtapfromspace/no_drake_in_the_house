@@ -9,7 +9,7 @@
   } from '../stores/analytics';
   import type { ReportRequest, TroubleTier } from '../stores/analytics';
   import { syncStore, syncActions, isAnySyncRunning } from '../stores/sync';
-  import { navigateTo } from '../utils/simple-router';
+  import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import CategoryRevenueBreakdown from './CategoryRevenueBreakdown.svelte';
   import { Skeleton } from './ui';
 
@@ -840,7 +840,7 @@
           <CategoryRevenueBreakdown
             showDetails={true}
             maxCategories={12}
-            onArtistClick={(artistId) => navigateTo(`/artist/${artistId}`)}
+            onArtistClick={(artistId) => navigateToArtist(artistId)}
           />
         </div>
 

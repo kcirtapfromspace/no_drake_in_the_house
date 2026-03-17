@@ -431,6 +431,38 @@
       var(--color-bg-page);
   }
 
+  .skip-link {
+    position: fixed;
+    top: 0.75rem;
+    left: 1rem;
+    z-index: calc(var(--z-sticky) + 20);
+    padding: 0.7rem 1rem;
+    border-radius: 999px;
+    background: rgba(8, 8, 11, 0.96);
+    color: var(--color-text-primary);
+    border: 1px solid rgba(244, 63, 94, 0.35);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transform: translateY(-180%);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--transition-fast),
+      opacity var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+
+  .skip-link:focus-visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+    outline: none;
+    border-color: rgba(251, 113, 133, 0.7);
+  }
+
   /* ===== NAVIGATION ===== */
   .nav {
     position: sticky;

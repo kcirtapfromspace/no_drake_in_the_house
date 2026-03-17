@@ -317,12 +317,12 @@
             </div>
           </div>
 
-          <div class="brand-actions">
+          <div class="brand-actions analytics-toolbar">
             {#if activeTab === 'overview'}
               <select
                 bind:value={selectedTimeRange}
                 on:change={handleTimeRangeChange}
-                class="surface-panel-thin px-4 py-2 rounded-xl text-white"
+                class="surface-panel-thin px-4 py-2 rounded-xl text-white analytics-toolbar__select"
               >
                 {#each timeRanges as range}
                   <option value={range.value} style="background: #1a1a2e;">{range.label}</option>
@@ -331,16 +331,16 @@
               <button
                 type="button"
                 on:click={openReportModal}
-                class="brand-button brand-button--primary"
+                class="brand-button brand-button--primary analytics-toolbar__button"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <svg class="analytics-toolbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 Generate Report
               </button>
             {:else if activeTab === 'revenue'}
               <select
                 bind:value={revenueDays}
                 on:change={handleRevenuePeriodChange}
-                class="surface-panel-thin px-4 py-2 rounded-xl text-white"
+                class="surface-panel-thin px-4 py-2 rounded-xl text-white analytics-toolbar__select"
               >
                 {#each periodOptions as option}
                   <option value={option.value} style="background: #1a1a2e;">{option.label}</option>
@@ -385,7 +385,7 @@
       </div>
     </section>
 
-    <div>
+    <div class="analytics-content">
     <!-- Error display -->
     {#if $analyticsStore.error}
       <div class="brand-alert brand-alert--error mb-6">
@@ -1008,12 +1008,12 @@
 <!-- Report Modal -->
 {#if showReportModal}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" on:click={closeReportModal} role="dialog" aria-modal="true">
+  <div class="analytics-modal-backdrop fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" on:click={closeReportModal} role="dialog" aria-modal="true">
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="bg-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-zinc-600" on:click|stopPropagation role="document">
+    <div class="analytics-modal bg-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-zinc-600" on:click|stopPropagation role="document">
       <div class="flex items-center mb-6">
         <div class="w-14 h-14 bg-purple-900/50 rounded-full flex items-center justify-center mr-4">
-          <svg class="w-7 h-7 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <svg class="analytics-modal-icon w-7 h-7 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
         </div>
         <div>
           <h3 class="text-xl font-bold text-white">Generate Report</h3>
@@ -1089,10 +1089,45 @@
 {/if}
 
 <style>
+  .analytics-content {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .analytics-content > * {
+    min-width: 0;
+  }
+
   .analytics-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.25rem;
     margin-top: 1.5rem;
+  }
+
+  .analytics-toolbar {
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .analytics-toolbar__select {
+    min-height: 3rem;
+    min-width: 9.5rem;
+    border: 1px solid rgba(82, 93, 114, 0.5);
+    background: linear-gradient(152deg, rgba(25, 28, 40, 0.94), rgba(14, 18, 28, 0.92));
+  }
+
+  .analytics-toolbar__button {
+    min-height: 3rem;
+    padding: 0.8rem 1rem;
+    white-space: nowrap;
+    box-shadow: 0 16px 28px rgba(225, 29, 72, 0.22);
+  }
+
+  .analytics-toolbar__icon {
+    width: 1rem;
+    height: 1rem;
+    flex: 0 0 1rem;
   }
 
   .analytics-tab {
@@ -1140,5 +1175,246 @@
     font-weight: 500;
     background: rgba(34, 197, 94, 0.2);
     color: #4ade80;
+  }
+
+  .analytics-modal-backdrop {
+    backdrop-filter: blur(6px);
+  }
+
+  .analytics-modal {
+    background: linear-gradient(155deg, rgba(26, 18, 31, 0.96), rgba(13, 15, 27, 0.96));
+    border-color: rgba(148, 163, 184, 0.28);
+  }
+
+  .analytics-modal-icon {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  /* Local utility fallbacks to keep this page stable even when utility CSS is absent. */
+  .grid { display: grid; }
+  .flex { display: flex; }
+  .block { display: block; }
+  .inline-flex { display: inline-flex; }
+  .items-center { align-items: center; }
+  .items-end { align-items: flex-end; }
+  .justify-between { justify-content: space-between; }
+  .justify-center { justify-content: center; }
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+  .flex-1 { flex: 1 1 0%; }
+  .flex-shrink-0 { flex-shrink: 0; }
+  .flex-wrap { flex-wrap: wrap; }
+  .overflow-hidden { overflow: hidden; }
+  .overflow-x-auto { overflow-x: auto; }
+  .relative { position: relative; }
+  .w-full { width: 100%; }
+  .w-40 { width: 10rem; }
+  .h-40 { height: 10rem; }
+  .w-32 { width: 8rem; }
+  .h-32 { height: 8rem; }
+  .h-2 { height: 0.5rem; }
+  .w-14 { width: 3.5rem; }
+  .h-14 { height: 3.5rem; }
+  .w-12 { width: 3rem; }
+  .h-12 { height: 3rem; }
+  .w-8 { width: 2rem; }
+  .h-8 { height: 2rem; }
+  .w-7 { width: 1.75rem; }
+  .h-7 { height: 1.75rem; }
+  .w-6 { width: 1.5rem; }
+  .h-6 { height: 1.5rem; }
+  .w-5 { width: 1.25rem; }
+  .h-5 { height: 1.25rem; }
+  .w-4 { width: 1rem; }
+  .h-4 { height: 1rem; }
+  .gap-1 { gap: 0.25rem; }
+  .gap-2 { gap: 0.5rem; }
+  .gap-3 { gap: 0.75rem; }
+  .gap-4 { gap: 1rem; }
+  .gap-6 { gap: 1.5rem; }
+  .space-y-3 > * + * { margin-top: 0.75rem; }
+  .space-y-4 > * + * { margin-top: 1rem; }
+  .space-y-6 > * + * { margin-top: 1.5rem; }
+  .p-3 { padding: 0.75rem; }
+  .p-4 { padding: 1rem; }
+  .p-5 { padding: 1.25rem; }
+  .p-6 { padding: 1.5rem; }
+  .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+  .px-4 { padding-left: 1rem; padding-right: 1rem; }
+  .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
+  .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+  .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+  .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+  .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+  .mt-1 { margin-top: 0.25rem; }
+  .mt-2 { margin-top: 0.5rem; }
+  .mt-8 { margin-top: 2rem; }
+  .mb-2 { margin-bottom: 0.5rem; }
+  .mb-4 { margin-bottom: 1rem; }
+  .mb-6 { margin-bottom: 1.5rem; }
+  .mb-8 { margin-bottom: 2rem; }
+  .mr-4 { margin-right: 1rem; }
+  .rounded { border-radius: 0.25rem; }
+  .rounded-lg { border-radius: 0.75rem; }
+  .rounded-xl { border-radius: 1rem; }
+  .rounded-2xl { border-radius: 1.25rem; }
+  .rounded-full { border-radius: 9999px; }
+  .border { border-width: 1px; border-style: solid; }
+  .border-2 { border-width: 2px; border-style: solid; }
+  .border-zinc-600 { border-color: rgba(82, 93, 114, 0.62); }
+  .text-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-lg { font-size: 1.125rem; line-height: 1.5rem; }
+  .text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .font-medium { font-weight: 500; }
+  .font-semibold { font-weight: 600; }
+  .font-bold { font-weight: 700; }
+  .capitalize { text-transform: capitalize; }
+  .shadow-sm { box-shadow: 0 14px 34px rgba(2, 6, 23, 0.28); }
+  .shadow-xl { box-shadow: 0 24px 50px rgba(2, 6, 23, 0.48); }
+  .transform { transform: translateZ(0); }
+  .-rotate-90 { transform: rotate(-90deg); }
+  .transition-all { transition: all 180ms ease; }
+  .transition-colors { transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease; }
+  .animate-spin { animation: analytics-spin 900ms linear infinite; }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+    white-space: nowrap;
+  }
+
+  .bg-zinc-800,
+  .bg-zinc-700 {
+    background: linear-gradient(152deg, rgba(25, 28, 40, 0.94), rgba(14, 18, 28, 0.92));
+  }
+  .bg-zinc-700 { background: rgba(22, 26, 37, 0.92); }
+  .bg-zinc-600 { background: rgba(66, 73, 90, 0.9); }
+  .bg-indigo-600 { background: linear-gradient(135deg, #f43f5e, #e11d48); }
+  .bg-indigo-700 { background: linear-gradient(135deg, #fb7185, #e11d48); }
+  .bg-blue-900\/50 { background: rgba(37, 99, 235, 0.2); }
+  .bg-green-900\/50 { background: rgba(22, 163, 74, 0.22); }
+  .bg-red-900\/50 { background: rgba(220, 38, 38, 0.2); }
+  .bg-purple-900\/50 { background: rgba(147, 51, 234, 0.2); }
+  .bg-zinc-900\/30 { background: rgba(24, 27, 37, 0.68); }
+  .bg-zinc-900\/50 { background: rgba(17, 24, 39, 0.82); }
+  .bg-green-900\/30 { background: rgba(22, 163, 74, 0.16); }
+  .bg-red-900\/30 { background: rgba(220, 38, 38, 0.16); }
+  .bg-yellow-900\/30 { background: rgba(202, 138, 4, 0.16); }
+  .bg-orange-900\/30 { background: rgba(234, 88, 12, 0.16); }
+  .bg-indigo-900\/50 { background: rgba(99, 102, 241, 0.22); }
+  .border-indigo-600 { border-color: rgba(129, 140, 248, 0.7); }
+  .border-blue-700 { border-color: rgba(59, 130, 246, 0.52); }
+  .border-green-700 { border-color: rgba(34, 197, 94, 0.44); }
+  .border-red-700 { border-color: rgba(248, 113, 113, 0.42); }
+  .border-yellow-700 { border-color: rgba(250, 204, 21, 0.42); }
+  .border-orange-700 { border-color: rgba(251, 146, 60, 0.42); }
+  .text-white { color: rgba(248, 250, 252, 0.96); }
+  .text-zinc-300 { color: rgba(216, 227, 241, 0.9); }
+  .text-zinc-400 { color: rgba(168, 184, 206, 0.75); }
+  .text-blue-400 { color: #60a5fa; }
+  .text-green-400 { color: #4ade80; }
+  .text-green-500 { color: #22c55e; }
+  .text-red-400 { color: #f87171; }
+  .text-purple-400 { color: #a78bfa; }
+  .text-indigo-400 { color: #fb7185; }
+  .text-indigo-300 { color: #fda4af; }
+  .text-indigo-600 { color: #f43f5e; }
+  .text-red-600 { color: #f87171; }
+  .text-green-600 { color: #22c55e; }
+  .text-yellow-400 { color: #facc15; }
+  .text-yellow-500 { color: #eab308; }
+  .text-orange-400 { color: #fb923c; }
+  .text-orange-500 { color: #f97316; }
+  .text-red-500 { color: #ef4444; }
+
+  .bg-green-500 { background-color: #22c55e; }
+  .bg-red-500 { background-color: #ef4444; }
+
+  .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+  .hover\:bg-indigo-500:hover { background: #fb7185; }
+  .hover\:bg-indigo-700:hover { background: #e11d48; }
+  .hover\:bg-zinc-600:hover { background: rgba(46, 53, 67, 0.94); }
+  .hover\:bg-zinc-700:hover { background: rgba(34, 40, 52, 0.94); }
+
+  .focus\:border-indigo-500:focus,
+  .focus\:border-indigo-500:focus-visible {
+    border-color: #fb7185;
+    outline: none;
+  }
+
+  .focus\:ring-2:focus,
+  .focus\:ring-2:focus-visible {
+    box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.22);
+  }
+
+  .disabled\:opacity-50:disabled { opacity: 0.5; }
+  .disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
+
+  @media (max-width: 900px) {
+    .analytics-tabs {
+      gap: 0.5rem;
+    }
+
+    .analytics-tab {
+      flex: 1 1 calc(50% - 0.5rem);
+      justify-content: center;
+      min-width: 8.25rem;
+    }
+
+    .analytics-toolbar {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .md\:grid-cols-2 {
+      grid-template-columns: 1fr;
+    }
+
+    .md\:grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .md\:grid-cols-5 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 768px) {
+    .md\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .md\:grid-cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .md\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .lg\:grid-cols-5 {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  @keyframes analytics-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>

@@ -1,0 +1,115 @@
+name: Publish Render Backend Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/render-backend-image.yml
+      - backend/**
+      - render.yaml
+      - scripts/publish-render-backend-image.sh
+  workflow_dispatch:
+    inputs:
+      cargo_features:
+        description: Optional backend cargo features (for example `graph-kuzu`)
+        required: false
+        type: string
+      deploy_to_render:
+        description: Trigger the Render deploy hook after publishing
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-backend-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_REPO: docker.io/kcirtapfromspace/ndith-backend
+
+jobs:
+  publish:
+    name: Build And Publish Backend Image
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || '' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space for Rust native builds
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/local/lib/android
+          df -h
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Derive build variables
+        id: vars
+        shell: bash
+        run: |
+          echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_REPO }}
+          tags: |
+            type=sha,format=short,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BACKEND_CARGO_FEATURES=${{ env.BACKEND_CARGO_FEATURES }}
+            BACKEND_CARGO_NO_DEFAULT_FEATURES=false
+          cache-from: type=gha,scope=render-backend-image
+          cache-to: type=gha,mode=max,scope=render-backend-image
+
+      - name: Trigger Render deploy
+        if: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        shell: bash
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
+        run: |
+          curl --fail --silent --show-error \
+            --get \
+            --data-urlencode "imgURL=${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}" \
+            "$RENDER_DEPLOY_HOOK_URL"
+
+      - name: Summarize published tags
+        run: |
+          echo "Published tags:"
+          echo "${{ steps.meta.outputs.tags }}"
+          if [ -n "${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            echo "Triggered Render deploy for ${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}"
+          elif [ -n "${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}" ]; then
+            echo "Render deploy hook configured, but skipped because this is not the default branch."
+          else
+            echo "Render deploy hook not configured; image publish only."
+          fi

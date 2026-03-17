@@ -37,7 +37,6 @@
     severity: string;
   }
 
-
   let searchQuery = '';
   let searchResults: SearchArtist[] = [];
   let isSearching = false;
@@ -45,19 +44,49 @@
 
   let categoryLists: CategoryList[] = [];
   let isLoadingCategories = true;
+  let categoriesError: string | null = null;
   let expandedCategoryId: string | null = null;
   let categoryArtists: BlockedArtist[] = [];
   let isLoadingCategoryArtists = false;
 
   let blockedArtists: BlockedArtist[] = [];
   let isLoadingBlocked = false;
+  let blockedError: string | null = null;
 
   let dnpList: Set<string> = new Set();
-
-  // Excepted artists - individually unblocked while categories remain subscribed
   let exceptedArtists: Set<string> = new Set();
 
-  // Load exceptions from localStorage on init
+  function extractArray<T>(value: unknown, keys: string[] = []): T[] {
+    if (Array.isArray(value)) {
+      return value as T[];
+    }
+
+    if (value && typeof value === 'object') {
+      for (const key of keys) {
+        const nested = (value as Record<string, unknown>)[key];
+        if (Array.isArray(nested)) {
+          return nested as T[];
+        }
+      }
+    }
+
+    return [];
+  }
+
+  function normalizeCategoryLists(value: unknown): CategoryList[] {
+    return extractArray<CategoryList>(value, ['categories', 'items', 'data']);
+  }
+
+  function normalizeArtists(value: unknown): BlockedArtist[] {
+    return extractArray<BlockedArtist>(value, ['artists', 'blocked_artists', 'items', 'data']);
+  }
+
+  function normalizeDnpArtistIds(value: unknown): string[] {
+    return extractArray<{ artist_id?: string; id?: string }>(value, ['artists', 'items', 'data'])
+      .map((item) => item.artist_id || item.id || '')
+      .filter(Boolean);
+  }
+
   function loadExceptions() {
     try {
       const stored = localStorage.getItem('exceptedArtists');
@@ -69,7 +98,6 @@
     }
   }
 
-  // Save exceptions to localStorage
   function saveExceptions() {
     try {
       localStorage.setItem('exceptedArtists', JSON.stringify([...exceptedArtists]));
@@ -78,19 +106,16 @@
     }
   }
 
-  // Deduplicated blocked artists, excluding excepted ones
-  $: uniqueBlockedArtists = blockedArtists.reduce((acc, artist) => {
-    // Skip if already added or if excepted
+  $: uniqueBlockedArtists = (Array.isArray(blockedArtists) ? blockedArtists : []).reduce((acc, artist) => {
     if (!acc.some(a => a.id === artist.id) && !exceptedArtists.has(artist.id)) {
       acc.push(artist);
     }
     return acc;
   }, [] as BlockedArtist[]);
-  $: activeCategoryCount = categoryLists.filter(category => category.subscribed).length;
+  $: activeCategoryCount = (Array.isArray(categoryLists) ? categoryLists : []).filter(category => category.subscribed).length;
   $: connectedPlatformCount = getConnectedPlatforms().length;
 
-  // Get excepted artists that would be blocked by current categories
-  $: exceptedFromCategories = blockedArtists.filter(a => exceptedArtists.has(a.id))
+  $: exceptedFromCategories = (Array.isArray(blockedArtists) ? blockedArtists : []).filter(a => exceptedArtists.has(a.id))
     .reduce((acc, artist) => {
       if (!acc.some(a => a.id === artist.id)) {
         acc.push(artist);
@@ -98,7 +123,6 @@
       return acc;
     }, [] as BlockedArtist[]);
 
-  // Category-specific colors for visual differentiation
   const categoryColors: Record<string, { icon: string; bg: string }> = {
     domestic_violence: { icon: '#F43F5E', bg: 'rgba(244, 63, 94, 0.15)' },
     sexual_misconduct: { icon: '#EC4899', bg: 'rgba(236, 72, 153, 0.15)' },
@@ -120,16 +144,12 @@
     return id.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
 
-  function getSeverityStyle(severity: string): { bg: string; text: string; label: string } {
+  function getSeverityStyle(severity: string): { label: string; color: string } {
     switch (severity) {
-      case 'egregious':
-        return { bg: 'bg-rose-500/20', text: 'text-rose-300', label: 'Egregious' };
-      case 'severe':
-        return { bg: 'bg-orange-500/20', text: 'text-orange-300', label: 'Severe' };
-      case 'moderate':
-        return { bg: 'bg-yellow-500/20', text: 'text-yellow-300', label: 'Moderate' };
-      default:
-        return { bg: 'bg-zinc-500/20', text: 'text-zinc-300', label: 'Minor' };
+      case 'egregious': return { label: 'Egregious', color: '#f87171' };
+      case 'severe': return { label: 'Severe', color: '#fb923c' };
+      case 'moderate': return { label: 'Moderate', color: '#fbbf24' };
+      default: return { label: 'Minor', color: 'var(--color-text-tertiary)' };
     }
   }
 
@@ -144,13 +164,20 @@
 
   async function loadCategories() {
     isLoadingCategories = true;
+    categoriesError = null;
     try {
       const result = await apiClient.get<CategoryList[]>('/api/v1/categories');
-      if (result.success && result.data) {
-        categoryLists = result.data;
+      const categories = normalizeCategoryLists(result.data);
+      if (result.success) {
+        categoryLists = categories;
+        if (categories.length === 0) {
+          categoriesError = 'No categories available yet';
+        }
+      } else {
+        categoriesError = 'Failed to load categories';
       }
     } catch (e) {
-      console.error('Failed to load categories:', e);
+      categoriesError = 'Could not connect to server. Please try again.';
     } finally {
       isLoadingCategories = false;
     }
@@ -158,13 +185,16 @@
 
   async function loadBlockedArtists() {
     isLoadingBlocked = true;
+    blockedError = null;
     try {
       const result = await apiClient.get<BlockedArtist[]>('/api/v1/categories/blocked-artists');
-      if (result.success && result.data) {
-        blockedArtists = result.data;
+      if (result.success) {
+        blockedArtists = normalizeArtists(result.data);
+      } else {
+        blockedError = 'Failed to load blocked artists';
       }
     } catch (e) {
-      console.error('Failed to load blocked artists:', e);
+      blockedError = 'Could not connect to server. Please try again.';
     } finally {
       isLoadingBlocked = false;
     }
@@ -173,8 +203,8 @@
   async function loadDnpList() {
     try {
       const result = await apiClient.get<Array<{artist_id: string}>>('/api/v1/dnp/list');
-      if (result.success && result.data) {
-        dnpList = new Set(result.data.map(item => item.artist_id));
+      if (result.success) {
+        dnpList = new Set(normalizeDnpArtistIds(result.data));
       }
     } catch (e) {
       console.error('Failed to load DNP list:', e);
@@ -220,8 +250,8 @@
     isLoadingCategoryArtists = true;
     try {
       const result = await apiClient.get<{artists: BlockedArtist[]}>(`/api/v1/offenses/query?category=${categoryId}`);
-      if (result.success && result.data?.artists) {
-        categoryArtists = result.data.artists;
+      if (result.success) {
+        categoryArtists = normalizeArtists(result.data);
       } else {
         categoryArtists = [];
       }
@@ -246,20 +276,9 @@
       }
       await loadBlockedArtists();
 
-      // Trigger enforcement notification for category action
       const platforms = getConnectedPlatforms();
       if (platforms.length > 0) {
         const action = wasSubscribed ? 'unblock' : 'block';
-        blockingStore.addToast({
-          type: 'info',
-          message: `${action === 'block' ? 'Blocking' : 'Unblocking'} ${category.artist_count} artists from ${formatCategoryName(category.id)}...`,
-          dismissible: false,
-          progress: 0,
-        });
-
-        // Simulate bulk enforcement (in production this would be a batch API call)
-        await new Promise(resolve => setTimeout(resolve, 500 + category.artist_count * 20));
-
         blockingStore.addToast({
           type: 'success',
           message: `${action === 'block' ? 'Blocked' : 'Unblocked'} ${formatCategoryName(category.id)} category (${category.artist_count} artists)`,
@@ -281,41 +300,25 @@
   async function unblockArtist(artistId: string, event: MouseEvent | KeyboardEvent, artistName?: string) {
     event.stopPropagation();
     event.preventDefault();
-
-    // Get artist name for progress display
     const name = artistName || blockedArtists.find(a => a.id === artistId)?.name || 'Artist';
-
-    // Start enforcement simulation for unblock
     simulateEnforcement(artistId, name, 'unblock');
-
-    // Add to exceptions - artist will be excluded from category blocks
     exceptedArtists.add(artistId);
-    exceptedArtists = exceptedArtists; // Trigger reactivity
+    exceptedArtists = exceptedArtists;
     saveExceptions();
-
-    // Also try to remove from individual DNP list if they were manually added
     try {
       await apiClient.delete(`/api/v1/dnp/list/${artistId}`);
       dnpList.delete(artistId);
       dnpList = dnpList;
-    } catch (e) {
-      // Ignore - they might only be blocked via category
-    }
+    } catch (e) { /* ignore */ }
   }
 
   function reblockArtist(artistId: string, event: MouseEvent | KeyboardEvent, artistName?: string) {
     event.stopPropagation();
     event.preventDefault();
-
-    // Get artist name for progress display
     const name = artistName || blockedArtists.find(a => a.id === artistId)?.name || 'Artist';
-
-    // Start enforcement simulation for block
     simulateEnforcement(artistId, name, 'block');
-
-    // Remove from exceptions - artist will be blocked again by their categories
     exceptedArtists.delete(artistId);
-    exceptedArtists = exceptedArtists; // Trigger reactivity
+    exceptedArtists = exceptedArtists;
     saveExceptions();
   }
 
@@ -328,7 +331,6 @@
     }
   }
 
-  // Get list of connected platforms
   function getConnectedPlatforms(): Platform[] {
     const platforms: Platform[] = [];
     if ($spotifyConnection?.status === 'active') platforms.push('spotify');
@@ -336,1197 +338,1045 @@
     return platforms;
   }
 
-  // Simulate enforcement with progress (in production this would call actual APIs)
   async function simulateEnforcement(artistId: string, artistName: string, action: 'block' | 'unblock') {
     const platforms = getConnectedPlatforms();
     if (platforms.length === 0) return;
-
-    // Start the operation
     blockingStore.startOperation(artistId, artistName, action, platforms);
-
-    // Simulate each platform enforcement with delays
     for (const platform of platforms) {
       blockingStore.updatePlatformStatus(artistId, platform, 'in_progress');
-
-      // Simulate API call delay (300-800ms per platform)
       await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
-
-      // Simulate success (90% success rate for demo)
       const success = Math.random() > 0.1;
-      blockingStore.updatePlatformStatus(
-        artistId,
-        platform,
-        success ? 'completed' : 'failed',
-        success ? undefined : 'API error'
-      );
+      blockingStore.updatePlatformStatus(artistId, platform, success ? 'completed' : 'failed', success ? undefined : 'API error');
     }
-
-    // Complete the operation
     blockingStore.completeOperation(artistId);
+  }
+
+  function clearSearch() {
+    searchQuery = '';
+    searchResults = [];
+    isSearching = false;
   }
 </script>
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="home">
-  <!-- Hero Search Section -->
-  <section class="home__hero-section">
-    <div
-      class="home__hero-card"
-      style="background:
-        radial-gradient(circle at top left, rgba(244, 63, 94, 0.16), transparent 38%),
-        radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 30%),
-        linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
-        rgba(9, 9, 11, 0.82);
-        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.42);"
-    >
-      <div class="home__hero-badges">
-        <span class="home__hero-badge">
-          Spotify + Apple Music
-        </span>
-        <span class="home__hero-badge home__hero-badge--brand">
-          Evidence-led filters
-        </span>
-      </div>
+<div class="home brand-page surface-page">
+  <div class="brand-page__inner brand-page__stack">
+    <section class="hero brand-hero">
+      <div class="hero__header">
+        <div class="hero__copy">
+          <div class="brand-kickers">
+            <span class="brand-kicker">Spotify + Apple Music</span>
+            <span class="brand-kicker brand-kicker--accent">Evidence-led filters</span>
+          </div>
 
-      <div class="home__hero-grid">
-        <div class="home__hero-copy">
-          <p class="home__brand-kicker">No Drake in the House</p>
-          <h1 class="home__hero-title">
-            Clean your feed without flattening your taste.
+          <h1 class="hero__title">
+            <span class="hero__title-brand">No Drake in the House</span>
+            <span class="hero__title-main">Clean your feed without flattening your taste.</span>
           </h1>
-          <p class="home__hero-subtitle">
-            Search artists, block by category, and keep exceptions where you need them across Spotify and Apple Music.
-          </p>
+          <p class="brand-subtitle hero__subtitle">Search artists, block by category, and keep exceptions where you need them across Spotify and Apple Music.</p>
+
+          <div class="brand-meta">
+            <span class="brand-meta__item">
+              {connectedPlatformCount > 0
+                ? `${connectedPlatformCount} connected service${connectedPlatformCount === 1 ? '' : 's'}`
+                : 'No services connected yet'}
+            </span>
+            <span class="brand-meta__item">{activeCategoryCount} active categories</span>
+          </div>
         </div>
 
-        <div class="home__hero-metrics">
-          <div class="home__metric-card">
-            <span class="home__metric-value">{activeCategoryCount}</span>
-            <span class="home__metric-label">Active categories</span>
+        <div class="hero__stats brand-stat-grid" aria-label="Account overview">
+          <div class="brand-stat">
+            <span class="brand-stat__value">{activeCategoryCount}</span>
+            <span class="brand-stat__label">Active categories</span>
           </div>
-          <div class="home__metric-card">
-            <span class="home__metric-value">{uniqueBlockedArtists.length}</span>
-            <span class="home__metric-label">Artists blocked</span>
+          <div class="brand-stat">
+            <span class="brand-stat__value">{uniqueBlockedArtists.length}</span>
+            <span class="brand-stat__label">Artists blocked</span>
           </div>
-          <div class="home__metric-card">
-            <span class="home__metric-value">{connectedPlatformCount}</span>
-            <span class="home__metric-label">Connected services</span>
+          <div class="brand-stat">
+            <span class="brand-stat__value">{connectedPlatformCount}</span>
+            <span class="brand-stat__label">Connected services</span>
           </div>
         </div>
       </div>
 
-      <div class="home__search">
-      <div class="home__search-icon">
-        {#if isSearching}
-          <div class="home__spinner home__spinner--small"></div>
-        {:else}
-          <svg class="home__search-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      <div class="search home__search">
+        <div class="search__icon">
+          {#if isSearching}
+            <div class="search__spinner"></div>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          {/if}
+        </div>
+        <input
+          type="text"
+          bind:value={searchQuery}
+          on:input={handleSearchInput}
+          placeholder="Search any artist..."
+          aria-label="Search artists"
+          class="search__input"
+        />
+        {#if searchQuery}
+          <button type="button" class="search__clear" on:click={clearSearch} aria-label="Clear search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         {/if}
-      </div>
-      <input
-        type="text"
-        bind:value={searchQuery}
-        on:input={handleSearchInput}
-        placeholder="Search any artist..."
-        class="home__search-input"
-      />
 
-      <!-- Search Results Dropdown -->
-      {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
-        <div class="home__search-results">
-          {#if searchResults.length > 0}
-            <div class="home__search-results-list">
-              {#each searchResults as artist, i}
-                <button
-                  type="button"
-                  class="home__search-result"
-                  class:home__search-result--separated={i !== searchResults.length - 1}
-                  on:click={() => goToArtist(artist.id, artist.canonical_name)}
-                >
-                  <div class="home__search-result-copy">
-                    <div class="home__search-result-head">
-                      <span class="home__search-result-name">{artist.canonical_name}</span>
+        {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
+          <div class="search__dropdown">
+            {#if searchResults.length > 0}
+              <div class="search__results">
+                {#each searchResults as artist, i}
+                  <button
+                    type="button"
+                    class="search__result"
+                    on:click={() => goToArtist(artist.id, artist.canonical_name)}
+                  >
+                    <div class="search__result-info">
+                      <span class="search__result-name">{artist.canonical_name}</span>
                       {#if artist.has_offenses}
-                        <span class="home__search-result-badge">
-                          {artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}
-                        </span>
+                        <span class="search__result-badge">{artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}</span>
                       {/if}
                     </div>
                     {#if artist.genres && artist.genres.length > 0}
-                      <p class="home__search-result-meta">{artist.genres.slice(0, 2).join(', ')}</p>
+                      <p class="search__result-genres">{artist.genres.slice(0, 2).join(', ')}</p>
                     {/if}
-                  </div>
-                  <svg class="home__search-result-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              {/each}
-            </div>
-          {:else}
-            <div class="home__search-empty">
-              <p class="home__search-empty-text">No artists found for "<span class="home__search-empty-query">{searchQuery}</span>"</p>
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </div>
-    </div>
-  </section>
-
-  <!-- Categories -->
-  <section
-    class="home__panel"
-    style="box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);"
-  >
-    <div class="home__section-head">
-      <h2 class="home__section-title">Block by Category</h2>
-      <span class="home__section-kicker">Evidence-led filters</span>
-    </div>
-
-    {#if isLoadingCategories}
-      <div class="home__loading">
-        <div class="home__spinner"></div>
-      </div>
-    {:else}
-      <!-- Category Cards - Grid layout for consistent 2+ rows -->
-      <div class="home__category-grid">
-        {#each categoryLists as category}
-          {@const catColor = getCategoryColor(category.id)}
-          {@const isExpanded = expandedCategoryId === category.id}
-          <div
-            class="category-card"
-            style="background: {category.subscribed ? catColor.bg : 'rgba(255,255,255,0.03)'}; border: 1px solid {category.subscribed ? catColor.icon : isExpanded ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0.08)'}; color: white; box-shadow: {isExpanded ? '0 18px 40px rgba(0,0,0,0.28)' : 'none'};"
-          >
-            <!-- Toggle -->
-            <button
-              type="button"
-              class="category-card__toggle"
-              on:click={(e) => { e.stopPropagation(); toggleCategorySubscription(category, e); }}
-              title="{category.subscribed ? 'Unblock' : 'Block'} all {formatCategoryName(category.id)} artists"
-            >
-              {#if category.subscribed}
-                <svg class="category-card__toggle-icon" style="color: {catColor.icon};" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
-                </svg>
-              {:else}
-                <svg class="category-card__toggle-icon category-card__toggle-icon--muted" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"/>
-                </svg>
-              {/if}
-            </button>
-
-            <!-- Category Name - Click to expand -->
-            <button
-              type="button"
-              class="category-card__content"
-              on:click={() => toggleCategory(category.id)}
-              title="View {formatCategoryName(category.id)} artists"
-            >
-              <span class="category-card__name">{formatCategoryName(category.id)}</span>
-              <span class="category-card__count">{category.artist_count}</span>
-            </button>
-          </div>
-        {/each}
-      </div>
-
-      <!-- Expanded Category Panel -->
-      {#if expandedCategoryId}
-        {@const catColor = getCategoryColor(expandedCategoryId)}
-        {@const selectedCategory = categoryLists.find(c => c.id === expandedCategoryId)}
-        {@const exceptedInCategory = categoryArtists.filter(a => exceptedArtists.has(a.id))}
-        {@const blockedInCategory = categoryArtists.filter(a => !exceptedArtists.has(a.id))}
-        <div class="category-panel" style="background: rgba(9,9,11,0.78); border-color: {catColor.icon}; box-shadow: 0 18px 40px rgba(0,0,0,0.32);">
-          <!-- Header -->
-          <div class="category-panel__header" style="background: {catColor.icon};">
-            <div class="category-panel__header-row">
-              <div class="category-panel__header-copy">
-                <h3 class="category-panel__title">{formatCategoryName(expandedCategoryId)}</h3>
-                <p class="category-panel__summary">
-                  {#if selectedCategory?.subscribed}
-                    {blockedInCategory.length} blocked
-                    {#if exceptedInCategory.length > 0}
-                      <span class="opacity-70">· {exceptedInCategory.length} excepted</span>
-                    {/if}
-                  {:else}
-                    {categoryArtists.length} artists available
-                  {/if}
-                </p>
+                  </button>
+                {/each}
               </div>
-              <button
-                type="button"
-                on:click={() => { expandedCategoryId = null; categoryArtists = []; }}
-                class="category-panel__close"
-              >
-                <svg class="category-panel__close-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="category-panel__actions">
-              {#if selectedCategory}
-                <button
-                  type="button"
-                  class="category-panel__action"
-                  style="background: {selectedCategory.subscribed ? 'rgba(0,0,0,0.3)' : 'white'}; color: {selectedCategory.subscribed ? 'white' : catColor.icon};"
-                  on:click={(e) => toggleCategorySubscription(selectedCategory, e)}
-                >
-                  {selectedCategory.subscribed ? 'Unsubscribe' : 'Block All'}
-                </button>
-              {/if}
-              {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
-                <button
-                  type="button"
-                  class="category-panel__action category-panel__action--secondary"
-                  style="background: rgba(255,255,255,0.2); color: white;"
-                  on:click={() => {
-                    exceptedInCategory.forEach(a => exceptedArtists.delete(a.id));
-                    exceptedArtists = exceptedArtists;
-                    saveExceptions();
-                  }}
-                >
-                  Re-block All ({exceptedInCategory.length})
-                </button>
-              {/if}
-            </div>
-          </div>
-
-          <!-- Artists Grid -->
-          <div class="category-panel__body">
-            {#if isLoadingCategoryArtists}
-              <div class="home__loading home__loading--compact">
-                <div class="home__spinner home__spinner--medium"></div>
-              </div>
-            {:else if categoryArtists.length > 0}
-              <!-- Blocked Artists -->
-              {#if blockedInCategory.length > 0 && selectedCategory?.subscribed}
-                <div class="category-panel__group">
-                  <p class="category-panel__group-label">Blocked</p>
-                  <div class="category-panel__grid">
-                    {#each blockedInCategory as artist}
-                      {@const sev = getSeverityStyle(artist.severity)}
-                      <div
-                        class="artist-tile"
-                        style="background: rgba(0,0,0,0.3);"
-                      >
-                        <button
-                          type="button"
-                          class="artist-tile__link"
-                          on:click={() => goToArtist(artist.id, artist.name)}
-                        >
-                          <div class="artist-tile__head">
-                            <p class="artist-tile__name">{artist.name}</p>
-                            <EnforcementBadges artistId={artist.id} compact={true} />
-                          </div>
-                          <p class="artist-tile__severity" style="color: {artist.severity === 'egregious' ? '#fecaca' : artist.severity === 'severe' ? '#fed7aa' : artist.severity === 'moderate' ? '#fef08a' : '#a1a1aa'};">
-                            {sev.label}
-                          </p>
-                        </button>
-                        <button
-                          type="button"
-                          class="artist-tile__dismiss"
-                          style="background: rgba(0,0,0,0.5); color: #a1a1aa;"
-                          on:click={(e) => unblockArtist(artist.id, e, artist.name)}
-                          title="Unblock this artist"
-                        >
-                          <svg class="artist-tile__dismiss-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- Excepted Artists -->
-              {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
-                <div class="category-panel__group category-panel__group--divided" style="border-top: 1px solid #3f3f46;">
-                  <p class="category-panel__group-label category-panel__group-label--muted">Not Blocked (Excepted)</p>
-                  <div class="category-panel__grid">
-                    {#each exceptedInCategory as artist}
-                      <div
-                        class="artist-tile artist-tile--excepted"
-                        style="background: rgba(0,0,0,0.15); border: 1px dashed #52525b;"
-                      >
-                        <button
-                          type="button"
-                          class="artist-tile__link"
-                          on:click={() => goToArtist(artist.id, artist.name)}
-                        >
-                          <p class="artist-tile__name artist-tile__name--muted">{artist.name}</p>
-                          <p class="artist-tile__status">Excepted</p>
-                        </button>
-                        <button
-                          type="button"
-                          class="artist-tile__reblock"
-                          style="background: {catColor.icon}; color: white;"
-                          on:click={(e) => reblockArtist(artist.id, e, artist.name)}
-                          title="Re-block this artist"
-                        >
-                          Block
-                        </button>
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              {/if}
-
-              <!-- Not Subscribed - Show all artists -->
-              {#if !selectedCategory?.subscribed}
-                <div class="category-panel__grid">
-                  {#each categoryArtists as artist}
-                    {@const sev = getSeverityStyle(artist.severity)}
-                    <button
-                      type="button"
-                      class="artist-tile artist-tile--catalog"
-                      style="background: rgba(0,0,0,0.3);"
-                      on:click={() => goToArtist(artist.id, artist.name)}
-                    >
-                      <p class="artist-tile__name">{artist.name}</p>
-                      <p class="artist-tile__severity" style="color: {artist.severity === 'egregious' ? '#fecaca' : artist.severity === 'severe' ? '#fed7aa' : artist.severity === 'moderate' ? '#fef08a' : '#a1a1aa'};">
-                        {sev.label}
-                      </p>
-                    </button>
-                  {/each}
-                </div>
-              {/if}
             {:else}
-              <p class="category-panel__empty">No artists in this category yet</p>
+              <div class="search__empty">
+                No artists found for "<strong>{searchQuery}</strong>"
+              </div>
             {/if}
           </div>
-        </div>
-      {/if}
-    {/if}
-  </section>
-
-  <!-- Your Blocked Artists -->
-  <section
-    class="home__panel"
-    style="box-shadow: 0 20px 60px rgba(0, 0, 0, 0.32);"
-  >
-    <div class="home__section-head">
-      <h2 class="home__section-title">
-        Your Blocked Artists
-        {#if uniqueBlockedArtists.length > 0}
-          <span class="home__section-count">({uniqueBlockedArtists.length})</span>
         {/if}
-      </h2>
-      <span class="home__section-kicker">Live blocklist</span>
-    </div>
-
-    {#if isLoadingBlocked}
-      <div class="home__loading home__loading--compact">
-        <div class="home__spinner home__spinner--medium"></div>
       </div>
-    {:else if uniqueBlockedArtists.length === 0}
-      <div class="home__empty-state">
-        <div
-          class="home__empty-state-icon"
-          style="background:
-            radial-gradient(circle at 30% 30%, rgba(255,255,255,0.12), transparent 36%),
-            linear-gradient(145deg, rgba(244, 63, 94, 1), rgba(225, 29, 72, 1)); box-shadow: 0 10px 24px rgba(244, 63, 94, 0.22);"
-        >
-          <svg class="home__empty-state-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-          </svg>
+    </section>
+
+    <div class="content brand-page__stack">
+      <!-- Categories -->
+      <section class="section section--card surface-card">
+        <div class="section__header">
+          <div>
+            <h2 class="section__title">Block by Category</h2>
+            <p class="section__description">Toggle category-wide filters, inspect the artists inside each bucket, and keep exceptions under control.</p>
+          </div>
         </div>
-        <p class="home__empty-state-title">No artists blocked yet</p>
-        <p class="home__empty-state-copy">Toggle categories above to start shaping your feed.</p>
-      </div>
-    {:else}
-      <div class="home__chip-list">
-        {#each uniqueBlockedArtists as artist}
-          <button
-            type="button"
-            class="blocked-chip"
-            style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);"
-            data-testid="blocked-artist-chip"
-            on:click={() => goToArtist(artist.id, artist.name)}
-            title="View artist profile"
-          >
-            <span
-              class="blocked-chip__name"
-              style="color: #e4e4e7;"
-              data-testid="blocked-artist-name"
-            >
-              {artist.name}
-            </span>
-            <!-- Enforcement badges -->
-            <EnforcementBadges artistId={artist.id} compact={true} />
-            <span
-              role="button"
-              tabindex="0"
-              class="blocked-chip__remove"
-              style="color: #a1a1aa;"
-              on:click={(e) => unblockArtist(artist.id, e, artist.name)}
-              on:keydown={(e) => e.key === 'Enter' && unblockArtist(artist.id, e, artist.name)}
-              title="Remove from blocklist"
-              data-testid="unblock-artist-button"
-            >
-              <svg class="blocked-chip__remove-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </span>
-          </button>
-        {/each}
-      </div>
-    {/if}
 
-  </section>
+        {#if isLoadingCategories}
+          <div class="loader">
+            <div class="loader__spinner"></div>
+          </div>
+        {:else if categoriesError}
+          <div class="brand-alert brand-alert--error">
+            <p>{categoriesError}</p>
+            <button type="button" class="brand-alert__dismiss" on:click={loadCategories}>Try again</button>
+          </div>
+        {:else}
+          <div class="categories">
+            {#each categoryLists as category}
+              {@const catColor = getCategoryColor(category.id)}
+              {@const isExpanded = expandedCategoryId === category.id}
+              <div
+                class="category-chip"
+                class:category-chip--subscribed={category.subscribed}
+                class:category-chip--expanded={isExpanded}
+                style="--cat-color: {catColor.icon}; --cat-bg: {catColor.bg};"
+              >
+                <button
+                  type="button"
+                  class="category-chip__toggle"
+                  on:click={(e) => toggleCategorySubscription(category, e)}
+                  title="{category.subscribed ? 'Unblock' : 'Block'} all {formatCategoryName(category.id)} artists"
+                >
+                  {#if category.subscribed}
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                  {:else}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="6" x2="12" y2="18"/><line x1="6" y1="12" x2="18" y2="12"/></svg>
+                  {/if}
+                </button>
+                <button
+                  type="button"
+                  class="category-chip__label"
+                  on:click={() => toggleCategory(category.id)}
+                  title="View {formatCategoryName(category.id)} artists"
+                >
+                  <span class="category-chip__name">{formatCategoryName(category.id)}</span>
+                  <span class="category-chip__count">{category.artist_count}</span>
+                </button>
+              </div>
+            {/each}
+          </div>
+
+          <!-- Expanded Category Panel -->
+          {#if expandedCategoryId}
+            {@const catColor = getCategoryColor(expandedCategoryId)}
+            {@const selectedCategory = categoryLists.find(c => c.id === expandedCategoryId)}
+            {@const exceptedInCategory = categoryArtists.filter(a => exceptedArtists.has(a.id))}
+            {@const blockedInCategory = categoryArtists.filter(a => !exceptedArtists.has(a.id))}
+            <div class="category-panel" style="--cat-color: {catColor.icon};">
+              <div class="category-panel__header">
+                <div>
+                  <h3 class="category-panel__title">{formatCategoryName(expandedCategoryId)}</h3>
+                  <p class="category-panel__meta">
+                    {#if selectedCategory?.subscribed}
+                      {blockedInCategory.length} blocked{#if exceptedInCategory.length > 0} · {exceptedInCategory.length} excepted{/if}
+                    {:else}
+                      {categoryArtists.length} artists available
+                    {/if}
+                  </p>
+                </div>
+                <div class="category-panel__actions">
+                  {#if selectedCategory}
+                    <button
+                      type="button"
+                      class="category-panel__action-btn"
+                      class:category-panel__action-btn--active={selectedCategory.subscribed}
+                      on:click={(e) => toggleCategorySubscription(selectedCategory, e)}
+                    >
+                      {selectedCategory.subscribed ? 'Unsubscribe' : 'Block All'}
+                    </button>
+                  {/if}
+                  {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
+                    <button
+                      type="button"
+                      class="category-panel__action-btn category-panel__action-btn--secondary"
+                      on:click={() => {
+                        exceptedInCategory.forEach(a => exceptedArtists.delete(a.id));
+                        exceptedArtists = exceptedArtists;
+                        saveExceptions();
+                      }}
+                    >
+                      Re-block All ({exceptedInCategory.length})
+                    </button>
+                  {/if}
+                  <button
+                    type="button"
+                    class="category-panel__close"
+                    on:click={() => { expandedCategoryId = null; categoryArtists = []; }}
+                    aria-label="Close panel"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+
+              <div class="category-panel__body">
+                {#if isLoadingCategoryArtists}
+                  <div class="loader"><div class="loader__spinner"></div></div>
+                {:else if categoryArtists.length > 0}
+                  {#if blockedInCategory.length > 0 && selectedCategory?.subscribed}
+                    <div class="category-panel__section">
+                      <p class="category-panel__section-label">Blocked</p>
+                      <div class="artist-grid">
+                        {#each blockedInCategory as artist}
+                          {@const sev = getSeverityStyle(artist.severity)}
+                          <div class="artist-tile group">
+                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id, artist.name)}>
+                              <span class="artist-tile__name">{artist.name}</span>
+                              <EnforcementBadges artistId={artist.id} compact={true} />
+                              <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
+                            </button>
+                            <button
+                              type="button"
+                              class="artist-tile__remove"
+                              on:click={(e) => unblockArtist(artist.id, e, artist.name)}
+                              title="Unblock"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+
+                  {#if exceptedInCategory.length > 0 && selectedCategory?.subscribed}
+                    <div class="category-panel__section category-panel__section--excepted">
+                      <p class="category-panel__section-label">Not Blocked (Excepted)</p>
+                      <div class="artist-grid">
+                        {#each exceptedInCategory as artist}
+                          <div class="artist-tile artist-tile--excepted group">
+                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id, artist.name)}>
+                              <span class="artist-tile__name">{artist.name}</span>
+                              <span class="artist-tile__severity">Excepted</span>
+                            </button>
+                            <button
+                              type="button"
+                              class="artist-tile__reblock"
+                              on:click={(e) => reblockArtist(artist.id, e, artist.name)}
+                              title="Re-block"
+                            >
+                              Block
+                            </button>
+                          </div>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
+
+                  {#if !selectedCategory?.subscribed}
+                    <div class="artist-grid">
+                      {#each categoryArtists as artist}
+                        {@const sev = getSeverityStyle(artist.severity)}
+                        <button type="button" class="artist-tile" on:click={() => goToArtist(artist.id, artist.name)}>
+                          <span class="artist-tile__name">{artist.name}</span>
+                          <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                {:else}
+                  <p class="category-panel__empty">No artists in this category yet</p>
+                {/if}
+              </div>
+            </div>
+          {/if}
+        {/if}
+      </section>
+
+      <!-- Blocked Artists -->
+      <section class="section section--card surface-card">
+        <div class="section__header">
+          <div>
+            <h2 class="section__title">
+              Your Blocked Artists
+              {#if uniqueBlockedArtists.length > 0}
+                <span class="section__count">{uniqueBlockedArtists.length}</span>
+              {/if}
+            </h2>
+            <p class="section__description">Artists currently filtered from your connected listening surface, with one-click exceptions when you need them.</p>
+          </div>
+        </div>
+
+        {#if isLoadingBlocked}
+          <div class="loader"><div class="loader__spinner"></div></div>
+        {:else if blockedError}
+          <div class="brand-alert brand-alert--error">
+            <p>{blockedError}</p>
+            <button type="button" class="brand-alert__dismiss" on:click={loadBlockedArtists}>Try again</button>
+          </div>
+        {:else if uniqueBlockedArtists.length === 0}
+          <div class="brand-empty">
+            <p class="brand-empty__title">No artists blocked yet</p>
+            <p class="brand-empty__copy">Toggle categories above to start blocking and keep the rest of your listening graph intact.</p>
+          </div>
+        {:else}
+          <div class="blocked-chips">
+            {#each uniqueBlockedArtists as artist}
+              <button
+                type="button"
+                class="blocked-chip group"
+                data-testid="blocked-artist-chip"
+                on:click={() => goToArtist(artist.id, artist.name)}
+                title="View artist profile"
+              >
+                <span class="blocked-chip__name" data-testid="blocked-artist-name">{artist.name}</span>
+                <EnforcementBadges artistId={artist.id} compact={true} />
+                <span
+                  role="button"
+                  tabindex="0"
+                  class="blocked-chip__remove"
+                  on:click={(e) => unblockArtist(artist.id, e, artist.name)}
+                  on:keydown={(e) => e.key === 'Enter' && unblockArtist(artist.id, e, artist.name)}
+                  title="Remove from blocklist"
+                  data-testid="unblock-artist-button"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </section>
+    </div>
+  </div>
 </div>
 
 <style>
   .home {
-    width: min(1100px, calc(100vw - 2rem));
-    margin: 0 auto;
-    padding: 1.5rem 0 2rem;
+    min-height: calc(100vh - 4.5rem);
+  }
+
+  /* ===== HERO ===== */
+  .hero__header {
     display: grid;
-    gap: 1.75rem;
+    grid-template-columns: minmax(0, 1.25fr) minmax(18rem, 0.9fr);
+    gap: 1.5rem;
+    align-items: flex-end;
   }
 
-  .home__hero-section,
-  .home__panel {
-    margin: 0;
-  }
-
-  .home__hero-card,
-  .home__panel {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1.75rem;
-    backdrop-filter: blur(20px);
-  }
-
-  .home__hero-card {
-    padding: 1.6rem;
-  }
-
-  .home__hero-badges {
+  .hero__title {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .home__hero-badge {
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 0.65rem 1rem;
-    font-size: 0.73rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #a1a1aa;
-  }
-
-  .home__hero-badge--brand {
-    border-color: rgba(244, 63, 94, 0.24);
-    background: rgba(244, 63, 94, 0.12);
-    color: #fda4af;
-  }
-
-  .home__hero-grid {
-    display: grid;
-    gap: 2rem;
-    margin-top: 1.75rem;
-  }
-
-  .home__hero-copy {
-    max-width: 42rem;
-  }
-
-  .home__brand-kicker {
-    margin: 0 0 0.9rem;
-    font-size: 0.76rem;
-    font-weight: 800;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #fda4af;
-  }
-
-  .home__hero-title {
+    flex-direction: column;
+    gap: 0.45rem;
     margin: 0;
-    max-width: 11ch;
-    font-size: clamp(2.5rem, 4vw, 4.5rem);
-    font-weight: 900;
-    line-height: 0.95;
-    letter-spacing: -0.05em;
-    color: #fafafa;
+    max-width: 16ch;
   }
 
-  .home__hero-subtitle {
-    margin: 1.25rem 0 0;
-    max-width: 40rem;
-    font-size: 1.02rem;
-    line-height: 1.85;
-    color: #d4d4d8;
-  }
-
-  .home__hero-metrics {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.85rem;
-    align-content: end;
-  }
-
-  .home__metric-card {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1.25rem;
-    background: rgba(255, 255, 255, 0.04);
-    padding: 1rem;
-  }
-
-  .home__metric-value {
-    display: block;
-    font-size: 2rem;
-    font-weight: 800;
-    line-height: 1;
-    color: #fafafa;
-  }
-
-  .home__metric-label {
-    display: block;
-    margin-top: 0.6rem;
-    font-size: 0.7rem;
+  .hero__title-brand {
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.14em;
+    color: #fda4af;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: #71717a;
+  }
+
+  .hero__title-main {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: -0.05em;
+    line-height: 1.1;
+  }
+
+  .hero__subtitle {
+    max-width: 40rem;
+  }
+
+  .hero__stats {
+    align-self: stretch;
+  }
+
+  /* ===== SEARCH ===== */
+  .search {
+    position: relative;
+    margin-top: 1.5rem;
+    max-width: 46rem;
   }
 
   .home__search {
-    position: relative;
-    margin-top: 1.5rem;
-    max-width: 44rem;
+    margin-top: 1.35rem;
   }
 
-  .home__search-icon {
+  .search__icon {
     position: absolute;
-    left: 1rem;
+    left: 0.875rem;
     top: 50%;
-    z-index: 1;
     transform: translateY(-50%);
-    color: #71717a;
+    color: var(--color-text-muted);
+    z-index: 1;
+    pointer-events: none;
+    width: 1.125rem;
+    height: 1.125rem;
   }
 
-  .home__search-icon-svg {
-    width: 1.15rem;
-    height: 1.15rem;
-  }
-
-  .home__search-input {
+  .search__icon svg {
     width: 100%;
-    box-sizing: border-box;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1.2rem;
-    background: rgba(255, 255, 255, 0.04);
-    color: #fafafa;
-    padding: 1rem 1rem 1rem 3rem;
-    font-size: 1rem;
-    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    height: 100%;
+    max-width: none;
+    max-height: none;
   }
 
-  .home__search-input::placeholder {
-    color: #71717a;
+  .search__spinner {
+    width: 1.125rem;
+    height: 1.125rem;
+    border: 2px solid var(--color-border-default);
+    border-top-color: var(--color-text-secondary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
   }
 
-  .home__search-input:focus {
+  .search__input {
+    width: 100%;
+    min-height: 3rem;
+    padding: 0.8rem 2.9rem 0.8rem 3rem;
+    font-family: var(--font-family-sans);
+    font-size: 0.95rem;
+    color: var(--color-text-primary);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+      rgba(24, 24, 27, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 1rem;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .search__input::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  .search__input:focus {
     outline: none;
-    border-color: rgba(244, 63, 94, 0.32);
-    box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.12);
-    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
+    border-color: rgba(244, 63, 94, 0.42);
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16);
   }
 
-  .home__search-results {
+  .search__clear {
     position: absolute;
-    top: calc(100% + 0.75rem);
+    right: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    border-radius: var(--radius-sm);
+    transition: color var(--transition-fast);
+    padding: 0;
+  }
+
+  .search__clear svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  .search__clear:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .search__dropdown {
+    position: absolute;
+    top: calc(100% + 0.375rem);
     left: 0;
     right: 0;
-    z-index: 20;
-    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
+      rgba(17, 17, 19, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1.2rem;
-    background: rgba(9, 9, 11, 0.95);
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
-    backdrop-filter: blur(20px);
+    border-radius: 1.15rem;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+    z-index: var(--z-dropdown);
+    overflow: hidden;
+    backdrop-filter: blur(14px);
   }
 
-  .home__search-results-list {
+  .search__results {
     max-height: 20rem;
     overflow-y: auto;
   }
 
-  .home__search-result {
+  .search__result {
+    display: block;
     width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    border: 0;
-    background: transparent;
-    padding: 0.9rem 1rem;
+    padding: 0.625rem 1rem;
     text-align: left;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-border-subtle);
     cursor: pointer;
-    transition: background 160ms ease;
+    transition: background var(--transition-fast);
   }
 
-  .home__search-result:hover {
+  .search__result:last-child {
+    border-bottom: none;
+  }
+
+  .search__result:hover {
     background: rgba(255, 255, 255, 0.04);
   }
 
-  .home__search-result--separated {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .home__search-result-copy {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .home__search-result-head {
+  .search__result-info {
     display: flex;
     align-items: center;
-    gap: 0.55rem;
+    gap: 0.5rem;
   }
 
-  .home__search-result-name {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-    color: #fafafa;
+  .search__result-name {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
   }
 
-  .home__search-result-badge {
-    flex-shrink: 0;
-    padding: 0.25rem 0.55rem;
-    border-radius: 999px;
-    background: rgba(244, 63, 94, 0.16);
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #fda4af;
+  .search__result-badge {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 1px 0.375rem;
+    border-radius: var(--radius-full);
+    background: var(--color-brand-primary-muted);
+    color: var(--color-brand-primary);
   }
 
-  .home__search-result-meta {
-    margin: 0.32rem 0 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.88rem;
-    color: #a1a1aa;
+  .search__result-genres {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    margin-top: 0.125rem;
   }
 
-  .home__search-result-arrow {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-    color: #71717a;
-  }
-
-  .home__search-empty {
-    padding: 1.25rem 1rem;
+  .search__empty {
+    padding: 1.5rem 1rem;
     text-align: center;
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
   }
 
-  .home__search-empty-text {
+  .search__empty strong {
+    color: var(--color-text-primary);
+  }
+
+  /* ===== CONTENT ===== */
+  .content {
+    gap: 1.25rem;
+  }
+
+  .section {
     margin: 0;
-    color: #a1a1aa;
   }
 
-  .home__search-empty-query {
-    color: #fafafa;
+  .section--card {
+    padding: 1.1rem 1.15rem 1.2rem;
+    border-radius: 1.5rem;
   }
 
-  .home__panel {
-    background: rgba(9, 9, 11, 0.72);
-    padding: 1.4rem;
-  }
-
-  .home__section-head {
+  .section__title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section__header {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
   }
 
-  .home__section-title {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: #fafafa;
+  .section__description {
+    margin: 0.45rem 0 0;
+    max-width: 42rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    font-size: 0.92rem;
   }
 
-  .home__section-count {
-    color: #71717a;
+  .section__count {
+    font-size: var(--text-xs);
     font-weight: 500;
+    color: #fda4af;
+    background: rgba(244, 63, 94, 0.1);
+    border: 1px solid rgba(244, 63, 94, 0.18);
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-full);
   }
 
-  .home__section-kicker {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: #71717a;
-  }
-
-  .home__loading {
+  /* ===== CATEGORIES ===== */
+  .categories {
     display: flex;
-    justify-content: center;
-    padding: 3rem 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
-  .home__loading--compact {
-    padding: 2rem 0;
+  .category-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    padding-right: 0.125rem;
+    border-radius: 1rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+      rgba(24, 24, 27, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all var(--transition-fast);
   }
 
-  .home__spinner {
-    width: 2rem;
-    height: 2rem;
-    border: 2px solid rgba(255, 255, 255, 0.12);
-    border-top-color: #fda4af;
-    border-radius: 999px;
-    animation: home-spin 0.9s linear infinite;
+  .category-chip--subscribed {
+    border-color: var(--cat-color);
+    background: var(--cat-bg);
   }
 
-  .home__spinner--small {
-    width: 1.1rem;
-    height: 1.1rem;
+  @media (max-width: 900px) {
+    .hero__header {
+      grid-template-columns: 1fr;
+    }
+
+    .hero__title-main {
+      max-width: 14ch;
+    }
   }
 
-  .home__spinner--medium {
+  @media (max-width: 640px) {
+    .hero__title-brand {
+      font-size: 0.72rem;
+    }
+  }
+
+  .category-chip--expanded {
+    border-color: rgba(244, 63, 94, 0.22);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+  }
+
+  .category-chip__toggle {
     width: 1.5rem;
     height: 1.5rem;
-  }
-
-  .home__category-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 0.8rem;
-  }
-
-  .category-card {
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
-    gap: 0.7rem;
-    border-radius: 1.1rem;
-    padding: 0.7rem 0.8rem;
-    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
-  }
-
-  .category-card:hover {
-    transform: translateY(-1px);
-  }
-
-  .category-card__toggle,
-  .category-card__content,
-  .category-panel__close,
-  .category-panel__action,
-  .artist-tile__link,
-  .artist-tile__dismiss,
-  .artist-tile__reblock,
-  .artist-tile--catalog,
-  .blocked-chip,
-  .blocked-chip__remove {
+    justify-content: center;
+    background: none;
+    border: none;
     cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--transition-fast);
+    padding: 0;
+    flex-shrink: 0;
   }
 
-  .category-card__toggle {
-    width: 2rem;
-    height: 2rem;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.06);
+  .category-chip__toggle svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    max-width: none;
+    max-height: none;
   }
 
-  .category-card__toggle-icon {
-    width: 0.95rem;
-    height: 0.95rem;
+  .category-chip--subscribed .category-chip__toggle {
+    color: var(--cat-color);
   }
 
-  .category-card__toggle-icon--muted {
-    color: #71717a;
-  }
-
-  .category-card__content {
-    flex: 1;
-    min-width: 0;
+  .category-chip__label {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    border: 0;
-    padding: 0;
-    background: transparent;
-    color: inherit;
-    text-align: left;
+    gap: 0.375rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem 0.25rem 0;
+    min-width: 0;
   }
 
-  .category-card__name {
+  .category-chip__name {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 0.9rem;
-    font-weight: 600;
   }
 
-  .category-card__count {
-    flex-shrink: 0;
-    font-size: 0.78rem;
-    color: rgba(255, 255, 255, 0.58);
+  .category-chip__count {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
+  /* ===== CATEGORY PANEL ===== */
   .category-panel {
-    margin-top: 1rem;
+    margin-top: 0.75rem;
+    border-radius: 1.35rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
+      rgba(17, 17, 19, 0.9);
     overflow: hidden;
-    border: 1px solid;
-    border-radius: 1.6rem;
+    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(14px);
   }
 
   .category-panel__header {
-    padding: 1.2rem 1.25rem 1rem;
-  }
-
-  .category-panel__header-row {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-  }
-
-  .category-panel__header-copy {
-    min-width: 0;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-surface);
   }
 
   .category-panel__title {
-    margin: 0;
-    font-size: 1.35rem;
-    font-weight: 800;
-    color: #fff;
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
   }
 
-  .category-panel__summary {
-    margin: 0.4rem 0 0;
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.82);
-  }
-
-  .category-panel__close {
-    width: 2.4rem;
-    height: 2.4rem;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, 0.18);
-    color: #fff;
-    transition: background 160ms ease;
-  }
-
-  .category-panel__close:hover {
-    background: rgba(0, 0, 0, 0.28);
-  }
-
-  .category-panel__close-icon {
-    width: 1rem;
-    height: 1rem;
+  .category-panel__meta {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin-top: 0.125rem;
   }
 
   .category-panel__actions {
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 0.65rem;
-    margin-top: 1rem;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
-  .category-panel__action {
-    border: 0;
-    border-radius: 999px;
-    padding: 0.75rem 1rem;
-    font-size: 0.88rem;
-    font-weight: 700;
-    transition: transform 160ms ease, opacity 160ms ease;
+  .category-panel__action-btn {
+    padding: 0.375rem 0.875rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    background: var(--cat-color);
+    color: white;
   }
 
-  .category-panel__action:hover {
-    transform: translateY(-1px);
+  .category-panel__action-btn--active {
+    background: var(--color-bg-interactive);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+  }
+
+  .category-panel__action-btn--secondary {
+    background: var(--color-bg-interactive);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border-default);
+  }
+
+  .category-panel__close {
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    padding: 0;
+  }
+
+  .category-panel__close svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  .category-panel__close:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
   }
 
   .category-panel__body {
+    padding: 1rem 1.25rem;
     max-height: 24rem;
     overflow-y: auto;
-    padding: 1.25rem;
   }
 
-  .category-panel__group {
-    margin-bottom: 1.25rem;
+  .category-panel__section {
+    margin-bottom: 1rem;
   }
 
-  .category-panel__group:last-child {
-    margin-bottom: 0;
+  .category-panel__section--excepted {
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border-subtle);
   }
 
-  .category-panel__group--divided {
-    padding-top: 1.25rem;
-  }
-
-  .category-panel__group-label {
-    margin: 0 0 0.85rem;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
+  .category-panel__section-label {
+    font-size: 0.6875rem;
     text-transform: uppercase;
-    color: #d4d4d8;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
   }
 
-  .category-panel__group-label--muted {
-    color: #71717a;
+  .category-panel__empty {
+    text-align: center;
+    color: var(--color-text-tertiary);
+    padding: 2rem 0;
+    font-size: var(--text-sm);
   }
 
-  .category-panel__grid {
+  /* ===== ARTIST GRID ===== */
+  .artist-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: 0.375rem;
   }
 
-  .artist-tile,
-  .artist-tile--catalog {
+  .artist-tile {
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 1rem;
-    padding: 0.85rem;
-    transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
-  }
-
-  .artist-tile:hover,
-  .artist-tile--catalog:hover {
-    transform: translateY(-1px);
-    border-color: rgba(255, 255, 255, 0.16);
-  }
-
-  .artist-tile__link,
-  .artist-tile--catalog {
-    width: 100%;
-    display: block;
-    border: 0;
-    padding: 0;
-    background: transparent;
+    padding: 0.625rem;
+    border-radius: 0.95rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+      rgba(24, 24, 27, 0.92);
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
     text-align: left;
-    color: inherit;
   }
 
-  .artist-tile__head {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
+  .artist-tile:hover {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
+      rgba(32, 32, 35, 0.94);
+  }
+
+  .artist-tile--excepted {
+    opacity: 0.6;
+    border: 1px dashed var(--color-border-default);
+    background: transparent;
+  }
+
+  .artist-tile__main {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-align: left;
   }
 
   .artist-tile__name {
-    margin: 0;
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-primary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.92rem;
-    font-weight: 600;
-    color: #fafafa;
   }
 
-  .artist-tile__name--muted {
-    color: #a1a1aa;
+  .artist-tile__severity {
+    display: block;
+    font-size: 0.6875rem;
+    margin-top: 0.125rem;
+    color: var(--color-text-muted);
   }
 
-  .artist-tile__severity,
-  .artist-tile__status {
-    margin: 0.35rem 0 0;
-    font-size: 0.78rem;
-  }
-
-  .artist-tile__status {
-    color: #71717a;
-  }
-
-  .artist-tile__dismiss {
+  .artist-tile__remove {
     position: absolute;
-    top: 0.55rem;
-    right: 0.55rem;
-    width: 1.6rem;
-    height: 1.6rem;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 999px;
+    top: 0.25rem;
+    right: 0.25rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-page);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-text-muted);
     opacity: 0;
-    transition: opacity 160ms ease, background 160ms ease;
+    transition: opacity var(--transition-fast);
+    padding: 0;
   }
 
-  .artist-tile:hover .artist-tile__dismiss {
+  .artist-tile__remove svg {
+    width: 0.625rem;
+    height: 0.625rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  :global(.group):hover .artist-tile__remove {
     opacity: 1;
-  }
-
-  .artist-tile__dismiss-icon {
-    width: 0.78rem;
-    height: 0.78rem;
   }
 
   .artist-tile__reblock {
     position: absolute;
-    top: 0.55rem;
-    right: 0.55rem;
-    border: 0;
-    border-radius: 999px;
-    padding: 0.28rem 0.55rem;
-    font-size: 0.7rem;
-    font-weight: 700;
+    top: 0.25rem;
+    right: 0.25rem;
+    padding: 0.125rem 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    background: var(--cat-color, var(--color-brand-primary));
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
     opacity: 0;
-    transition: opacity 160ms ease, transform 160ms ease;
+    transition: opacity var(--transition-fast);
   }
 
-  .artist-tile--excepted:hover .artist-tile__reblock {
+  :global(.group):hover .artist-tile__reblock {
     opacity: 1;
-    transform: translateY(-1px);
   }
 
-  .category-panel__empty {
-    margin: 0;
-    padding: 2rem 0;
-    text-align: center;
-    color: #a1a1aa;
-  }
-
-  .home__empty-state {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1.25rem;
-    background: rgba(255, 255, 255, 0.04);
-    padding: 2.25rem 1.25rem;
-    text-align: center;
-  }
-
-  .home__empty-state-icon {
-    display: grid;
-    place-items: center;
-    width: 3rem;
-    height: 3rem;
-    margin: 0 auto 1rem;
-    border-radius: 999px;
-  }
-
-  .home__empty-state-icon-svg {
-    width: 1.2rem;
-    height: 1.2rem;
-    color: #fff;
-  }
-
-  .home__empty-state-title {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #fafafa;
-  }
-
-  .home__empty-state-copy {
-    margin: 0.55rem 0 0;
-    font-size: 0.92rem;
-    color: #a1a1aa;
-  }
-
-  .home__chip-list {
+  /* ===== BLOCKED CHIPS ===== */
+  .blocked-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem;
+    gap: 0.5rem;
   }
 
   .blocked-chip {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 0.45rem;
-    border-radius: 999px;
-    padding: 0.55rem 0.8rem;
-    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+    gap: 0.375rem;
+    padding: 0.35rem 0.45rem 0.35rem 0.75rem;
+    border-radius: var(--radius-full);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+      rgba(24, 24, 27, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: var(--font-family-sans);
   }
 
   .blocked-chip:hover {
-    transform: translateY(-1px);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+      rgba(32, 32, 35, 0.94);
+    border-color: rgba(244, 63, 94, 0.18);
   }
 
   .blocked-chip__name {
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
   }
 
   .blocked-chip__remove {
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 1rem;
     height: 1rem;
-    border-radius: 999px;
-    opacity: 0.45;
-    transition: opacity 160ms ease, background 160ms ease;
+    border-radius: var(--radius-full);
+    color: var(--color-text-muted);
+    opacity: 0.4;
+    transition: all var(--transition-fast);
+    cursor: pointer;
+  }
+
+  .blocked-chip__remove svg {
+    width: 0.625rem;
+    height: 0.625rem;
+    max-width: none;
+    max-height: none;
   }
 
   .blocked-chip__remove:hover {
     opacity: 1;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-hover);
   }
 
-  .blocked-chip__remove-icon {
-    width: 0.72rem;
-    height: 0.72rem;
+  /* ===== SHARED ===== */
+  .loader {
+    display: flex;
+    justify-content: center;
+    padding: 2rem 0;
   }
 
-  @keyframes home-spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
+  .loader__spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 2px solid var(--color-border-default);
+    border-top-color: var(--color-text-secondary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
   }
 
-  @media (min-width: 960px) {
-    .home__hero-grid {
-      grid-template-columns: minmax(0, 1.45fr) minmax(15rem, 0.85fr);
-      align-items: end;
-    }
-  }
-
-  @media (max-width: 719px) {
-    .home {
-      width: min(100vw - 1.25rem, 1100px);
-      padding-top: 1rem;
-      gap: 1rem;
-    }
-
-    .home__hero-card,
-    .home__panel {
-      padding: 1.1rem;
-      border-radius: 1.35rem;
-    }
-
-    .home__hero-title {
-      font-size: 2.2rem;
-    }
-
-    .home__hero-subtitle {
-      font-size: 0.94rem;
-      line-height: 1.7;
-    }
-
-    .home__section-head {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .category-panel__header-row {
-      align-items: center;
-    }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>

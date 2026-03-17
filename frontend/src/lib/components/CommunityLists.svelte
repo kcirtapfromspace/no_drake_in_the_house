@@ -1,10 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { communityActions, communityStore, filteredLists, subscribedListIds } from '../stores/community';
+  import { navigateTo } from '../utils/simple-router';
   import CommunityListCard from './CommunityListCard.svelte';
   import CommunityListDetail from './CommunityListDetail.svelte';
   import CreateCommunityList from './CreateCommunityList.svelte';
   import MySubscriptions from './MySubscriptions.svelte';
+  import { Skeleton, Breadcrumb } from './ui';
 
   let activeTab = 'browse';
   let showCreateForm = false;
@@ -32,50 +34,87 @@
   }
 </script>
 
-<div class="px-4 py-6 sm:px-0">
-  <div class="mb-6">
-    <div class="flex justify-between items-center">
-      <div>
-        <h2 class="text-2xl font-bold text-white">Community Lists</h2>
-        <p class="mt-1 text-sm text-zinc-400">
-          Discover and subscribe to community-curated blocklists.
-        </p>
+<div class="brand-page surface-page">
+  <div class="brand-page__inner brand-page__stack">
+    <section class="brand-hero">
+      <div class="brand-hero__header">
+        <div class="brand-hero__copy">
+          <button
+            type="button"
+            on:click={() => navigateTo('home')}
+            class="brand-back"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Home
+          </button>
+          <div class="brand-kickers">
+            <span class="brand-kicker">Shared Policy</span>
+            <span class="brand-kicker brand-kicker--accent">Community Lists</span>
+          </div>
+          <h1 class="brand-title brand-title--compact">Browse curated lists without leaving the product language.</h1>
+          <p class="brand-subtitle">
+            Discover subscribed lists, create your own governance surface, and keep search and creation flows aligned with the rest of the app.
+          </p>
+        </div>
+
+        <div class="brand-hero__aside">
+          <div class="brand-stat-grid brand-stat-grid--compact" aria-label="Community overview">
+            <div class="brand-stat">
+              <span class="brand-stat__value">{$communityStore.lists.length}</span>
+              <span class="brand-stat__label">Available lists</span>
+            </div>
+            <div class="brand-stat">
+              <span class="brand-stat__value">{$subscribedListIds.size}</span>
+              <span class="brand-stat__label">Subscribed</span>
+            </div>
+          </div>
+
+          <div class="brand-actions">
+            <button
+              type="button"
+              on:click={() => showCreateForm = !showCreateForm}
+              class="brand-button brand-button--primary"
+            >
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+              </svg>
+              {showCreateForm ? 'Close Creator' : 'Create List'}
+            </button>
+          </div>
+        </div>
       </div>
-      <button
-        type="button"
-        on:click={() => showCreateForm = !showCreateForm}
-        class="flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-rose-500 hover:bg-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
-      >
-        <svg aria-hidden="true" class="-ml-1 mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-        </svg>
-        Create List
-      </button>
+    </section>
+
+    <div class="px-4 py-2 sm:px-0">
+      <Breadcrumb />
     </div>
-  </div>
 
   <!-- Create List Form -->
   {#if showCreateForm}
-    <div class="mb-6 rounded-lg p-6" style="background: #27272a; border: 2px solid #52525b;">
+    <div class="mb-6 rounded-lg p-6 surface-card" >
       <h3 class="text-lg font-medium text-white mb-4">Create Community List</h3>
       <CreateCommunityList on:listCreated={() => showCreateForm = false} />
     </div>
   {/if}
 
   <!-- Tab Navigation -->
-  <div class="rounded-lg mb-6" style="background: #27272a; border: 2px solid #52525b;">
-    <nav class="flex space-x-8 px-6" aria-label="Tabs">
+  <div class="rounded-lg mb-6 surface-card community-tabs-shell">
+    <nav class="brand-segmented community-tabs" aria-label="Tabs">
       <button
         type="button"
         on:click={() => setActiveTab('browse')}
-        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {activeTab === 'browse' ? 'border-rose-500 text-white' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'}"
+        class="brand-segmented__item"
+        class:brand-segmented__item--active={activeTab === 'browse'}
       >
         Browse Lists
       </button>
       <button
         type="button"
         on:click={() => setActiveTab('subscriptions')}
-        class="py-4 px-1 border-b-2 font-medium text-sm transition-colors {activeTab === 'subscriptions' ? 'border-rose-500 text-white' : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:border-zinc-500'}"
+        class="brand-segmented__item"
+        class:brand-segmented__item--active={activeTab === 'subscriptions'}
       >
         My Subscriptions ({$subscribedListIds.size})
       </button>
@@ -91,7 +130,7 @@
       <!-- Browse Lists -->
       <div class="space-y-6">
         <!-- Search and Filter -->
-        <div class="rounded-lg p-4" style="background: #27272a; border: 2px solid #52525b;">
+        <div class="rounded-lg p-4 surface-card" >
           <div class="flex flex-col sm:flex-row gap-4">
             <div class="flex-1">
               <label for="search" class="sr-only">Search lists</label>
@@ -101,26 +140,13 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <input
-                  id="search"
-                  type="text"
-                  placeholder="Search lists by name, description, or criteria..."
-                  value={$communityStore.searchQuery}
-                  on:input={handleSearch}
-                  class="block w-full pl-10 pr-3 py-2 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
-                  style="background: #3f3f46; border: 1px solid #52525b;"
-                />
+                <input id="search" type="text" placeholder="Search lists by name, description, or criteria..." value={$communityStore.searchQuery} on:input={handleSearch} class="block w-full pl-10 pr-3 py-2 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm surface-panel-thin" />
               </div>
             </div>
 
             <div class="sm:w-48">
               <label for="sort" class="sr-only">Sort by</label>
-              <select
-                id="sort"
-                on:change={handleSort}
-                class="block w-full pl-3 pr-10 py-2 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm"
-                style="background: #3f3f46; border: 1px solid #52525b;"
-              >
+              <select id="sort" on:change={handleSort} class="block w-full pl-3 pr-10 py-2 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 sm:text-sm surface-panel-thin" >
                 <option value="updated_at:desc">Recently Updated</option>
                 <option value="created_at:desc">Newest First</option>
                 <option value="name:asc">Name A-Z</option>
@@ -134,12 +160,13 @@
 
         <!-- Lists Grid -->
         {#if $communityStore.isLoading}
-          <div class="text-center py-12">
-            <svg aria-hidden="true" class="animate-spin mx-auto w-8 h-8 text-rose-500" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p class="mt-2 text-sm text-zinc-400">Loading community lists...</p>
+          <div role="status" aria-label="Loading community lists">
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {#each Array(6) as _}
+                <Skeleton variant="card" />
+              {/each}
+            </div>
+            <span class="sr-only">Loading community lists...</span>
           </div>
         {:else if $communityStore.error}
           <div class="text-center py-12">
@@ -150,7 +177,7 @@
             <button
               type="button"
               on:click={() => communityActions.fetchLists()}
-              class="mt-2 text-sm text-rose-400 hover:text-rose-300 transition-colors"
+              class="brand-button brand-button--secondary brand-button--compact mt-2"
             >
               Try again
             </button>
@@ -167,7 +194,7 @@
                 <button
                   type="button"
                   on:click={() => showCreateForm = true}
-                  class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-rose-500 hover:bg-rose-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500"
+                  class="brand-button brand-button--primary brand-button--compact"
                 >
                   <svg aria-hidden="true" class="-ml-1 mr-2 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -197,10 +224,10 @@
   {/if}
 
   <!-- Info Box -->
-  <div class="mt-8 rounded-lg p-4" style="background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4);">
+  <div class="mt-8 rounded-lg p-4 bg-indigo-900/30 border border-rose-500/40" >
     <div class="flex">
       <div class="flex-shrink-0">
-        <svg aria-hidden="true" class="w-5 h-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+        <svg aria-hidden="true" class="w-5 h-5 text-rose-400" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
         </svg>
       </div>
@@ -224,3 +251,18 @@
     </div>
   </div>
 </div>
+</div>
+
+<style>
+  .community-tabs-shell {
+    padding: 0.75rem;
+  }
+
+  .community-tabs {
+    width: 100%;
+  }
+
+  .community-tabs :global(.brand-segmented__item) {
+    flex: 1 1 0;
+  }
+</style>

@@ -254,7 +254,6 @@
       radial-gradient(circle at top, rgba(244, 63, 94, 0.16), transparent 28%),
       radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 26%),
       linear-gradient(180deg, #09090b 0%, #111113 48%, #050507 100%);
-    box-sizing: border-box;
   }
 
   .login__glow {

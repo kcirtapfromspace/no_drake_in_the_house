@@ -7,27 +7,55 @@
   export let size: 'sm' | 'md' | 'lg' = 'md';
 
   $: tierInfo = getSourceTierLabel(tier);
-
-  const sizeConfig = {
-    sm: { badge: 'w-6 h-6 text-[10px]', text: 'text-xs' },
-    md: { badge: 'w-8 h-8 text-xs', text: 'text-sm' },
-    lg: { badge: 'w-10 h-10 text-sm', text: 'text-base' },
-  };
-
-  $: config = sizeConfig[size];
 </script>
 
-<div class="inline-flex items-center gap-2" title={tierInfo.description}>
+<div class="tier-badge tier-badge--{size}" title={tierInfo.description}>
   <div
-    class="{config.badge} rounded flex items-center justify-center font-bold"
+    class="tier-badge__icon"
     style="background: {tierInfo.color}20; color: {tierInfo.color};"
   >
     {tierInfo.label.replace('Tier ', '')}
   </div>
   {#if showDescription}
-    <div class="{config.text}">
-      <p class="text-white font-medium">{tierInfo.label}</p>
-      <p class="text-zinc-500 text-xs">{tierInfo.description}</p>
+    <div class="tier-badge__info">
+      <p class="tier-badge__label">{tierInfo.label}</p>
+      <p class="tier-badge__desc">{tierInfo.description}</p>
     </div>
   {/if}
 </div>
+
+<style>
+  .tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .tier-badge__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+  }
+
+  .tier-badge--sm .tier-badge__icon { width: 1.5rem; height: 1.5rem; font-size: 0.625rem; }
+  .tier-badge--md .tier-badge__icon { width: 2rem; height: 2rem; font-size: var(--text-xs); }
+  .tier-badge--lg .tier-badge__icon { width: 2.5rem; height: 2.5rem; font-size: var(--text-sm); }
+
+  .tier-badge__label {
+    color: var(--color-text-primary);
+    font-weight: 500;
+    margin: 0;
+  }
+
+  .tier-badge--sm .tier-badge__label { font-size: var(--text-xs); }
+  .tier-badge--md .tier-badge__label { font-size: var(--text-sm); }
+  .tier-badge--lg .tier-badge__label { font-size: var(--text-base); }
+
+  .tier-badge__desc {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    margin: 0;
+  }
+</style>

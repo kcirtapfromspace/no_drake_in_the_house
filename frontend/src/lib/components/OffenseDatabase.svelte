@@ -266,46 +266,75 @@
   }
 </script>
 
-<div class="min-h-screen" style="background: linear-gradient(to bottom, #27272a, #18181b);">
-  <!-- Header -->
-  <div style="background: #27272a; border-bottom: 1px solid #52525b;">
-    <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      <button
-        type="button"
-        on:click={() => viewMode === 'browse' ? navigateTo('dashboard') : goBack()}
-        class="text-zinc-400 hover:text-white mb-4 flex items-center text-sm"
-      >
-        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        {viewMode === 'browse' ? 'Back to Dashboard' : 'Back'}
-      </button>
-      <h1 class="text-3xl font-bold text-white mb-2">
-        {#if viewMode === 'browse'}
-          Offense Database
-        {:else if viewMode === 'detail'}
-          Offense Details
-        {:else if viewMode === 'submit-offense'}
-          Report Artist Misconduct
-        {:else}
-          Add Evidence
-        {/if}
-      </h1>
-      <p class="text-lg text-zinc-400">
-        {#if viewMode === 'browse'}
-          Browse documented cases of artist misconduct with verified evidence.
-        {:else if viewMode === 'detail'}
-          View offense details and supporting evidence.
-        {:else if viewMode === 'submit-offense'}
-          Submit a new report with documentation.
-        {:else}
-          Add supporting evidence to this offense report.
-        {/if}
-      </p>
-    </div>
-  </div>
+<div class="brand-page surface-page">
+  <div class="brand-page__inner brand-page__stack">
+    <section class="brand-hero">
+      <div class="brand-hero__header">
+        <div class="brand-hero__copy">
+          <button
+            type="button"
+            on:click={() => viewMode === 'browse' ? navigateTo('home') : goBack()}
+            class="brand-back"
+          >
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            {viewMode === 'browse' ? 'Back to Home' : 'Back'}
+          </button>
+          <div class="brand-kickers">
+            <span class="brand-kicker">Evidence Registry</span>
+            <span class="brand-kicker brand-kicker--accent">
+              {#if viewMode === 'browse'}
+                Browse + Review
+              {:else if viewMode === 'detail'}
+                Offense Detail
+              {:else if viewMode === 'submit-offense'}
+                Report Intake
+              {:else}
+                Add Evidence
+              {/if}
+            </span>
+          </div>
+          <h1 class="brand-title brand-title--compact">
+            {#if viewMode === 'browse'}
+              Review documented incidents without dropping into a different product mode.
+            {:else if viewMode === 'detail'}
+              Inspect the case file and supporting evidence.
+            {:else if viewMode === 'submit-offense'}
+              Submit a new incident with the same evidence-first framing.
+            {:else}
+              Attach supporting material without losing context.
+            {/if}
+          </h1>
+          <p class="brand-subtitle">
+            {#if viewMode === 'browse'}
+              Browse documented cases of artist misconduct with verified evidence.
+            {:else if viewMode === 'detail'}
+              View offense details, evidence strength, and supporting sources.
+            {:else if viewMode === 'submit-offense'}
+              Capture the incident, severity, and narrative before layering in source material.
+            {:else}
+              Add supporting evidence to this offense report.
+            {/if}
+          </p>
+        </div>
 
-  <div class="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <div class="brand-hero__aside">
+          <div class="brand-stat-grid brand-stat-grid--compact" aria-label="Offense overview">
+            <div class="brand-stat">
+              <span class="brand-stat__value">{flaggedArtists.length}</span>
+              <span class="brand-stat__label">Artists listed</span>
+            </div>
+            <div class="brand-stat">
+              <span class="brand-stat__value">{severityFilter ? severityConfig[severityFilter].label : 'All'}</span>
+              <span class="brand-stat__label">Current filter</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-4xl mx-auto px-4 py-2 sm:px-6 lg:px-8">
     {#if error}
       <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
         <div class="flex items-start">
@@ -359,12 +388,12 @@
 
         <!-- Artists list -->
         {#if loading}
-          <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
+          <div class="rounded-2xl shadow-lg p-8 text-center surface-card-thin" >
             <div class="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p class="mt-4 text-zinc-300">Loading offense database...</p>
           </div>
         {:else if flaggedArtists.length === 0}
-          <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
+          <div class="rounded-2xl shadow-lg p-8 text-center surface-card-thin" >
             <div class="w-16 h-16 bg-zinc-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg class="w-8 h-8 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -383,7 +412,7 @@
         {:else}
           <div class="space-y-4">
             {#each flaggedArtists as artist}
-              <div class="rounded-2xl shadow-sm overflow-hidden" style="background: #27272a; border: 1px solid #52525b;">
+              <div class="rounded-2xl shadow-sm overflow-hidden surface-card-thin" >
                 <div class="p-5">
                   <div class="flex items-start justify-between mb-4">
                     <div class="flex items-center">
@@ -406,7 +435,7 @@
 
                   <div class="space-y-2">
                     {#each artist.offenses as offense}
-                      <div class="rounded-xl p-4" style="background: #3f3f46;">
+                      <div class="rounded-xl p-4 bg-zinc-700" >
                         <div class="flex items-start justify-between">
                           <div class="flex-1">
                             <span class="text-xs font-medium text-amber-400 uppercase tracking-wide">
@@ -456,13 +485,13 @@
     {:else if viewMode === 'detail'}
       <!-- Detail view -->
       {#if loadingDetail}
-        <div class="rounded-2xl shadow-lg p-8 text-center" style="background: #27272a; border: 1px solid #52525b;">
+        <div class="rounded-2xl shadow-lg p-8 text-center surface-card-thin" >
           <div class="w-8 h-8 border-4 border-amber-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p class="mt-4 text-zinc-300">Loading offense details...</p>
         </div>
       {:else if selectedOffense}
         <div class="space-y-6">
-          <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
+          <div class="rounded-2xl shadow-lg p-6 surface-card-thin" >
             <div class="flex items-start justify-between mb-6">
               <div>
                 <span class="text-xs font-medium text-amber-400 uppercase tracking-wide">
@@ -520,7 +549,7 @@
           </div>
 
           {#if selectedOffense.evidence.length === 0}
-            <div class="rounded-xl p-6 text-center" style="background: #3f3f46;">
+            <div class="rounded-xl p-6 text-center bg-zinc-700" >
               <p class="text-zinc-300">No evidence has been submitted yet.</p>
               <button
                 type="button"
@@ -533,7 +562,7 @@
           {:else}
             <div class="space-y-4">
               {#each selectedOffense.evidence as ev}
-                <div class="rounded-xl p-4" style="background: #27272a; border: 1px solid #52525b;">
+                <div class="rounded-xl p-4 surface-card-thin" >
                   <div class="flex items-start justify-between">
                     <div class="flex-1">
                       <div class="flex items-center gap-2 mb-2">
@@ -576,7 +605,7 @@
 
     {:else if viewMode === 'submit-offense'}
       <!-- Submit offense form -->
-      <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
+      <div class="rounded-2xl shadow-lg p-6 surface-card-thin" >
         <form on:submit|preventDefault={submitOffense} class="space-y-6">
           <!-- Artist search -->
           <div>
@@ -584,17 +613,9 @@
               Artist Name <span class="text-red-500">*</span>
             </label>
             <div class="relative">
-              <input
-                id="artist-search"
-                type="text"
-                bind:value={artistSearchQuery}
-                on:input={handleArtistSearch}
-                placeholder="Search for artist..."
-                class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-                style="border: 1px solid #52525b;"
-              />
+              <input id="artist-search" type="text" bind:value={artistSearchQuery} on:input={handleArtistSearch} placeholder="Search for artist..." class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
               {#if artistSearchResults.length > 0}
-                <div class="absolute z-10 w-full mt-1 rounded-xl shadow-lg max-h-60 overflow-auto" style="background: #3f3f46; border: 1px solid #52525b;">
+                <div class="absolute z-10 w-full mt-1 rounded-xl shadow-lg max-h-60 overflow-auto surface-panel-thin" >
                   {#each artistSearchResults as result}
                     <button
                       type="button"
@@ -617,12 +638,7 @@
             <label for="category" class="block text-sm font-medium text-zinc-300 mb-2">
               Category <span class="text-red-500">*</span>
             </label>
-            <select
-              id="category"
-              bind:value={offenseForm.category}
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            >
+            <select id="category" bind:value={offenseForm.category} class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" >
               {#each categories as cat}
                 <option value={cat.value}>{cat.label}</option>
               {/each}
@@ -658,14 +674,7 @@
             <label for="title" class="block text-sm font-medium text-zinc-300 mb-2">
               Title <span class="text-red-500">*</span>
             </label>
-            <input
-              id="title"
-              type="text"
-              bind:value={offenseForm.title}
-              placeholder="Brief description of the offense"
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            />
+            <input id="title" type="text" bind:value={offenseForm.title} placeholder="Brief description of the offense" class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
           </div>
 
           <!-- Description -->
@@ -673,14 +682,7 @@
             <label for="description" class="block text-sm font-medium text-zinc-300 mb-2">
               Description <span class="text-red-500">*</span>
             </label>
-            <textarea
-              id="description"
-              bind:value={offenseForm.description}
-              rows="4"
-              placeholder="Provide a factual summary of the incident..."
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            ></textarea>
+            <textarea id="description" bind:value={offenseForm.description} rows="4" placeholder="Provide a factual summary of the incident..." class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" ></textarea>
           </div>
 
           <!-- Incident date -->
@@ -689,13 +691,7 @@
               <label for="incident-date" class="block text-sm font-medium text-zinc-300 mb-2">
                 Incident Date
               </label>
-              <input
-                id="incident-date"
-                type="date"
-                bind:value={offenseForm.incident_date}
-                class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-                style="border: 1px solid #52525b;"
-              />
+              <input id="incident-date" type="date" bind:value={offenseForm.incident_date} class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
             </div>
             <div class="flex items-end">
               <label class="flex items-center">
@@ -744,7 +740,7 @@
 
     {:else if viewMode === 'add-evidence'}
       <!-- Add evidence form -->
-      <div class="rounded-2xl shadow-lg p-6" style="background: #27272a; border: 1px solid #52525b;">
+      <div class="rounded-2xl shadow-lg p-6 surface-card-thin" >
         <div class="mb-6 p-4 bg-amber-900/30 rounded-xl border border-amber-800">
           <p class="text-sm text-amber-300">
             Evidence should be from reputable sources: news articles, court documents, police reports, or official statements.
@@ -757,14 +753,7 @@
             <label for="evidence-url" class="block text-sm font-medium text-zinc-300 mb-2">
               Source URL <span class="text-red-500">*</span>
             </label>
-            <input
-              id="evidence-url"
-              type="url"
-              bind:value={evidenceForm.url}
-              placeholder="https://..."
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            />
+            <input id="evidence-url" type="url" bind:value={evidenceForm.url} placeholder="https://..." class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
           </div>
 
           <!-- Source name -->
@@ -772,14 +761,7 @@
             <label for="source-name" class="block text-sm font-medium text-zinc-300 mb-2">
               Source Name
             </label>
-            <input
-              id="source-name"
-              type="text"
-              bind:value={evidenceForm.source_name}
-              placeholder="e.g., New York Times, AP News"
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            />
+            <input id="source-name" type="text" bind:value={evidenceForm.source_name} placeholder="e.g., New York Times, AP News" class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
           </div>
 
           <!-- Source type -->
@@ -787,12 +769,7 @@
             <label for="source-type" class="block text-sm font-medium text-zinc-300 mb-2">
               Source Type
             </label>
-            <select
-              id="source-type"
-              bind:value={evidenceForm.source_type}
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            >
+            <select id="source-type" bind:value={evidenceForm.source_type} class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" >
               {#each sourceTypes as st}
                 <option value={st.value}>{st.label}</option>
               {/each}
@@ -804,14 +781,7 @@
             <label for="evidence-title" class="block text-sm font-medium text-zinc-300 mb-2">
               Article/Document Title
             </label>
-            <input
-              id="evidence-title"
-              type="text"
-              bind:value={evidenceForm.title}
-              placeholder="Title of the article or document"
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            />
+            <input id="evidence-title" type="text" bind:value={evidenceForm.title} placeholder="Title of the article or document" class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
           </div>
 
           <!-- Excerpt -->
@@ -819,14 +789,7 @@
             <label for="excerpt" class="block text-sm font-medium text-zinc-300 mb-2">
               Key Excerpt
             </label>
-            <textarea
-              id="excerpt"
-              bind:value={evidenceForm.excerpt}
-              rows="3"
-              placeholder="Quote a relevant passage from the source..."
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            ></textarea>
+            <textarea id="excerpt" bind:value={evidenceForm.excerpt} rows="3" placeholder="Quote a relevant passage from the source..." class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" ></textarea>
           </div>
 
           <!-- Published date -->
@@ -834,13 +797,7 @@
             <label for="published-date" class="block text-sm font-medium text-zinc-300 mb-2">
               Published Date
             </label>
-            <input
-              id="published-date"
-              type="date"
-              bind:value={evidenceForm.published_date}
-              class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800"
-              style="border: 1px solid #52525b;"
-            />
+            <input id="published-date" type="date" bind:value={evidenceForm.published_date} class="w-full px-4 py-3 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-zinc-300 bg-zinc-800 border border-zinc-700" />
           </div>
 
           <!-- Primary source -->
@@ -863,17 +820,13 @@
             >
               {submittingEvidence ? 'Submitting...' : 'Submit Evidence'}
             </button>
-            <button
-              type="button"
-              on:click={goBack}
-              class="px-6 py-3 text-zinc-300 font-medium rounded-xl hover:bg-zinc-700 transition-colors"
-              style="border: 1px solid #52525b;"
-            >
+            <button type="button" on:click={goBack} class="px-6 py-3 text-zinc-300 font-medium rounded-xl hover:bg-zinc-700 transition-colors border border-zinc-700" >
               Done
             </button>
           </div>
         </form>
       </div>
     {/if}
+    </div>
   </div>
 </div>

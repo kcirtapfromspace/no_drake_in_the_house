@@ -3,22 +3,66 @@
   import { authActions, currentUser } from '../stores/auth';
   import { spotifyConnection, appleMusicConnection, connectionActions } from '../stores/connections';
   import { blockingStore } from '../stores/blocking';
+  import { theme, resolvedTheme } from '../stores/theme';
+  import type { Theme } from '../stores/theme';
   import BlockingToasts from './BlockingToasts.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { fly, fade } from 'svelte/transition';
 
   let userMenuOpen = false;
+  let mobileMenuOpen = false;
   let isConnectingApple = false;
 
-  const navItems: { route: Route; label: string }[] = [
-    { route: 'home', label: 'Home' },
-    { route: 'sync', label: 'Library' },
-    { route: 'analytics', label: 'Analytics' },
-    { route: 'graph', label: 'Network' },
+  function focusTrap(node: HTMLElement) {
+    const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    let previouslyFocused: HTMLElement | null = null;
+
+    function handleKeydown(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(node.querySelectorAll(FOCUSABLE)) as HTMLElement[];
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    previouslyFocused = document.activeElement as HTMLElement;
+    node.addEventListener('keydown', handleKeydown);
+    // Focus the first focusable element in the panel
+    tick().then(() => {
+      const first = node.querySelector(FOCUSABLE) as HTMLElement | null;
+      if (first) first.focus();
+    });
+
+    return {
+      destroy() {
+        node.removeEventListener('keydown', handleKeydown);
+        if (previouslyFocused) previouslyFocused.focus();
+      }
+    };
+  }
+
+  const prefersReducedMotion = typeof window !== 'undefined'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    : false;
+
+  const navItems: { route: Route; label: string; icon: string }[] = [
+    { route: 'home', label: 'Home', icon: 'home' },
+    { route: 'sync', label: 'Library', icon: 'library' },
+    { route: 'analytics', label: 'Analytics', icon: 'chart' },
+    { route: 'graph', label: 'Network', icon: 'network' },
   ];
 
   function handleNavigation(route: Route) {
     navigateTo(route);
     userMenuOpen = false;
+    mobileMenuOpen = false;
   }
 
   async function handleLogout() {
@@ -30,6 +74,14 @@
     userMenuOpen = !userMenuOpen;
   }
 
+  function toggleMobileMenu() {
+    mobileMenuOpen = !mobileMenuOpen;
+  }
+
+  function closeMobileMenu() {
+    mobileMenuOpen = false;
+  }
+
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (!target.closest('.user-menu-container')) {
@@ -37,22 +89,30 @@
     }
   }
 
-  // Fetch connections and init blocking store on mount
+  function handleKeydown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && mobileMenuOpen) {
+      closeMobileMenu();
+    }
+  }
+
+  function handleThemeToggle() {
+    theme.cycle();
+  }
+
   onMount(() => {
+    theme.init();
     connectionActions.fetchConnections();
     blockingStore.init();
   });
 
-  // Handle Spotify connection
   async function handleSpotifyClick() {
     if ($spotifyConnection?.status === 'active') {
       navigateTo('connections');
     } else {
-      await connectionActions.initiateSpotifyAuth();
+      navigateTo('sync');
     }
   }
 
-  // Handle Apple Music connection
   async function handleAppleMusicClick() {
     if ($appleMusicConnection?.status === 'active') {
       navigateTo('connections');
@@ -62,116 +122,165 @@
       isConnectingApple = false;
     }
   }
+
+  function isActiveRoute(route: Route): boolean {
+    if ($currentRoute === route) return true;
+    if ($currentRoute === 'revenue-impact' && route === 'analytics') return true;
+    return false;
+  }
+
+  $: themeIcon = $theme === 'system' ? 'auto' : $resolvedTheme === 'dark' ? 'sun' : 'moon';
+  $: themeLabel = $theme === 'system' ? 'Using system theme, switch to light' : $resolvedTheme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 </script>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window on:click={handleClickOutside} on:keydown={handleKeydown} />
 
-<div class="app-shell">
-  <nav class="app-shell__nav">
-    <div class="app-shell__nav-inner">
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div class="layout">
+  <!-- Navigation Bar -->
+  <nav class="nav" aria-label="Main navigation">
+    <div class="nav__inner">
+      <!-- Logo -->
       <button
         type="button"
         on:click={() => handleNavigation('home')}
-        class="app-shell__brand"
+        class="nav__logo"
       >
-        <div class="app-shell__brand-icon">
-          <svg class="app-shell__brand-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+        <div class="nav__logo-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
           </svg>
         </div>
-        <div class="app-shell__brand-copy">
-          <span class="app-shell__brand-kicker">No Drake</span>
-          <span class="app-shell__brand-title">in the House</span>
+        <div class="nav__logo-copy">
+          <span class="nav__logo-kicker">No Drake</span>
+          <span class="nav__logo-text">in the House</span>
         </div>
       </button>
 
-      <div class="app-shell__nav-links" aria-label="Primary">
+      <!-- Desktop Nav Links -->
+      <div class="nav__links">
         {#each navItems as item}
           <button
             type="button"
             on:click={() => handleNavigation(item.route)}
-            class="app-shell__nav-link"
-            class:app-shell__nav-link--active={$currentRoute === item.route || ($currentRoute === 'revenue-impact' && item.route === 'analytics')}
+            class="nav__link"
+            class:nav__link--active={isActiveRoute(item.route)}
+            aria-current={isActiveRoute(item.route) ? 'page' : undefined}
           >
             {item.label}
           </button>
         {/each}
       </div>
 
-      <div class="app-shell__controls">
-        <div class="app-shell__services">
+      <!-- Right section -->
+      <div class="nav__actions">
+        <!-- Service dots -->
+        <div class="nav__services">
           <button
             type="button"
             on:click={handleSpotifyClick}
-            class="app-shell__service"
-            class:app-shell__service--connected={$spotifyConnection?.status === 'active'}
-            class:app-shell__service--spotify={$spotifyConnection?.status === 'active'}
-            title={$spotifyConnection?.status === 'active' ? 'Spotify connected - Click to manage' : 'Connect Spotify'}
+            class="nav__service-dot"
+            class:nav__service-dot--active={$spotifyConnection?.status === 'active'}
+            title={$spotifyConnection?.status === 'active' ? 'Spotify connected' : 'Connect Spotify'}
+            aria-label={$spotifyConnection?.status === 'active' ? 'Spotify connected, manage connection' : 'Connect Spotify'}
+            style={$spotifyConnection?.status === 'active' ? '--dot-color: var(--color-spotify);' : ''}
           >
-            <svg class="app-shell__service-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>
           </button>
-
           <button
             type="button"
             on:click={handleAppleMusicClick}
             disabled={isConnectingApple}
-            class="app-shell__service"
-            class:app-shell__service--connected={$appleMusicConnection?.status === 'active'}
-            class:app-shell__service--apple={$appleMusicConnection?.status === 'active'}
-            title={$appleMusicConnection?.status === 'active' ? 'Apple Music connected - Click to manage' : 'Connect Apple Music'}
+            class="nav__service-dot"
+            class:nav__service-dot--active={$appleMusicConnection?.status === 'active'}
+            title={$appleMusicConnection?.status === 'active' ? 'Apple Music connected' : 'Connect Apple Music'}
+            aria-label={$appleMusicConnection?.status === 'active' ? 'Apple Music connected, manage connection' : 'Connect Apple Music'}
+            style={$appleMusicConnection?.status === 'active' ? '--dot-color: var(--color-apple);' : ''}
           >
             {#if isConnectingApple}
-              <svg class="app-shell__service-spinner" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                <circle class="app-shell__service-spinner-track" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="app-shell__service-spinner-head" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
+              <div class="nav__spinner"></div>
             {:else}
-              <svg class="app-shell__service-icon" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.526.015-1.047.057-1.564.15-.673.121-1.303.353-1.877.727C1.307 1.624.562 2.624.245 3.934.07 4.654.005 5.386.005 6.124v11.748c0 .738.065 1.47.24 2.19.317 1.31 1.062 2.31 2.18 3.043.574.374 1.204.606 1.877.727.517.093 1.038.135 1.564.15.04.001.08.004.12.004h12.014c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.733 1.863-1.733 2.18-3.043.175-.72.24-1.452.24-2.19V6.124zM12.001 4.009c2.47 0 4.471 2.001 4.471 4.471s-2.001 4.471-4.471 4.471-4.471-2.001-4.471-4.471 2.001-4.471 4.471-4.471zm0 7.542c1.693 0 3.071-1.378 3.071-3.071s-1.378-3.071-3.071-3.071-3.071 1.378-3.071 3.071 1.378 3.071 3.071 3.071z"/>
-              </svg>
+              <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.476-2.144-1.32-.238-.56-.223-1.136-.017-1.7.303-.825.96-1.277 1.743-1.49.294-.08.595-.13.893-.18.323-.054.65-.1.973-.157.274-.048.47-.202.53-.486a.707.707 0 00.017-.146c.002-1.633.002-3.265.002-4.898v-.07l-.06-.01c-2.097.4-4.194.8-6.29 1.202-.014.002-.032.014-.037.026-.006.016-.003.037-.003.056v7.36c0 .418-.052.832-.227 1.218-.282.622-.76 1.02-1.416 1.207-.313.09-.634.138-.96.166-.906.08-1.732-.4-2.134-1.203-.268-.534-.278-1.1-.096-1.66.267-.817.864-1.304 1.64-1.55.376-.12.763-.185 1.148-.25.278-.047.558-.088.832-.145.317-.065.522-.25.58-.574a.504.504 0 00.007-.115v-8.41c0-.25.042-.493.15-.72.183-.385.486-.62.882-.728.17-.047.346-.073.522-.11 2.55-.526 5.1-1.05 7.65-1.573.093-.02.19-.03.285-.03.316.004.528.2.613.5.032.113.044.233.044.35v5.9z"/></svg>
             {/if}
           </button>
         </div>
 
-        <div class="app-shell__user user-menu-container">
+        <!-- Theme toggle -->
+        <button
+          type="button"
+          on:click={handleThemeToggle}
+          class="nav__icon-btn"
+          aria-label={themeLabel}
+          title={themeLabel}
+        >
+          {#if themeIcon === 'sun'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          {:else if themeIcon === 'auto'}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+            </svg>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+            </svg>
+          {/if}
+        </button>
+
+        <!-- Mobile Menu Button -->
+        <button
+          type="button"
+          class="nav__icon-btn nav__hamburger"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-menu"
+          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          on:click={toggleMobileMenu}
+        >
+          {#if mobileMenuOpen}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          {:else}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          {/if}
+        </button>
+
+        <!-- User Menu (desktop) -->
+        <div class="user-menu-container nav__user">
           <button
             type="button"
             on:click|stopPropagation={toggleUserMenu}
-            class="app-shell__user-trigger"
-            aria-label="Open account menu"
+            class="nav__avatar"
+            aria-label="User menu"
           >
-            <svg class="app-shell__user-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            {#if $currentUser?.email}
+              {$currentUser.email.charAt(0).toUpperCase()}
+            {:else}
+              ?
+            {/if}
           </button>
 
           {#if userMenuOpen}
-            <div class="app-shell__menu">
-              <div class="app-shell__menu-header">
-                <p class="app-shell__menu-email">{$currentUser?.email || 'User'}</p>
-                <p class="app-shell__menu-label">Account</p>
+            <div class="nav__dropdown" transition:fade={prefersReducedMotion ? { duration: 0 } : { duration: 120 }}>
+              <div class="nav__dropdown-header">
+                <p class="nav__dropdown-name">{$currentUser?.email || 'User'}</p>
+                <p class="nav__dropdown-meta">Account</p>
               </div>
               <button
                 type="button"
-                on:click={() => handleNavigation('settings')}
-                class="app-shell__menu-action"
+                on:click|stopPropagation={() => handleNavigation('settings')}
+                class="nav__dropdown-item"
               >
-                <svg class="app-shell__menu-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
                 Settings
               </button>
               <button
                 type="button"
-                on:click={handleLogout}
-                class="app-shell__menu-action app-shell__menu-action--danger"
+                on:click|stopPropagation={handleLogout}
+                class="nav__dropdown-item nav__dropdown-item--danger"
               >
-                <svg class="app-shell__menu-action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 Sign out
               </button>
             </div>
@@ -181,7 +290,105 @@
     </div>
   </nav>
 
-  <main class="app-shell__main">
+  <!-- Mobile Menu Overlay -->
+  {#if mobileMenuOpen}
+    <div
+      class="mobile-backdrop"
+      on:click={closeMobileMenu}
+      on:keydown={(e) => e.key === 'Enter' && closeMobileMenu()}
+      role="button"
+      tabindex="-1"
+      aria-label="Close menu"
+      transition:fade={prefersReducedMotion ? { duration: 0 } : { duration: 200 }}
+    />
+
+    <div
+      id="mobile-menu"
+      class="mobile-panel"
+      use:focusTrap
+      transition:fly={prefersReducedMotion ? { x: 0, duration: 0 } : { x: 288, duration: 300 }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Mobile navigation menu"
+    >
+      <div class="mobile-panel__inner">
+        <div class="mobile-panel__header">
+          <span class="mobile-panel__title">Menu</span>
+          <button
+            type="button"
+            class="nav__icon-btn"
+            on:click={closeMobileMenu}
+            aria-label="Close menu"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="mobile-panel__user">
+          <p class="mobile-panel__user-label">Signed in as</p>
+          <p class="mobile-panel__user-email">{$currentUser?.email}</p>
+        </div>
+
+        <nav class="mobile-panel__nav" aria-label="Mobile navigation">
+          {#each navItems as item}
+            <button
+              type="button"
+              on:click={() => handleNavigation(item.route)}
+              class="mobile-panel__link"
+              class:mobile-panel__link--active={isActiveRoute(item.route)}
+              aria-current={isActiveRoute(item.route) ? 'page' : undefined}
+            >
+              {item.label}
+            </button>
+          {/each}
+        </nav>
+
+        <div class="mobile-panel__services">
+          <p class="mobile-panel__section-label">Connections</p>
+          <div class="mobile-panel__service-row">
+            <button
+              type="button"
+              on:click={handleSpotifyClick}
+              class="mobile-panel__service-btn"
+              class:mobile-panel__service-btn--active={$spotifyConnection?.status === 'active'}
+            >
+              <svg class="mobile-panel__service-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/></svg>
+              Spotify
+            </button>
+            <button
+              type="button"
+              on:click={handleAppleMusicClick}
+              disabled={isConnectingApple}
+              class="mobile-panel__service-btn"
+              class:mobile-panel__service-btn--active={$appleMusicConnection?.status === 'active'}
+            >
+              <svg class="mobile-panel__service-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.476-2.144-1.32-.238-.56-.223-1.136-.017-1.7.303-.825.96-1.277 1.743-1.49.294-.08.595-.13.893-.18.323-.054.65-.1.973-.157.274-.048.47-.202.53-.486a.707.707 0 00.017-.146c.002-1.633.002-3.265.002-4.898v-.07l-.06-.01c-2.097.4-4.194.8-6.29 1.202-.014.002-.032.014-.037.026-.006.016-.003.037-.003.056v7.36c0 .418-.052.832-.227 1.218-.282.622-.76 1.02-1.416 1.207-.313.09-.634.138-.96.166-.906.08-1.732-.4-2.134-1.203-.268-.534-.278-1.1-.096-1.66.267-.817.864-1.304 1.64-1.55.376-.12.763-.185 1.148-.25.278-.047.558-.088.832-.145.317-.065.522-.25.58-.574a.504.504 0 00.007-.115v-8.41c0-.25.042-.493.15-.72.183-.385.486-.62.882-.728.17-.047.346-.073.522-.11 2.55-.526 5.1-1.05 7.65-1.573.093-.02.19-.03.285-.03.316.004.528.2.613.5.032.113.044.233.044.35v5.9z"/></svg>
+              Apple
+            </button>
+          </div>
+        </div>
+
+        <div class="mobile-panel__footer">
+          <button
+            type="button"
+            on:click={() => handleNavigation('settings')}
+            class="mobile-panel__link"
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            on:click={handleLogout}
+            class="mobile-panel__link mobile-panel__link--danger"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  <main id="main-content" class="layout__main" tabindex="-1">
     <slot />
   </main>
 
@@ -189,311 +396,542 @@
 </div>
 
 <style>
-  .app-shell {
+  .layout {
+    --color-bg-page: #09090b;
+    --color-bg-elevated: #111113;
+    --color-bg-interactive: #18181b;
+    --color-bg-hover: #27272a;
+    --color-border-default: #27272a;
+    --color-border-subtle: #1f1f22;
+    --color-border-hover: #3f3f46;
+    --color-text-primary: #fafafa;
+    --color-text-secondary: #c4c4ce;
+    --color-text-tertiary: #8f8f99;
+    --color-text-muted: #666671;
+    --color-brand-primary: #f43f5e;
+    --color-brand-primary-hover: #e11d48;
+    --color-brand-primary-muted: rgba(244, 63, 94, 0.14);
+    --color-success: #22c55e;
+    --color-success-muted: rgba(34, 197, 94, 0.16);
+    --color-warning: #f59e0b;
+    --color-warning-muted: rgba(245, 158, 11, 0.16);
+    --color-error: #ef4444;
+    --color-error-muted: rgba(239, 68, 68, 0.18);
+    --color-overlay: rgba(0, 0, 0, 0.72);
+    --color-overlay-light: rgba(0, 0, 0, 0.42);
+    --nav-bg: rgba(12, 12, 15, 0.88);
+    --nav-border: rgba(58, 58, 68, 0.58);
+    position: relative;
+    isolation: isolate;
     min-height: 100vh;
-    color: #fafafa;
+    color: var(--color-text-primary);
     background:
-      radial-gradient(circle at top, rgba(244, 63, 94, 0.16), transparent 28%),
-      radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 26%),
-      linear-gradient(180deg, #09090b 0%, #111113 48%, #050507 100%);
+      radial-gradient(circle at top left, rgba(244, 63, 94, 0.1), transparent 18rem),
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 14rem),
+      var(--color-bg-page);
   }
 
-  .app-shell__nav {
+  /* ===== NAVIGATION ===== */
+  .nav {
     position: sticky;
     top: 0;
-    z-index: 50;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(9, 9, 11, 0.72);
-    backdrop-filter: blur(20px);
+    z-index: var(--z-sticky);
+    background: var(--nav-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--nav-border);
   }
 
-  .app-shell__nav-inner {
-    width: min(1100px, calc(100vw - 2rem));
+  .nav__inner {
+    max-width: 72rem;
     margin: 0 auto;
-    padding: 1rem 0;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
+    padding: 0 1.5rem;
+    min-height: 4rem;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 1rem;
   }
 
-  .app-shell__brand {
-    display: inline-flex;
+  .nav__logo {
+    display: flex;
     align-items: center;
-    gap: 0.875rem;
-    border: 0;
+    gap: 0.625rem;
+    background: none;
+    border: none;
+    cursor: pointer;
     padding: 0;
-    background: transparent;
-    color: inherit;
-    cursor: pointer;
-  }
-
-  .app-shell__brand-icon {
-    display: grid;
-    place-items: center;
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 999px;
-    background:
-      radial-gradient(circle at 30% 30%, rgba(255,255,255,0.14), transparent 36%),
-      linear-gradient(145deg, #f43f5e, #e11d48);
-    box-shadow: 0 12px 24px rgba(244, 63, 94, 0.22);
-  }
-
-  .app-shell__brand-icon-svg {
-    width: 1.35rem;
-    height: 1.35rem;
-    color: #fff;
-  }
-
-  .app-shell__brand-copy {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.15rem;
-    line-height: 1;
-  }
-
-  .app-shell__brand-kicker {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #fda4af;
-  }
-
-  .app-shell__brand-title {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #fafafa;
-  }
-
-  .app-shell__nav-links {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-  }
-
-  .app-shell__nav-link {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.03);
-    color: #d4d4d8;
-    padding: 0.72rem 1rem;
-    font-size: 0.9rem;
-    font-weight: 600;
-    transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
-    cursor: pointer;
-  }
-
-  .app-shell__nav-link:hover {
-    border-color: rgba(255, 255, 255, 0.16);
-    color: #fafafa;
-    transform: translateY(-1px);
-  }
-
-  .app-shell__nav-link--active {
-    border-color: rgba(244, 63, 94, 0.3);
-    background: rgba(244, 63, 94, 0.12);
-    color: #ffe4e6;
-    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.08);
-  }
-
-  .app-shell__controls {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-  }
-
-  .app-shell__services {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.3rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.03);
-  }
-
-  .app-shell__service,
-  .app-shell__user-trigger {
-    width: 2.5rem;
-    height: 2.5rem;
-    display: grid;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.04);
-    color: #a1a1aa;
-    transition: border-color 160ms ease, background 160ms ease, color 160ms ease, transform 160ms ease;
-    cursor: pointer;
-  }
-
-  .app-shell__service:hover,
-  .app-shell__user-trigger:hover {
-    border-color: rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.07);
-    color: #fafafa;
-    transform: translateY(-1px);
-  }
-
-  .app-shell__service:disabled {
-    opacity: 0.55;
-    cursor: progress;
-    transform: none;
-  }
-
-  .app-shell__service--connected {
-    color: #fafafa;
-  }
-
-  .app-shell__service--spotify {
-    border-color: rgba(34, 197, 94, 0.28);
-    background: rgba(34, 197, 94, 0.12);
-    color: #86efac;
-  }
-
-  .app-shell__service--apple {
-    border-color: rgba(244, 63, 94, 0.28);
-    background: rgba(244, 63, 94, 0.12);
-    color: #fda4af;
-  }
-
-  .app-shell__service-icon,
-  .app-shell__user-icon {
-    width: 1.15rem;
-    height: 1.15rem;
-  }
-
-  .app-shell__service-spinner {
-    width: 1rem;
-    height: 1rem;
-    animation: app-shell-spin 0.9s linear infinite;
-  }
-
-  .app-shell__service-spinner-track {
-    opacity: 0.25;
-  }
-
-  .app-shell__service-spinner-head {
-    opacity: 0.9;
-  }
-
-  .app-shell__user {
-    position: relative;
-  }
-
-  .app-shell__menu {
-    position: absolute;
-    top: calc(100% + 0.75rem);
-    right: 0;
-    width: min(16rem, calc(100vw - 2rem));
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 1rem;
-    background: rgba(9, 9, 11, 0.94);
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(20px);
-  }
-
-  .app-shell__menu-header {
-    padding: 1rem 1rem 0.9rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-
-  .app-shell__menu-email {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #fafafa;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .app-shell__menu-label {
-    margin: 0.35rem 0 0;
-    font-size: 0.75rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #71717a;
-  }
-
-  .app-shell__menu-action {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    border: 0;
-    background: transparent;
-    color: #fafafa;
-    padding: 0.9rem 1rem;
-    font-size: 0.95rem;
-    text-align: left;
-    cursor: pointer;
-    transition: background 160ms ease, color 160ms ease;
-  }
-
-  .app-shell__menu-action:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
-
-  .app-shell__menu-action--danger {
-    color: #fda4af;
-  }
-
-  .app-shell__menu-action--danger:hover {
-    background: rgba(244, 63, 94, 0.12);
-  }
-
-  .app-shell__menu-action-icon {
-    width: 1rem;
-    height: 1rem;
+    text-decoration: none;
     flex-shrink: 0;
   }
 
-  .app-shell__main {
-    padding-bottom: 2rem;
+  .nav__logo-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+    color: var(--color-brand-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), transparent 45%), rgba(244, 63, 94, 0.14);
+    box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.18);
   }
 
-  @keyframes app-shell-spin {
-    from {
-      transform: rotate(0deg);
+  .nav__logo-mark svg {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+  }
+
+  .nav__logo-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1;
+  }
+
+  .nav__logo-kicker {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: #fda4af;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .nav__logo-text {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: -0.03em;
+    margin-top: 0.15rem;
+  }
+
+  .nav__links {
+    display: none;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .nav__links { display: flex; }
+  }
+
+  .nav__link {
+    padding: 0.375rem 0.875rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    background: none;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .nav__link:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-interactive);
+  }
+
+  .nav__link--active {
+    color: var(--color-text-primary);
+    background: var(--color-bg-interactive);
+  }
+
+  .nav__link--active::after {
+    content: '';
+    display: block;
+    height: 0;
+  }
+
+  .nav__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  .nav__services {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  .nav__service-dot {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: all var(--transition-fast);
+    padding: 0;
+  }
+
+  .nav__service-dot svg {
+    width: 1rem;
+    height: 1rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  .nav__service-dot:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-bg-interactive);
+  }
+
+  .nav__service-dot--active {
+    color: var(--dot-color, var(--color-text-primary));
+  }
+
+  .nav__service-dot--active:hover {
+    color: var(--dot-color, var(--color-text-primary));
+    background: var(--color-bg-interactive);
+  }
+
+  .nav__spinner {
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid var(--color-border-default);
+    border-top-color: var(--color-text-secondary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  .nav__icon-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    transition: all var(--transition-fast);
+    padding: 0;
+  }
+
+  .nav__icon-btn svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  .nav__icon-btn:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-interactive);
+  }
+
+  .nav__hamburger {
+    display: flex;
+  }
+
+  @media (min-width: 768px) {
+    .nav__hamburger { display: none; }
+  }
+
+  .nav__user {
+    position: relative;
+    display: none;
+  }
+
+  @media (min-width: 768px) {
+    .nav__user { display: block; }
+  }
+
+  .nav__avatar {
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-brand-primary-muted);
+    color: var(--color-brand-primary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .nav__avatar:hover {
+    background: var(--color-brand-primary);
+    color: white;
+  }
+
+  .nav__dropdown {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    width: 14rem;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-dropdown);
+    overflow: hidden;
+    z-index: var(--z-dropdown);
+  }
+
+  .nav__dropdown-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .nav__dropdown-name {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav__dropdown-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-top: 0.125rem;
+  }
+
+  .nav__dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    padding: 0.625rem 1rem;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+  }
+
+  .nav__dropdown-item svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    max-width: none;
+    max-height: none;
+  }
+
+  .nav__dropdown-item:hover {
+    background: var(--color-bg-interactive);
+    color: var(--color-text-primary);
+  }
+
+  .nav__dropdown-item--danger {
+    color: var(--color-error);
+  }
+
+  .nav__dropdown-item--danger:hover {
+    background: var(--color-error-muted);
+    color: var(--color-error);
+  }
+
+  /* ===== MOBILE MENU ===== */
+  .mobile-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal-backdrop);
+    background: var(--color-overlay-light);
+    backdrop-filter: blur(2px);
+  }
+
+  .mobile-panel {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: var(--z-modal);
+    width: 18rem;
+    background: var(--color-bg-elevated);
+    border-left: 1px solid var(--color-border-default);
+    box-shadow: var(--shadow-xl);
+  }
+
+  .mobile-panel__inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .mobile-panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .mobile-panel__title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+
+  .mobile-panel__user {
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+
+  .mobile-panel__user-label {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .mobile-panel__user-email {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin-top: 0.125rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-panel__nav {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .mobile-panel__link {
+    display: flex;
+    align-items: center;
+    padding: 0.625rem 0.75rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    background: none;
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    width: 100%;
+  }
+
+  .mobile-panel__link:hover {
+    background: var(--color-bg-interactive);
+    color: var(--color-text-primary);
+  }
+
+  .mobile-panel__link--active {
+    background: var(--color-brand-primary-muted);
+    color: var(--color-brand-primary);
+  }
+
+  .mobile-panel__link--danger {
+    color: var(--color-error);
+  }
+
+  .mobile-panel__link--danger:hover {
+    background: var(--color-error-muted);
+  }
+
+  .mobile-panel__services {
+    padding: 0.875rem 1.25rem;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+
+  .mobile-panel__section-label {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.625rem;
+  }
+
+  .mobile-panel__service-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .mobile-panel__service-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    background: var(--color-bg-interactive);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .mobile-panel__service-btn:hover {
+    color: var(--color-text-secondary);
+    border-color: var(--color-border-default);
+  }
+
+  .mobile-panel__service-btn--active {
+    color: var(--color-success);
+    border-color: var(--color-success-muted);
+  }
+
+  .mobile-panel__service-icon {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+  }
+
+  .mobile-panel__service-icon :global(svg) {
+    max-width: none;
+    max-height: none;
+  }
+
+  .mobile-panel__footer {
+    padding: 0.75rem;
+    border-top: 1px solid var(--color-border-subtle);
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  /* ===== MAIN CONTENT ===== */
+  .layout__main {
+    min-height: calc(100vh - 4rem);
+    padding-bottom: 3rem;
+  }
+
+  @media (max-width: 640px) {
+    .nav__inner {
+      padding-inline: 1rem;
+      min-height: 3.75rem;
     }
-    to {
-      transform: rotate(360deg);
+
+    .nav__logo-mark {
+      width: 2rem;
+      height: 2rem;
+    }
+
+    .nav__logo-kicker {
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+    }
+
+    .nav__logo-text {
+      font-size: 0.85rem;
     }
   }
 
-  @media (min-width: 960px) {
-    .app-shell__nav-links {
-      display: inline-flex;
-    }
-  }
-
-  @media (max-width: 719px) {
-    .app-shell__nav-inner {
-      width: min(100vw - 1.25rem, 1100px);
-      grid-template-columns: auto 1fr auto;
-      gap: 0.75rem;
-      padding: 0.85rem 0;
-    }
-
-    .app-shell__brand-copy {
-      display: none;
-    }
-
-    .app-shell__services {
-      gap: 0.35rem;
-      padding: 0.2rem;
-    }
-
-    .app-shell__service,
-    .app-shell__user-trigger {
-      width: 2.2rem;
-      height: 2.2rem;
-    }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 </style>

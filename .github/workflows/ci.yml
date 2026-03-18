@@ -83,6 +83,62 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
         continue-on-error: true
 
+  # Package- and feature-level Rust builds. These are package build lanes until
+  # the backend is split into separately deployed services.
+  backend-component-build:
+    name: Backend Component Builds (${{ matrix.target.name }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: api
+            command: cargo build -p music-streaming-blocklist-backend --bin music-streaming-blocklist-backend
+          - name: api-render
+            command: cargo build -p music-streaming-blocklist-backend --bin music-streaming-blocklist-backend --no-default-features --features render-api
+          - name: core
+            command: cargo build -p ndith-core
+          - name: db
+            command: cargo build -p ndith-db
+          - name: services
+            command: cargo build -p ndith-services
+          - name: news
+            command: cargo build -p ndith-news
+          - name: analytics
+            command: cargo build -p ndith-analytics --no-default-features
+          - name: analytics-graph-ladybugdb
+            command: cargo build -p ndith-analytics --features graph-ladybugdb
+          - name: api-graph-ladybugdb
+            command: cargo build -p music-streaming-blocklist-backend --bin music-streaming-blocklist-backend --features graph-ladybugdb
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Build backend component
+        working-directory: backend
+        env:
+          SQLX_OFFLINE: true
+          RUST_LOG: warn
+        run: ${{ matrix.target.command }}
+
   # Package- and feature-level Rust coverage
   backend-component-test:
     name: Backend Component Tests (${{ matrix.target.name }})
@@ -94,8 +150,6 @@ jobs:
         target:
           - name: api
             command: cargo test -p music-streaming-blocklist-backend
-          - name: api-render
-            command: cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --no-run
           - name: core
             command: cargo test -p ndith-core
           - name: db
@@ -108,8 +162,6 @@ jobs:
             command: cargo test -p ndith-analytics --no-default-features
           - name: analytics-graph-ladybugdb
             command: cargo test -p ndith-analytics --no-default-features --features graph-ladybugdb
-          - name: api-graph-ladybugdb
-            command: cargo test -p music-streaming-blocklist-backend --features graph-ladybugdb --no-run
 
     services:
       postgres:
@@ -198,7 +250,7 @@ jobs:
   e2e-test:
     name: E2E Browser Tests
     runs-on: ubuntu-latest
-    needs: [render-backend-image-smoke, backend-rust-quality, backend-component-test, frontend-unit-test]
+    needs: [render-backend-image-smoke, backend-rust-quality, backend-component-build, backend-component-test, frontend-unit-test]
 
     services:
       postgres:
@@ -418,7 +470,7 @@ jobs:
   apple-music-sandbox:
     name: Apple Music Sandbox Tests
     runs-on: ubuntu-latest
-    needs: [backend-component-test]
+    needs: [backend-component-build, backend-component-test]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
     steps:
@@ -479,13 +531,14 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [backend-rust-quality, backend-component-test, frontend-unit-test, e2e-test]
+    needs: [backend-rust-quality, backend-component-build, backend-component-test, frontend-unit-test, e2e-test]
     if: always()
 
     steps:
       - name: Check all jobs passed
         run: |
           if [[ "${{ needs.backend-rust-quality.result }}" != "success" ]] || \
+             [[ "${{ needs.backend-component-build.result }}" != "success" ]] || \
              [[ "${{ needs.backend-component-test.result }}" != "success" ]] || \
              [[ "${{ needs.frontend-unit-test.result }}" != "success" ]] || \
              [[ "${{ needs.e2e-test.result }}" != "success" ]]; then

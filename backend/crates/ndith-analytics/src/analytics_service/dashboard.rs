@@ -136,7 +136,7 @@ pub struct SystemHealth {
     pub overall_status: String, // "healthy", "degraded", "unhealthy"
     pub postgres_healthy: bool,
     pub duckdb_healthy: bool,
-    pub kuzu_healthy: bool,
+    pub ladybugdb_healthy: bool,
     pub lancedb_healthy: bool,
     pub redis_healthy: bool,
     pub api_response_time_ms: i64,
@@ -367,8 +367,8 @@ impl DashboardService {
         // DuckDB - always healthy if we got here
         health.duckdb_healthy = true;
 
-        // Kùzu - would need actual check
-        health.kuzu_healthy = true;
+        // LadybugDB - not wired yet in the current full-platform build
+        health.ladybugdb_healthy = false;
 
         // LanceDB - would need actual check
         health.lancedb_healthy = true;
@@ -380,7 +380,7 @@ impl DashboardService {
         let healthy_count = [
             health.postgres_healthy,
             health.duckdb_healthy,
-            health.kuzu_healthy,
+            health.ladybugdb_healthy,
             health.lancedb_healthy,
         ]
         .iter()

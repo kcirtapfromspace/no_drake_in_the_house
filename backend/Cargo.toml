@@ -60,9 +60,8 @@ base64 = "0.21"
 reqwest = { version = "0.12", features = ["json"] }
 urlencoding = "2.1"
 
-# Analytics databases (HEAVY - C/C++ deps)
+# Analytics databases (HEAVY - native deps)
 duckdb = { version = "1.4", features = ["bundled"] }
-kuzu = "0.11"
 
 # Vector database (HEAVY - C/C++ deps)
 lancedb = "0.23"
@@ -108,10 +107,9 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["full-platform", "graph-kuzu"]
+default = ["full-platform", "graph-ladybugdb"]
 full-platform = ["dep:ndith-analytics", "dep:ndith-news"]
 render-api = []
-graph-kuzu = ["full-platform", "ndith-analytics/graph-kuzu"]
 graph-ladybugdb = ["full-platform", "ndith-analytics/graph-ladybugdb"]
 
 [dependencies]

@@ -143,7 +143,7 @@ impl CollaborationBuilder {
                     .or_insert(0) += 1;
 
                 // Add to Kùzu
-                let kuzu_collab = Collaboration {
+                let graph_collab = Collaboration {
                     artist1_id: a1.to_string(),
                     artist2_id: a2.to_string(),
                     track_id: collab.track_id.to_string(),
@@ -152,7 +152,7 @@ impl CollaborationBuilder {
                     year: collab.year.map(|y| y as i64),
                 };
 
-                if self.graph.add_collaboration(&kuzu_collab).is_ok() {
+                if self.graph.add_collaboration(&graph_collab).is_ok() {
                     stats.total_collaborations += 1;
                 }
             }
@@ -284,7 +284,7 @@ impl CollaborationBuilder {
 
     /// Add a single collaboration manually
     pub fn add_collaboration(&self, collab: &TrackCollaboration) -> Result<()> {
-        let kuzu_collab = Collaboration {
+        let graph_collab = Collaboration {
             artist1_id: collab.primary_artist_id.to_string(),
             artist2_id: collab.collaborator_id.to_string(),
             track_id: collab.track_id.to_string(),
@@ -293,7 +293,7 @@ impl CollaborationBuilder {
             year: collab.year.map(|y| y as i64),
         };
 
-        self.graph.add_collaboration(&kuzu_collab)
+        self.graph.add_collaboration(&graph_collab)
     }
 
     /// Import collaborations from external data (e.g., MusicBrainz)

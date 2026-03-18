@@ -6,10 +6,6 @@
 
 pub mod duckdb_client;
 pub mod graph_store;
-#[cfg(feature = "graph-kuzu")]
-pub mod kuzu_client;
 
 pub use duckdb_client::*;
 pub use graph_store::*;
-#[cfg(feature = "graph-kuzu")]
-pub use kuzu_client::*;

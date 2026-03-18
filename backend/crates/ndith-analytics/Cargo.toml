@@ -4,8 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = ["graph-kuzu"]
-graph-kuzu = ["dep:kuzu"]
+default = ["graph-ladybugdb"]
 graph-ladybugdb = []
 
 [dependencies]
@@ -25,4 +24,3 @@ tempfile = { workspace = true }
 
 # HEAVY deps — the whole point of this crate
 duckdb = { workspace = true }
-kuzu = { workspace = true, optional = true }

@@ -9,14 +9,14 @@
       postgres: boolean;
       redis: boolean;
       duckdb: boolean;
-      kuzu: boolean;
+      ladybugdb: boolean;
       lancedb: boolean;
     };
     latencies_ms?: {
       postgres?: number;
       redis?: number;
       duckdb?: number;
-      kuzu?: number;
+      ladybugdb?: number;
       lancedb?: number;
     };
   }
@@ -38,7 +38,7 @@
     { name: 'PostgreSQL', key: 'postgres', description: 'Primary relational database' },
     { name: 'Redis', key: 'redis', description: 'Session cache and rate limiting' },
     { name: 'DuckDB', key: 'duckdb', description: 'Analytics and OLAP queries' },
-    { name: 'Kuzu', key: 'kuzu', description: 'Graph database for relationships' },
+    { name: 'LadybugDB', key: 'ladybugdb', description: 'Graph database for relationships' },
     { name: 'LanceDB', key: 'lancedb', description: 'Vector search and embeddings' },
   ];
 
@@ -54,14 +54,14 @@
             postgres: apiData.services?.postgres?.healthy ?? false,
             redis: apiData.services?.redis?.healthy ?? false,
             duckdb: apiData.services?.duckdb?.healthy ?? false,
-            kuzu: apiData.services?.kuzu?.healthy ?? false,
+            ladybugdb: apiData.services?.ladybugdb?.healthy ?? apiData.services?.kuzu?.healthy ?? false,
             lancedb: apiData.services?.lancedb?.healthy ?? false,
           },
           latencies_ms: {
             postgres: apiData.services?.postgres?.latency_ms,
             redis: apiData.services?.redis?.latency_ms,
             duckdb: apiData.services?.duckdb?.latency_ms,
-            kuzu: apiData.services?.kuzu?.latency_ms,
+            ladybugdb: apiData.services?.ladybugdb?.latency_ms ?? apiData.services?.kuzu?.latency_ms,
             lancedb: apiData.services?.lancedb?.latency_ms,
           },
         };

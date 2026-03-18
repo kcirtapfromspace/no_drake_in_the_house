@@ -6,7 +6,7 @@
 //!
 //! - `ndith-core`: Shared types (error, config, models, validation)
 //! - `ndith-db`: PostgreSQL + Redis connection management, health checks, recovery
-//! - `ndith-analytics`: DuckDB + Kùzu analytics (heavyweight C/C++ deps isolated)
+//! - `ndith-analytics`: DuckDB + graph analytics (heavyweight native deps isolated)
 //! - `ndith-news`: LanceDB + fastembed news pipeline (heavyweight deps isolated)
 //! - `ndith-services`: Business logic (auth, OAuth, token vault, catalog sync, etc.)
 //! - Root binary: Handlers, middleware, router, main entry point

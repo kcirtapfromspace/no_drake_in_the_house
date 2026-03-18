@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
     inputs:
       cargo_features:
-        description: Optional backend cargo features (for example `graph-kuzu`)
+        description: Optional backend cargo features (for example `graph-ladybugdb`)
         required: false
         type: string
       deploy_to_render:

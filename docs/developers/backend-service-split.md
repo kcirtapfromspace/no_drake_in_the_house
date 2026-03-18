@@ -33,9 +33,7 @@ With the workspace split, CI can run package- and feature-level jobs independent
 - `services`
 - `news`
 - `analytics`
-- `analytics-graph-kuzu`
 - `analytics-graph-ladybugdb`
-- `api-graph-kuzu`
 - `api-graph-ladybugdb`
 
 ## Why You Still Do Not Have True Microservices
@@ -120,5 +118,5 @@ Do the migration in this order:
 1. Keep the workspace split and matrix CI.
 2. Keep production on one API binary with `render-api` for stability.
 3. Extract analytics into its own binary and service first.
-4. Extract graph next, because its native dependencies are the next major build boundary.
+4. Extract graph next, because the LadybugDB boundary should become its own build and deploy target.
 5. Move ingestion/news into worker-style execution last.

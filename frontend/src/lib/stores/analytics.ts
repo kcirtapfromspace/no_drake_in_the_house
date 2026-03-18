@@ -24,14 +24,14 @@ export interface SystemHealth {
     postgres: boolean;
     redis: boolean;
     duckdb: boolean;
-    kuzu: boolean;
+    ladybugdb: boolean;
     lancedb: boolean;
   };
   latencies_ms?: {
     postgres?: number;
     redis?: number;
     duckdb?: number;
-    kuzu?: number;
+    ladybugdb?: number;
     lancedb?: number;
   };
 }
@@ -459,14 +459,15 @@ function normalizeSystemHealth(data: unknown): SystemHealth {
       postgres: getBoolean(root, ['postgres', 'postgres_healthy']),
       redis: getBoolean(root, ['redis', 'redis_healthy']),
       duckdb: getBoolean(root, ['duckdb', 'duckdb_healthy']),
-      kuzu: getBoolean(root, ['kuzu', 'kuzu_healthy']),
+      ladybugdb: getBoolean(root, ['ladybugdb', 'ladybugdb_healthy', 'kuzu', 'kuzu_healthy']),
       lancedb: getBoolean(root, ['lancedb', 'lancedb_healthy']),
     },
     latencies_ms: {
       postgres: getOptionalNumber(latencies, ['postgres']) ?? getOptionalNumber(root, ['postgres_latency_ms']),
       redis: getOptionalNumber(latencies, ['redis']) ?? getOptionalNumber(root, ['redis_latency_ms']),
       duckdb: getOptionalNumber(latencies, ['duckdb']) ?? getOptionalNumber(root, ['duckdb_latency_ms']),
-      kuzu: getOptionalNumber(latencies, ['kuzu']) ?? getOptionalNumber(root, ['kuzu_latency_ms']),
+      ladybugdb: getOptionalNumber(latencies, ['ladybugdb', 'kuzu'])
+        ?? getOptionalNumber(root, ['ladybugdb_latency_ms', 'kuzu_latency_ms']),
       lancedb: getOptionalNumber(latencies, ['lancedb']) ?? getOptionalNumber(root, ['lancedb_latency_ms']),
     },
   };

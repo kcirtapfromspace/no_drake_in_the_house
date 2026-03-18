@@ -1,8 +1,8 @@
 //! Graph storage abstractions.
 //!
 //! The analytics crate should depend on a graph API, not a specific database.
-//! That keeps the current Kuzu implementation isolated and gives us a clean seam
-//! for a future LadybugDB adapter.
+//! That keeps the current application insulated from graph engine churn and gives
+//! us a clean seam for the LadybugDB adapter.
 
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
@@ -10,21 +10,16 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::Arc;
 
-#[cfg(feature = "graph-kuzu")]
-use super::kuzu_client::KuzuClient;
-
 /// Supported graph backends.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum GraphBackendKind {
-    Kuzu,
     LadybugDb,
 }
 
 impl fmt::Display for GraphBackendKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            GraphBackendKind::Kuzu => write!(f, "kuzu"),
             GraphBackendKind::LadybugDb => write!(f, "ladybugdb"),
         }
     }
@@ -35,7 +30,6 @@ impl FromStr for GraphBackendKind {
 
     fn from_str(value: &str) -> Result<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
-            "kuzu" => Ok(Self::Kuzu),
             "ladybugdb" | "ladybug" => Ok(Self::LadybugDb),
             other => Err(anyhow!("Unsupported graph backend: {other}")),
         }
@@ -64,21 +58,8 @@ pub trait GraphStore: Send + Sync {
 /// Create a graph store for the selected backend.
 pub fn create_graph_store(backend: GraphBackendKind, _location: &str) -> Result<SharedGraphStore> {
     match backend {
-        GraphBackendKind::Kuzu => {
-            #[cfg(feature = "graph-kuzu")]
-            {
-                return Ok(Arc::new(KuzuClient::new(_location)?));
-            }
-
-            #[cfg(not(feature = "graph-kuzu"))]
-            {
-                Err(anyhow!(
-                    "The Kuzu graph backend is disabled for this build. Enable the `graph-kuzu` feature to use it."
-                ))
-            }
-        }
         GraphBackendKind::LadybugDb => Err(anyhow!(
-            "LadybugDB support is not implemented yet. The graph layer now uses `GraphStore`, so the next step is adding a LadybugDB adapter without changing the services."
+            "LadybugDB is now the target graph backend, but the adapter is not implemented yet."
         )),
     }
 }
@@ -184,10 +165,6 @@ mod tests {
     #[test]
     fn parses_graph_backend_aliases() {
         assert_eq!(
-            "kuzu".parse::<GraphBackendKind>().unwrap(),
-            GraphBackendKind::Kuzu
-        );
-        assert_eq!(
             "ladybug".parse::<GraphBackendKind>().unwrap(),
             GraphBackendKind::LadybugDb
         );
@@ -206,19 +183,6 @@ mod tests {
 
         assert!(error
             .to_string()
-            .contains("LadybugDB support is not implemented yet"));
-    }
-
-    #[cfg(not(feature = "graph-kuzu"))]
-    #[test]
-    fn kuzu_backend_requires_feature_when_disabled() {
-        let error = match create_graph_store(GraphBackendKind::Kuzu, "/tmp/graph") {
-            Ok(_) => panic!("expected Kuzu backend creation to fail without graph-kuzu"),
-            Err(error) => error,
-        };
-
-        assert!(error
-            .to_string()
-            .contains("Enable the `graph-kuzu` feature to use it"));
+            .contains("target graph backend"));
     }
 }

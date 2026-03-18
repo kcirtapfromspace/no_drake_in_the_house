@@ -1,7 +1,7 @@
 //! ndith-services: Business logic layer for the No Drake in the House backend.
 //!
 //! Contains auth, OAuth, token vault, catalog sync, enforcement, and other services.
-//! No heavyweight C/C++ dependencies (duckdb, kuzu, lancedb, fastembed are in separate crates).
+//! No heavyweight native dependencies (duckdb, graph backends, lancedb, fastembed are in separate crates).
 
 // Auth
 pub mod auth;

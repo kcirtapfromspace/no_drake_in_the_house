@@ -106,12 +106,8 @@ jobs:
             command: cargo test -p ndith-news
           - name: analytics
             command: cargo test -p ndith-analytics --no-default-features
-          - name: analytics-graph-kuzu
-            command: cargo test -p ndith-analytics --features graph-kuzu
           - name: analytics-graph-ladybugdb
             command: cargo test -p ndith-analytics --no-default-features --features graph-ladybugdb
-          - name: api-graph-kuzu
-            command: cargo test -p music-streaming-blocklist-backend --features graph-kuzu --no-run
           - name: api-graph-ladybugdb
             command: cargo test -p music-streaming-blocklist-backend --features graph-ladybugdb --no-run
 

@@ -1058,8 +1058,9 @@ pub async fn get_graph_health_handler(
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "healthy": true,
-            "database": "kuzu",
+            "healthy": false,
+            "database": "ladybugdb",
+            "message": "LadybugDB is the active graph target, but the adapter is not wired yet.",
             "stats": {
                 "node_count": 0,
                 "edge_count": 0,

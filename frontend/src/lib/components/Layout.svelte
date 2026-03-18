@@ -435,7 +435,7 @@
     position: fixed;
     top: 0.75rem;
     left: 1rem;
-    z-index: calc(var(--z-sticky) + 20);
+    z-index: calc(var(--z-sticky, 40) + 20);
     padding: 0.7rem 1rem;
     border-radius: 999px;
     background: rgba(8, 8, 11, 0.96);
@@ -467,11 +467,12 @@
   .nav {
     position: sticky;
     top: 0;
-    z-index: var(--z-sticky);
+    z-index: var(--z-sticky, 40);
     background: var(--nav-bg);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--nav-border);
+    overflow: visible;
   }
 
   .nav__inner {
@@ -483,6 +484,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    overflow: visible;
   }
 
   .nav__logo {
@@ -673,6 +675,8 @@
   .nav__user {
     position: relative;
     display: none;
+    isolation: isolate;
+    z-index: var(--z-dropdown, 60);
   }
 
   @media (min-width: 768px) {
@@ -710,7 +714,7 @@
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-dropdown);
     overflow: hidden;
-    z-index: var(--z-dropdown);
+    z-index: var(--z-dropdown, 60);
   }
 
   .nav__dropdown-header {
@@ -774,7 +778,7 @@
   .mobile-backdrop {
     position: fixed;
     inset: 0;
-    z-index: var(--z-modal-backdrop);
+    z-index: var(--z-modal-backdrop, 80);
     background: var(--color-overlay-light);
     backdrop-filter: blur(2px);
   }
@@ -782,7 +786,7 @@
   .mobile-panel {
     position: fixed;
     inset: 0 0 0 auto;
-    z-index: var(--z-modal);
+    z-index: var(--z-modal, 90);
     width: 18rem;
     background: var(--color-bg-elevated);
     border-left: 1px solid var(--color-border-default);

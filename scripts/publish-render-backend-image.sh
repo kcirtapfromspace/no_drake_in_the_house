@@ -1,8 +1,8 @@
 #!/bin/bash
-# Build and push a Render-compatible backend image to Docker Hub.
+# Build and push a Render-compatible backend image to GitHub Container Registry.
 #
 # Defaults:
-#   IMAGE_REPO=docker.io/kcirtapfromspace/ndith-backend
+#   IMAGE_REPO=ghcr.io/kcirtapfromspace/ndith-backend
 #   IMAGE_TAG=<git-short-sha>
 #   IMAGE_PLATFORM=linux/amd64
 #   PUBLISH_LATEST=true
@@ -10,7 +10,7 @@
 # Usage:
 #   ./scripts/publish-render-backend-image.sh
 #   ./scripts/publish-render-backend-image.sh --tag 20260316-1
-#   ./scripts/publish-render-backend-image.sh --repo docker.io/myorg/my-backend --no-latest
+#   ./scripts/publish-render-backend-image.sh --repo ghcr.io/myorg/my-backend --no-latest
 
 set -euo pipefail
 
@@ -18,7 +18,7 @@ SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 cd "${REPO_ROOT}"
 
-IMAGE_REPO="${IMAGE_REPO:-docker.io/kcirtapfromspace/ndith-backend}"
+IMAGE_REPO="${IMAGE_REPO:-ghcr.io/kcirtapfromspace/ndith-backend}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 IMAGE_PLATFORM="${IMAGE_PLATFORM:-linux/amd64}"
 BUILDER_NAME="${BUILDER_NAME:-local-multiarch}"
@@ -31,7 +31,7 @@ usage() {
 Usage: ./scripts/publish-render-backend-image.sh [options]
 
 Options:
-  --repo <image-repo>     Full image repository (default: docker.io/kcirtapfromspace/ndith-backend)
+  --repo <image-repo>     Full image repository (default: ghcr.io/kcirtapfromspace/ndith-backend)
   --tag <tag>             Image tag (default: git short SHA)
   --platform <platform>   Build platform (default: linux/amd64)
   --builder <name>        buildx builder to use (default: local-multiarch)

@@ -26,16 +26,16 @@ Because Render Blueprint files do not support variable interpolation, the URL-se
 The backend deploys from a prebuilt Docker image instead of building on Render.
 
 Mainline publishing is handled by GitHub Actions in `.github/workflows/render-backend-image.yml`.
-On every push to `main`, the workflow publishes a `linux/amd64` image to Docker Hub with:
+On every push to `main`, the workflow publishes a `linux/amd64` image to GitHub Container Registry with:
 
 - an immutable short-SHA tag
 - `:latest` for the default Render image reference in `render.yaml`
 
-Required GitHub repository secrets:
+Workflow requirements:
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+- GitHub Actions must have `packages: write` permission, which is already set in the workflow
 - `RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL` if you want the workflow to trigger the Render backend deploy after publishing
+- the `ghcr.io/kcirtapfromspace/ndith-backend` package must be readable by Render, which usually means making the package public after the first publish
 
 Manual fallback:
 
@@ -46,7 +46,7 @@ Manual fallback:
 ## Import the Blueprint and first deploy
 
 1. Push the repo to `main` and wait for the `Publish Render Backend Image` workflow to finish.
-2. Confirm `docker.io/kcirtapfromspace/ndith-backend:latest` exists, or publish manually if you are bootstrapping outside GitHub Actions.
+2. Confirm `ghcr.io/kcirtapfromspace/ndith-backend:latest` exists, or publish manually if you are bootstrapping outside GitHub Actions.
 3. In Render, choose `New` -> `Blueprint`.
 4. Point Render at this repository and approve `render.yaml`.
 5. Before the first deploy, fill in the required secrets:
@@ -76,7 +76,7 @@ The Blueprint wires these automatically:
 - `JWT_SECRET` as a generated secret
 - `ENVIRONMENT=production`
 - `HOST=0.0.0.0`
-- `PORT=3000`
+- Render injects `PORT` at runtime
 
 You must provide these during the Blueprint import because they depend on your public frontend URL:
 
@@ -172,6 +172,6 @@ FRONTEND_URL=https://nodrakeinthe.house \
 
 - The frontend is now a Docker-based web service instead of a Render static site.
 - The frontend image serves the SPA and proxies backend traffic over Render's private network using `BACKEND_HOSTPORT`.
-- `render.yaml` still points the backend at `docker.io/kcirtapfromspace/ndith-backend:latest`, which is maintained by the GitHub Actions publish workflow.
+- `render.yaml` points the backend at `ghcr.io/kcirtapfromspace/ndith-backend:latest`, which is maintained by the GitHub Actions publish workflow.
 - The backend health contract on Render remains `/health`, `/health/ready`, and `/metrics` on port `3000`.
 - The frontend health check path on Render is `/render-health`.

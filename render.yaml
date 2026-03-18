@@ -7,7 +7,7 @@ services:
     runtime: image
     plan: starter
     image:
-      url: docker.io/kcirtapfromspace/ndith-backend:latest
+      url: ghcr.io/kcirtapfromspace/ndith-backend:latest
     healthCheckPath: /health
     domains:
       - api.nodrakeinthe.house

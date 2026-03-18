@@ -181,8 +181,6 @@ mod tests {
             Err(error) => error,
         };
 
-        assert!(error
-            .to_string()
-            .contains("target graph backend"));
+        assert!(error.to_string().contains("target graph backend"));
     }
 }

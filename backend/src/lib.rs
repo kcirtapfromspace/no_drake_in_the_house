@@ -400,8 +400,7 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/sync/backfill-status",
             get(handlers::sync::backfill_status_handler),
-        )
-        ;
+        );
     let protected_routes = add_full_platform_routes(protected_routes);
     let protected_routes = protected_routes
         // Apple Music enforcement routes
@@ -618,8 +617,14 @@ pub fn create_router(state: AppState) -> Router {
 #[cfg(feature = "full-platform")]
 fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
     router
-        .route("/graph/search", get(handlers::graph::search_artists_handler))
-        .route("/graph/stats", get(handlers::graph::get_global_stats_handler))
+        .route(
+            "/graph/search",
+            get(handlers::graph::search_artists_handler),
+        )
+        .route(
+            "/graph/stats",
+            get(handlers::graph::get_global_stats_handler),
+        )
         .route(
             "/graph/artists/:artist_id/network",
             get(handlers::graph::get_artist_network_handler),
@@ -668,7 +673,10 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/graph/sync/trigger",
             post(handlers::graph::trigger_sync_handler),
         )
-        .route("/graph/health", get(handlers::graph::get_graph_health_handler))
+        .route(
+            "/graph/health",
+            get(handlers::graph::get_graph_health_handler),
+        )
         .route(
             "/graph/offense-network",
             get(handlers::graph::get_offense_network_handler),
@@ -810,7 +818,10 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/news/artists/:artist_id/mentions",
             get(handlers::news::get_artist_mentions_handler),
         )
-        .route("/news/search", post(handlers::news::semantic_search_handler))
+        .route(
+            "/news/search",
+            post(handlers::news::semantic_search_handler),
+        )
         .route("/news/offenses", get(handlers::news::get_offenses_handler))
         .route(
             "/news/offenses/:offense_id",

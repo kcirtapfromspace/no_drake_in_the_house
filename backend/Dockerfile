@@ -21,6 +21,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pkg-config \
     libssl-dev \
     libpq-dev \
+    protobuf-compiler \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

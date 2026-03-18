@@ -2,14 +2,14 @@
 //!
 //! Generates reports for analytics data export and scheduling.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 
-use super::dashboard::{DashboardMetrics, DashboardService, TimeRange};
-use super::trends::{TrendAnalysisService, TrendSummary};
+use super::dashboard::{DashboardService, TimeRange};
+use super::trends::TrendAnalysisService;
 use crate::databases::DuckDbClient;
 
 /// Report types

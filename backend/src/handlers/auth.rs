@@ -368,7 +368,7 @@ pub async fn disable_2fa_handler(
 
 /// Logout user
 pub async fn logout_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     user: crate::models::AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, "User logout attempt");

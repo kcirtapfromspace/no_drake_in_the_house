@@ -5,7 +5,6 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -14,8 +13,7 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::middleware::auth::authenticated_user_id;
 use crate::models::{
-    oauth::OAuthProviderType, AppleMusicRatingEnforcementOptions, AuthenticatedUser,
-    EnforcementPreview, EnforcementProgress, RatingEnforcementResult, RollbackResult,
+    AppleMusicRatingEnforcementOptions, AuthenticatedUser, EnforcementPreview, RollbackResult,
 };
 use crate::services::{AppleMusicEnforcementService, EnforcementHistoryItem};
 use crate::AppState;

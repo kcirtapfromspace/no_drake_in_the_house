@@ -618,7 +618,7 @@ impl MonitoringService {
         });
 
         // Health check task
-        let health_monitor = monitoring_service.clone();
+        let _health_monitor = monitoring_service.clone();
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(30));
             loop {

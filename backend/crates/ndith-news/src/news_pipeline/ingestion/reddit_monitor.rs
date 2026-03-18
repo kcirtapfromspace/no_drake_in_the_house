@@ -75,6 +75,7 @@ struct RedditListing {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct RedditListingData {
     children: Vec<RedditChild>,
     after: Option<String>,

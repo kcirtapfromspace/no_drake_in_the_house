@@ -33,7 +33,7 @@ pub trait OAuthProvider: Send + Sync {
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens>;
 
     /// Revoke tokens (optional, not all providers support this)
-    async fn revoke_token(&self, token: &str) -> Result<()> {
+    async fn revoke_token(&self, _token: &str) -> Result<()> {
         // Default implementation - providers can override if they support revocation
         Ok(())
     }

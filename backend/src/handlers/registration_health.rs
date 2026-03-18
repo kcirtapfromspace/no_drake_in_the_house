@@ -65,7 +65,7 @@ pub async fn registration_health_handler(
 
 /// Registration metrics endpoint
 pub async fn registration_metrics_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // This would need to be added to AppState in a real implementation
     // For now, create a temporary performance service
@@ -111,7 +111,7 @@ pub async fn registration_metrics_handler(
 
 /// Registration dashboard endpoint
 pub async fn registration_dashboard_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     // Create monitoring and performance services
     let monitoring_service =
@@ -170,7 +170,7 @@ pub async fn registration_prometheus_metrics_handler(
 }
 
 // Helper function to get Redis pool (this would be part of AppState in real implementation)
-async fn get_redis_pool(state: &AppState) -> Result<deadpool_redis::Pool> {
+async fn get_redis_pool(_state: &AppState) -> Result<deadpool_redis::Pool> {
     let redis_url =
         std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_string());
 

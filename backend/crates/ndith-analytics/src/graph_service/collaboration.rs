@@ -3,8 +3,7 @@
 //! Builds and manages collaboration relationships between artists.
 //! Detects collaborations from tracks, features, and production credits.
 
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
@@ -102,7 +101,7 @@ impl Default for CollaborationBuilderConfig {
 
 /// Collaboration builder service
 pub struct CollaborationBuilder {
-    config: CollaborationBuilderConfig,
+    _config: CollaborationBuilderConfig,
     graph: SharedGraphStore,
     pool: PgPool,
 }
@@ -111,7 +110,7 @@ impl CollaborationBuilder {
     /// Create a new collaboration builder
     pub fn new(graph: SharedGraphStore, pool: PgPool, config: CollaborationBuilderConfig) -> Self {
         Self {
-            config,
+            _config: config,
             graph,
             pool,
         }
@@ -464,6 +463,7 @@ struct TrackArtistRow {
     artist_id: Uuid,
     is_primary: bool,
     role: Option<String>,
+    #[allow(dead_code)]
     year: Option<i32>,
 }
 

@@ -477,6 +477,7 @@ impl GraphSyncService {
 struct ArtistRow {
     id: Uuid,
     name: String,
+    #[allow(dead_code)]
     spotify_id: Option<String>,
     genres: Option<Vec<String>>,
     block_count: i64,

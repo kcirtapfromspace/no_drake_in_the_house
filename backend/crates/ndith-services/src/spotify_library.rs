@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use regex::Regex;
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -347,7 +347,7 @@ impl SpotifyLibraryService {
 
         // Method 2: Multiple artists in array (collaboration detection)
         if track.artists.len() > 1 {
-            let primary_artist = &track.artists[0];
+            let _primary_artist = &track.artists[0];
             for artist in &track.artists[1..] {
                 collaboration_artists.push(artist.id.clone());
             }

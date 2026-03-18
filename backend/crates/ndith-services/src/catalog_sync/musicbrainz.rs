@@ -39,6 +39,7 @@ pub struct MusicBrainzImportStats {
 
 /// MusicBrainz artist response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct MusicBrainzSearchResponse {
     artists: Vec<MusicBrainzArtist>,
     count: i64,

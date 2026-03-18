@@ -565,6 +565,7 @@ impl AppleMusicEnforcementService {
 // Database row types
 
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 struct EnforcementHistoryRow {
     id: Uuid,
     user_id: Uuid,
@@ -617,6 +618,7 @@ impl From<EnforcementHistoryRow> for EnforcementHistoryItem {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+#[allow(dead_code)]
 struct EnforcementActionRow {
     id: Uuid,
     run_id: Uuid,

@@ -257,7 +257,7 @@ impl LoginPerformanceService {
     ) -> AppResult<()> {
         let start_time = std::time::Instant::now();
         let expires_at = Utc::now() + chrono::Duration::seconds(refresh_token_ttl);
-        let now = Utc::now();
+        let _now = Utc::now();
 
         // Use a single transaction for all database operations
         let mut tx = db_pool.begin().await?;
@@ -356,7 +356,7 @@ impl LoginPerformanceService {
     }
 
     /// Preload frequently accessed users into cache
-    pub async fn preload_frequent_users(&self, db_pool: &sqlx::PgPool) -> Result<()> {
+    pub async fn preload_frequent_users(&self, _db_pool: &sqlx::PgPool) -> Result<()> {
         // For now, just log that we would preload users
         // In a real implementation with database access, we would:
         // 1. Query users with recent login activity

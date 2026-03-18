@@ -2,10 +2,9 @@
 //!
 //! Analyzes trends in artist mentions, offenses, and platform activity.
 
-use anyhow::{Context, Result};
-use chrono::{DateTime, Duration, NaiveDate, Utc};
+use anyhow::Result;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
 

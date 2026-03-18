@@ -11,9 +11,7 @@ use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    ActionBatchStatus, AggressivenessLevel, AuthenticatedUser, BatchExecutionResult, BatchProgress,
-    BatchSummary, EnforcementOptions, EnforcementPlan, ExecuteBatchRequest, RollbackBatchRequest,
-    RollbackInfo,
+    AggressivenessLevel, AuthenticatedUser, BatchProgress, BatchSummary, EnforcementOptions,
 };
 use crate::AppState;
 

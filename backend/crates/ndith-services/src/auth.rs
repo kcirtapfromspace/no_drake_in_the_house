@@ -10,10 +10,8 @@ use crate::oauth_health_monitor::{
     OAuthHealthConfig, OAuthHealthMonitor, OAuthProviderHealthStatus,
 };
 use crate::oauth_security_logger::OAuthSecurityLogger;
-use crate::oauth_spotify::SpotifyOAuthProvider;
 use crate::registration_performance::RegistrationPerformanceService;
 use anyhow::anyhow;
-use base64::Engine as _;
 use bcrypt::{hash, verify};
 use chrono::{Duration, Utc};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
@@ -311,7 +309,7 @@ impl AuthService {
                 std::env::var("SPOTIFY_CLIENT_ID"),
                 std::env::var("SPOTIFY_CLIENT_SECRET"),
             ) {
-                (Ok(client_id), Ok(client_secret)) => {
+                (Ok(_client_id), Ok(_client_secret)) => {
                     match crate::oauth_spotify::create_spotify_oauth_provider() {
                         Ok(provider) => {
                             providers.insert(OAuthProviderType::Spotify, Box::new(provider));
@@ -2654,7 +2652,7 @@ impl AuthService {
     }
 
     // Additional methods needed for tests
-    pub async fn logout_user(&self, user_id: Uuid, refresh_token: &str) -> Result<()> {
+    pub async fn logout_user(&self, user_id: Uuid, _refresh_token: &str) -> Result<()> {
         // Invalidate the refresh token by deleting the session
         sqlx::query!("DELETE FROM user_sessions WHERE user_id = $1", user_id)
             .execute(&self.db_pool)

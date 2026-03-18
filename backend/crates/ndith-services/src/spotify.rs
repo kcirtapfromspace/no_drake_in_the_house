@@ -19,9 +19,9 @@ use uuid::Uuid;
 
 use crate::TokenVaultService;
 use ndith_core::models::{
-    Connection, ConnectionStatus, DecryptedToken, SpotifyAlbum, SpotifyArtist,
-    SpotifyFollowedArtist, SpotifyLibrary, SpotifyLibraryScanResult, SpotifyPlaylist,
-    SpotifySavedTrack, StreamingProvider, TokenHealthCheck,
+    Connection, ConnectionStatus, SpotifyAlbum, SpotifyArtist, SpotifyFollowedArtist,
+    SpotifyLibrary, SpotifyLibraryScanResult, SpotifyPlaylist, SpotifySavedTrack,
+    StreamingProvider, TokenHealthCheck,
 };
 
 /// Spotify OAuth configuration
@@ -85,7 +85,7 @@ pub struct RateLimit {
 
 /// Spotify API client with OAuth and rate limiting
 pub struct SpotifyService {
-    config: SpotifyConfig,
+    _config: SpotifyConfig,
     oauth_client: BasicClient,
     http_client: Client,
     token_vault: Arc<TokenVaultService>,
@@ -106,7 +106,7 @@ impl SpotifyService {
         let http_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
         Ok(Self {
-            config,
+            _config: config,
             oauth_client,
             http_client,
             token_vault,
@@ -428,7 +428,7 @@ impl SpotifyService {
 
     /// Revoke token with Spotify
     async fn revoke_token(&self, connection: &Connection) -> Result<()> {
-        let decrypted_token = self.token_vault.get_decrypted_token(connection.id).await?;
+        let _decrypted_token = self.token_vault.get_decrypted_token(connection.id).await?;
 
         // Spotify doesn't have a standard revocation endpoint, but we can try to revoke
         // This is a placeholder - in practice, you might just delete the token locally
@@ -1129,7 +1129,7 @@ impl SpotifyService {
             }
 
             for item in items {
-                if let Ok(mut playlist) = serde_json::from_value::<SpotifyPlaylist>(item.clone()) {
+                if let Ok(playlist) = serde_json::from_value::<SpotifyPlaylist>(item.clone()) {
                     // Fetch full playlist details including tracks
                     match self
                         .fetch_playlist_details_internal(

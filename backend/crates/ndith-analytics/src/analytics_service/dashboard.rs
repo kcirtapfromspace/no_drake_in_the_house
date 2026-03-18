@@ -2,14 +2,14 @@
 //!
 //! Provides dashboard-level analytics and metrics.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::databases::{DailyNewsSummary, DuckDbClient, PlatformHealth, TrendingArtist};
+use crate::databases::DuckDbClient;
 
 /// Time range for analytics queries
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

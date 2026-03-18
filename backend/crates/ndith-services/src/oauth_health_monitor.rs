@@ -163,7 +163,7 @@ impl OAuthHealthMonitor {
         provider_type: &OAuthProviderType,
         _provider: &dyn OAuthProvider,
         client: &reqwest::Client,
-        config: &OAuthHealthConfig,
+        _config: &OAuthHealthConfig,
     ) -> HealthCheckResult {
         let start_time = Instant::now();
 
@@ -582,7 +582,6 @@ struct HealthCheckResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_oauth_health_config_default() {

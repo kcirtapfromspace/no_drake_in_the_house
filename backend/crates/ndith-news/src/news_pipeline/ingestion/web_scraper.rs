@@ -10,7 +10,6 @@ use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
-use uuid::Uuid;
 
 use super::rss_fetcher::FetchedArticle;
 

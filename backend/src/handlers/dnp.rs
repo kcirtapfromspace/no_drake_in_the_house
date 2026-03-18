@@ -97,7 +97,7 @@ pub async fn search_artists_handler(
     }
 
     // First search local database
-    let mut search_response = state
+    let search_response = state
         .dnp_service
         .search_artists(&query.q, Some(query.limit as usize))
         .await

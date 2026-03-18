@@ -255,8 +255,8 @@ impl CatalogSyncOrchestrator {
         // Spawn the sync task
         let progress_tx = self.progress_tx.clone();
         let active_runs = self.active_runs.clone();
-        let identity_resolver = self.identity_resolver.clone();
-        let canonical_artists = self.canonical_artists.clone();
+        let _identity_resolver = self.identity_resolver.clone();
+        let _canonical_artists = self.canonical_artists.clone();
 
         tokio::spawn(async move {
             let progress_callback = Box::new({

@@ -52,13 +52,8 @@ struct RewrapResponse {
 #[derive(Debug, Deserialize)]
 struct AppRoleLoginResponse {
     client_token: String,
+    #[allow(dead_code)]
     lease_duration: u64,
-}
-
-/// Request body for Transit encrypt endpoint
-#[derive(Debug, Serialize)]
-struct EncryptRequest {
-    plaintext: String,
 }
 
 /// Request body for Transit decrypt endpoint

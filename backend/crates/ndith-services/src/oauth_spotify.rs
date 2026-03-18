@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine as _};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -36,6 +36,7 @@ struct SpotifyUserProfile {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SpotifyImage {
     url: String,
     height: Option<u32>,
@@ -134,7 +135,7 @@ impl OAuthProvider for SpotifyOAuthProvider {
     async fn exchange_code(
         &self,
         code: &str,
-        state: &str,
+        _state: &str,
         redirect_uri: &str,
     ) -> Result<OAuthTokens> {
         let token_url = "https://accounts.spotify.com/api/token";

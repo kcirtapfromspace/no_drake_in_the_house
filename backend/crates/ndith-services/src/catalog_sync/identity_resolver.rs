@@ -79,6 +79,7 @@ pub enum MatchMethod {
 
 /// MusicBrainz artist response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct MusicBrainzArtist {
     id: String,
     name: String,
@@ -96,6 +97,7 @@ struct MusicBrainzArtist {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct MusicBrainzAlias {
     name: String,
     #[serde(rename = "sort-name")]
@@ -103,6 +105,7 @@ struct MusicBrainzAlias {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct MusicBrainzLifeSpan {
     begin: Option<String>,
     end: Option<String>,
@@ -116,6 +119,7 @@ struct MusicBrainzTag {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct MusicBrainzSearchResponse {
     artists: Vec<MusicBrainzArtist>,
     count: u32,

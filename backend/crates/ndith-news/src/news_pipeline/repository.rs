@@ -199,7 +199,7 @@ impl NewsRepository {
     /// Get articles with pagination and filters
     pub async fn get_articles(
         &self,
-        filters: &ArticleFilters,
+        _filters: &ArticleFilters,
         limit: i32,
         offset: i32,
     ) -> Result<Vec<ArticleSummary>> {

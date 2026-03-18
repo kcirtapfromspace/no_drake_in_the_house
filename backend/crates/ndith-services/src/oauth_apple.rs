@@ -770,7 +770,7 @@ impl OAuthProvider for AppleOAuthProvider {
         })
     }
 
-    async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
+    async fn get_user_info(&self, _access_token: &str) -> Result<OAuthUserInfo> {
         // Apple doesn't have a separate user info endpoint
         // User information comes from the ID token
         Err(AppError::OAuthProviderError {
@@ -1076,11 +1076,11 @@ mod tests {
 
     #[test]
     fn test_apple_user_data_parsing() {
-        let config = create_test_apple_config();
+        let _config = create_test_apple_config();
         // We can't create a real provider without a valid private key
         // but we can test the parsing logic
 
-        let user_json = r#"{"name":{"firstName":"John","lastName":"Doe"}}"#;
+        let _user_json = r#"{"name":{"firstName":"John","lastName":"Doe"}}"#;
 
         // This would be called on a real provider instance
         let expected_first_name = "John";

@@ -40,6 +40,7 @@ pub struct BackfillResult {
 struct ArtistForBackfill {
     id: Uuid,
     canonical_name: String,
+    #[allow(dead_code)]
     last_offense_search: Option<DateTime<Utc>>,
 }
 

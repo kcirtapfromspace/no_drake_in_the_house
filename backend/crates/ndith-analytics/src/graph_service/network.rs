@@ -9,13 +9,9 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::databases::{
-    ArtistNetwork, ArtistPath, BlockedNetworkAnalysis, CollaborationEdge, ConnectedArtist,
-    GraphArtistNode, SharedGraphStore,
-};
+use crate::databases::{ArtistNetwork, BlockedNetworkAnalysis, SharedGraphStore};
 
 /// Network analysis response for API
 #[derive(Debug, Clone, Serialize, Deserialize)]

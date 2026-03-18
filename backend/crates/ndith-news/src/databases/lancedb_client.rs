@@ -19,10 +19,6 @@ use uuid::Uuid;
 /// Vector embedding dimension (using common embedding models)
 pub const EMBEDDING_DIM: usize = 768; // BERT/sentence-transformers default
 
-/// Table names for LanceDB
-const NEWS_TABLE: &str = "news_embeddings";
-const ARTISTS_TABLE: &str = "artist_embeddings";
-
 /// In-memory storage for embeddings (used alongside LanceDB for fast access)
 /// This provides a working implementation while maintaining the LanceDB connection
 /// for persistence when the API stabilizes

@@ -909,7 +909,9 @@ pub async fn get_taste_grade(
         total_items: i64,
         songs: i64,
         albums: i64,
+        #[allow(dead_code)]
         artists: i64,
+        #[allow(dead_code)]
         playlists: i64,
         unique_artists: i64,
         unique_albums: i64,

@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use deadpool_redis::{Config, Pool, Runtime};
 use redis::AsyncCommands;
 use serde_json;
@@ -11,8 +11,8 @@ use tokio::time::{sleep, Instant};
 use uuid::Uuid;
 
 use ndith_core::models::{
-    BatchCheckpoint, BatchConfig, CircuitBreakerState, CircuitState, RateLimitConfig,
-    RateLimitResponse, RateLimitState, RateLimitedRequest, RequestPriority,
+    BatchCheckpoint, BatchConfig, CircuitBreakerState, RateLimitConfig, RateLimitResponse,
+    RateLimitState,
 };
 
 /// Rate limiting service with circuit breaker and batching support
@@ -151,9 +151,9 @@ impl RateLimitingService {
 
         state.consecutive_failures += 1;
         state.current_backoff_seconds = std::cmp::min(
-            (config
+            config
                 .backoff_multiplier
-                .powi(state.consecutive_failures as i32) as u32),
+                .powi(state.consecutive_failures as i32) as u32,
             config.max_backoff_seconds,
         );
 
@@ -236,7 +236,7 @@ impl RateLimitingService {
             }
 
             // Wait for rate limit
-            let wait_time = self.wait_for_rate_limit(provider).await?;
+            let _wait_time = self.wait_for_rate_limit(provider).await?;
 
             // Add minimum delay between batches (except for first batch)
             if i > 0 {
@@ -493,7 +493,7 @@ impl RateLimitConfigBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio_test;
+    use ndith_core::CircuitState;
 
     #[tokio::test]
     async fn test_circuit_breaker_transitions() {

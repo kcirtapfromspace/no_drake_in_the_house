@@ -12,12 +12,11 @@ use uuid::Uuid;
 
 use crate::TokenVaultService;
 use ndith_core::models::{
-    AppleMusicAlbum, AppleMusicCapabilities, AppleMusicDeveloperToken,
-    AppleMusicEnforcementOptions, AppleMusicEnforcementResult, AppleMusicErrorResponse,
-    AppleMusicLibrary, AppleMusicLibraryAlbum, AppleMusicLibraryPlaylist, AppleMusicLibraryTrack,
-    AppleMusicPlaylist, AppleMusicResponse, AppleMusicSearchRequest, AppleMusicSearchResponse,
-    AppleMusicTokenInfo, AppleMusicTrack, AppleMusicUserTokenResponse, BatchRatingResult,
-    Connection, ConnectionStatus, DecryptedToken, RatingError, StreamingProvider, TokenHealthCheck,
+    AppleMusicCapabilities, AppleMusicDeveloperToken, AppleMusicEnforcementOptions,
+    AppleMusicEnforcementResult, AppleMusicLibrary, AppleMusicLibraryAlbum,
+    AppleMusicLibraryPlaylist, AppleMusicLibraryTrack, AppleMusicResponse, AppleMusicSearchRequest,
+    AppleMusicSearchResponse, BatchRatingResult, Connection, RatingError, StreamingProvider,
+    TokenHealthCheck,
 };
 
 /// Rating value constants for Apple Music API

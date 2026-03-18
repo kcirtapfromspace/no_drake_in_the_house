@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -192,6 +192,7 @@ impl SpotifySyncWorker {
 
 // Spotify API response types
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SpotifyArtist {
     id: String,
     name: String,
@@ -285,6 +286,7 @@ struct SpotifyAlbumExternalIds {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct SpotifyAlbumsResponse {
     items: Vec<SpotifyAlbum>,
     total: u32,

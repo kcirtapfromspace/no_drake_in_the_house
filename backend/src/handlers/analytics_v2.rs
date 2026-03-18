@@ -14,9 +14,8 @@ use uuid::Uuid;
 use crate::models::AuthenticatedUser;
 use crate::{AppError, AppState, Result};
 use ndith_analytics::analytics_service::{
-    dashboard::{DashboardMetrics, TimeRange, UserQuickStats},
-    reporting::{Report, ReportFormat, ReportRequest, ReportType, ReportTypeInfo},
-    trends::{ArtistTrend, PlatformTrend, TrendSummary},
+    dashboard::TimeRange,
+    reporting::{ReportFormat, ReportType},
 };
 
 /// Query parameters for dashboard requests

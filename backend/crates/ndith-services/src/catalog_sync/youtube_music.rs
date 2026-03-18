@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::Utc;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -151,6 +151,7 @@ impl YouTubeMusicSyncWorker {
 // YouTube API response types
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct YouTubeSearchResponse {
     items: Vec<YouTubeSearchItem>,
     #[allow(dead_code)]
@@ -167,6 +168,7 @@ struct YouTubePageInfo {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct YouTubeSearchItem {
     id: YouTubeItemId,
     snippet: YouTubeSnippet,
@@ -174,6 +176,7 @@ struct YouTubeSearchItem {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct YouTubeItemId {
     kind: String,
     channel_id: Option<String>,
@@ -182,6 +185,7 @@ struct YouTubeItemId {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct YouTubeSnippet {
     title: String,
     description: Option<String>,
@@ -218,6 +222,7 @@ struct YouTubeChannel {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct YouTubeChannelSnippet {
     title: String,
     description: Option<String>,

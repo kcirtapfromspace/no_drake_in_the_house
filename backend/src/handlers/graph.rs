@@ -7,7 +7,7 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
@@ -459,7 +459,7 @@ pub async fn find_path_handler(
                 message: Some(e.to_string()),
             })?;
 
-    let from_artist = from_artist.ok_or_else(|| AppError::NotFound {
+    let _from_artist = from_artist.ok_or_else(|| AppError::NotFound {
         resource: format!("Source artist {}", from_id),
     })?;
 
@@ -472,7 +472,7 @@ pub async fn find_path_handler(
                 message: Some(e.to_string()),
             })?;
 
-    let to_artist = to_artist.ok_or_else(|| AppError::NotFound {
+    let _to_artist = to_artist.ok_or_else(|| AppError::NotFound {
         resource: format!("Target artist {}", to_id),
     })?;
 

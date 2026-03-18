@@ -244,7 +244,7 @@ impl AppleMusicSyncWorker {
         progress_callback(0, target_count);
 
         let main_chart_artists = self.fetch_chart_artists("most-played", 200, None).await?;
-        for (id, name) in &main_chart_artists {
+        for (id, _name) in &main_chart_artists {
             if !id.starts_with("name:") && !all_artists.contains_key(id) {
                 if let Ok(Some(artist)) = self.get_artist(id).await {
                     names_seen.insert(artist.name.to_lowercase());
@@ -374,6 +374,7 @@ struct AppleMusicSong {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicSongAttributes {
     name: String,
     isrc: Option<String>,
@@ -429,6 +430,7 @@ struct AppleMusicChartData {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicChartItem {
     id: String,
     #[serde(rename = "type")]
@@ -439,6 +441,7 @@ struct AppleMusicChartItem {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicChartItemAttributes {
     name: String,
     artist_name: Option<String>,

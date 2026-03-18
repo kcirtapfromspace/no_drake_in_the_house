@@ -624,12 +624,13 @@ impl MetricsCollector {
 
 /// Metrics middleware for HTTP requests
 pub struct MetricsMiddleware {
-    metrics: Arc<MetricsCollector>,
+    #[allow(dead_code)]
+    _metrics: Arc<MetricsCollector>,
 }
 
 impl MetricsMiddleware {
     pub fn new(metrics: Arc<MetricsCollector>) -> Self {
-        Self { metrics }
+        Self { _metrics: metrics }
     }
 }
 

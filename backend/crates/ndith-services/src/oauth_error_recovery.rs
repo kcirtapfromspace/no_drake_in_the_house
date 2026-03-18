@@ -525,7 +525,7 @@ pub struct UserGuidance {
 
 /// OAuth security monitoring
 struct OAuthSecurityMonitor {
-    config: OAuthErrorRecoveryConfig,
+    _config: OAuthErrorRecoveryConfig,
     violation_counts: Arc<tokio::sync::RwLock<HashMap<OAuthProviderType, u32>>>,
     last_reset: Arc<tokio::sync::RwLock<Instant>>,
 }
@@ -533,7 +533,7 @@ struct OAuthSecurityMonitor {
 impl OAuthSecurityMonitor {
     fn new(config: OAuthErrorRecoveryConfig) -> Self {
         Self {
-            config,
+            _config: config,
             violation_counts: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             last_reset: Arc::new(tokio::sync::RwLock::new(Instant::now())),
         }

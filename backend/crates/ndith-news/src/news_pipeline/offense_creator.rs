@@ -41,7 +41,7 @@ impl OffenseCreator {
     pub async fn process_classification(
         &self,
         classification: &OffenseClassification,
-        article_id: Uuid,
+        _article_id: Uuid,
         article_title: &str,
         article_url: &str,
         published_at: Option<DateTime<Utc>>,

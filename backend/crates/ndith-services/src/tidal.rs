@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::sleep;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use ndith_core::models::tidal::{
@@ -24,7 +24,6 @@ use ndith_core::models::tidal::{
     TidalLibrary, TidalLibraryScanResult, TidalPaginatedResponse, TidalPlaylist, TidalTrack,
     TidalUser,
 };
-use ndith_core::models::token_vault::{Connection, ConnectionStatus, StreamingProvider};
 
 /// Tidal OAuth token response
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -700,6 +699,7 @@ impl TidalService {
     }
 
     /// Make an authenticated DELETE request to the Tidal API
+    #[allow(dead_code)]
     async fn delete(&self, access_token: &str, endpoint: &str) -> Result<()> {
         let access_token = access_token.trim();
         if access_token.is_empty() {
@@ -748,6 +748,7 @@ impl TidalService {
     }
 
     /// Make an authenticated POST request to the Tidal API (form-encoded)
+    #[allow(dead_code)]
     async fn post(
         &self,
         access_token: &str,
@@ -877,6 +878,7 @@ impl TidalService {
         ))
     }
 
+    #[cfg_attr(not(test), allow(dead_code))]
     fn parse_user_profile_value(value: &serde_json::Value) -> Option<TidalUser> {
         let id = value
             .get("id")
@@ -1942,7 +1944,7 @@ impl TidalService {
     ) -> Result<TidalLibraryScanResult> {
         let started_at = Utc::now();
         let mut api_requests_count = 0;
-        let mut rate_limit_retries = 0;
+        let rate_limit_retries = 0;
         let mut warnings = Vec::new();
 
         // Get user profile first

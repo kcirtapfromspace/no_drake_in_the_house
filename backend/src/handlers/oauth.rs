@@ -138,7 +138,7 @@ pub async fn initiate_oauth_handler(
                 AppError::InvalidFieldValue { field, .. } if field == "provider" => {
                     format!("{} OAuth is not configured or temporarily unavailable. Please try again later or contact support.", provider_type)
                 }
-                AppError::ExternalServiceError(msg) => {
+                AppError::ExternalServiceError(_msg) => {
                     format!(
                         "Unable to connect to {} authentication service. Please try again later.",
                         provider_type
@@ -180,7 +180,7 @@ pub async fn initiate_oauth_handler(
 
 #[allow(dead_code)]
 async fn initiate_oauth_handler_impl(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(provider): Path<String>,
     Query(query): Query<OAuthInitiateQuery>,
 ) -> Result<(StatusCode, Json<OAuthFlowResponse>)> {
@@ -419,7 +419,7 @@ pub async fn apple_oauth_callback_handler(
     };
 
     // Get user information for the response
-    let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+    let (_user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
         Ok(claims) => {
             match claims.user_id() {
                 Ok(user_id) => {
@@ -522,7 +522,7 @@ pub async fn apple_oauth_callback_handler(
 /// Update user record with Apple-provided data (name)
 /// This is only available on first authorization
 async fn update_user_with_apple_data(
-    state: &AppState,
+    _state: &AppState,
     user_id: uuid::Uuid,
     apple_data: &AppleUserData,
 ) -> Result<()> {
@@ -633,7 +633,7 @@ pub async fn oauth_callback_handler(
                     "Invalid or expired authentication request. Please try signing in again."
                         .to_string()
                 }
-                AppError::ExternalServiceError(msg) => {
+                AppError::ExternalServiceError(_msg) => {
                     format!(
                         "Authentication failed with {}. Please try again or contact support.",
                         provider_type
@@ -657,7 +657,7 @@ pub async fn oauth_callback_handler(
     };
 
     // Get user information for the response
-    let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+    let (_user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
         Ok(claims) => {
             match claims.user_id() {
                 Ok(user_id) => match state.auth_service.get_user_by_id(user_id).await {
@@ -1443,7 +1443,7 @@ pub async fn oauth_provider_health_handler(
 
 /// Force health check for all OAuth providers
 pub async fn force_oauth_health_check_handler(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>> {
     // Force health check is not implemented yet
     // state.auth_service.force_oauth_health_check().await;
@@ -1650,7 +1650,7 @@ pub async fn github_oauth_callback_handler(
     };
 
     // Get user information for the response
-    let (user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
+    let (_user_claims, user) = match state.auth_service.verify_token(&token_pair.access_token) {
         Ok(claims) => match claims.user_id() {
             Ok(user_id) => match state.auth_service.get_user_by_id(user_id).await {
                 Ok(user) => (claims, user),
@@ -1696,7 +1696,7 @@ pub async fn github_oauth_callback_handler(
     );
 
     // Find GitHub OAuth account to get GitHub-specific data
-    let github_account = user
+    let _github_account = user
         .oauth_accounts
         .iter()
         .find(|a| a.provider == OAuthProviderType::GitHub);

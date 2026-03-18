@@ -4,7 +4,6 @@
 //! Uses pattern matching and fuzzy matching against known artist database.
 
 use anyhow::Result;
-use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -84,8 +83,6 @@ pub struct EntityExtractor {
     name_patterns: Vec<Regex>,
     /// Common title prefixes to strip
     title_prefixes: HashSet<String>,
-    /// Common title suffixes to strip
-    title_suffixes: HashSet<String>,
 }
 
 impl EntityExtractor {
@@ -108,17 +105,11 @@ impl EntityExtractor {
                 .map(|s| s.to_string())
                 .collect();
 
-        let title_suffixes: HashSet<String> = ["Jr", "Jr.", "Sr", "Sr.", "III", "II", "IV"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-
         Self {
             config,
             known_artists: Arc::new(RwLock::new(HashMap::new())),
             name_patterns,
             title_prefixes,
-            title_suffixes,
         }
     }
 

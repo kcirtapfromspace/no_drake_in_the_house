@@ -76,6 +76,7 @@ pub struct TwitterMonitor {
 
 /// Twitter API tweet response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct TwitterSearchResponse {
     data: Option<Vec<Tweet>>,
     includes: Option<TweetIncludes>,
@@ -107,6 +108,7 @@ struct TwitterUser {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct UserMetrics {
     followers_count: u32,
     following_count: u32,
@@ -121,6 +123,7 @@ struct TweetEntities {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct TweetUrl {
     expanded_url: Option<String>,
     title: Option<String>,
@@ -137,6 +140,7 @@ struct TweetHashtag {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct TweetMetrics {
     retweet_count: u32,
     reply_count: u32,
@@ -145,6 +149,7 @@ struct TweetMetrics {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct TwitterMeta {
     result_count: u32,
     next_token: Option<String>,

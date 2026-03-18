@@ -56,6 +56,7 @@ pub struct NewsApiClient {
 
 /// NewsAPI article response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct NewsApiResponse {
     status: String,
     #[serde(rename = "totalResults")]
@@ -81,6 +82,7 @@ struct NewsApiArticle {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct NewsApiSource {
     id: Option<String>,
     name: String,
@@ -190,7 +192,7 @@ impl NewsApiClient {
 
         self.check_quota().await?;
 
-        let mut url = format!("{}/everything", NEWSAPI_BASE);
+        let url = format!("{}/everything", NEWSAPI_BASE);
         let mut query_params = vec![
             ("q", params.query.clone()),
             ("pageSize", self.config.page_size.to_string()),

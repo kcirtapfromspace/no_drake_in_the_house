@@ -11,10 +11,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
-use crate::services::catalog_sync::{
-    CanonicalArtist, IdentityMatch, OverallSyncStatus, Platform, PlatformArtist, SyncPriority,
-    SyncStatus, SyncTriggerRequest, SyncType,
-};
+use crate::services::catalog_sync::{Platform, SyncPriority, SyncTriggerRequest, SyncType};
 use crate::{AppError, AppState, Result};
 
 /// Query parameters for sync history
@@ -329,7 +326,7 @@ pub async fn resolve_identity_handler(
         "Identity resolution request"
     );
 
-    let platform =
+    let _platform =
         parse_platform(&request.platform).ok_or_else(|| AppError::InvalidFieldValue {
             field: "platform".to_string(),
             message: format!("Unknown platform: {}", request.platform),
@@ -791,7 +788,7 @@ pub async fn import_charts_handler(
     );
 
     // Get Apple Music worker from catalog sync
-    let apple_music_worker = state
+    let _apple_music_worker = state
         .catalog_sync
         .get_worker(&Platform::AppleMusic)
         .ok_or_else(|| AppError::Internal {
@@ -804,7 +801,7 @@ pub async fn import_charts_handler(
     // Clone for background task
     let orchestrator = state.catalog_sync.clone();
     let target_count = request.target_count;
-    let db_pool = state.db_pool.clone();
+    let _db_pool = state.db_pool.clone();
 
     // Spawn import in background
     let run_id = Uuid::new_v4();

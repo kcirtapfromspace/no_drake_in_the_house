@@ -9,7 +9,6 @@ use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Offense categories matching the artist_offenses table

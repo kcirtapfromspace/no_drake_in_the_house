@@ -6,9 +6,8 @@
 use anyhow::{Context, Result};
 use chrono::{Datelike, NaiveDate, Utc};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::PgPool;
-use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Credit role mapping
@@ -103,6 +102,7 @@ struct AppleMusicResponse<T> {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AppleMusicAlbum {
     id: String,
     attributes: AppleMusicAlbumAttributes,
@@ -111,6 +111,7 @@ struct AppleMusicAlbum {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicAlbumAttributes {
     name: String,
     artist_name: String,
@@ -123,16 +124,19 @@ struct AppleMusicAlbumAttributes {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AppleMusicAlbumRelationships {
     tracks: Option<AppleMusicTracksRelationship>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AppleMusicTracksRelationship {
     data: Vec<AppleMusicTrackRef>,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AppleMusicTrackRef {
     id: String,
 }
@@ -145,6 +149,7 @@ struct AppleMusicTrack {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicTrackAttributes {
     name: String,
     artist_name: String,
@@ -168,12 +173,14 @@ struct AppleMusicArtwork {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct AppleMusicSongCredits {
     data: Vec<AppleMusicCreditItem>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 struct AppleMusicCreditItem {
     role_name: String,
     artist_name: String,

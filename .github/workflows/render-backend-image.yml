@@ -37,6 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || '' }}
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -92,10 +93,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=render-backend-image
 
       - name: Trigger Render deploy
-        if: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
         run: |
           curl --fail --silent --show-error \
             --get \
@@ -106,9 +105,9 @@ jobs:
         run: |
           echo "Published tags:"
           echo "${{ steps.meta.outputs.tags }}"
-          if [ -n "${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+          if [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
             echo "Triggered Render deploy for ${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}"
-          elif [ -n "${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}" ]; then
+          elif [ -n "${RENDER_DEPLOY_HOOK_URL}" ]; then
             echo "Render deploy hook configured, but skipped because this is not the default branch."
           else
             echo "Render deploy hook not configured; image publish only."

@@ -16,8 +16,6 @@ services:
         value: production
       - key: HOST
         value: 0.0.0.0
-      - key: PORT
-        value: 3000
       - key: RUST_LOG
         value: info,music_streaming_blocklist_backend=debug
       - key: DATABASE_URL

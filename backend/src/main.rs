@@ -32,6 +32,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("🎵 Music Streaming Blocklist Manager API starting...");
 
+    // Bind the listener before expensive startup work so Render detects an
+    // open port while the service initializes its database and background jobs.
+    let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse::<u16>()
+        .map_err(|e| format!("Invalid PORT value: {}", e))?;
+    let bind_addr = format!("{}:{}", host, port);
+    let listener = tokio::net::TcpListener::bind(&bind_addr).await?;
+    tracing::info!("Bound listener on http://{}; continuing startup", bind_addr);
+
     // Validate CORS configuration
     validate_cors_config().map_err(|e| format!("CORS configuration error: {}", e))?;
     tracing::info!("CORS configuration validated");
@@ -267,8 +278,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = create_router(app_state);
 
     // Start server
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    tracing::info!("🚀 Server running on http://0.0.0.0:3000");
+    tracing::info!("🚀 Server running on http://{}", bind_addr);
 
     axum::serve(listener, app).await?;
 

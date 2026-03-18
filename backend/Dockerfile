@@ -14,6 +14,9 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef as builder
 
+ARG BACKEND_CARGO_FEATURES=""
+ARG BACKEND_CARGO_NO_DEFAULT_FEATURES="false"
+
 # Install system dependencies with cache mount
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -32,7 +35,11 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
-    cargo chef cook --release --recipe-path recipe.json
+    set -eux; \
+    cargo_args="--release --recipe-path recipe.json"; \
+    if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then cargo_args="${cargo_args} --no-default-features"; fi; \
+    if [ -n "${BACKEND_CARGO_FEATURES}" ]; then cargo_args="${cargo_args} --features ${BACKEND_CARGO_FEATURES}"; fi; \
+    cargo chef cook ${cargo_args}
 
 # Copy source code and build application
 COPY . .
@@ -41,7 +48,11 @@ ENV SQLX_OFFLINE=true
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
-    cargo build --release --bin music-streaming-blocklist-backend && \
+    set -eux; \
+    cargo_args="--release --bin music-streaming-blocklist-backend"; \
+    if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then cargo_args="${cargo_args} --no-default-features"; fi; \
+    if [ -n "${BACKEND_CARGO_FEATURES}" ]; then cargo_args="${cargo_args} --features ${BACKEND_CARGO_FEATURES}"; fi; \
+    cargo build ${cargo_args} && \
     cp target/release/music-streaming-blocklist-backend /tmp/backend
 
 # Runtime stage

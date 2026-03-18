@@ -1,4 +1,3 @@
-use chrono::Duration;
 use music_streaming_blocklist_backend::config::TokenRefreshConfig;
 use music_streaming_blocklist_backend::services::catalog_sync::{
     AppleMusicSyncWorker, CrossPlatformIdentityResolver, DeezerSyncWorker, SpotifySyncWorker,
@@ -11,8 +10,8 @@ use music_streaming_blocklist_backend::{
     create_pool, create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
     AuditLoggingService, AuthService, BackfillOrchestrator, CircuitBreakerConfig,
     CircuitBreakerService, CreditsSyncService, DatabaseConfig, DnpListService, MonitoringConfig,
-    MonitoringSystem, NewsPipelineConfig, NewsPipelineOrchestrator, OrchestratorBuilder,
-    PlatformSyncConfig, RateLimitService, RedisConfiguration, ScheduledPipelineRunner, UserService,
+    MonitoringSystem, OrchestratorBuilder, PlatformSyncConfig, RateLimitService,
+    RedisConfiguration, UserService,
 };
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -179,36 +178,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     tracing::info!("Catalog sync orchestrator initialized");
 
-    // Initialize news pipeline with scheduled polling (10 minute RSS intervals)
-    // Uses database persistence to auto-create artist_offenses from detected news
-    let news_config = NewsPipelineConfig::default();
-    let news_pipeline = Arc::new(NewsPipelineOrchestrator::with_database(
-        news_config,
-        db_pool.clone(),
-    ));
-
-    // Start scheduled news polling - RSS every 10 minutes for near real-time updates
-    let rss_interval_minutes: i64 = std::env::var("NEWS_RSS_INTERVAL_MINUTES")
-        .unwrap_or_else(|_| "10".to_string())
-        .parse()
-        .unwrap_or(10);
-
-    let _news_scheduler = ScheduledPipelineRunner::new(news_pipeline)
-        .with_rss_interval(Duration::minutes(rss_interval_minutes))
-        .with_social_interval(Duration::hours(1))
-        .with_full_interval(Duration::hours(6))
-        .start();
-
-    tracing::info!(
-        rss_interval_minutes = rss_interval_minutes,
-        "News pipeline started: RSS polling every {} minutes",
-        rss_interval_minutes
-    );
-
-    // Initialize backfill orchestrator for offense discovery
-    // Note: For full news pipeline integration, we'd pass the news_pipeline Arc here
-    let backfill_orchestrator = Some(Arc::new(BackfillOrchestrator::new(db_pool.clone())));
-    tracing::info!("Backfill orchestrator initialized");
+    let backfill_orchestrator = initialize_full_platform_services(db_pool.clone()).await;
 
     // Initialize token vault service with database persistence (US-008)
     // Using PostgreSQL-backed storage instead of in-memory DashMap
@@ -330,4 +300,51 @@ fn init_tracing() {
                 .with_span_list(true),
         )
         .init();
+}
+
+#[cfg(feature = "full-platform")]
+async fn initialize_full_platform_services(
+    db_pool: sqlx::PgPool,
+) -> Option<Arc<BackfillOrchestrator>> {
+    use chrono::Duration;
+    use music_streaming_blocklist_backend::{
+        NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner,
+    };
+
+    let news_config = NewsPipelineConfig::default();
+    let news_pipeline = Arc::new(NewsPipelineOrchestrator::with_database(
+        news_config,
+        db_pool.clone(),
+    ));
+
+    let rss_interval_minutes: i64 = std::env::var("NEWS_RSS_INTERVAL_MINUTES")
+        .unwrap_or_else(|_| "10".to_string())
+        .parse()
+        .unwrap_or(10);
+
+    let _news_scheduler = ScheduledPipelineRunner::new(news_pipeline.clone())
+        .with_rss_interval(Duration::minutes(rss_interval_minutes))
+        .with_social_interval(Duration::hours(1))
+        .with_full_interval(Duration::hours(6))
+        .start();
+
+    tracing::info!(
+        rss_interval_minutes = rss_interval_minutes,
+        "News pipeline started: RSS polling every {} minutes",
+        rss_interval_minutes
+    );
+
+    tracing::info!("Backfill orchestrator initialized");
+    Some(Arc::new(BackfillOrchestrator::with_news_pipeline(
+        db_pool,
+        news_pipeline,
+    )))
+}
+
+#[cfg(not(feature = "full-platform"))]
+async fn initialize_full_platform_services(
+    _db_pool: sqlx::PgPool,
+) -> Option<Arc<BackfillOrchestrator>> {
+    tracing::info!("Slim render-api build: graph, analytics, and news services are disabled");
+    None
 }

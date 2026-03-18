@@ -1,13 +1,10 @@
-pub mod analytics_v2;
 pub mod apple_music_auth;
 pub mod auth;
 pub mod category;
 pub mod connections;
 pub mod dnp;
 pub mod enforcement;
-pub mod graph;
 pub mod login_health;
-pub mod news;
 pub mod oauth;
 pub mod offense;
 pub mod registration_health;
@@ -15,3 +12,10 @@ pub mod spotify_connection;
 pub mod spotify_enforcement;
 pub mod sync;
 pub mod user;
+
+#[cfg(feature = "full-platform")]
+pub mod analytics_v2;
+#[cfg(feature = "full-platform")]
+pub mod graph;
+#[cfg(feature = "full-platform")]
+pub mod news;

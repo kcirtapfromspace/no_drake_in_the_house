@@ -16,6 +16,9 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
+#[cfg(not(feature = "full-platform"))]
+use axum::{http::StatusCode, response::IntoResponse, routing::any};
+
 pub mod config;
 pub mod error;
 pub mod health;
@@ -64,6 +67,7 @@ pub use services::catalog_sync::{
     CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder,
 };
 pub use services::dnp_list::DnpListService;
+#[cfg(feature = "full-platform")]
 pub use services::news_pipeline::{
     NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
 };
@@ -116,8 +120,6 @@ pub struct ServiceHealth {
 
 /// Create the main application router
 pub fn create_router(state: AppState) -> Router {
-    use axum::routing::post;
-
     // Create public auth routes (no authentication required)
     let auth_routes = Router::new()
         .route(
@@ -361,244 +363,9 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/sync/backfill-status",
             get(handlers::sync::backfill_status_handler),
-        )
-        // Graph routes (artist networks)
-        .route(
-            "/graph/search",
-            get(handlers::graph::search_artists_handler),
-        )
-        .route(
-            "/graph/stats",
-            get(handlers::graph::get_global_stats_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/network",
-            get(handlers::graph::get_artist_network_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/collaborators",
-            get(handlers::graph::get_collaborators_handler),
-        )
-        .route(
-            "/graph/artists/:from_id/path-to/:to_id",
-            get(handlers::graph::find_path_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/stats",
-            get(handlers::graph::get_network_stats_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/collab-stats",
-            get(handlers::graph::get_collaboration_stats_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/proximity",
-            get(handlers::graph::search_by_proximity_handler),
-        )
-        .route(
-            "/graph/blocked-network",
-            get(handlers::graph::analyze_blocked_network_handler),
-        )
-        .route(
-            "/graph/blocked-network/artists",
-            get(handlers::graph::get_blocked_artists_network_handler),
-        )
-        .route(
-            "/graph/blocked-network/at-risk",
-            get(handlers::graph::get_at_risk_artists_handler),
-        )
-        .route(
-            "/graph/offense-radius",
-            get(handlers::graph::get_offense_radius_handler),
-        )
-        .route(
-            "/graph/sync/status",
-            get(handlers::graph::get_sync_status_handler),
-        )
-        .route(
-            "/graph/sync/trigger",
-            post(handlers::graph::trigger_sync_handler),
-        )
-        .route(
-            "/graph/health",
-            get(handlers::graph::get_graph_health_handler),
-        )
-        // Offense network routes (connections to problematic artists)
-        .route(
-            "/graph/offense-network",
-            get(handlers::graph::get_offense_network_handler),
-        )
-        .route(
-            "/graph/artists/:artist_id/offense-connections",
-            get(handlers::graph::get_artist_offense_connections_handler),
-        )
-        // Analytics routes (dashboard, trends, reports)
-        .route(
-            "/analytics/dashboard",
-            get(handlers::analytics_v2::get_dashboard_handler),
-        )
-        .route(
-            "/analytics/dashboard/user-stats",
-            get(handlers::analytics_v2::get_user_quick_stats_handler),
-        )
-        .route(
-            "/analytics/health",
-            get(handlers::analytics_v2::get_system_health_handler),
-        )
-        .route(
-            "/analytics/trends",
-            get(handlers::analytics_v2::get_trend_summary_handler),
-        )
-        .route(
-            "/analytics/trends/artists/:artist_id",
-            get(handlers::analytics_v2::get_artist_trend_handler),
-        )
-        .route(
-            "/analytics/trends/platforms",
-            get(handlers::analytics_v2::get_platform_trends_handler),
-        )
-        .route(
-            "/analytics/trends/rising",
-            get(handlers::analytics_v2::get_rising_artists_handler),
-        )
-        .route(
-            "/analytics/trends/falling",
-            get(handlers::analytics_v2::get_falling_artists_handler),
-        )
-        .route(
-            "/analytics/reports/types",
-            get(handlers::analytics_v2::get_report_types_handler),
-        )
-        .route(
-            "/analytics/reports",
-            post(handlers::analytics_v2::generate_report_handler),
-        )
-        .route(
-            "/analytics/reports/:report_id",
-            get(handlers::analytics_v2::get_report_status_handler),
-        )
-        .route(
-            "/analytics/reports/:report_id/download",
-            get(handlers::analytics_v2::download_report_handler),
-        )
-        .route(
-            "/analytics/export/parquet",
-            post(handlers::analytics_v2::export_to_parquet_handler),
-        )
-        // Trouble score routes
-        .route(
-            "/analytics/trouble-scores/artist/:artist_id",
-            get(handlers::analytics_v2::get_artist_trouble_score_handler),
-        )
-        .route(
-            "/analytics/trouble-scores/artist/:artist_id/history",
-            get(handlers::analytics_v2::get_artist_score_history_handler),
-        )
-        .route(
-            "/analytics/trouble-scores/leaderboard",
-            get(handlers::analytics_v2::get_trouble_leaderboard_handler),
-        )
-        .route(
-            "/analytics/trouble-scores/distribution",
-            get(handlers::analytics_v2::get_tier_distribution_handler),
-        )
-        .route(
-            "/analytics/trouble-scores/recalculate",
-            post(handlers::analytics_v2::recalculate_trouble_scores_handler),
-        )
-        // Revenue tracking routes
-        .route(
-            "/analytics/revenue/distribution",
-            get(handlers::analytics_v2::get_user_revenue_distribution_handler),
-        )
-        .route(
-            "/analytics/revenue/top-artists",
-            get(handlers::analytics_v2::get_user_top_artists_revenue_handler),
-        )
-        .route(
-            "/analytics/revenue/problematic",
-            get(handlers::analytics_v2::get_user_problematic_revenue_handler),
-        )
-        .route(
-            "/analytics/revenue/global-problematic",
-            get(handlers::analytics_v2::get_global_problematic_revenue_handler),
-        )
-        .route(
-            "/analytics/revenue/artist/:artist_id",
-            get(handlers::analytics_v2::get_artist_revenue_breakdown_handler),
-        )
-        .route(
-            "/analytics/payout-rates",
-            get(handlers::analytics_v2::get_payout_rates_handler),
-        )
-        // Category revenue routes (simulated by offense category)
-        .route(
-            "/analytics/category-revenue",
-            get(handlers::analytics_v2::get_global_category_revenue_handler),
-        )
-        .route(
-            "/analytics/category-revenue/categories",
-            get(handlers::analytics_v2::get_offense_categories_handler),
-        )
-        .route(
-            "/analytics/category-revenue/:category",
-            get(handlers::analytics_v2::get_category_revenue_handler),
-        )
-        .route(
-            "/analytics/category-revenue/artist/:artist_id/discography",
-            get(handlers::analytics_v2::get_artist_discography_revenue_handler),
-        )
-        .route(
-            "/analytics/category-revenue/user/exposure",
-            get(handlers::analytics_v2::get_user_category_exposure_handler),
-        )
-        // Enforcement analytics routes (US-024)
-        .route(
-            "/analytics/enforcement",
-            get(handlers::analytics_v2::get_enforcement_analytics_handler),
-        )
-        // User activity summary route (US-025)
-        .route(
-            "/analytics/summary",
-            get(handlers::analytics_v2::get_user_activity_summary_handler),
-        )
-        // News pipeline routes
-        .route("/news/articles", get(handlers::news::list_articles_handler))
-        .route(
-            "/news/articles/:article_id",
-            get(handlers::news::get_article_handler),
-        )
-        .route(
-            "/news/artists/:artist_id/mentions",
-            get(handlers::news::get_artist_mentions_handler),
-        )
-        .route(
-            "/news/search",
-            post(handlers::news::semantic_search_handler),
-        )
-        .route("/news/offenses", get(handlers::news::get_offenses_handler))
-        .route(
-            "/news/offenses/:offense_id",
-            get(handlers::news::get_offense_handler),
-        )
-        .route(
-            "/news/offenses/:offense_id/verify",
-            post(handlers::news::verify_offense_handler),
-        )
-        .route(
-            "/news/pipeline/status",
-            get(handlers::news::get_pipeline_status_handler),
-        )
-        .route(
-            "/news/pipeline/trigger",
-            post(handlers::news::trigger_pipeline_handler),
-        )
-        .route("/news/sources", get(handlers::news::get_sources_handler))
-        .route("/news/trending", get(handlers::news::get_trending_handler))
-        .route(
-            "/news/categories",
-            get(handlers::news::get_offense_categories_handler),
-        )
+        );
+    let protected_routes = add_full_platform_routes(protected_routes);
+    let protected_routes = protected_routes
         // Apple Music enforcement routes
         .route(
             "/enforcement/apple-music/run",
@@ -725,10 +492,7 @@ pub fn create_router(state: AppState) -> Router {
         )
         // Monitoring endpoints
         .route("/metrics", get(metrics_endpoint))
-        .route(
-            "/metrics/prometheus",
-            get(handlers::analytics_v2::get_metrics_handler),
-        )
+        .route("/metrics/prometheus", get(prometheus_metrics_endpoint))
         .route("/monitoring", get(comprehensive_monitoring_endpoint))
         // Public API routes
         .nest("/api/v1/auth", auth_routes)
@@ -752,6 +516,271 @@ pub fn create_router(state: AppState) -> Router {
             crate::middleware::latency::latency_middleware,
         ))
         .with_state(state)
+}
+
+#[cfg(feature = "full-platform")]
+fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
+    router
+        .route(
+            "/graph/search",
+            get(handlers::graph::search_artists_handler),
+        )
+        .route(
+            "/graph/stats",
+            get(handlers::graph::get_global_stats_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/network",
+            get(handlers::graph::get_artist_network_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/collaborators",
+            get(handlers::graph::get_collaborators_handler),
+        )
+        .route(
+            "/graph/artists/:from_id/path-to/:to_id",
+            get(handlers::graph::find_path_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/stats",
+            get(handlers::graph::get_network_stats_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/collab-stats",
+            get(handlers::graph::get_collaboration_stats_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/proximity",
+            get(handlers::graph::search_by_proximity_handler),
+        )
+        .route(
+            "/graph/blocked-network",
+            get(handlers::graph::analyze_blocked_network_handler),
+        )
+        .route(
+            "/graph/blocked-network/artists",
+            get(handlers::graph::get_blocked_artists_network_handler),
+        )
+        .route(
+            "/graph/blocked-network/at-risk",
+            get(handlers::graph::get_at_risk_artists_handler),
+        )
+        .route(
+            "/graph/offense-radius",
+            get(handlers::graph::get_offense_radius_handler),
+        )
+        .route(
+            "/graph/sync/status",
+            get(handlers::graph::get_sync_status_handler),
+        )
+        .route(
+            "/graph/sync/trigger",
+            post(handlers::graph::trigger_sync_handler),
+        )
+        .route(
+            "/graph/health",
+            get(handlers::graph::get_graph_health_handler),
+        )
+        .route(
+            "/graph/offense-network",
+            get(handlers::graph::get_offense_network_handler),
+        )
+        .route(
+            "/graph/artists/:artist_id/offense-connections",
+            get(handlers::graph::get_artist_offense_connections_handler),
+        )
+        .route(
+            "/analytics/dashboard",
+            get(handlers::analytics_v2::get_dashboard_handler),
+        )
+        .route(
+            "/analytics/dashboard/user-stats",
+            get(handlers::analytics_v2::get_user_quick_stats_handler),
+        )
+        .route(
+            "/analytics/health",
+            get(handlers::analytics_v2::get_system_health_handler),
+        )
+        .route(
+            "/analytics/trends",
+            get(handlers::analytics_v2::get_trend_summary_handler),
+        )
+        .route(
+            "/analytics/trends/artists/:artist_id",
+            get(handlers::analytics_v2::get_artist_trend_handler),
+        )
+        .route(
+            "/analytics/trends/platforms",
+            get(handlers::analytics_v2::get_platform_trends_handler),
+        )
+        .route(
+            "/analytics/trends/rising",
+            get(handlers::analytics_v2::get_rising_artists_handler),
+        )
+        .route(
+            "/analytics/trends/falling",
+            get(handlers::analytics_v2::get_falling_artists_handler),
+        )
+        .route(
+            "/analytics/reports/types",
+            get(handlers::analytics_v2::get_report_types_handler),
+        )
+        .route(
+            "/analytics/reports",
+            post(handlers::analytics_v2::generate_report_handler),
+        )
+        .route(
+            "/analytics/reports/:report_id",
+            get(handlers::analytics_v2::get_report_status_handler),
+        )
+        .route(
+            "/analytics/reports/:report_id/download",
+            get(handlers::analytics_v2::download_report_handler),
+        )
+        .route(
+            "/analytics/export/parquet",
+            post(handlers::analytics_v2::export_to_parquet_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/artist/:artist_id",
+            get(handlers::analytics_v2::get_artist_trouble_score_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/artist/:artist_id/history",
+            get(handlers::analytics_v2::get_artist_score_history_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/leaderboard",
+            get(handlers::analytics_v2::get_trouble_leaderboard_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/distribution",
+            get(handlers::analytics_v2::get_tier_distribution_handler),
+        )
+        .route(
+            "/analytics/trouble-scores/recalculate",
+            post(handlers::analytics_v2::recalculate_trouble_scores_handler),
+        )
+        .route(
+            "/analytics/revenue/distribution",
+            get(handlers::analytics_v2::get_user_revenue_distribution_handler),
+        )
+        .route(
+            "/analytics/revenue/top-artists",
+            get(handlers::analytics_v2::get_user_top_artists_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/problematic",
+            get(handlers::analytics_v2::get_user_problematic_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/global-problematic",
+            get(handlers::analytics_v2::get_global_problematic_revenue_handler),
+        )
+        .route(
+            "/analytics/revenue/artist/:artist_id",
+            get(handlers::analytics_v2::get_artist_revenue_breakdown_handler),
+        )
+        .route(
+            "/analytics/payout-rates",
+            get(handlers::analytics_v2::get_payout_rates_handler),
+        )
+        .route(
+            "/analytics/category-revenue",
+            get(handlers::analytics_v2::get_global_category_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/categories",
+            get(handlers::analytics_v2::get_offense_categories_handler),
+        )
+        .route(
+            "/analytics/category-revenue/:category",
+            get(handlers::analytics_v2::get_category_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/artist/:artist_id/discography",
+            get(handlers::analytics_v2::get_artist_discography_revenue_handler),
+        )
+        .route(
+            "/analytics/category-revenue/user/exposure",
+            get(handlers::analytics_v2::get_user_category_exposure_handler),
+        )
+        .route(
+            "/analytics/enforcement",
+            get(handlers::analytics_v2::get_enforcement_analytics_handler),
+        )
+        .route(
+            "/analytics/summary",
+            get(handlers::analytics_v2::get_user_activity_summary_handler),
+        )
+        .route("/news/articles", get(handlers::news::list_articles_handler))
+        .route(
+            "/news/articles/:article_id",
+            get(handlers::news::get_article_handler),
+        )
+        .route(
+            "/news/artists/:artist_id/mentions",
+            get(handlers::news::get_artist_mentions_handler),
+        )
+        .route(
+            "/news/search",
+            post(handlers::news::semantic_search_handler),
+        )
+        .route("/news/offenses", get(handlers::news::get_offenses_handler))
+        .route(
+            "/news/offenses/:offense_id",
+            get(handlers::news::get_offense_handler),
+        )
+        .route(
+            "/news/offenses/:offense_id/verify",
+            post(handlers::news::verify_offense_handler),
+        )
+        .route(
+            "/news/pipeline/status",
+            get(handlers::news::get_pipeline_status_handler),
+        )
+        .route(
+            "/news/pipeline/trigger",
+            post(handlers::news::trigger_pipeline_handler),
+        )
+        .route("/news/sources", get(handlers::news::get_sources_handler))
+        .route("/news/trending", get(handlers::news::get_trending_handler))
+        .route(
+            "/news/categories",
+            get(handlers::news::get_offense_categories_handler),
+        )
+}
+
+#[cfg(not(feature = "full-platform"))]
+fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
+    router
+        .route("/graph", any(full_platform_unavailable))
+        .route("/graph/{*path}", any(full_platform_unavailable))
+        .route("/analytics", any(full_platform_unavailable))
+        .route("/analytics/{*path}", any(full_platform_unavailable))
+        .route("/news", any(full_platform_unavailable))
+        .route("/news/{*path}", any(full_platform_unavailable))
+}
+
+#[cfg(not(feature = "full-platform"))]
+async fn full_platform_unavailable() -> impl IntoResponse {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(serde_json::json!({
+            "error": "full_platform_unavailable",
+            "message": "This Render API build does not include graph, analytics, or news services."
+        })),
+    )
+}
+
+#[cfg(feature = "full-platform")]
+async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> Result<String> {
+    handlers::analytics_v2::get_metrics_handler(State(state)).await
+}
+
+#[cfg(not(feature = "full-platform"))]
+async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> impl IntoResponse {
+    metrics_endpoint(State(state)).await
 }
 
 /// Health check endpoint with comprehensive error handling

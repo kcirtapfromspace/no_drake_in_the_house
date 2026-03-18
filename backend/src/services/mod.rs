@@ -14,18 +14,22 @@ pub mod job_queue;
 pub mod rate_limiting;
 
 // Analytics databases (DuckDB, Kùzu, LanceDB)
+#[cfg(feature = "full-platform")]
 pub mod databases;
 
 // Catalog sync (multi-platform artist synchronization)
 pub mod catalog_sync;
 
 // News pipeline (live news tracking and offense detection)
+#[cfg(feature = "full-platform")]
 pub mod news_pipeline;
 
 // Graph service (artist collaboration networks and analysis)
+#[cfg(feature = "full-platform")]
 pub mod graph_service;
 
 // Analytics service (dashboard metrics, trend analysis, reporting)
+#[cfg(feature = "full-platform")]
 pub mod analytics_service;
 
 // Backfill orchestrator (offense discovery for artists)
@@ -121,6 +125,7 @@ pub use kms::{
 pub use stubs::*;
 
 // Export database clients
+#[cfg(feature = "full-platform")]
 pub use databases::{DatabaseClients, DatabasesConfig, DuckDbClient, KuzuClient, LanceDbClient};
 
 // Export catalog sync components
@@ -133,6 +138,7 @@ pub use catalog_sync::{
 };
 
 // Export news pipeline components
+#[cfg(feature = "full-platform")]
 pub use news_pipeline::{
     ArticleEmbedding,
     EmbeddingGenerator,
@@ -164,6 +170,7 @@ pub use news_pipeline::{
 };
 
 // Export graph service components
+#[cfg(feature = "full-platform")]
 pub use graph_service::{
     ArtistNetworkResponse,
     CollaborationBuilder,
@@ -181,6 +188,7 @@ pub use graph_service::{
 };
 
 // Export analytics service components
+#[cfg(feature = "full-platform")]
 pub use analytics_service::{
     // Enforcement analytics (US-024)
     ActionTypeCount,

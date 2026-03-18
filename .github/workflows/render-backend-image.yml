@@ -37,7 +37,7 @@ jobs:
     name: Build And Publish Backend Image
     runs-on: ubuntu-latest
     env:
-      BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || '' }}
+      BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || 'render-api' }}
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
 
     steps:
@@ -90,7 +90,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             BACKEND_CARGO_FEATURES=${{ env.BACKEND_CARGO_FEATURES }}
-            BACKEND_CARGO_NO_DEFAULT_FEATURES=false
+            BACKEND_CARGO_NO_DEFAULT_FEATURES=true
           cache-from: type=gha,scope=render-backend-image
           cache-to: type=gha,mode=max,scope=render-backend-image
 

@@ -1,59 +1,47 @@
 # syntax=docker/dockerfile:1.4
-# Multi-stage build for production backend with cargo-chef optimization
-FROM rust:1.94-slim as chef
-
-# Install cargo-chef for optimal dependency caching
-RUN cargo install cargo-chef --locked
-WORKDIR /app
-
-FROM chef as planner
-# Copy Cargo files and analyze dependencies
-COPY Cargo.toml Cargo.lock ./
-COPY src ./src
-RUN cargo chef prepare --recipe-path recipe.json
-
-FROM chef as builder
-
-ARG BACKEND_CARGO_FEATURES=""
-ARG BACKEND_CARGO_NO_DEFAULT_FEATURES="false"
+# Multi-stage build for production backend.
+FROM rust:1.94-slim as builder
 
 # Install system dependencies with cache mount
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
     pkg-config \
     libssl-dev \
     libpq-dev \
     protobuf-compiler \
+    g++ \
+    cmake \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Build dependencies first (heavily cached layer)
-COPY --from=planner /app/recipe.json recipe.json
-RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/app/target,sharing=locked \
-    set -eux; \
-    cargo_args="--release --recipe-path recipe.json"; \
-    if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then cargo_args="${cargo_args} --no-default-features"; fi; \
-    if [ -n "${BACKEND_CARGO_FEATURES}" ]; then cargo_args="${cargo_args} --features ${BACKEND_CARGO_FEATURES}"; fi; \
-    cargo chef cook ${cargo_args}
+WORKDIR /app
 
-# Copy source code and build application
+# Copy source code and build the release binary in one pass. This avoids
+# recompiling large workspace crates twice during first-time cross-builds.
 COPY . .
-# Set offline mode for SQLx to avoid database connection requirement during build
+ARG BACKEND_BIN=music-streaming-blocklist-backend
+ARG BACKEND_CARGO_FEATURES=
+ARG BACKEND_CARGO_NO_DEFAULT_FEATURES=false
+ENV BACKEND_BIN="${BACKEND_BIN}" \
+    BACKEND_CARGO_FEATURES="${BACKEND_CARGO_FEATURES}" \
+    BACKEND_CARGO_NO_DEFAULT_FEATURES="${BACKEND_CARGO_NO_DEFAULT_FEATURES}"
 ENV SQLX_OFFLINE=true
+ENV SQLX_OFFLINE_DIR=/app/.sqlx
+RUN sed -i 's#^target-dir = .*#target-dir = "/tmp/cargo-target"#' /app/.cargo/config.toml
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,target=/app/target,sharing=locked \
-    set -eux; \
-    cargo_args="--release --bin music-streaming-blocklist-backend"; \
-    if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then cargo_args="${cargo_args} --no-default-features"; fi; \
-    if [ -n "${BACKEND_CARGO_FEATURES}" ]; then cargo_args="${cargo_args} --features ${BACKEND_CARGO_FEATURES}"; fi; \
-    cargo build ${cargo_args} && \
-    cp target/release/music-streaming-blocklist-backend /tmp/backend
+    --mount=type=cache,target=/tmp/cargo-target,sharing=locked \
+    sh -lc 'set -eu; \
+      build_args="--release --bin ${BACKEND_BIN}"; \
+      if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then \
+        build_args="${build_args} --no-default-features"; \
+      fi; \
+      if [ -n "${BACKEND_CARGO_FEATURES}" ]; then \
+        build_args="${build_args} --features ${BACKEND_CARGO_FEATURES}"; \
+      fi; \
+      cargo build ${build_args}; \
+      cp "/tmp/cargo-target/release/${BACKEND_BIN}" /tmp/backend'
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -61,6 +49,7 @@ FROM debian:bookworm-slim
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    curl \
     libpq5 \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*

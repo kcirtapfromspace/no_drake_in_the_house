@@ -13,6 +13,7 @@ Welcome to the Music Streaming Blocklist Manager developer documentation. This s
 
 ### API Development
 - **[Authentication](./authentication.md)** - OAuth flows and JWT handling
+- **[Backend Service Split](./backend-service-split.md)** - Current package boundaries and target deployable services
 - **[Rate Limiting](./rate-limiting.md)** - Handle API rate limits effectively
 - **[Webhooks](./webhooks.md)** - Real-time event notifications
 - **[Error Handling](./error-handling.md)** - Robust error handling patterns

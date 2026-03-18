@@ -1,15 +1,25 @@
 # syntax=docker/dockerfile:1.4
 # Ultra-fast development Dockerfile with maximum caching optimization
-FROM rust:1.82-slim as chef
+FROM rust:1.88-slim as chef
 
 # Install cargo-chef for dependency caching
 RUN cargo install cargo-chef --locked
 WORKDIR /app
 
 FROM chef as planner
-# Copy only what's needed for dependency analysis
+# Copy workspace structure for dependency analysis
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
+COPY crates/ndith-core/Cargo.toml ./crates/ndith-core/Cargo.toml
+COPY crates/ndith-db/Cargo.toml ./crates/ndith-db/Cargo.toml
+COPY crates/ndith-analytics/Cargo.toml ./crates/ndith-analytics/Cargo.toml
+COPY crates/ndith-news/Cargo.toml ./crates/ndith-news/Cargo.toml
+COPY crates/ndith-services/Cargo.toml ./crates/ndith-services/Cargo.toml
+COPY crates/ndith-core/src ./crates/ndith-core/src
+COPY crates/ndith-db/src ./crates/ndith-db/src
+COPY crates/ndith-analytics/src ./crates/ndith-analytics/src
+COPY crates/ndith-news/src ./crates/ndith-news/src
+COPY crates/ndith-services/src ./crates/ndith-services/src
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef as builder
@@ -21,6 +31,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pkg-config \
     libssl-dev \
     libpq-dev \
+    protobuf-compiler \
+    g++ \
+    cmake \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -36,6 +49,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 COPY . .
 # Set offline mode for SQLx to avoid database connection requirement during build
 ENV SQLX_OFFLINE=true
+ENV SQLX_OFFLINE_DIR=/app/.sqlx
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
@@ -60,11 +74,7 @@ WORKDIR /app
 COPY --from=builder /tmp/backend ./backend
 COPY migrations ./migrations
 
-# Create non-root user
-RUN useradd -r -s /bin/false -u 1001 kiro && \
-    chown -R kiro:kiro /app
-
-USER kiro
+# Run as root for dev (skip user creation to avoid I/O issues)
 
 # Development environment variables
 ENV RUST_LOG=debug

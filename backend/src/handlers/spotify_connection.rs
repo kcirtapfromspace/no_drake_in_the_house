@@ -9,19 +9,20 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use base64::{engine::general_purpose, Engine as _};
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
-use crate::models::oauth::{
-    OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
-};
+use crate::models::oauth::{OAuthConfig, OAuthProviderType};
+use crate::models::offense::{ImportLibraryRequest, ImportTrack};
 use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::OAuthTokenEncryption;
+use crate::services::OffenseService;
 use crate::AppState;
 use std::collections::HashMap;
 
@@ -30,10 +31,13 @@ pub const SPOTIFY_CONNECTION_SCOPES: &[&str] = &[
     "user-library-read",
     "user-library-modify",
     "playlist-read-private",
+    "playlist-read-collaborative",
     "playlist-modify-private",
     "user-follow-read",
     "user-follow-modify",
 ];
+
+const DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI: &str = "http://localhost:3000/auth/callback/spotify";
 
 /// Create a Spotify OAuth provider configured with connection-specific scopes
 fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
@@ -45,9 +49,8 @@ fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
         std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
             message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
         })?;
-    let redirect_uri = std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI").unwrap_or_else(|_| {
-        "http://localhost:3000/api/v1/connections/spotify/callback".to_string()
-    });
+    let redirect_uri = std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
+        .unwrap_or_else(|_| DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI.to_string());
 
     let config = OAuthConfig {
         client_id,
@@ -93,6 +96,8 @@ pub struct SpotifyCallbackResponse {
     pub provider_user_id: String,
     pub status: String,
     pub message: String,
+    pub sync_summary: Option<SpotifyLibrarySyncSummary>,
+    pub sync_warning: Option<String>,
 }
 
 /// Connection status response
@@ -105,6 +110,22 @@ pub struct SpotifyConnectionStatus {
     pub scopes: Option<Vec<String>>,
     pub expires_at: Option<String>,
     pub last_health_check: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SpotifyLibrarySyncSummary {
+    pub imported_tracks: i32,
+    pub liked_tracks_synced: usize,
+    pub playlist_tracks_synced: usize,
+    pub saved_albums_synced: usize,
+    pub followed_artists_synced: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SpotifyLibrarySyncResponse {
+    pub success: bool,
+    pub summary: SpotifyLibrarySyncSummary,
+    pub message: String,
 }
 
 /// OAuth state stored in Redis/memory for validation
@@ -129,22 +150,16 @@ pub async fn spotify_authorize_handler(
         "Initiating Spotify connection OAuth flow"
     );
 
-    // Check if user already has an active Spotify connection
+    // If a connection exists, allow reconnect to refresh stale/expired tokens.
     let existing_connection =
         get_user_spotify_connection(&state.db_pool, authenticated_user.id).await?;
     if let Some(conn) = existing_connection {
         if conn.status == "active" {
-            tracing::warn!(
+            tracing::info!(
                 user_id = %authenticated_user.id,
                 connection_id = %conn.id,
-                "User already has an active Spotify connection"
+                "Existing active Spotify connection found; proceeding with reconnect flow"
             );
-            return Err(AppError::InvalidFieldValue {
-                field: "provider".to_string(),
-                message:
-                    "You already have an active Spotify connection. Disconnect first to reconnect."
-                        .to_string(),
-            });
         }
     }
 
@@ -158,9 +173,8 @@ pub async fn spotify_authorize_handler(
 
     // Determine redirect URI (override if provided in query)
     let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
-        std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI").unwrap_or_else(|_| {
-            "http://localhost:3000/api/v1/connections/spotify/callback".to_string()
-        })
+        std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
+            .unwrap_or_else(|_| DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI.to_string())
     });
 
     // Initiate OAuth flow
@@ -319,6 +333,30 @@ pub async fn spotify_callback_handler(
     )
     .await?;
 
+    let (sync_summary, sync_warning) = match sync_spotify_library_to_user_library(
+        &state.db_pool,
+        state_data.user_id,
+        &tokens.access_token,
+    )
+    .await
+    {
+        Ok(summary) => (Some(summary), None),
+        Err(error) => {
+            tracing::warn!(
+                user_id = %state_data.user_id,
+                error = %error,
+                "Spotify connection succeeded but initial library sync failed"
+            );
+            (
+                None,
+                Some(
+                    "Spotify connected, but automatic library sync failed. Try syncing again from the Music Library page."
+                        .to_string(),
+                ),
+            )
+        }
+    };
+
     tracing::info!(
         user_id = %state_data.user_id,
         connection_id = %connection_id,
@@ -332,8 +370,10 @@ pub async fn spotify_callback_handler(
             success: true,
             connection_id,
             provider_user_id: user_info.provider_user_id,
-            status: "Active".to_string(),
+            status: "active".to_string(),
             message: "Spotify account connected successfully".to_string(),
+            sync_summary,
+            sync_warning,
         }),
     ))
 }
@@ -419,6 +459,49 @@ pub async fn spotify_disconnect_handler(
     }
 }
 
+/// POST /api/v1/connections/spotify/library/sync
+///
+/// Fetches Spotify liked songs, playlist tracks, followed artists, and saved albums,
+/// then imports them into `user_library_tracks` for offense scanning.
+pub async fn spotify_library_sync_handler(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<(StatusCode, Json<SpotifyLibrarySyncResponse>)> {
+    let connection = get_user_spotify_connection(&state.db_pool, authenticated_user.id)
+        .await?
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Spotify connection".to_string(),
+        })?;
+
+    let encrypted_access_token = connection.access_token_encrypted.ok_or_else(|| {
+        AppError::ExternalServiceError(
+            "Spotify access token is unavailable. Reconnect Spotify and try again.".to_string(),
+        )
+    })?;
+
+    let access_token = decrypt_connection_access_token(&encrypted_access_token).await?;
+
+    let summary =
+        sync_spotify_library_to_user_library(&state.db_pool, authenticated_user.id, &access_token)
+            .await?;
+
+    Ok((
+        StatusCode::OK,
+        Json(SpotifyLibrarySyncResponse {
+            success: true,
+            message: format!(
+                "Synced Spotify library: {} imported items ({} liked, {} playlist tracks, {} saved albums, {} followed artists)",
+                summary.imported_tracks,
+                summary.liked_tracks_synced,
+                summary.playlist_tracks_synced,
+                summary.saved_albums_synced,
+                summary.followed_artists_synced
+            ),
+            summary,
+        }),
+    ))
+}
+
 // Database helper functions
 
 #[derive(Debug, sqlx::FromRow)]
@@ -427,6 +510,7 @@ struct ConnectionRecord {
     provider_user_id: Option<String>,
     status: String,
     scopes: Option<Vec<String>>,
+    access_token_encrypted: Option<String>,
     expires_at: Option<chrono::DateTime<Utc>>,
     last_health_check: Option<chrono::DateTime<Utc>>,
 }
@@ -442,6 +526,7 @@ async fn get_user_spotify_connection(
             provider_user_id,
             status,
             scopes,
+            access_token_encrypted,
             expires_at,
             last_health_check
         FROM connections
@@ -538,6 +623,330 @@ async fn delete_spotify_connection(pool: &PgPool, connection_id: Uuid) -> Result
     })?;
 
     Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPaging<T> {
+    items: Vec<T>,
+    next: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyArtistPayload {
+    id: Option<String>,
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyAlbumPayload {
+    id: Option<String>,
+    name: String,
+    artists: Option<Vec<SpotifyArtistPayload>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyTrackPayload {
+    id: Option<String>,
+    name: String,
+    artists: Vec<SpotifyArtistPayload>,
+    album: Option<SpotifyAlbumPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifySavedTrackPayload {
+    added_at: Option<String>,
+    track: Option<SpotifyTrackPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifySavedAlbumPayload {
+    added_at: Option<String>,
+    album: Option<SpotifyAlbumPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaylistPayload {
+    id: String,
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaylistTrackPayload {
+    added_at: Option<String>,
+    track: Option<SpotifyTrackPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyFollowedArtistsResponse {
+    artists: SpotifyFollowedArtistsPayload,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyFollowedArtistsPayload {
+    items: Vec<SpotifyArtistPayload>,
+    cursors: Option<SpotifyCursorPayload>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyCursorPayload {
+    after: Option<String>,
+}
+
+async fn decrypt_connection_access_token(encoded_token: &str) -> Result<String> {
+    let encrypted_bytes = general_purpose::STANDARD
+        .decode(encoded_token)
+        .map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Stored Spotify token could not be decoded: {}",
+                e
+            ))
+        })?;
+
+    let encryption = OAuthTokenEncryption::new().map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to initialize token encryption: {}", e)),
+    })?;
+
+    encryption
+        .decrypt_token(&encrypted_bytes)
+        .await
+        .map_err(|e| {
+            AppError::ExternalServiceError(format!(
+                "Stored Spotify token could not be decrypted: {}",
+                e
+            ))
+        })
+}
+
+fn parse_spotify_timestamp(value: Option<&str>) -> Option<chrono::DateTime<Utc>> {
+    value
+        .and_then(|ts| chrono::DateTime::parse_from_rfc3339(ts).ok())
+        .map(|dt| dt.with_timezone(&Utc))
+}
+
+fn spotify_primary_artist(track: &SpotifyTrackPayload) -> String {
+    track
+        .artists
+        .first()
+        .map(|artist| artist.name.clone())
+        .unwrap_or_else(|| "Unknown Artist".to_string())
+}
+
+fn spotify_album_name(track: &SpotifyTrackPayload) -> Option<String> {
+    track.album.as_ref().map(|album| album.name.clone())
+}
+
+async fn spotify_get_json<T: serde::de::DeserializeOwned>(
+    client: &reqwest::Client,
+    access_token: &str,
+    url: &str,
+) -> Result<T> {
+    let response = client
+        .get(url)
+        .bearer_auth(access_token)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::ExternalServiceError(format!("Spotify request failed: {}", e)))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(AppError::ExternalServiceError(format!(
+            "Spotify request failed ({}): {}",
+            status, body
+        )));
+    }
+
+    response.json::<T>().await.map_err(|e| {
+        AppError::ExternalServiceError(format!("Failed to parse Spotify response: {}", e))
+    })
+}
+
+async fn sync_spotify_library_to_user_library(
+    pool: &PgPool,
+    user_id: Uuid,
+    access_token: &str,
+) -> Result<SpotifyLibrarySyncSummary> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to create Spotify client: {}", e))
+        })?;
+
+    let mut tracks: Vec<ImportTrack> = Vec::new();
+    let mut liked_count = 0usize;
+    let mut playlist_track_count = 0usize;
+    let mut saved_album_count = 0usize;
+    let mut followed_artist_count = 0usize;
+
+    let mut liked_url = Some("https://api.spotify.com/v1/me/tracks?limit=50".to_string());
+    while let Some(url) = liked_url {
+        let page: SpotifyPaging<SpotifySavedTrackPayload> =
+            spotify_get_json(&client, access_token, &url).await?;
+        for item in page.items {
+            let Some(track) = item.track else {
+                continue;
+            };
+            let Some(track_id) = track.id.clone() else {
+                continue;
+            };
+
+            tracks.push(ImportTrack {
+                provider_track_id: format!("liked:{}", track_id),
+                track_name: track.name.clone(),
+                album_name: spotify_album_name(&track),
+                artist_name: spotify_primary_artist(&track),
+                source_type: Some("liked".to_string()),
+                playlist_name: None,
+                added_at: parse_spotify_timestamp(item.added_at.as_deref()),
+            });
+            liked_count += 1;
+        }
+        liked_url = page.next;
+    }
+
+    let mut saved_albums_url = Some("https://api.spotify.com/v1/me/albums?limit=50".to_string());
+    while let Some(url) = saved_albums_url {
+        let page: SpotifyPaging<SpotifySavedAlbumPayload> =
+            spotify_get_json(&client, access_token, &url).await?;
+        for item in page.items {
+            let Some(album) = item.album else {
+                continue;
+            };
+            let Some(album_id) = album.id.clone() else {
+                continue;
+            };
+            let album_artist = album
+                .artists
+                .as_ref()
+                .and_then(|artists| artists.first())
+                .map(|artist| artist.name.clone())
+                .unwrap_or_else(|| "Unknown Artist".to_string());
+
+            tracks.push(ImportTrack {
+                provider_track_id: format!("album:{}", album_id),
+                track_name: format!("[Album] {}", album.name),
+                album_name: Some(album.name.clone()),
+                artist_name: album_artist,
+                source_type: Some("saved_album".to_string()),
+                playlist_name: None,
+                added_at: parse_spotify_timestamp(item.added_at.as_deref()),
+            });
+            saved_album_count += 1;
+        }
+        saved_albums_url = page.next;
+    }
+
+    let mut artist_after: Option<String> = None;
+    loop {
+        let mut url = "https://api.spotify.com/v1/me/following?type=artist&limit=50".to_string();
+        if let Some(after) = artist_after.as_deref() {
+            url.push_str("&after=");
+            url.push_str(after);
+        }
+
+        let response: SpotifyFollowedArtistsResponse =
+            spotify_get_json(&client, access_token, &url).await?;
+
+        for artist in response.artists.items {
+            let Some(artist_id) = artist.id.clone() else {
+                continue;
+            };
+
+            tracks.push(ImportTrack {
+                provider_track_id: format!("artist:{}", artist_id),
+                track_name: format!("[Artist] {}", artist.name),
+                album_name: None,
+                artist_name: artist.name,
+                source_type: Some("followed_artist".to_string()),
+                playlist_name: None,
+                added_at: None,
+            });
+            followed_artist_count += 1;
+        }
+
+        artist_after = response.artists.cursors.and_then(|cursor| cursor.after);
+        if artist_after.is_none() {
+            break;
+        }
+    }
+
+    let mut playlists_url = Some("https://api.spotify.com/v1/me/playlists?limit=50".to_string());
+    while let Some(url) = playlists_url {
+        let page: SpotifyPaging<SpotifyPlaylistPayload> =
+            spotify_get_json(&client, access_token, &url).await?;
+
+        for playlist in &page.items {
+            let mut playlist_tracks_url = Some(format!(
+                "https://api.spotify.com/v1/playlists/{}/tracks?limit=100&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))",
+                playlist.id
+            ));
+            let mut playlist_index = 0usize;
+
+            while let Some(playlist_url) = playlist_tracks_url {
+                let track_page: SpotifyPaging<SpotifyPlaylistTrackPayload> =
+                    spotify_get_json(&client, access_token, &playlist_url).await?;
+
+                for playlist_item in track_page.items {
+                    let Some(track) = playlist_item.track else {
+                        continue;
+                    };
+                    let Some(track_id) = track.id.clone() else {
+                        continue;
+                    };
+
+                    tracks.push(ImportTrack {
+                        provider_track_id: format!(
+                            "playlist:{}:{}:{}",
+                            playlist.id, track_id, playlist_index
+                        ),
+                        track_name: track.name.clone(),
+                        album_name: spotify_album_name(&track),
+                        artist_name: spotify_primary_artist(&track),
+                        source_type: Some("playlist_track".to_string()),
+                        playlist_name: Some(playlist.name.clone()),
+                        added_at: parse_spotify_timestamp(playlist_item.added_at.as_deref()),
+                    });
+                    playlist_track_count += 1;
+                    playlist_index += 1;
+                }
+
+                playlist_tracks_url = track_page.next;
+            }
+        }
+
+        playlists_url = page.next;
+    }
+
+    sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
+        .bind(user_id)
+        .bind("spotify")
+        .execute(pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
+    let imported_tracks = if tracks.is_empty() {
+        0
+    } else {
+        OffenseService::new(pool)
+            .import_library(
+                user_id,
+                ImportLibraryRequest {
+                    provider: "spotify".to_string(),
+                    tracks,
+                },
+            )
+            .await?
+    };
+
+    Ok(SpotifyLibrarySyncSummary {
+        imported_tracks,
+        liked_tracks_synced: liked_count,
+        playlist_tracks_synced: playlist_track_count,
+        saved_albums_synced: saved_album_count,
+        followed_artists_synced: followed_artist_count,
+    })
 }
 
 // Redis helper functions for OAuth state management

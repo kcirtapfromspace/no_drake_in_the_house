@@ -1,0 +1,29 @@
+# Minimal backend runtime image.
+# Expects pre-compiled binary extracted from Dockerfile.dev builder stage.
+# Fedora runtime avoids GLIBC/CXXABI mismatch when the binary is compiled natively on Fedora UTM VMs.
+FROM fedora:42
+
+RUN dnf -y install ca-certificates libpq curl libstdc++ shadow-utils && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+WORKDIR /app
+
+COPY .build-output/backend ./backend
+COPY migrations ./migrations
+COPY .sqlx ./.sqlx
+
+RUN useradd -r -s /bin/false -u 1001 kiro && \
+    chown -R kiro:kiro /app && \
+    chmod +x /app/backend
+
+USER kiro
+
+ENV SQLX_OFFLINE=true
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+CMD ["./backend"]

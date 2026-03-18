@@ -2,6 +2,9 @@
 
 # Rust build artifacts
 target/
+.build-output/
+!.build-output/
+!.build-output/backend
 **/*.rs.bk
 *.pdb
 

@@ -1,0 +1,28 @@
+[package]
+name = "ndith-analytics"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["graph-kuzu"]
+graph-kuzu = ["dep:kuzu"]
+graph-ladybugdb = []
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+rust_decimal = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+sqlx = { workspace = true }
+csv = { workspace = true }
+tempfile = { workspace = true }
+
+# HEAVY deps — the whole point of this crate
+duckdb = { workspace = true }
+kuzu = { workspace = true, optional = true }

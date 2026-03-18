@@ -98,7 +98,22 @@ pub async fn get_connections_health_handler(
     let connection_healths: Vec<ConnectionHealth> = connections
         .into_iter()
         .map(|conn| {
-            let health_status = determine_health_status(&conn);
+            let mut health_status = determine_health_status(&conn);
+            let mut error_message = conn.error_code.clone();
+
+            // Provider-specific checks (scopes, etc.) that should force re-auth.
+            if matches!(
+                health_status,
+                ConnectionHealthStatus::Active | ConnectionHealthStatus::ExpiringSoon
+            ) {
+                if let Some(scope_reason) = missing_required_scopes(&conn) {
+                    health_status = ConnectionHealthStatus::NeedsReauth;
+                    if error_message.is_none() {
+                        error_message = Some(scope_reason.to_string());
+                    }
+                }
+            }
+
             ConnectionHealth {
                 id: conn.id,
                 provider: conn.provider,
@@ -106,7 +121,7 @@ pub async fn get_connections_health_handler(
                 health_status,
                 expires_at: conn.expires_at,
                 last_used_at: conn.last_health_check,
-                error_message: conn.error_code,
+                error_message,
                 scopes: conn.scopes,
             }
         })
@@ -178,6 +193,38 @@ fn determine_health_status(conn: &ConnectionRecord) -> ConnectionHealthStatus {
 
     // Unknown status, treat as needing attention
     ConnectionHealthStatus::NeedsReauth
+}
+
+fn missing_required_scopes(conn: &ConnectionRecord) -> Option<&'static str> {
+    let provider = conn.provider.to_ascii_lowercase();
+
+    // Tidal Web API (openapi.tidal.com/v2) uses modern scopes like `user.read`, `collection.read`,
+    // `playlists.read`. Older connections may have legacy names (r_usr, r_collection, r_playlist).
+    if provider == "tidal" {
+        let scopes = conn.scopes.as_deref().unwrap_or(&[]);
+        let has_user_scope = scopes
+            .iter()
+            .any(|scope| scope == "user.read" || scope == "r_usr");
+        let has_collection_scope = scopes
+            .iter()
+            .any(|scope| scope == "collection.read" || scope == "r_collection");
+        if !has_user_scope || !has_collection_scope {
+            return Some(
+                "Tidal connection is missing required scopes (user.read, collection.read). Reconnect Tidal to grant library access.",
+            );
+        }
+
+        let has_playlists_scope = scopes
+            .iter()
+            .any(|scope| scope == "playlists.read" || scope == "r_playlist");
+        if !has_playlists_scope {
+            return Some(
+                "Tidal connection is missing required scope playlists.read. Reconnect Tidal to enable playlist sync.",
+            );
+        }
+    }
+
+    None
 }
 
 /// Fetch all connections for a user from the database

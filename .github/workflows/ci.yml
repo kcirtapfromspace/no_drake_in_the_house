@@ -47,35 +47,10 @@ jobs:
           cache-from: type=gha,scope=ci-render-backend-image
           cache-to: type=gha,mode=max,scope=ci-render-backend-image
 
-  # Backend tests
-  backend-test:
-    name: Backend Tests
+  # Workspace-wide Rust quality gates
+  backend-rust-quality:
+    name: Backend Rust Quality
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
@@ -108,20 +83,91 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
         continue-on-error: true
 
-      - name: Check slim Render API build
-        working-directory: backend
-        env:
-          SQLX_OFFLINE: true
-        run: cargo check --no-default-features --features ${{ env.RENDER_BACKEND_CARGO_FEATURES }} --bin music-streaming-blocklist-backend
+  # Package- and feature-level Rust coverage
+  backend-component-test:
+    name: Backend Component Tests (${{ matrix.target.name }})
+    runs-on: ubuntu-latest
 
-      - name: Run backend tests
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - name: api
+            command: cargo test -p music-streaming-blocklist-backend
+          - name: api-render
+            command: cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --no-run
+          - name: core
+            command: cargo test -p ndith-core
+          - name: db
+            command: cargo test -p ndith-db
+          - name: services
+            command: cargo test -p ndith-services
+          - name: news
+            command: cargo test -p ndith-news
+          - name: analytics
+            command: cargo test -p ndith-analytics --no-default-features
+          - name: analytics-graph-kuzu
+            command: cargo test -p ndith-analytics --features graph-kuzu
+          - name: analytics-graph-ladybugdb
+            command: cargo test -p ndith-analytics --no-default-features --features graph-ladybugdb
+          - name: api-graph-kuzu
+            command: cargo test -p music-streaming-blocklist-backend --features graph-kuzu --no-run
+          - name: api-graph-ladybugdb
+            command: cargo test -p music-streaming-blocklist-backend --features graph-ladybugdb --no-run
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Run backend component coverage
         working-directory: backend
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/test_db
           REDIS_URL: redis://localhost:6379
           JWT_SECRET: test-secret-key-for-ci
           RUST_LOG: warn
-        run: cargo test --all-features
+        run: ${{ matrix.target.command }}
 
   # Frontend unit tests
   frontend-unit-test:
@@ -156,7 +202,7 @@ jobs:
   e2e-test:
     name: E2E Browser Tests
     runs-on: ubuntu-latest
-    needs: [backend-test, frontend-unit-test]
+    needs: [render-backend-image-smoke, backend-rust-quality, backend-component-test, frontend-unit-test]
 
     services:
       postgres:
@@ -205,7 +251,7 @@ jobs:
 
       - name: Build backend
         working-directory: backend
-        run: cargo build --release
+        run: cargo build --release -p music-streaming-blocklist-backend
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -376,7 +422,7 @@ jobs:
   apple-music-sandbox:
     name: Apple Music Sandbox Tests
     runs-on: ubuntu-latest
-    needs: [backend-test]
+    needs: [backend-component-test]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
     steps:
@@ -437,14 +483,14 @@ jobs:
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [render-backend-image-smoke, backend-test, frontend-unit-test, e2e-test]
+    needs: [backend-rust-quality, backend-component-test, frontend-unit-test, e2e-test]
     if: always()
 
     steps:
       - name: Check all jobs passed
         run: |
-          if [[ "${{ needs.render-backend-image-smoke.result }}" != "success" ]] || \
-             [[ "${{ needs.backend-test.result }}" != "success" ]] || \
+          if [[ "${{ needs.backend-rust-quality.result }}" != "success" ]] || \
+             [[ "${{ needs.backend-component-test.result }}" != "success" ]] || \
              [[ "${{ needs.frontend-unit-test.result }}" != "success" ]] || \
              [[ "${{ needs.e2e-test.result }}" != "success" ]]; then
             echo "One or more jobs failed"

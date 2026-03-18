@@ -26,13 +26,16 @@ async fn test_spotify_sandbox_oauth_flow() {
         .mount(&mock_server)
         .await;
 
-    // Mock Spotify user profile endpoint (email/country/product no longer returned in Dev Mode)
+    // Mock Spotify user profile endpoint
     Mock::given(method("GET"))
         .and(path("/v1/me"))
         .and(header("authorization", "Bearer BQC4YqJg..."))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "id": "test_user_123",
-            "display_name": "Test User"
+            "display_name": "Test User",
+            "email": "test@example.com",
+            "country": "US",
+            "product": "premium"
         })))
         .expect(1)
         .mount(&mock_server)
@@ -224,17 +227,28 @@ async fn test_spotify_sandbox_library_scanning() {
 async fn test_spotify_sandbox_enforcement_execution() {
     let mock_server = MockServer::start().await;
 
-    // Mock consolidated library mutation endpoint
+    // Mock remove liked song endpoint
     Mock::given(method("DELETE"))
-        .and(path("/v1/me/library"))
+        .and(path("/v1/me/tracks"))
         .and(header("authorization", "Bearer test_token"))
         .respond_with(ResponseTemplate::new(200))
+        .expect(1)
         .mount(&mock_server)
         .await;
 
-    // Mock playlist item removal endpoint
+    // Mock unfollow artist endpoint
     Mock::given(method("DELETE"))
-        .and(path("/v1/playlists/playlist1/items"))
+        .and(path("/v1/me/following"))
+        .and(query_param("type", "artist"))
+        .and(query_param("ids", "artist1"))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    // Mock playlist track removal endpoint
+    Mock::given(method("DELETE"))
+        .and(path("/v1/playlists/playlist1/tracks"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "snapshot_id": "new_snapshot_123"
         })))

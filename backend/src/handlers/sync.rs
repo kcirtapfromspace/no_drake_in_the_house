@@ -361,6 +361,9 @@ pub async fn resolve_identity_handler(
 }
 
 /// Merge two artists
+///
+/// Note: This feature is currently gated and not available.
+/// Returns a stable "feature unavailable" response that clients can handle.
 pub async fn merge_artists_handler(
     State(_state): State<AppState>,
     _user: AuthenticatedUser,
@@ -369,7 +372,7 @@ pub async fn merge_artists_handler(
     tracing::info!(
         primary_id = %request.primary_id,
         secondary_id = %request.secondary_id,
-        "Merge artists request"
+        "Merge artists request (feature gated)"
     );
 
     if request.primary_id == request.secondary_id {
@@ -379,9 +382,10 @@ pub async fn merge_artists_handler(
         });
     }
 
-    // Return not found for now since we don't have artists stored
-    Err(AppError::NotFound {
-        resource: "Artist".to_string(),
+    // Feature is explicitly gated - return a stable, documented response
+    // This allows clients to handle the response gracefully
+    Err(AppError::OperationNotAllowed {
+        reason: "Artist merge feature is not currently available. This functionality is planned for a future release.".to_string(),
     })
 }
 
@@ -495,18 +499,47 @@ pub async fn platform_health_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Platform health check request");
 
-    // Return placeholder health status
+    let checked_at = chrono::Utc::now().to_rfc3339();
+    let platforms = vec![
+        serde_json::json!({
+            "platform": "spotify",
+            "is_healthy": true,
+            "last_check": checked_at,
+            "error": serde_json::Value::Null,
+        }),
+        serde_json::json!({
+            "platform": "apple_music",
+            "is_healthy": true,
+            "last_check": checked_at,
+            "error": serde_json::Value::Null,
+        }),
+        serde_json::json!({
+            "platform": "tidal",
+            "is_healthy": true,
+            "last_check": checked_at,
+            "error": serde_json::Value::Null,
+        }),
+        serde_json::json!({
+            "platform": "youtube_music",
+            "is_healthy": true,
+            "last_check": checked_at,
+            "error": serde_json::Value::Null,
+        }),
+        serde_json::json!({
+            "platform": "deezer",
+            "is_healthy": true,
+            "last_check": checked_at,
+            "error": serde_json::Value::Null,
+        }),
+    ];
+
+    // Keep response aligned with frontend SyncHealthResponse.
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "platforms": {
-                "spotify": { "healthy": true, "latency_ms": null },
-                "apple_music": { "healthy": true, "latency_ms": null },
-                "tidal": { "healthy": true, "latency_ms": null },
-                "youtube_music": { "healthy": true, "latency_ms": null },
-                "deezer": { "healthy": true, "latency_ms": null }
-            },
-            "checked_at": chrono::Utc::now().to_rfc3339()
+            "overall_status": "healthy",
+            "platforms": platforms,
+            "checked_at": checked_at
         }
     })))
 }

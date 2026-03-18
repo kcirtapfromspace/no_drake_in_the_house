@@ -1,9 +1,8 @@
-use crate::models::{Claims, User};
+use crate::models::{AuthenticatedUser, Claims, User};
 use crate::services::AuthService;
 use axum::{
-    async_trait,
-    extract::{FromRequestParts, Request, State},
-    http::{header::AUTHORIZATION, request::Parts, StatusCode},
+    extract::{Request, State},
+    http::{header::AUTHORIZATION, StatusCode},
     middleware::Next,
     response::Response,
     Json,
@@ -12,42 +11,8 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use crate::models::AuthenticatedUser;
-
-#[async_trait]
-impl<S> FromRequestParts<S> for AuthenticatedUser
-where
-    S: Send + Sync,
-{
-    type Rejection = (StatusCode, Json<serde_json::Value>);
-
-    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let user = parts.extensions.get::<User>().ok_or_else(|| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "success": false,
-                    "message": "Authentication required"
-                })),
-            )
-        })?;
-
-        let _claims = parts.extensions.get::<Claims>().ok_or_else(|| {
-            (
-                StatusCode::UNAUTHORIZED,
-                Json(json!({
-                    "success": false,
-                    "message": "Invalid authentication"
-                })),
-            )
-        })?;
-
-        Ok(AuthenticatedUser {
-            id: user.id,
-            email: user.email.clone(),
-        })
-    }
-}
+// FromRequestParts impls for AuthenticatedUser and Claims are in ndith-core
+// (where the types are defined) to satisfy the orphan rule.
 
 /// Authentication middleware for Axum routes
 pub async fn auth_middleware(
@@ -204,13 +169,121 @@ pub async fn admin_auth_middleware(
         }
     };
 
-    // Check if user has admin scope
-    if !claims.scopes.contains(&"admin".to_string()) {
+    // Check if user has admin access (via role or scope)
+    if !claims.has_admin_access() {
+        tracing::warn!(
+            user_id = %user_id,
+            role = ?claims.role,
+            scopes = ?claims.scopes,
+            "Unauthorized admin access attempt"
+        );
         return Err((
             StatusCode::FORBIDDEN,
             Json(json!({
                 "success": false,
+                "error_code": "AUTH_INSUFFICIENT_PERMISSIONS",
                 "message": "Admin access required"
+            })),
+        ));
+    }
+
+    // Add user and claims to request extensions
+    request.extensions_mut().insert(claims);
+    request.extensions_mut().insert(user);
+
+    Ok(next.run(request).await)
+}
+
+/// Moderator-only authentication middleware
+/// Requires moderator or admin role
+pub async fn moderator_auth_middleware(
+    State(auth_service): State<Arc<AuthService>>,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, (StatusCode, Json<serde_json::Value>)> {
+    // First run regular auth middleware logic
+    let auth_header = request
+        .headers()
+        .get(AUTHORIZATION)
+        .and_then(|header| header.to_str().ok())
+        .and_then(|header| {
+            if header.starts_with("Bearer ") {
+                Some(&header[7..])
+            } else {
+                None
+            }
+        });
+
+    let token = match auth_header {
+        Some(token) => token,
+        None => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error_code": "AUTH_TOKEN_REQUIRED",
+                    "message": "Authorization header required"
+                })),
+            ))
+        }
+    };
+
+    let claims = match auth_service.verify_token(token) {
+        Ok(claims) => claims,
+        Err(_) => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error_code": "AUTH_TOKEN_INVALID",
+                    "message": "Invalid or expired token"
+                })),
+            ))
+        }
+    };
+
+    let user_id = match Uuid::parse_str(&claims.sub) {
+        Ok(id) => id,
+        Err(_) => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error_code": "AUTH_TOKEN_INVALID",
+                    "message": "Invalid user ID in token"
+                })),
+            ))
+        }
+    };
+
+    let user = match auth_service.get_user(user_id).await {
+        Ok(user) => user,
+        Err(_) => {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                Json(json!({
+                    "success": false,
+                    "error_code": "AUTH_USER_NOT_FOUND",
+                    "message": "User not found"
+                })),
+            ))
+        }
+    };
+
+    // Check if user has moderator access (via role or scope)
+    if !claims.has_moderator_access() {
+        tracing::warn!(
+            user_id = %user_id,
+            role = ?claims.role,
+            scopes = ?claims.scopes,
+            "Unauthorized moderator access attempt"
+        );
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "success": false,
+                "error_code": "AUTH_INSUFFICIENT_PERMISSIONS",
+                "message": "Moderator access required"
             })),
         ));
     }
@@ -254,35 +327,24 @@ pub fn extract_claims(request: &Request) -> Option<&Claims> {
     request.extensions().get::<Claims>()
 }
 
+/// Extract the authenticated user's ID from a validated auth extractor.
+pub fn authenticated_user_id(user: &AuthenticatedUser) -> Uuid {
+    user.id
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{CreateUserRequest, LoginRequest};
-    use crate::services::AuthService;
-    use axum::{
-        body::Body,
-        http::{Method, Request, StatusCode},
-        middleware,
-        response::Response,
-        routing::get,
-        Router,
-    };
-    use std::sync::Arc;
-    use tower::ServiceExt;
+    use uuid::Uuid;
 
-    async fn protected_handler() -> &'static str {
-        "Protected content"
+    #[test]
+    fn authenticated_user_id_returns_authenticated_identity() {
+        let user_id = Uuid::new_v4();
+        let user = AuthenticatedUser {
+            id: user_id,
+            email: "launch-test@example.com".to_string(),
+        };
+
+        assert_eq!(authenticated_user_id(&user), user_id);
     }
-
-    // Helper function removed - would need database setup
-
-    #[tokio::test]
-    #[ignore] // Temporarily disabled - requires database connection
-    async fn test_auth_middleware_with_valid_token() {
-        // This test would need a proper database setup
-        // For now, we'll skip it since it requires database connection
-    }
-
-    // Tests temporarily disabled - require database setup
-    // These would need proper database connection and setup
 }

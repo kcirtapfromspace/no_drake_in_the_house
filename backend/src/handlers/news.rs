@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
-use crate::services::news_pipeline::{ArticleFilters, NewsRepository};
 use crate::{AppError, AppState, Result};
+use ndith_news::news_pipeline::{ArticleFilters, NewsRepository};
 
 /// Query parameters for listing articles
 #[derive(Debug, Deserialize)]

@@ -12,12 +12,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
-use crate::services::analytics_service::{
+use crate::{AppError, AppState, Result};
+use ndith_analytics::analytics_service::{
     dashboard::{DashboardMetrics, TimeRange, UserQuickStats},
     reporting::{Report, ReportFormat, ReportRequest, ReportType, ReportTypeInfo},
     trends::{ArtistTrend, PlatformTrend, TrendSummary},
 };
-use crate::{AppError, AppState, Result};
 
 /// Query parameters for dashboard requests
 #[derive(Debug, Deserialize)]
@@ -112,7 +112,7 @@ fn parse_report_format(s: &str) -> ReportFormat {
 // Dashboard Endpoints
 // ============================================================================
 
-/// Get dashboard metrics
+/// Get dashboard metrics with real data from database
 pub async fn get_dashboard_handler(
     State(state): State<AppState>,
     _user: AuthenticatedUser,
@@ -121,112 +121,320 @@ pub async fn get_dashboard_handler(
     tracing::info!(time_range = %query.time_range, "Get dashboard request");
 
     let time_range = parse_time_range(&query.time_range);
+    let days = match &time_range {
+        TimeRange::Today => 1,
+        TimeRange::Yesterday => 1,
+        TimeRange::Last7Days => 7,
+        TimeRange::Last30Days => 30,
+        TimeRange::Last90Days => 90,
+        TimeRange::AllTime => 365 * 10, // 10 years
+        TimeRange::Custom { days } => *days,
+    };
 
-    // Get dashboard service from state
-    // For now, return a placeholder that shows the structure
-    // In production, this would use state.analytics.dashboard.get_dashboard(time_range)
+    // Fetch real user metrics from database
+    let total_users: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let active_users: i64 = sqlx::query_scalar(
+        "SELECT COUNT(DISTINCT user_id) FROM user_sessions WHERE created_at > NOW() - INTERVAL '1 day' * $1"
+    )
+    .bind(days)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    let new_users: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM users WHERE created_at > NOW() - INTERVAL '1 day' * $1",
+    )
+    .bind(days)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    let total_blocks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let new_blocks: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM user_artist_blocks WHERE created_at > NOW() - INTERVAL '1 day' * $1",
+    )
+    .bind(days)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    let avg_blocks_per_user = if total_users > 0 {
+        total_blocks as f64 / total_users as f64
+    } else {
+        0.0
+    };
+
+    // Fetch offense/content metrics
+    let total_offenses: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM artist_offenses")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let verified_offenses: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM artist_offenses WHERE status = 'verified'")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
+
+    let recent_offenses: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM artist_offenses WHERE created_at > NOW() - INTERVAL '1 day' * $1",
+    )
+    .bind(days)
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    // Fetch community list metrics
+    let total_community_lists: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM community_lists")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let total_subscriptions: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_list_subscriptions")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
+
+    // Calculate content filtered from community lists
+    let content_filtered_from_lists: i64 = sqlx::query_scalar(
+        r#"
+        SELECT COUNT(DISTINCT t.id)
+        FROM tracks t
+        JOIN track_credits tc ON tc.track_id = t.id
+        JOIN community_list_items cli ON tc.artist_id = cli.artist_id
+        "#,
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    // Recent trending offenses
+    let trending_offenses = sqlx::query_as::<_, (Uuid, String, String, String)>(
+        r#"
+        SELECT ao.id, a.canonical_name, ao.category::text, ao.severity::text
+        FROM artist_offenses ao
+        JOIN artists a ON ao.artist_id = a.id
+        WHERE ao.status = 'verified'
+        ORDER BY ao.created_at DESC
+        LIMIT 5
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .unwrap_or_default();
+
+    let recent_offense_list: Vec<serde_json::Value> = trending_offenses
+        .iter()
+        .map(|(id, name, category, severity)| {
+            serde_json::json!({
+                "id": id,
+                "artist_name": name,
+                "category": category,
+                "severity": severity
+            })
+        })
+        .collect();
+
+    // Check database health
+    let pg_start = std::time::Instant::now();
+    let pg_healthy = sqlx::query("SELECT 1")
+        .fetch_one(&state.db_pool)
+        .await
+        .is_ok();
+    let pg_latency = pg_start.elapsed().as_millis() as i64;
 
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
             "time_range": format!("{:?}", time_range),
             "user_metrics": {
-                "total_users": 0,
-                "active_users": 0,
-                "new_users": 0,
-                "total_blocks": 0,
-                "new_blocks": 0,
-                "avg_blocks_per_user": 0.0
+                "total_users": total_users,
+                "active_users": active_users,
+                "new_users": new_users,
+                "total_blocks": total_blocks,
+                "new_blocks": new_blocks,
+                "avg_blocks_per_user": avg_blocks_per_user
             },
             "content_metrics": {
-                "total_articles": 0,
-                "articles_processed": 0,
-                "entities_extracted": 0,
-                "offenses_detected": 0,
-                "offense_rate": 0.0,
-                "avg_sentiment": 0.0
+                "total_offenses": total_offenses,
+                "verified_offenses": verified_offenses,
+                "recent_offenses": recent_offenses,
+                "verification_rate": if total_offenses > 0 {
+                    verified_offenses as f64 / total_offenses as f64
+                } else { 0.0 }
             },
-            "sync_metrics": {
-                "total_syncs": 0,
-                "successful_syncs": 0,
-                "failed_syncs": 0,
-                "success_rate": 1.0,
-                "artists_synced": 0,
-                "platforms": []
+            "community_list_metrics": {
+                "total_lists": total_community_lists,
+                "total_subscriptions": total_subscriptions,
+                "content_filtered_count": content_filtered_from_lists,
+                "avg_subscriptions_per_list": if total_community_lists > 0 {
+                    total_subscriptions as f64 / total_community_lists as f64
+                } else { 0.0 }
             },
-            "trending_artists": [],
-            "recent_offenses": [],
+            "recent_offenses": recent_offense_list,
             "system_health": {
-                "overall_status": "healthy",
-                "postgres_healthy": true,
-                "duckdb_healthy": true,
-                "kuzu_healthy": true,
-                "lancedb_healthy": true,
-                "redis_healthy": true,
-                "api_response_time_ms": 50,
-                "error_rate": 0.01
+                "overall_status": if pg_healthy { "healthy" } else { "degraded" },
+                "postgres_healthy": pg_healthy,
+                "postgres_latency_ms": pg_latency,
+                "api_status": "operational"
             }
         },
         "generated_at": chrono::Utc::now().to_rfc3339()
     })))
 }
 
-/// Get user quick stats
+/// Get user quick stats with real data
 pub async fn get_user_quick_stats_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, "Get user quick stats request");
+
+    // Fetch real blocked artist count
+    let blocked_artists: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_artist_blocks WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
+
+    // Fetch community list subscriptions
+    let list_subscriptions: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_list_subscriptions WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
+
+    // Fetch last activity from sessions
+    let last_activity: Option<chrono::DateTime<chrono::Utc>> =
+        sqlx::query_scalar("SELECT MAX(created_at) FROM user_sessions WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .ok()
+            .flatten();
+
+    // Fetch blocked tracks count
+    let blocked_tracks: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_track_blocks WHERE user_id = $1")
+            .bind(user.id)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap_or(0);
 
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
             "user_id": user.id,
-            "blocked_artists": 0,
-            "category_subscriptions": 0,
-            "last_activity": null
+            "blocked_artists": blocked_artists,
+            "blocked_tracks": blocked_tracks,
+            "list_subscriptions": list_subscriptions,
+            "last_activity": last_activity.map(|dt| dt.to_rfc3339())
         }
     })))
 }
 
-/// Get system health
+/// Get system health with real health checks
 pub async fn get_system_health_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get system health request");
 
+    // Check PostgreSQL health and latency
+    let pg_start = std::time::Instant::now();
+    let pg_result = sqlx::query("SELECT 1").fetch_one(&state.db_pool).await;
+    let pg_latency = pg_start.elapsed().as_millis() as i64;
+    let pg_healthy = pg_result.is_ok();
+
+    // Check Redis health
+    let redis_healthy = {
+        let redis_start = std::time::Instant::now();
+        let conn_result = state.redis_pool.get().await;
+        let result = match conn_result {
+            Ok(mut conn) => {
+                let ping_result: std::result::Result<String, redis::RedisError> =
+                    redis::cmd("PING").query_async(&mut *conn).await;
+                ping_result.is_ok()
+            }
+            Err(_) => false,
+        };
+        let _redis_latency = redis_start.elapsed().as_millis();
+        result
+    };
+
+    // Get database table stats
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let artist_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM artists")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let offense_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM artist_offenses")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    // Determine overall status
+    let overall_status = if pg_healthy && redis_healthy {
+        "healthy"
+    } else if pg_healthy {
+        "degraded"
+    } else {
+        "unhealthy"
+    };
+
+    // Get API performance metrics from the metrics service
+    let api_metrics = get_api_performance_metrics(&state).await;
+
+    // Get enforcement performance metrics
+    let enforcement_metrics = get_enforcement_performance_metrics(&state).await;
+
+    // Get Redis pool status
+    let redis_status = state.redis_pool.status();
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "overall_status": "healthy",
+            "overall_status": overall_status,
             "services": {
                 "postgres": {
-                    "healthy": true,
-                    "latency_ms": 5
-                },
-                "duckdb": {
-                    "healthy": true,
-                    "latency_ms": 2
-                },
-                "kuzu": {
-                    "healthy": true,
-                    "latency_ms": 3
-                },
-                "lancedb": {
-                    "healthy": true,
-                    "latency_ms": 4
+                    "healthy": pg_healthy,
+                    "latency_ms": pg_latency,
+                    "connection_pool": {
+                        "size": state.db_pool.size(),
+                        "idle": state.db_pool.num_idle()
+                    }
                 },
                 "redis": {
-                    "healthy": true,
-                    "latency_ms": 1
+                    "healthy": redis_healthy,
+                    "connection_pool": {
+                        "size": redis_status.size,
+                        "available": redis_status.available
+                    }
                 }
             },
-            "api": {
-                "avg_response_time_ms": 50,
-                "error_rate": 0.01,
-                "requests_per_minute": 100
+            "database_stats": {
+                "users": user_count,
+                "artists": artist_count,
+                "offenses": offense_count
             },
+            "api_performance": api_metrics,
+            "enforcement_performance": enforcement_metrics,
             "checked_at": chrono::Utc::now().to_rfc3339()
         }
     })))
@@ -565,7 +773,7 @@ pub async fn get_artist_trouble_score_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(artist_id = %artist_id, "Get artist trouble score request");
 
-    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+    let service = ndith_analytics::TroubleScoreService::new(state.db_pool.clone());
 
     match service.get_artist_score(artist_id).await {
         Ok(Some(score)) => Ok(Json(serde_json::json!({
@@ -599,16 +807,16 @@ pub async fn get_trouble_leaderboard_handler(
         "Get trouble leaderboard request"
     );
 
-    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+    let service = ndith_analytics::TroubleScoreService::new(state.db_pool.clone());
 
     let min_tier = query
         .min_tier
         .as_ref()
         .map(|t| match t.to_lowercase().as_str() {
-            "critical" => crate::services::TroubleTier::Critical,
-            "high" => crate::services::TroubleTier::High,
-            "moderate" => crate::services::TroubleTier::Moderate,
-            _ => crate::services::TroubleTier::Low,
+            "critical" => ndith_analytics::TroubleTier::Critical,
+            "high" => ndith_analytics::TroubleTier::High,
+            "moderate" => ndith_analytics::TroubleTier::Moderate,
+            _ => ndith_analytics::TroubleTier::Low,
         });
 
     match service
@@ -640,7 +848,7 @@ pub async fn get_tier_distribution_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get tier distribution request");
 
-    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+    let service = ndith_analytics::TroubleScoreService::new(state.db_pool.clone());
 
     match service.get_tier_distribution().await {
         Ok(distribution) => Ok(Json(serde_json::json!({
@@ -658,13 +866,29 @@ pub async fn get_tier_distribution_handler(
 }
 
 /// Recalculate trouble scores (admin endpoint)
+/// Requires admin role for access
 pub async fn recalculate_trouble_scores_handler(
     State(state): State<AppState>,
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
+    claims: crate::models::Claims,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    tracing::info!("Recalculate trouble scores request");
+    // Verify admin access
+    if !claims.has_admin_access() {
+        tracing::warn!(
+            user_id = %user.id,
+            role = ?claims.role,
+            "Unauthorized attempt to recalculate trouble scores - admin role required"
+        );
+        return Err(AppError::InsufficientPermissions);
+    }
 
-    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+    tracing::info!(
+        user_id = %user.id,
+        role = ?claims.role,
+        "Admin recalculating trouble scores"
+    );
+
+    let service = ndith_analytics::TroubleScoreService::new(state.db_pool.clone());
 
     match service.recalculate_all().await {
         Ok(summary) => Ok((
@@ -696,7 +920,7 @@ pub async fn get_artist_score_history_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(artist_id = %artist_id, "Get artist score history request");
 
-    let service = crate::services::TroubleScoreService::new(state.db_pool.clone());
+    let service = ndith_analytics::TroubleScoreService::new(state.db_pool.clone());
 
     match service.get_score_history(artist_id, query.limit).await {
         Ok(history) => Ok(Json(serde_json::json!({
@@ -744,12 +968,12 @@ pub async fn get_user_revenue_distribution_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, days = query.days, "Get user revenue distribution request");
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     let platform = query
         .platform
         .as_ref()
-        .and_then(|p| crate::services::RevenuePlatform::from_str(p));
+        .and_then(|p| ndith_analytics::RevenuePlatform::from_str(p));
 
     match service
         .get_user_revenue_distribution(user.id, platform, query.days)
@@ -782,7 +1006,7 @@ pub async fn get_user_top_artists_revenue_handler(
         "Get user top artists by revenue"
     );
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     match service
         .get_user_top_artists(user.id, query.days, query.limit)
@@ -818,12 +1042,12 @@ pub async fn get_user_problematic_revenue_handler(
         "Get user problematic artist revenue"
     );
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     let min_tier = match query.min_tier.as_ref().map(|t| t.to_lowercase()).as_deref() {
-        Some("critical") => crate::services::TroubleTier::Critical,
-        Some("high") => crate::services::TroubleTier::High,
-        _ => crate::services::TroubleTier::Moderate,
+        Some("critical") => ndith_analytics::TroubleTier::Critical,
+        Some("high") => ndith_analytics::TroubleTier::High,
+        _ => ndith_analytics::TroubleTier::Moderate,
     };
 
     match service
@@ -861,7 +1085,7 @@ pub async fn get_artist_revenue_breakdown_handler(
         "Get artist revenue breakdown"
     );
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     match service
         .get_artist_revenue(user.id, artist_id, query.days)
@@ -888,7 +1112,7 @@ pub async fn get_payout_rates_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get payout rates request");
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     match service.get_all_payout_rates().await {
         Ok(rates) => Ok(Json(serde_json::json!({
@@ -920,12 +1144,12 @@ pub async fn get_global_problematic_revenue_handler(
         "Get global problematic revenue leaderboard"
     );
 
-    let service = crate::services::RevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::RevenueService::new(state.db_pool.clone());
 
     let min_tier = match query.min_tier.as_ref().map(|t| t.to_lowercase()).as_deref() {
-        Some("critical") => crate::services::TroubleTier::Critical,
-        Some("high") => crate::services::TroubleTier::High,
-        _ => crate::services::TroubleTier::Moderate,
+        Some("critical") => ndith_analytics::TroubleTier::Critical,
+        Some("high") => ndith_analytics::TroubleTier::High,
+        _ => ndith_analytics::TroubleTier::Moderate,
     };
 
     match service
@@ -973,7 +1197,7 @@ pub async fn get_global_category_revenue_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get global category revenue request");
 
-    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::CategoryRevenueService::new(state.db_pool.clone());
 
     match service.get_global_category_revenue().await {
         Ok(revenue) => Ok(Json(serde_json::json!({
@@ -999,8 +1223,8 @@ pub async fn get_category_revenue_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(category = %category, "Get category revenue request");
 
-    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
-    let offense_category = crate::services::OffenseCategory::from_str(&category);
+    let service = ndith_analytics::CategoryRevenueService::new(state.db_pool.clone());
+    let offense_category = ndith_analytics::OffenseCategory::from_str(&category);
 
     match service
         .get_category_revenue(offense_category, query.top_n)
@@ -1028,7 +1252,7 @@ pub async fn get_artist_discography_revenue_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(artist_id = %artist_id, "Get artist discography revenue request");
 
-    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::CategoryRevenueService::new(state.db_pool.clone());
 
     match service.get_artist_discography_revenue(artist_id).await {
         Ok(discography) => Ok(Json(serde_json::json!({
@@ -1053,7 +1277,7 @@ pub async fn get_user_category_exposure_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(user_id = %user.id, days = query.days, "Get user category exposure request");
 
-    let service = crate::services::CategoryRevenueService::new(state.db_pool.clone());
+    let service = ndith_analytics::CategoryRevenueService::new(state.db_pool.clone());
 
     match service
         .get_user_category_exposure(user.id, query.days)
@@ -1083,7 +1307,7 @@ pub async fn get_offense_categories_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get offense categories request");
 
-    let categories: Vec<serde_json::Value> = crate::services::OffenseCategory::all()
+    let categories: Vec<serde_json::Value> = ndith_analytics::OffenseCategory::all()
         .into_iter()
         .map(|c| {
             serde_json::json!({
@@ -1128,9 +1352,9 @@ pub async fn get_enforcement_analytics_handler(
         "Get enforcement analytics request"
     );
 
-    let service = crate::services::EnforcementAnalyticsService::new(state.db_pool.clone());
+    let service = ndith_analytics::EnforcementAnalyticsService::new(state.db_pool.clone());
 
-    let analytics_query = crate::services::EnforcementAnalyticsQuery {
+    let analytics_query = ndith_analytics::EnforcementAnalyticsQuery {
         provider: query.provider,
         days: query.days,
     };
@@ -1567,4 +1791,172 @@ async fn get_business_metrics(db_pool: &sqlx::PgPool) -> (i64, i64) {
         .unwrap_or(0);
 
     (user_count, block_count)
+}
+
+/// Get API performance metrics from audit log
+/// Note: Detailed request telemetry (response times, error rates) requires
+/// additional instrumentation. Currently returns activity counts from audit_log.
+async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
+    // Query activity counts from audit_log (the available telemetry source)
+    let activity_stats: Option<(i64, i64)> = sqlx::query_as(
+        r#"
+        SELECT
+            COUNT(*) as total_actions,
+            COUNT(DISTINCT actor_user_id) as unique_users
+        FROM audit_log
+        WHERE created_at > NOW() - INTERVAL '1 hour'
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await
+    .ok()
+    .flatten();
+
+    let (total_actions, unique_users) = activity_stats.unwrap_or((0, 0));
+
+    // Get action type breakdown from audit_log
+    let action_stats = sqlx::query_as::<_, (String, i64)>(
+        r#"
+        SELECT
+            action,
+            COUNT(*) as action_count
+        FROM audit_log
+        WHERE created_at > NOW() - INTERVAL '1 hour'
+        GROUP BY action
+        ORDER BY action_count DESC
+        LIMIT 10
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .unwrap_or_default();
+
+    let top_actions: Vec<serde_json::Value> = action_stats
+        .iter()
+        .map(|(action, count)| {
+            serde_json::json!({
+                "action": action,
+                "count": count
+            })
+        })
+        .collect();
+
+    serde_json::json!({
+        "total_actions_last_hour": total_actions,
+        "unique_users_last_hour": unique_users,
+        "actions_per_minute": total_actions as f64 / 60.0,
+        "top_actions": top_actions,
+        "note": "Detailed response time metrics require additional instrumentation"
+    })
+}
+
+/// Get enforcement performance metrics from stored data
+async fn get_enforcement_performance_metrics(state: &AppState) -> serde_json::Value {
+    // Query enforcement batch statistics
+    let batch_stats: Option<(i64, i64, i64, i64)> = sqlx::query_as(
+        r#"
+        SELECT
+            COUNT(*) as total_batches,
+            COUNT(*) FILTER (WHERE status = 'completed') as completed,
+            COUNT(*) FILTER (WHERE status = 'failed') as failed,
+            COUNT(*) FILTER (WHERE status = 'pending') as pending
+        FROM action_batches
+        WHERE created_at > NOW() - INTERVAL '24 hours'
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await
+    .ok()
+    .flatten();
+
+    let (total_batches, completed, failed, pending) = batch_stats.unwrap_or((0, 0, 0, 0));
+
+    // Query average batch duration
+    let avg_duration: Option<f64> = sqlx::query_scalar(
+        r#"
+        SELECT AVG(EXTRACT(EPOCH FROM (completed_at - created_at)))::float8
+        FROM action_batches
+        WHERE completed_at IS NOT NULL
+          AND created_at > NOW() - INTERVAL '24 hours'
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await
+    .ok()
+    .flatten();
+
+    // Query actions by provider from action_batches (joined with action_items)
+    let provider_stats = sqlx::query_as::<_, (String, i64, i64)>(
+        r#"
+        SELECT
+            ab.provider,
+            COUNT(ai.id) as total_actions,
+            COUNT(ai.id) FILTER (WHERE ai.status = 'completed') as successful
+        FROM action_batches ab
+        LEFT JOIN action_items ai ON ai.batch_id = ab.id
+        WHERE ab.created_at > NOW() - INTERVAL '24 hours'
+        GROUP BY ab.provider
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .unwrap_or_default();
+
+    let provider_breakdown: Vec<serde_json::Value> = provider_stats
+        .iter()
+        .map(|(provider, total, successful)| {
+            serde_json::json!({
+                "provider": provider,
+                "total_actions": total,
+                "successful": successful,
+                "success_rate": if *total > 0 { *successful as f64 / *total as f64 } else { 0.0 }
+            })
+        })
+        .collect();
+
+    // Query recent failures from action_items
+    let recent_failures =
+        sqlx::query_as::<_, (Uuid, String, String, chrono::DateTime<chrono::Utc>)>(
+            r#"
+        SELECT
+            ai.id,
+            ab.provider,
+            COALESCE(ai.error_message, 'Unknown error') as error,
+            ai.created_at
+        FROM action_items ai
+        JOIN action_batches ab ON ai.batch_id = ab.id
+        WHERE ai.status = 'failed'
+          AND ai.created_at > NOW() - INTERVAL '24 hours'
+        ORDER BY ai.created_at DESC
+        LIMIT 10
+        "#,
+        )
+        .fetch_all(&state.db_pool)
+        .await
+        .unwrap_or_default();
+
+    let failures_list: Vec<serde_json::Value> = recent_failures
+        .iter()
+        .map(|(id, provider, error, created_at)| {
+            serde_json::json!({
+                "id": id,
+                "provider": provider,
+                "error": error,
+                "occurred_at": created_at.to_rfc3339()
+            })
+        })
+        .collect();
+
+    serde_json::json!({
+        "batches_last_24h": {
+            "total": total_batches,
+            "completed": completed,
+            "failed": failed,
+            "pending": pending,
+            "success_rate": if total_batches > 0 { completed as f64 / total_batches as f64 } else { 0.0 }
+        },
+        "avg_batch_duration_seconds": avg_duration.unwrap_or(0.0),
+        "provider_breakdown": provider_breakdown,
+        "recent_failures": failures_list
+    })
 }

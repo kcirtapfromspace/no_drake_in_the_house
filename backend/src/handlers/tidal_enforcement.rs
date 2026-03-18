@@ -10,6 +10,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::middleware::auth::authenticated_user_id;
+use crate::models::AuthenticatedUser;
 use crate::models::tidal::{
     TidalCapabilities, TidalEnforcementPreview, TidalEnforcementRequest, TidalEnforcementResult,
 };
@@ -152,10 +154,10 @@ pub struct TidalEnforcementHistoryResponse {
 /// POST /api/v1/enforcement/tidal/run
 pub async fn run_tidal_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Json(request): Json<RunTidalEnforcementRequest>,
 ) -> Result<Json<TidalEnforcementRunResponse>, AppError> {
-    // For now, use a hardcoded user_id - in production this would come from auth middleware
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     // Get blocked artists from DNP list
     let (blocked_names, blocked_ids) = get_blocked_artists(&state, user_id).await?;
@@ -202,8 +204,9 @@ pub async fn run_tidal_enforcement(
 /// POST /api/v1/enforcement/tidal/preview
 pub async fn preview_tidal_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<TidalEnforcementPreviewResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     // Get blocked artists
     let (blocked_names, blocked_ids) = get_blocked_artists(&state, user_id).await?;
@@ -255,9 +258,10 @@ pub async fn preview_tidal_enforcement(
 /// POST /api/v1/enforcement/tidal/rollback/{run_id}
 pub async fn rollback_tidal_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Path(run_id): Path<Uuid>,
 ) -> Result<Json<TidalRollbackResult>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     let enforcement_service = TidalEnforcementService::new(
         state.tidal_service.clone(),
@@ -280,8 +284,9 @@ pub async fn rollback_tidal_enforcement(
 /// GET /api/v1/enforcement/tidal/history
 pub async fn get_tidal_enforcement_history(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<TidalEnforcementHistoryResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     let enforcement_service = TidalEnforcementService::new(
         state.tidal_service.clone(),

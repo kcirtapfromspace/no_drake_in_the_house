@@ -1,0 +1,33 @@
+[package]
+name = "ndith-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core types
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+validator = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+regex = { workspace = true }
+async-trait = { workspace = true }
+rust_decimal = { workspace = true }
+
+# axum needed for IntoResponse on AppError and ValidatedJson extractor
+axum = { workspace = true }
+
+# sqlx/redis needed for From<sqlx::Error>/From<redis::RedisError> on AppError
+sqlx = { workspace = true }
+redis = { workspace = true }
+deadpool = { workspace = true }
+
+# Auth error conversions
+bcrypt = { workspace = true }
+jsonwebtoken = { workspace = true }
+anyhow = { workspace = true }
+
+# Encoding (used by models/token_vault.rs)
+base64 = { workspace = true }

@@ -11,7 +11,9 @@ pub mod registration_health;
 pub mod spotify_connection;
 pub mod spotify_enforcement;
 pub mod sync;
+pub mod tidal_connection;
 pub mod user;
+pub mod youtube_connection;
 
 #[cfg(feature = "full-platform")]
 pub mod analytics_v2;

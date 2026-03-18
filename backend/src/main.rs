@@ -1,3 +1,5 @@
+#[cfg(feature = "full-platform")]
+use chrono::Duration;
 use music_streaming_blocklist_backend::config::TokenRefreshConfig;
 use music_streaming_blocklist_backend::services::catalog_sync::{
     AppleMusicSyncWorker, CrossPlatformIdentityResolver, DeezerSyncWorker, SpotifySyncWorker,
@@ -12,6 +14,10 @@ use music_streaming_blocklist_backend::{
     CircuitBreakerService, CreditsSyncService, DatabaseConfig, DnpListService, MonitoringConfig,
     MonitoringSystem, OrchestratorBuilder, PlatformSyncConfig, RateLimitService,
     RedisConfiguration, UserService,
+};
+#[cfg(feature = "full-platform")]
+use music_streaming_blocklist_backend::{
+    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner,
 };
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -306,11 +312,6 @@ fn init_tracing() {
 async fn initialize_full_platform_services(
     db_pool: sqlx::PgPool,
 ) -> Option<Arc<BackfillOrchestrator>> {
-    use chrono::Duration;
-    use music_streaming_blocklist_backend::{
-        NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunner,
-    };
-
     let news_config = NewsPipelineConfig::default();
     let news_pipeline = Arc::new(NewsPipelineOrchestrator::with_database(
         news_config,

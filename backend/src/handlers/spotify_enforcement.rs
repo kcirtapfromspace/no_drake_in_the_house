@@ -735,10 +735,10 @@ async fn execute_single_rollback_action(
     );
 
     // In production, this would:
-    // - For "add_liked_song": Call PUT /v1/me/library with {"uris": ["spotify:track:{id}", ...]}
-    // - For "follow_artist": Call PUT /v1/me/library with {"uris": ["spotify:artist:{id}", ...]}
-    // - For "add_playlist_track": Call POST /v1/playlists/{playlist_id}/items
-    // - For "add_saved_album": Call PUT /v1/me/library with {"uris": ["spotify:album:{id}", ...]}
+    // - For "add_liked_song": Call PUT /v1/me/tracks with the track IDs
+    // - For "follow_artist": Call PUT /v1/me/following?type=artist with artist IDs
+    // - For "add_playlist_track": Call POST /v1/playlists/{playlist_id}/tracks
+    // - For "add_saved_album": Call PUT /v1/me/albums with album IDs
 
     // For now, simulate success (in a real implementation, we'd check the API response)
     true

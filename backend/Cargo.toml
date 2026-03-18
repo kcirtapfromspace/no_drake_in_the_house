@@ -1,25 +1,16 @@
-[package]
-name = "music-streaming-blocklist-backend"
-version = "0.1.0"
-edition = "2021"
-
-[features]
-default = ["full-platform"]
-full-platform = [
-    "dep:duckdb",
-    "dep:kuzu",
-    "dep:lancedb",
-    "dep:arrow",
-    "dep:feed-rs",
-    "dep:rss",
-    "dep:spider",
-    "dep:scraper",
-    "dep:fastembed",
+[workspace]
+members = [
+    "crates/ndith-core",
+    "crates/ndith-db",
+    "crates/ndith-analytics",
+    "crates/ndith-news",
+    "crates/ndith-services",
+    ".",
 ]
-render-api = []
+resolver = "2"
 
-[dependencies]
-# Core dependencies
+[workspace.dependencies]
+# Core dependencies (shared across most crates)
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
@@ -28,19 +19,27 @@ tokio = { version = "1.0", features = ["full"] }
 futures = "0.3"
 thiserror = "1.0"
 anyhow = "1.0"
-dashmap = "6.0"
-levenshtein = "1.0"
-reqwest = { version = "0.12", features = ["json"] }
-urlencoding = "2.1"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
 regex = "1.0"
+async-trait = "0.1"
 
-# Web framework dependencies
+# Web framework
 axum = "0.7"
 tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "trace"] }
 hyper = "1.0"
 
-# Authentication dependencies
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "sqlite", "uuid", "chrono", "json", "ipnetwork", "rust_decimal"] }
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+deadpool-redis = "0.14"
+deadpool = "0.10"
+
+# Decimal handling
+rust_decimal = { version = "1.36", features = ["serde", "serde-with-str"] }
+
+# Authentication
 jsonwebtoken = "9.0"
 bcrypt = "0.15"
 oauth2 = "4.4"
@@ -48,74 +47,45 @@ totp-lite = "2.0"
 base32 = "0.5"
 rand = "0.8"
 
-# Date/time handling
-chrono = { version = "0.4", features = ["serde"] }
-
-# Environment
-dotenvy = "0.15"
-
-# Logging and tracing
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-
 # Cryptography
 hmac = "0.12"
 sha1 = "0.10"
 sha2 = "0.10"
 md5 = "0.7"
-
-# Token vault dependencies
 aes-gcm = "0.10"
-
-
 ring = "0.17"
 base64 = "0.21"
 
-# Let Cargo resolve dependencies naturally with latest Rust
+# HTTP client
+reqwest = { version = "0.12", features = ["json"] }
+urlencoding = "2.1"
 
-# Database dependencies
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "sqlite", "uuid", "chrono", "json", "ipnetwork", "rust_decimal"] }
+# Analytics databases (HEAVY - C/C++ deps)
+duckdb = { version = "1.4", features = ["bundled"] }
+kuzu = "0.11"
 
-# Decimal handling for currency
-rust_decimal = { version = "1.36", features = ["serde", "serde-with-str"] }
+# Vector database (HEAVY - C/C++ deps)
+lancedb = "0.23"
+arrow = { version = "56", default-features = false, features = ["ipc", "json"] }
 
-# Redis dependencies for job queues and rate limiting
-redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
-deadpool-redis = "0.14"
-deadpool = "0.10"
-async-trait = "0.1"
+# Embeddings (HEAVY)
+fastembed = "4"
 
-# CSV processing
+# News/RSS
+feed-rs = "2.0"
+rss = "2.0"
+scraper = "0.20"
+
+# Misc
+dashmap = "6.0"
+levenshtein = "1.0"
 csv = "1.3"
-
-# Analytics databases
-duckdb = { version = "1.4", features = ["bundled"], optional = true }
-
-# Graph database (Kùzu)
-kuzu = { version = "0.11", optional = true }
-
-# Vector database (LanceDB)
-lancedb = { version = "0.23", optional = true }
-arrow = { version = "56", default-features = false, features = ["ipc", "json"], optional = true }
-
-# RSS/News ingestion
-feed-rs = { version = "2.0", optional = true }
-rss = { version = "2.0", optional = true }
-
-# Web scraping
-spider = { version = "2.0", optional = true }
-scraper = { version = "0.20", optional = true }
-
-# Embeddings
-fastembed = { version = "4", optional = true }
-
-# In-memory caching with TTL
 moka = { version = "0.12", features = ["future"] }
-
-# Temp files
 tempfile = "3.8"
+dotenvy = "0.15"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
-# Monitoring and observability dependencies
+# Monitoring
 prometheus = "0.13"
 metrics = "0.23"
 metrics-prometheus = "0.7"
@@ -125,11 +95,89 @@ opentelemetry-otlp = "0.17"
 tracing-opentelemetry = "0.25"
 sysinfo = "0.30"
 
+# Workspace crates
+ndith-core = { path = "crates/ndith-core" }
+ndith-db = { path = "crates/ndith-db" }
+ndith-analytics = { path = "crates/ndith-analytics", default-features = false }
+ndith-news = { path = "crates/ndith-news" }
+ndith-services = { path = "crates/ndith-services" }
+
+[package]
+name = "music-streaming-blocklist-backend"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["full-platform", "graph-kuzu"]
+full-platform = ["dep:ndith-analytics", "dep:ndith-news"]
+render-api = []
+graph-kuzu = ["full-platform", "ndith-analytics/graph-kuzu"]
+graph-ladybugdb = ["full-platform", "ndith-analytics/graph-ladybugdb"]
+
+[dependencies]
+# Workspace crates
+ndith-core = { workspace = true }
+ndith-db = { workspace = true }
+# The production API currently uses the DuckDB-backed analytics services, but not the
+# graph backend. Keep the graph implementation optional so we can swap Kuzu/LadybugDB
+# without forcing every backend build to compile a graph engine.
+ndith-analytics = { workspace = true, optional = true }
+ndith-news = { workspace = true, optional = true }
+ndith-services = { workspace = true }
+
+# Core dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+validator = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+regex = { workspace = true }
+async-trait = { workspace = true }
+dotenvy = { workspace = true }
+
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+hyper = { workspace = true }
+
+# Database (needed for handlers with inline sqlx::query! calls)
+sqlx = { workspace = true }
+redis = { workspace = true }
+deadpool-redis = { workspace = true }
+deadpool = { workspace = true }
+
+# Auth (used in middleware)
+jsonwebtoken = { workspace = true }
+
+# Used directly in handlers
+base64 = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+reqwest = { workspace = true }
+rust_decimal = { workspace = true }
+
+# Monitoring
+prometheus = { workspace = true }
+metrics = { workspace = true }
+metrics-prometheus = { workspace = true }
+opentelemetry = { workspace = true }
+opentelemetry-prometheus = { workspace = true }
+opentelemetry-otlp = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+sysinfo = { workspace = true }
+
 [dev-dependencies]
 tokio-test = "0.4"
 wiremock = "0.5"
-futures = "0.3"
-tempfile = "3.8"
+futures = { workspace = true }
+tempfile = { workspace = true }
 criterion = "0.5"
 testcontainers = "0.15"
 testcontainers-modules = { version = "0.3", features = ["postgres", "redis"] }

@@ -1,0 +1,40 @@
+# syntax=docker/dockerfile:1.4
+# Test build: no cache mounts on cargo build step
+FROM rust:1.88-slim as chef
+
+RUN apt-get update && apt-get install -y \
+    pkg-config libssl-dev libpq-dev protobuf-compiler g++ cmake ca-certificates curl git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+FROM chef as planner
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ndith-core/Cargo.toml ./crates/ndith-core/Cargo.toml
+COPY crates/ndith-db/Cargo.toml ./crates/ndith-db/Cargo.toml
+COPY crates/ndith-analytics/Cargo.toml ./crates/ndith-analytics/Cargo.toml
+COPY crates/ndith-news/Cargo.toml ./crates/ndith-news/Cargo.toml
+COPY crates/ndith-services/Cargo.toml ./crates/ndith-services/Cargo.toml
+COPY src ./src
+COPY crates/ndith-core/src ./crates/ndith-core/src
+COPY crates/ndith-db/src ./crates/ndith-db/src
+COPY crates/ndith-analytics/src ./crates/ndith-analytics/src
+COPY crates/ndith-news/src ./crates/ndith-news/src
+COPY crates/ndith-services/src ./crates/ndith-services/src
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef as builder
+
+# Chef cook WITHOUT cache mounts
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --recipe-path recipe.json
+
+# Copy source and build WITHOUT cache mounts
+COPY . .
+ENV SQLX_OFFLINE=true
+ENV SQLX_OFFLINE_DIR=/app/.sqlx
+ENV CARGO_BUILD_JOBS=3
+
+RUN cargo build --bin music-streaming-blocklist-backend && \
+    cp target/debug/music-streaming-blocklist-backend /tmp/backend

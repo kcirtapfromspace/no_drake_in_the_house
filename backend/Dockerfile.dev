@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Ultra-optimized development Dockerfile for Rust backend with live updates
-FROM rust:1.82-slim as chef
+FROM rust:1.88-slim as chef
 
 # Install cargo-chef and development tools for better dependency caching
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -9,6 +9,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pkg-config \
     libssl-dev \
     libpq-dev \
+    protobuf-compiler \
+    g++ \
+    cmake \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -18,10 +21,21 @@ RUN cargo install cargo-chef --locked
 WORKDIR /app
 
 FROM chef as planner
-# Copy Cargo files and src structure for dependency analysis
+# Copy Cargo files and workspace structure for dependency analysis
 COPY Cargo.toml Cargo.lock ./
-# Copy src directory structure so cargo-chef can understand the binary targets
+# Copy workspace member Cargo.toml files
+COPY crates/ndith-core/Cargo.toml ./crates/ndith-core/Cargo.toml
+COPY crates/ndith-db/Cargo.toml ./crates/ndith-db/Cargo.toml
+COPY crates/ndith-analytics/Cargo.toml ./crates/ndith-analytics/Cargo.toml
+COPY crates/ndith-news/Cargo.toml ./crates/ndith-news/Cargo.toml
+COPY crates/ndith-services/Cargo.toml ./crates/ndith-services/Cargo.toml
+# Copy src directories so cargo-chef can understand the binary/lib targets
 COPY src ./src
+COPY crates/ndith-core/src ./crates/ndith-core/src
+COPY crates/ndith-db/src ./crates/ndith-db/src
+COPY crates/ndith-analytics/src ./crates/ndith-analytics/src
+COPY crates/ndith-news/src ./crates/ndith-news/src
+COPY crates/ndith-services/src ./crates/ndith-services/src
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef as builder
@@ -33,6 +47,9 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     pkg-config \
     libssl-dev \
     libpq-dev \
+    protobuf-compiler \
+    g++ \
+    cmake \
     ca-certificates \
     curl \
     git \
@@ -43,7 +60,7 @@ COPY --from=planner /app/recipe.json recipe.json
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/app/target,sharing=locked \
-    cargo chef cook --release --recipe-path recipe.json
+    cargo chef cook --recipe-path recipe.json
 
 # Copy source code and additional files
 COPY . .
@@ -51,8 +68,10 @@ COPY . .
 # Build the application with optimizations for development
 # Set offline mode for SQLx to avoid database connection requirement during build
 ENV SQLX_OFFLINE=true
+ENV SQLX_OFFLINE_DIR=/app/.sqlx
 ENV CARGO_INCREMENTAL=1
 ENV RUST_BACKTRACE=1
+ENV CARGO_BUILD_JOBS=3
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \

@@ -100,8 +100,9 @@ pub async fn get_artist_network_handler(
     }
 
     // Get center artist
-    let center_artist: Option<(String, Option<String>, Option<Vec<String>>)> = sqlx::query_as(
-        r#"SELECT canonical_name, metadata->>'image_url', genres FROM artists WHERE id = $1"#,
+    // Note: genres is stored inside metadata JSONB, not as a separate column
+    let center_artist: Option<(String, Option<String>, serde_json::Value)> = sqlx::query_as(
+        r#"SELECT canonical_name, metadata->>'image_url', COALESCE(metadata, '{}'::jsonb) FROM artists WHERE id = $1"#,
     )
     .bind(artist_id)
     .fetch_optional(&state.db_pool)
@@ -114,6 +115,18 @@ pub async fn get_artist_network_handler(
         resource: "Artist".to_string(),
     })?;
 
+    // Extract genres from metadata
+    let center_genres: Vec<String> = center
+        .2
+        .get("genres")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
     // Check if center artist is blocked by user
     let center_blocked: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM user_artist_blocks WHERE user_id = $1 AND artist_id = $2)",
@@ -125,7 +138,8 @@ pub async fn get_artist_network_handler(
     .unwrap_or(false);
 
     // Get collaborators using recursive CTE for depth traversal
-    let network_artists: Vec<(Uuid, String, Option<String>, Option<Vec<String>>, i32, String, i32, bool)> = sqlx::query_as(r#"
+    // Note: genres is stored inside metadata JSONB, not as a separate column
+    let network_artists: Vec<(Uuid, String, Option<String>, serde_json::Value, i32, String, i32, bool)> = sqlx::query_as(r#"
         WITH RECURSIVE network AS (
             -- Start from the center artist
             SELECT
@@ -155,7 +169,7 @@ pub async fn get_artist_network_handler(
             a.id,
             a.canonical_name,
             a.metadata->>'image_url' as image_url,
-            a.genres,
+            COALESCE(a.metadata, '{}'::jsonb) as metadata,
             n.distance,
             n.connection_type,
             n.collab_count,
@@ -180,19 +194,30 @@ pub async fn get_artist_network_handler(
         "name": center.0,
         "type": "artist",
         "is_blocked": center_blocked,
-        "genres": center.2.unwrap_or_default(),
+        "genres": center_genres,
         "image_url": center.1
     })];
 
-    for (id, name, image_url, genres, _distance, _conn_type, _collab_count, is_blocked) in
+    for (id, name, image_url, metadata, _distance, _conn_type, _collab_count, is_blocked) in
         &network_artists
     {
+        // Extract genres from metadata JSONB
+        let genres: Vec<String> = metadata
+            .get("genres")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(String::from))
+                    .collect()
+            })
+            .unwrap_or_default();
+
         nodes.push(serde_json::json!({
             "id": id,
             "name": name,
             "type": "artist",
             "is_blocked": is_blocked,
-            "genres": genres.clone().unwrap_or_default(),
+            "genres": genres,
             "image_url": image_url
         }));
     }
@@ -802,9 +827,10 @@ pub async fn search_artists_handler(
     }
 
     // Search local database for artists
-    let artists: Vec<(Uuid, String, Option<Vec<String>>, Option<String>)> = sqlx::query_as(
+    // Note: genres is stored inside metadata JSONB, not as a separate column
+    let artists: Vec<(Uuid, String, serde_json::Value, Option<String>)> = sqlx::query_as(
         r#"
-        SELECT id, canonical_name, genres, metadata->>'image_url'
+        SELECT id, canonical_name, COALESCE(metadata, '{}'::jsonb), metadata->>'image_url'
         FROM artists
         WHERE canonical_name ILIKE $1
         ORDER BY
@@ -824,11 +850,22 @@ pub async fn search_artists_handler(
 
     let artist_list: Vec<serde_json::Value> = artists
         .iter()
-        .map(|(id, name, genres, image_url)| {
+        .map(|(id, name, metadata, image_url)| {
+            // Extract genres from metadata JSONB
+            let genres: Vec<String> = metadata
+                .get("genres")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                })
+                .unwrap_or_default();
+
             serde_json::json!({
                 "id": id,
                 "name": name,
-                "genres": genres.clone().unwrap_or_default(),
+                "genres": genres,
                 "is_blocked": false,
                 "image_url": image_url
             })

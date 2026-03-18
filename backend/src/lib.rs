@@ -1,10 +1,19 @@
 //! Music Streaming Blocklist Manager Backend
 //!
 //! A modular backend service for managing Do-Not-Play lists across music streaming platforms.
+//!
+//! ## Workspace Crate Structure
+//!
+//! - `ndith-core`: Shared types (error, config, models, validation)
+//! - `ndith-db`: PostgreSQL + Redis connection management, health checks, recovery
+//! - `ndith-analytics`: DuckDB + Kùzu analytics (heavyweight C/C++ deps isolated)
+//! - `ndith-news`: LanceDB + fastembed news pipeline (heavyweight deps isolated)
+//! - `ndith-services`: Business logic (auth, OAuth, token vault, catalog sync, etc.)
+//! - Root binary: Handlers, middleware, router, main entry point
 
 use axum::{
-    extract::State,
-    response::Json,
+    extract::{Path, RawQuery, State},
+    response::{Json, Redirect},
     routing::{delete, get, post, put},
     Router,
 };
@@ -19,66 +28,83 @@ use tower_http::trace::TraceLayer;
 #[cfg(not(feature = "full-platform"))]
 use axum::{http::StatusCode, response::IntoResponse, routing::any};
 
-pub mod config;
-pub mod error;
-pub mod health;
-pub mod metrics;
-pub mod models;
-pub mod monitoring;
-pub mod recovery;
-pub mod services;
-pub mod validation;
-
-pub mod database;
+// ---- Root-local modules (handlers, middleware, metrics, monitoring stay here) ----
+pub mod backfill_orchestrator;
 pub mod handlers;
 pub mod middleware;
+pub mod monitoring;
+
+// metrics module from ndith-services (not a root-local module)
+pub use ndith_services::metrics;
+
 #[cfg(test)]
 pub mod test_database;
 
-// Re-export commonly used types
-pub use config::{
-    AppConfig, AuthConfig, ConfigError, DatabaseSettings, Environment, OAuthSettings,
-    RedisSettings, ServerConfig,
+// ---- Re-export from workspace crates for backward compatibility ----
+
+// ndith-core: error, config, models, validation
+pub use ndith_core::config;
+pub use ndith_core::error;
+pub use ndith_core::models;
+pub use ndith_core::validation;
+
+pub use ndith_core::config::{
+    AppConfig, AppleMusicCredentials, AuthConfig, ConfigError, DatabaseSettings, DeezerConfig,
+    Environment, OAuthSettings, PlatformSyncConfig, RedisSettings, ServerConfig,
+    SpotifyCredentials, TidalCredentials, TokenRefreshConfig, YouTubeCredentials,
 };
-pub use config::{
-    AppleMusicCredentials, DeezerConfig, PlatformSyncConfig, SpotifyCredentials, TidalCredentials,
-    YouTubeCredentials,
+pub use ndith_core::error::{AppError, ErrorResponse, Result};
+pub use ndith_core::models::*;
+pub use ndith_core::validation::{
+    validate_email, validate_password, validate_totp_code, ValidatedJson,
 };
-pub use database::{
-    create_pool, create_redis_pool, health_check as db_health_check, redis_health_check,
-    run_migrations, seed_test_data, DatabaseConfig, RedisConfiguration,
+
+// ndith-db: database, health, recovery
+pub use ndith_db::database;
+pub use ndith_db::health;
+pub use ndith_db::recovery;
+
+pub use ndith_db::{
+    create_pool, create_redis_pool, db_health_check, redis_health_check, run_migrations,
+    seed_test_data, DatabaseConfig, RedisConfiguration,
 };
-pub use error::{AppError, ErrorResponse, Result};
-pub use health::{
+pub use ndith_db::{
     liveness_check, readiness_check, HealthCheckConfig, HealthCheckResponse, HealthChecker,
     HealthStatus, SystemInfo,
 };
+pub use ndith_db::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
+
+// ndith-services: all business logic services
+pub use ndith_services as services;
+
+pub use backfill_orchestrator::{BackfillOrchestrator, BackfillProgress, BackfillResult};
+#[cfg(feature = "full-platform")]
+pub use ndith_news::{
+    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
+};
+pub use ndith_services::catalog_sync::{
+    CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder,
+};
+pub use ndith_services::DnpListService;
+pub use ndith_services::{
+    AuditLoggingService, AuthService, NotificationService, RateLimitService,
+    TokenRefreshBackgroundJob, UserService,
+};
+pub use ndith_services::{CircuitBreakerConfig, CircuitBreakerService};
+pub use ndith_services::{TokenVaultBackgroundService, TokenVaultService, TokenVaultStatistics};
+
+// Re-export metrics and monitoring from root
 pub use metrics::{metrics_handler, DatabaseMetrics, MetricsCollector, RedisMetrics, RequestTimer};
 pub use middleware::{create_cors_layer, validate_cors_config};
-pub use models::*;
 pub use monitoring::{
     AlertManager, AlertThresholds, DatabaseServiceMetrics, HttpServiceMetrics, MonitoringConfig,
     MonitoringResponse, MonitoringSystem, PerformanceProfiler, RedisServiceMetrics, ServiceMetrics,
     SystemMetrics,
 };
-pub use recovery::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
-pub use services::backfill_orchestrator::BackfillOrchestrator;
-pub use services::catalog_sync::{
-    CatalogSyncOrchestrator, CreditsSyncService, OrchestratorBuilder,
-};
-pub use services::dnp_list::DnpListService;
-#[cfg(feature = "full-platform")]
-pub use services::news_pipeline::{
-    NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
-};
-pub use services::{AuditLoggingService, AuthService, RateLimitService, UserService};
-pub use services::{CircuitBreakerConfig, CircuitBreakerService};
-pub use services::{TokenVaultBackgroundService, TokenVaultService, TokenVaultStatistics};
-pub use validation::{validate_email, validate_password, validate_totp_code, ValidatedJson};
 
 // Re-export stub services for testing
 #[cfg(test)]
-pub use services::stubs::*;
+pub use ndith_services::stubs::*;
 
 // Application state - will be expanded as services are added
 #[derive(Clone)]
@@ -95,8 +121,8 @@ pub struct AppState {
     pub catalog_sync: Arc<CatalogSyncOrchestrator>,
     pub platform_config: PlatformSyncConfig,
     pub credits_sync: Option<Arc<CreditsSyncService>>,
-    pub backfill_orchestrator: Option<Arc<services::BackfillOrchestrator>>,
-    pub apple_music_service: Arc<services::AppleMusicService>,
+    pub backfill_orchestrator: Option<Arc<BackfillOrchestrator>>,
+    pub apple_music_service: Arc<ndith_services::AppleMusicService>,
     /// Circuit breaker for provider API calls (US-026)
     pub circuit_breaker: Arc<CircuitBreakerService>,
     /// Test user ID for development (will be removed in production auth)
@@ -120,13 +146,15 @@ pub struct ServiceHealth {
 
 /// Create the main application router
 pub fn create_router(state: AppState) -> Router {
+    use axum::routing::post;
+
     // Create public auth routes (no authentication required)
     let auth_routes = Router::new()
         .route(
             "/register",
             post(handlers::auth::register_handler).layer(axum::middleware::from_fn_with_state(
                 state.rate_limiter.clone(),
-                crate::services::registration_rate_limit_middleware,
+                ndith_services::registration_rate_limit_middleware,
             )),
         )
         .route("/login", post(handlers::auth::login_handler))
@@ -141,39 +169,32 @@ pub fn create_router(state: AppState) -> Router {
             post(handlers::oauth::oauth_callback_handler),
         )
         // Apple OAuth routes (explicit endpoints per acceptance criteria US-003)
-        // GET returns authorization URL with proper scopes
         .route(
             "/oauth/apple/authorize",
             get(handlers::oauth::apple_authorize_handler),
         )
-        // POST handles Apple's form_post callback format
         .route(
             "/oauth/apple/callback",
             post(handlers::oauth::apple_oauth_callback_handler),
         )
-        // Legacy route alias for form callback
         .route(
             "/oauth/apple/callback-form",
             post(handlers::oauth::apple_oauth_callback_handler),
         )
-        // GitHub OAuth routes (explicit endpoints per acceptance criteria US-004)
-        // GET returns authorization URL with proper scopes
+        // GitHub OAuth routes
         .route(
             "/oauth/github/authorize",
             get(handlers::oauth::github_authorize_handler),
         )
-        // POST handles GitHub callback and exchanges code for tokens
         .route(
             "/oauth/github/callback",
             post(handlers::oauth::github_oauth_callback_handler),
         )
-        // Google OAuth routes (explicit endpoints per acceptance criteria US-002)
-        // GET returns authorization URL with proper scopes (openid, email, profile)
+        // Google OAuth routes
         .route(
             "/oauth/google/authorize",
             get(handlers::oauth::google_authorize_handler),
         )
-        // POST handles Google callback and exchanges code for tokens
         .route(
             "/oauth/google/callback",
             post(handlers::oauth::google_oauth_callback_handler),
@@ -241,7 +262,7 @@ pub fn create_router(state: AppState) -> Router {
             "/dnp/tracks/batch",
             post(handlers::dnp::batch_track_blocks_handler),
         )
-        // Deep blocking routes - block tracks/albums where blocked artists have any credit
+        // Deep blocking routes
         .route(
             "/dnp/blocked-tracks",
             get(handlers::dnp::get_blocked_tracks_handler),
@@ -270,8 +291,25 @@ pub fn create_router(state: AppState) -> Router {
         // Library routes
         .route("/library/import", post(handlers::offense::import_library))
         .route("/library/scan", get(handlers::offense::scan_library))
+        .route(
+            "/library/scan/cached",
+            get(handlers::offense::get_cached_scan),
+        )
         .route("/library/tracks", get(handlers::offense::get_library))
-        // Offense submission routes (protected)
+        .route("/library/items", get(handlers::offense::get_library_items))
+        .route(
+            "/library/groups",
+            get(handlers::offense::get_library_groups),
+        )
+        .route(
+            "/library/offenders",
+            get(handlers::offense::get_library_offenders),
+        )
+        .route(
+            "/library/taste-grade",
+            get(handlers::offense::get_taste_grade),
+        )
+        // Offense submission routes
         .route("/offenses/submit", post(handlers::offense::create_offense))
         .route(
             "/offenses/:offense_id/evidence",
@@ -295,7 +333,6 @@ pub fn create_router(state: AppState) -> Router {
             "/categories/blocked-artists",
             get(handlers::category::get_blocked_artists),
         )
-        // Artist search route (alias for /dnp/search)
         .route(
             "/artists/search",
             get(handlers::dnp::search_artists_handler),
@@ -363,7 +400,8 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/sync/backfill-status",
             get(handlers::sync::backfill_status_handler),
-        );
+        )
+        ;
     let protected_routes = add_full_platform_routes(protected_routes);
     let protected_routes = protected_routes
         // Apple Music enforcement routes
@@ -412,17 +450,16 @@ pub fn create_router(state: AppState) -> Router {
             "/enforcement/spotify/progress/:batch_id",
             get(handlers::spotify_enforcement::get_spotify_enforcement_progress),
         )
-        // Generic enforcement batch rollback endpoint (US-015)
         .route(
             "/enforcement/batches/:batch_id/rollback",
             post(handlers::spotify_enforcement::rollback_enforcement_batch),
         )
-        // Connection health check routes (US-012)
+        // Connection health check routes
         .route(
             "/connections",
             get(handlers::connections::get_connections_health_handler),
         )
-        // Apple Music auth routes (connect/disconnect Apple Music account)
+        // Apple Music auth routes
         .route(
             "/apple-music/auth/connect",
             post(handlers::apple_music_auth::connect_apple_music),
@@ -439,7 +476,15 @@ pub fn create_router(state: AppState) -> Router {
             "/apple-music/auth/verify",
             post(handlers::apple_music_auth::verify_connection),
         )
-        // Spotify connection routes (US-005: Spotify OAuth for provider connection)
+        .route(
+            "/apple-music/library/sync",
+            post(handlers::apple_music_auth::sync_library),
+        )
+        .route(
+            "/apple-music/library",
+            get(handlers::apple_music_auth::get_library),
+        )
+        // Spotify connection routes
         .route(
             "/connections/spotify/authorize",
             get(handlers::spotify_connection::spotify_authorize_handler),
@@ -453,8 +498,54 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::spotify_connection::spotify_connection_status_handler),
         )
         .route(
+            "/connections/spotify/library/sync",
+            post(handlers::spotify_connection::spotify_library_sync_handler),
+        )
+        .route(
             "/connections/spotify",
             delete(handlers::spotify_connection::spotify_disconnect_handler),
+        )
+        // Tidal connection routes
+        .route(
+            "/connections/tidal/authorize",
+            get(handlers::tidal_connection::tidal_authorize_handler),
+        )
+        .route(
+            "/connections/tidal/callback",
+            post(handlers::tidal_connection::tidal_callback_handler),
+        )
+        .route(
+            "/connections/tidal/status",
+            get(handlers::tidal_connection::tidal_connection_status_handler),
+        )
+        .route(
+            "/connections/tidal/library/sync",
+            post(handlers::tidal_connection::tidal_library_sync_handler),
+        )
+        .route(
+            "/connections/tidal",
+            delete(handlers::tidal_connection::tidal_disconnect_handler),
+        )
+        // YouTube Music connection routes
+        .route(
+            "/connections/youtube/authorize",
+            get(handlers::youtube_connection::youtube_authorize_handler),
+        )
+        .route(
+            "/connections/youtube/callback",
+            post(handlers::youtube_connection::youtube_callback_handler),
+        )
+        .route(
+            "/connections/youtube/status",
+            get(handlers::youtube_connection::youtube_status_handler),
+        )
+        .route(
+            "/connections/youtube/library/sync",
+            post(handlers::youtube_connection::youtube_library_sync_handler),
+        )
+        .route(
+            "/connections/youtube",
+            delete(handlers::youtube_connection::youtube_disconnect_handler),
         )
         .layer(axum::middleware::from_fn_with_state(
             state.auth_service.clone(),
@@ -472,6 +563,9 @@ pub fn create_router(state: AppState) -> Router {
         .route("/health", get(health_check))
         .route("/health/ready", get(readiness_check_endpoint))
         .route("/health/live", get(liveness_check_endpoint))
+        // OAuth callback bounce route:
+        // providers redirect to backend (:3000), then we forward to frontend SPA callback route.
+        .route("/auth/callback/:provider", get(oauth_callback_redirect))
         // OAuth health and configuration endpoints
         .route("/oauth/health", get(handlers::oauth::oauth_health_handler))
         .route(
@@ -498,7 +592,7 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/api/v1/auth", auth_routes)
         // Public offense browsing routes
         .nest("/api/v1/offenses", offense_public_routes)
-        // Public Apple Music auth route (developer token needed before user auth)
+        // Public Apple Music auth route
         .route(
             "/api/v1/apple-music/auth/developer-token",
             get(handlers::apple_music_auth::get_developer_token),
@@ -510,7 +604,10 @@ pub fn create_router(state: AppState) -> Router {
                 .layer(TraceLayer::new_for_http())
                 .layer(create_cors_layer()),
         )
-        // Add latency metrics middleware (US-023)
+        .layer(axum::middleware::from_fn(
+            crate::middleware::security::security_headers_middleware,
+        ))
+        // Add latency metrics middleware
         .layer(axum::middleware::from_fn_with_state(
             state.metrics.clone(),
             crate::middleware::latency::latency_middleware,
@@ -521,14 +618,8 @@ pub fn create_router(state: AppState) -> Router {
 #[cfg(feature = "full-platform")]
 fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
     router
-        .route(
-            "/graph/search",
-            get(handlers::graph::search_artists_handler),
-        )
-        .route(
-            "/graph/stats",
-            get(handlers::graph::get_global_stats_handler),
-        )
+        .route("/graph/search", get(handlers::graph::search_artists_handler))
+        .route("/graph/stats", get(handlers::graph::get_global_stats_handler))
         .route(
             "/graph/artists/:artist_id/network",
             get(handlers::graph::get_artist_network_handler),
@@ -577,10 +668,7 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/graph/sync/trigger",
             post(handlers::graph::trigger_sync_handler),
         )
-        .route(
-            "/graph/health",
-            get(handlers::graph::get_graph_health_handler),
-        )
+        .route("/graph/health", get(handlers::graph::get_graph_health_handler))
         .route(
             "/graph/offense-network",
             get(handlers::graph::get_offense_network_handler),
@@ -722,10 +810,7 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/news/artists/:artist_id/mentions",
             get(handlers::news::get_artist_mentions_handler),
         )
-        .route(
-            "/news/search",
-            post(handlers::news::semantic_search_handler),
-        )
+        .route("/news/search", post(handlers::news::semantic_search_handler))
         .route("/news/offenses", get(handlers::news::get_offenses_handler))
         .route(
             "/news/offenses/:offense_id",
@@ -773,20 +858,30 @@ async fn full_platform_unavailable() -> impl IntoResponse {
     )
 }
 
-#[cfg(feature = "full-platform")]
-async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> Result<String> {
-    handlers::analytics_v2::get_metrics_handler(State(state)).await
-}
+async fn oauth_callback_redirect(
+    Path(provider): Path<String>,
+    RawQuery(raw_query): RawQuery,
+) -> Redirect {
+    let frontend_base = std::env::var("OAUTH_FRONTEND_BASE_URL")
+        .unwrap_or_else(|_| "http://localhost:5050".to_string());
+    let frontend_base = frontend_base.trim_end_matches('/');
 
-#[cfg(not(feature = "full-platform"))]
-async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> impl IntoResponse {
-    metrics_endpoint(State(state)).await
+    let provider = match provider.as_str() {
+        "youtube_music" => "youtube",
+        other => other,
+    };
+
+    let mut redirect_to = format!("{}/auth/callback/{}", frontend_base, provider);
+    if let Some(query) = raw_query.filter(|q| !q.is_empty()) {
+        redirect_to.push('?');
+        redirect_to.push_str(&query);
+    }
+
+    Redirect::temporary(&redirect_to)
 }
 
 /// Health check endpoint with comprehensive error handling
 async fn health_check(State(state): State<AppState>) -> Result<Json<HealthCheckResponse>> {
-    use crate::health::{HealthCheckConfig, HealthChecker};
-
     let config = HealthCheckConfig::default();
     let checker = HealthChecker::new(config);
 
@@ -830,7 +925,17 @@ async fn metrics_endpoint(State(state): State<AppState>) -> impl axum::response:
     crate::metrics::metrics_handler(axum::extract::State(state.metrics)).await
 }
 
-/// Comprehensive monitoring endpoint with health checks and performance metrics
+#[cfg(feature = "full-platform")]
+async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> Result<String> {
+    handlers::analytics_v2::get_metrics_handler(State(state)).await
+}
+
+#[cfg(not(feature = "full-platform"))]
+async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> impl IntoResponse {
+    metrics_endpoint(State(state)).await
+}
+
+/// Comprehensive monitoring endpoint
 async fn comprehensive_monitoring_endpoint(
     State(state): State<AppState>,
 ) -> Result<Json<MonitoringResponse>> {

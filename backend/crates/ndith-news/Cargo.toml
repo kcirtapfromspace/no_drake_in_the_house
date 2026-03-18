@@ -1,0 +1,35 @@
+[package]
+name = "ndith-news"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+sqlx = { workspace = true }
+
+# HEAVY deps — the whole point of this crate
+lancedb = { workspace = true }
+arrow = { workspace = true }
+fastembed = { workspace = true }
+
+# Text matching
+levenshtein = { workspace = true }
+urlencoding = { workspace = true }
+
+# News/RSS
+feed-rs = { workspace = true }
+rss = { workspace = true }
+scraper = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

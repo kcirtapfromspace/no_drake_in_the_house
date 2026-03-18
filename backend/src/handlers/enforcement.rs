@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::error::AppError;
-use crate::models::oauth::OAuthProviderType;
+use crate::middleware::auth::authenticated_user_id;
 use crate::models::{
-    AppleMusicRatingEnforcementOptions, EnforcementPreview, EnforcementProgress,
-    RatingEnforcementResult, RollbackResult,
+    oauth::OAuthProviderType, AppleMusicRatingEnforcementOptions, AuthenticatedUser,
+    EnforcementPreview, EnforcementProgress, RatingEnforcementResult, RollbackResult,
 };
 use crate::services::{AppleMusicEnforcementService, EnforcementHistoryItem};
 use crate::AppState;
@@ -104,10 +104,10 @@ pub struct EnforcementHistoryResponse {
 /// POST /api/v1/enforcement/apple-music/run
 pub async fn run_apple_music_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Json(request): Json<RunEnforcementRequest>,
 ) -> Result<Json<EnforcementRunResponse>, AppError> {
-    // For now, use a hardcoded user_id - in production this would come from auth middleware
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     // Get blocked artist names from DNP list
     let blocked_artists = get_blocked_artist_names(&state, user_id).await?;
@@ -175,8 +175,9 @@ pub async fn run_apple_music_enforcement(
 /// POST /api/v1/enforcement/apple-music/preview
 pub async fn preview_apple_music_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<EnforcementPreviewResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     // Get blocked artist names
     let blocked_artists = get_blocked_artist_names(&state, user_id).await?;
@@ -229,9 +230,10 @@ pub async fn preview_apple_music_enforcement(
 /// POST /api/v1/enforcement/apple-music/rollback/{run_id}
 pub async fn rollback_apple_music_enforcement(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
     Path(run_id): Path<Uuid>,
 ) -> Result<Json<RollbackResult>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     let enforcement_service =
         AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());
@@ -257,8 +259,9 @@ pub async fn rollback_apple_music_enforcement(
 /// GET /api/v1/enforcement/apple-music/history
 pub async fn get_apple_music_enforcement_history(
     State(state): State<AppState>,
+    user: AuthenticatedUser,
 ) -> Result<Json<EnforcementHistoryResponse>, AppError> {
-    let user_id = state.test_user_id.unwrap_or_else(Uuid::new_v4);
+    let user_id = authenticated_user_id(&user);
 
     let enforcement_service =
         AppleMusicEnforcementService::new(state.apple_music_service.clone(), state.db_pool.clone());

@@ -112,7 +112,7 @@ async fn test_oauth_health_check_integration() {
 
     // Test Google OAuth discovery endpoint
     let response = client
-        .get("https://accounts.google.com/.well-known/openid_configuration")
+        .get("https://accounts.google.com/.well-known/openid-configuration")
         .send()
         .await;
 

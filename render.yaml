@@ -56,11 +56,11 @@ services:
     domains:
       - nodrakeinthe.house
     envVars:
-      - key: BACKEND_HOSTPORT
+      - key: BACKEND_UPSTREAM_URL
         fromService:
           type: web
           name: ndith-backend
-          property: hostport
+          envVarKey: RENDER_EXTERNAL_URL
 
 databases:
   - name: ndith-postgres

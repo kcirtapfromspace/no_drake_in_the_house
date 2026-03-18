@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4
 # Multi-stage build for production backend with cargo-chef optimization
-FROM rust:1.82-slim as chef
+FROM rust:1.94-slim as chef
 
 # Install cargo-chef for optimal dependency caching
 RUN cargo install cargo-chef --locked

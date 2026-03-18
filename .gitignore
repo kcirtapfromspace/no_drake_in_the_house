@@ -134,4 +134,3 @@ kubeconfig
 *.bak
 .sqlx.bak/
 .known-good-images.csv
-ralph/workspace/**/target-check/

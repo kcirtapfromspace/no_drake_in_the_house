@@ -32,16 +32,16 @@ ENV CARGO_TARGET_DIR=/tmp/cargo-target
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/tmp/cargo-target,sharing=locked \
-    sh -lc 'set -eu; \
-      build_args="--release --bin ${BACKEND_BIN}"; \
-      if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then \
-        build_args="${build_args} --no-default-features"; \
-      fi; \
-      if [ -n "${BACKEND_CARGO_FEATURES}" ]; then \
-        build_args="${build_args} --features ${BACKEND_CARGO_FEATURES}"; \
-      fi; \
-      cargo build ${build_args}; \
-      cp "/tmp/cargo-target/release/${BACKEND_BIN}" /tmp/backend'
+    set -eu; \
+    build_args="--release --bin ${BACKEND_BIN}"; \
+    if [ "${BACKEND_CARGO_NO_DEFAULT_FEATURES}" = "true" ]; then \
+      build_args="${build_args} --no-default-features"; \
+    fi; \
+    if [ -n "${BACKEND_CARGO_FEATURES}" ]; then \
+      build_args="${build_args} --features ${BACKEND_CARGO_FEATURES}"; \
+    fi; \
+    cargo build ${build_args}; \
+    cp "/tmp/cargo-target/release/${BACKEND_BIN}" /tmp/backend
 
 # Runtime stage
 FROM debian:bookworm-slim

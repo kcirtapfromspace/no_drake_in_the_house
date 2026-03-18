@@ -43,6 +43,19 @@ impl std::str::FromStr for OAuthProviderType {
     }
 }
 
+impl OAuthProviderType {
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            OAuthProviderType::Google => "Google",
+            OAuthProviderType::Apple => "Apple",
+            OAuthProviderType::GitHub => "GitHub",
+            OAuthProviderType::Spotify => "Spotify",
+            OAuthProviderType::YouTubeMusic => "YouTube Music",
+            OAuthProviderType::Tidal => "Tidal",
+        }
+    }
+}
+
 /// OAuth tokens returned from provider token exchange
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthTokens {

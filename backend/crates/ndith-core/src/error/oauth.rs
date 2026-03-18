@@ -348,30 +348,43 @@ impl OAuthError {
             Self::ProviderError {
                 provider, message, ..
             } => {
-                format!("Authentication with {} failed: {}", provider, message)
+                format!(
+                    "Authentication with {} failed: {}",
+                    provider.display_name(),
+                    message
+                )
             }
             Self::ProviderNotConfigured { provider, .. } => {
-                format!("{} authentication is not available at this time", provider)
+                format!(
+                    "{} authentication is not available at this time",
+                    provider.display_name()
+                )
             }
             Self::InvalidConfiguration { provider, .. } => {
-                format!("{} authentication is temporarily unavailable", provider)
+                format!(
+                    "{} authentication is temporarily unavailable",
+                    provider.display_name()
+                )
             }
             Self::StateValidationFailed { .. } => {
                 "Authentication request is invalid or expired. Please try again.".to_string()
             }
             Self::InvalidAuthorizationCode { provider, .. } => {
-                format!("Authentication with {} failed. Please try again.", provider)
+                format!(
+                    "Authentication with {} failed. Please try again.",
+                    provider.display_name()
+                )
             }
             Self::RedirectUriMismatch { provider, .. } => {
                 format!(
                     "Authentication with {} failed due to configuration error",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::TokenExchangeFailed { provider, .. } => {
                 format!(
                     "Failed to complete authentication with {}. Please try again.",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::TokenRefreshFailed {
@@ -382,19 +395,19 @@ impl OAuthError {
                 if *requires_reauth {
                     format!(
                         "Your {} authentication has expired. Please sign in again.",
-                        provider
+                        provider.display_name()
                     )
                 } else {
                     format!(
                         "Failed to refresh {} authentication. Please try again.",
-                        provider
+                        provider.display_name()
                     )
                 }
             }
             Self::InvalidToken { provider, .. } => {
                 format!(
                     "Your {} authentication is invalid. Please sign in again.",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::TokenEncryptionFailed { .. } => {
@@ -403,22 +416,34 @@ impl OAuthError {
             Self::AccountLinkingFailed {
                 provider, reason, ..
             } => {
-                format!("Failed to link {} account: {}", provider, reason)
+                format!(
+                    "Failed to link {} account: {}",
+                    provider.display_name(),
+                    reason
+                )
             }
             Self::AccountUnlinkingFailed {
                 provider, reason, ..
             } => {
-                format!("Failed to unlink {} account: {}", provider, reason)
+                format!(
+                    "Failed to unlink {} account: {}",
+                    provider.display_name(),
+                    reason
+                )
             }
             Self::AccountMergeConflict {
                 provider, reason, ..
             } => {
-                format!("Account merge conflict with {}: {}", provider, reason)
+                format!(
+                    "Account merge conflict with {}: {}",
+                    provider.display_name(),
+                    reason
+                )
             }
             Self::ProviderUnavailable { provider, .. } => {
                 format!(
                     "{} authentication is temporarily unavailable. Please try again later.",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::RateLimitExceeded {
@@ -428,17 +453,21 @@ impl OAuthError {
             } => {
                 format!(
                     "{} authentication rate limit exceeded. Please try again in {} seconds.",
-                    provider, retry_after
+                    provider.display_name(),
+                    retry_after
                 )
             }
             Self::UserInfoRetrievalFailed { provider, .. } => {
                 format!(
                     "Failed to retrieve profile information from {}. Please try again.",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::InsufficientScopes { provider, .. } => {
-                format!("Insufficient permissions granted for {}. Please try again and grant the required permissions.", provider)
+                format!(
+                    "Insufficient permissions granted for {}. Please try again and grant the required permissions.",
+                    provider.display_name()
+                )
             }
             Self::SecurityViolation { .. } => {
                 "Authentication request blocked for security reasons. Please try again.".to_string()
@@ -449,11 +478,14 @@ impl OAuthError {
             Self::NetworkError { provider, .. } => {
                 format!(
                     "Network error connecting to {}. Please check your connection and try again.",
-                    provider
+                    provider.display_name()
                 )
             }
             Self::ApiTimeout { provider, .. } => {
-                format!("{} authentication timed out. Please try again.", provider)
+                format!(
+                    "{} authentication timed out. Please try again.",
+                    provider.display_name()
+                )
             }
         }
     }
@@ -934,7 +966,7 @@ mod tests {
         let details = error.error_details();
         assert_eq!(
             details.get("provider").unwrap(),
-            &serde_json::Value::String("GitHub".to_string())
+            &serde_json::Value::String("github".to_string())
         );
         assert_eq!(
             details.get("retry_after").unwrap(),

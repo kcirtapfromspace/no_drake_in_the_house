@@ -137,7 +137,7 @@
         <form on:submit|preventDefault={handleSubmit} class="login__form">
           {#if error}
             <div class="login__alert login__alert--error" role="alert">
-              <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="login__alert-icon icon icon--md" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span class="login__alert-text">{error}</span>
@@ -146,7 +146,7 @@
 
           {#if success}
             <div class="login__alert login__alert--success" role="alert">
-              <svg class="login__alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg class="login__alert-icon icon icon--md" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span class="login__alert-text">{success}</span>
@@ -480,11 +480,12 @@
 
   .login__alert {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
     border-radius: var(--login-radius-lg);
     border: 1px solid;
+    min-width: 0;
   }
 
   .login__alert--error {
@@ -500,9 +501,10 @@
   .login__alert-icon {
     width: 1.25rem;
     height: 1.25rem;
-    flex-shrink: 0;
+    flex: 0 0 1.25rem;
     max-width: none;
     max-height: none;
+    margin-top: 0.0625rem;
   }
 
   .login__alert--error .login__alert-icon {
@@ -514,7 +516,12 @@
   }
 
   .login__alert-text {
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
     font-size: var(--text-sm, 0.875rem);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
   }
 
   .login__alert--error .login__alert-text {

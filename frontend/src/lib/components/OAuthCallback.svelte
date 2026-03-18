@@ -2,58 +2,33 @@
   import { onMount } from 'svelte';
   import { apiClient } from '../utils/api-client';
   import { navigateTo } from '../utils/simple-router';
+  import {
+    getProviderFromPath,
+    getProviderName,
+    resolveOAuthCallback,
+  } from '../utils/oauth-callback';
 
   let status: 'loading' | 'success' | 'error' = 'loading';
   let errorMessage = '';
   let provider = '';
 
   onMount(async () => {
-    // Parse URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-    const error = params.get('error');
-    const errorDescription = params.get('error_description');
+    provider = getProviderFromPath(window.location.pathname);
 
-    // Extract provider from path (e.g., /auth/callback/spotify)
-    const pathParts = window.location.pathname.split('/');
-    provider = pathParts[pathParts.length - 1] || 'unknown';
+    const result = await resolveOAuthCallback(window.location, (url, body) =>
+      apiClient.post(url, body)
+    );
 
-    // Handle OAuth errors
-    if (error) {
+    provider = result.provider;
+
+    if (result.status === 'success') {
+      status = 'success';
+      setTimeout(() => {
+        navigateTo('settings');
+      }, 1500);
+    } else {
       status = 'error';
-      errorMessage = errorDescription || error || 'Authentication was cancelled or denied';
-      return;
-    }
-
-    if (!code || !state) {
-      status = 'error';
-      errorMessage = 'Missing authentication parameters';
-      return;
-    }
-
-    try {
-      // Complete the OAuth link flow
-      // Include redirect_uri to match the backend's OAuthCallbackRequest
-      const result = await apiClient.post(`/api/v1/auth/oauth/${provider}/link-callback`, {
-        code,
-        state,
-        redirect_uri: window.location.origin + window.location.pathname
-      });
-
-      if (result.success) {
-        status = 'success';
-        // Redirect to settings after a brief moment
-        setTimeout(() => {
-          navigateTo('settings');
-        }, 1500);
-      } else {
-        status = 'error';
-        errorMessage = result.message || 'Failed to link account';
-      }
-    } catch (e) {
-      status = 'error';
-      errorMessage = e instanceof Error ? e.message : 'An unexpected error occurred';
+      errorMessage = result.errorMessage;
     }
   });
 
@@ -63,16 +38,6 @@
 
   function goHome() {
     navigateTo('home');
-  }
-
-  function getProviderName(p: string): string {
-    switch (p) {
-      case 'spotify': return 'Spotify';
-      case 'apple': return 'Apple Music';
-      case 'google': return 'Google';
-      case 'github': return 'GitHub';
-      default: return p;
-    }
   }
 </script>
 

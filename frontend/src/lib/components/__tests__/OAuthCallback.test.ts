@@ -1,249 +1,117 @@
-import { render, screen, waitFor } from '@testing-library/svelte';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
-import OAuthCallback from '../OAuthCallback.svelte';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  getProviderFromPath,
+  getProviderName,
+  resolveOAuthCallback,
+} from '../../utils/oauth-callback';
 
-// Mock the API module
-const mockApi = {
-  post: vi.fn(),
-};
-
-vi.mock('$lib/utils/api', () => ({
-  api: mockApi,
-}));
-
-// Mock the auth store
-const mockAuthActions = {
-  fetchProfile: vi.fn(),
-};
-
-vi.mock('$lib/stores/auth', () => ({
-  authActions: mockAuthActions,
-}));
-
-// Mock sessionStorage
-const mockSessionStorage = {
-  setItem: vi.fn(),
-  getItem: vi.fn(),
-  removeItem: vi.fn(),
-};
-
-Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage,
-});
-
-// Mock window.location
-const mockLocation = {
-  search: '',
-  pathname: '/auth/callback/google',
-  origin: 'http://localhost:3000',
-  href: '',
-};
-
-Object.defineProperty(window, 'location', {
-  value: mockLocation,
-  writable: true,
-});
-
-// Mock setTimeout
-vi.stubGlobal('setTimeout', (fn: Function, delay: number) => {
-  fn();
-  return 1;
-});
-
-describe('OAuthCallback', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockLocation.search = '';
-    mockLocation.href = '';
+describe('oauth callback helpers', () => {
+  it('extracts the provider from the callback route', () => {
+    expect(getProviderFromPath('/auth/callback/google')).toBe('google');
+    expect(getProviderFromPath('/auth/callback/apple')).toBe('apple');
   });
 
-  it('displays processing state initially', () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    expect(screen.getByText(/completing google sign in/i)).toBeInTheDocument();
-    expect(screen.getByText(/please wait while we complete/i)).toBeInTheDocument();
+  it('maps provider names for the callback UI', () => {
+    expect(getProviderName('google')).toBe('Google');
+    expect(getProviderName('apple')).toBe('Apple Music');
+    expect(getProviderName('github')).toBe('GitHub');
   });
 
-  it('successfully processes OAuth callback', async () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    const mockResponse = {
-      success: true,
-      data: {
-        access_token: 'test-access-token',
-        refresh_token: 'test-refresh-token',
-        user: { id: '1', email: 'test@example.com' },
-      },
+  it('completes a successful callback with the expected request payload', async () => {
+    const post = vi.fn().mockResolvedValue({ success: true });
+    const location = {
+      origin: 'http://localhost:3000',
+      pathname: '/auth/callback/google',
+      search: '?code=test-code&state=test-state',
     };
-    
-    mockApi.post.mockResolvedValueOnce(mockResponse);
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/oauth/google/callback', {
+
+    const result = await resolveOAuthCallback(location, post);
+
+    expect(post).toHaveBeenCalledWith('/api/v1/auth/oauth/google/link-callback', {
+      code: 'test-code',
+      state: 'test-state',
+      redirect_uri: 'http://localhost:3000/auth/callback/google',
+    });
+    expect(result).toEqual({
+      status: 'success',
+      provider: 'google',
+      errorMessage: '',
+      request: {
         code: 'test-code',
         state: 'test-state',
         redirect_uri: 'http://localhost:3000/auth/callback/google',
-      });
-    });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/welcome!/i)).toBeInTheDocument();
-      expect(screen.getByText(/successfully signed in with google/i)).toBeInTheDocument();
-    });
-    
-    expect(mockAuthActions.fetchProfile).toHaveBeenCalled();
-    expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
-    expect(mockLocation.href).toBe('/');
-  });
-
-  it('handles OAuth provider errors', async () => {
-    mockLocation.search = '?error=access_denied&error_description=User%20denied%20access';
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/user denied access/i)).toBeInTheDocument();
-    });
-    
-    expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
-  });
-
-  it('handles missing authorization code', async () => {
-    mockLocation.search = '?state=test-state';
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/missing authorization code or state parameter/i)).toBeInTheDocument();
+      },
     });
   });
 
-  it('handles invalid state parameter (CSRF protection)', async () => {
-    mockLocation.search = '?code=test-code&state=invalid-state';
-    mockSessionStorage.getItem.mockReturnValue('valid-state');
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/invalid state parameter - possible csrf attack/i)).toBeInTheDocument();
+  it('surfaces provider errors returned in the callback URL', async () => {
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'http://localhost:3000',
+        pathname: '/auth/callback/google',
+        search: '?error=access_denied&error_description=User%20denied%20access',
+      },
+      vi.fn()
+    );
+
+    expect(result).toEqual({
+      status: 'error',
+      provider: 'google',
+      errorMessage: 'User denied access',
     });
-    
-    expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
   });
 
-  it('handles API errors during token exchange', async () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    const mockError = new Error('Network error');
-    mockApi.post.mockRejectedValueOnce(mockError);
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/network error/i)).toBeInTheDocument();
+  it('returns an error when required auth parameters are missing', async () => {
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'http://localhost:3000',
+        pathname: '/auth/callback/google',
+        search: '?state=test-state',
+      },
+      vi.fn()
+    );
+
+    expect(result).toEqual({
+      status: 'error',
+      provider: 'google',
+      errorMessage: 'Missing authentication parameters',
     });
-    
-    expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
   });
 
-  it('handles API failure responses', async () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    const mockResponse = {
+  it('surfaces backend failure responses', async () => {
+    const post = vi.fn().mockResolvedValue({
       success: false,
       message: 'Invalid authorization code',
-    };
-    
-    mockApi.post.mockResolvedValueOnce(mockResponse);
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/invalid authorization code/i)).toBeInTheDocument();
     });
-  });
 
-  it('displays correct provider name for different providers', () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    const { rerender } = render(OAuthCallback, { provider: 'apple' });
-    expect(screen.getByText(/completing apple sign in/i)).toBeInTheDocument();
-    
-    rerender({ provider: 'github' });
-    expect(screen.getByText(/completing github sign in/i)).toBeInTheDocument();
-  });
-
-  it('provides retry functionality on error', async () => {
-    mockLocation.search = '?error=server_error';
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-    });
-    
-    const retryButton = screen.getByRole('button', { name: /try again/i });
-    expect(retryButton).toBeInTheDocument();
-    
-    // Clicking retry should redirect to home
-    await retryButton.click();
-    expect(mockLocation.href).toBe('/');
-  });
-
-  it('stores tokens in localStorage on success', async () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue('test-state');
-    
-    const mockResponse = {
-      success: true,
-      data: {
-        access_token: 'test-access-token',
-        refresh_token: 'test-refresh-token',
-        user: { id: '1', email: 'test@example.com' },
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'http://localhost:3000',
+        pathname: '/auth/callback/google',
+        search: '?code=test-code&state=test-state',
       },
-    };
-    
-    mockApi.post.mockResolvedValueOnce(mockResponse);
-    
-    // Mock localStorage
-    const mockLocalStorage = {
-      setItem: vi.fn(),
-    };
-    Object.defineProperty(window, 'localStorage', {
-      value: mockLocalStorage,
-    });
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('auth_token', 'test-access-token');
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('refresh_token', 'test-refresh-token');
-    });
+      post
+    );
+
+    expect(result.status).toBe('error');
+    expect(result.provider).toBe('google');
+    expect(result.errorMessage).toBe('Invalid authorization code');
   });
 
-  it('handles missing stored state', async () => {
-    mockLocation.search = '?code=test-code&state=test-state';
-    mockSessionStorage.getItem.mockReturnValue(null);
-    
-    render(OAuthCallback, { provider: 'google' });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/authentication failed/i)).toBeInTheDocument();
-      expect(screen.getByText(/invalid state parameter - possible csrf attack/i)).toBeInTheDocument();
-    });
+  it('surfaces thrown request errors', async () => {
+    const post = vi.fn().mockRejectedValue(new Error('Network error'));
+
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'http://localhost:3000',
+        pathname: '/auth/callback/google',
+        search: '?code=test-code&state=test-state',
+      },
+      post
+    );
+
+    expect(result.status).toBe('error');
+    expect(result.provider).toBe('google');
+    expect(result.errorMessage).toBe('Network error');
   });
 });

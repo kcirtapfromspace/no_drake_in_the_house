@@ -498,10 +498,7 @@ impl SpotifyService {
             return Err(anyhow!("Cannot remove more than 100 tracks at once"));
         }
 
-        let url = format!(
-            "https://api.spotify.com/v1/playlists/{}/items",
-            playlist_id
-        );
+        let url = format!("https://api.spotify.com/v1/playlists/{}/items", playlist_id);
         let body = serde_json::json!({ "items": tracks });
 
         let response = self
@@ -746,10 +743,7 @@ impl SpotifyService {
             return Err(anyhow!("Cannot add more than 100 tracks at once"));
         }
 
-        let url = format!(
-            "https://api.spotify.com/v1/playlists/{}/items",
-            playlist_id
-        );
+        let url = format!("https://api.spotify.com/v1/playlists/{}/items", playlist_id);
         let mut body = serde_json::json!({ "uris": track_uris });
 
         if let Some(pos) = position {

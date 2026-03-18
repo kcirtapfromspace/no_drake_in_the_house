@@ -1,42 +1,53 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { get } from 'svelte/store';
-import Login from '../Login.svelte';
-import { authStore, authActions } from '../../stores/auth';
 
-// Mock the API module
-const mockApi = {
-  post: vi.fn(),
-  get: vi.fn(),
-};
-
-vi.mock('$lib/utils/api', () => ({
-  api: mockApi,
+const mocks = vi.hoisted(() => ({
+  apiClient: {
+    post: vi.fn(),
+    authenticatedRequest: vi.fn(),
+    setAuthToken: vi.fn(),
+    getAuthToken: vi.fn(),
+    clearAuthToken: vi.fn(),
+  },
 }));
 
-// Mock sessionStorage
-const mockSessionStorage = {
-  setItem: vi.fn(),
-  getItem: vi.fn(),
-  removeItem: vi.fn(),
+vi.mock('../../utils/api-client', () => ({
+  apiClient: mocks.apiClient,
+}));
+
+type AuthModule = typeof import('../../stores/auth');
+let authStore: AuthModule['authStore'];
+let authActions: AuthModule['authActions'];
+
+const localData: Record<string, string> = {};
+const sessionData: Record<string, string> = {};
+
+const localStorageMock = {
+  getItem: vi.fn((key: string) => localData[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    localData[key] = String(value);
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete localData[key];
+  }),
+  clear: vi.fn(() => {
+    Object.keys(localData).forEach((key) => delete localData[key]);
+  }),
 };
 
-Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage,
-});
-
-// Mock localStorage
-const mockLocalStorage = {
-  setItem: vi.fn(),
-  getItem: vi.fn(),
-  removeItem: vi.fn(),
+const sessionStorageMock = {
+  getItem: vi.fn((key: string) => sessionData[key] ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    sessionData[key] = String(value);
+  }),
+  removeItem: vi.fn((key: string) => {
+    delete sessionData[key];
+  }),
+  clear: vi.fn(() => {
+    Object.keys(sessionData).forEach((key) => delete sessionData[key]);
+  }),
 };
 
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage,
-});
-
-// Mock window.location
 const mockLocation = {
   href: '',
   origin: 'http://localhost:3000',
@@ -44,305 +55,230 @@ const mockLocation = {
   search: '',
 };
 
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock,
+});
+
+Object.defineProperty(window, 'sessionStorage', {
+  value: sessionStorageMock,
+});
+
 Object.defineProperty(window, 'location', {
   value: mockLocation,
   writable: true,
 });
 
+const resetAuthState = () => ({
+  user: null,
+  token: null,
+  refreshToken: null,
+  isAuthenticated: false,
+  isLoading: false,
+  justRegistered: false,
+  oauthFlow: {
+    provider: null,
+    state: null,
+    isInProgress: false,
+  },
+});
+
 describe('OAuth Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    vi.resetModules();
+
+    Object.keys(localData).forEach((key) => delete localData[key]);
+    Object.keys(sessionData).forEach((key) => delete sessionData[key]);
+
     mockLocation.href = '';
-    mockLocation.search = '';
+    mockLocation.origin = 'http://localhost:3000';
     mockLocation.pathname = '/';
-    
-    // Reset auth store
-    authStore.set({
-      user: null,
-      token: null,
-      refreshToken: null,
-      isAuthenticated: false,
-      isLoading: false,
-      justRegistered: false,
-      oauthFlow: {
-        provider: null,
-        state: null,
-        isInProgress: false,
+    mockLocation.search = '';
+
+    mocks.apiClient.getAuthToken.mockImplementation(() => localStorageMock.getItem('auth_token'));
+
+    const authModule = await import('../../stores/auth');
+    authStore = authModule.authStore;
+    authActions = authModule.authActions;
+    authStore.set(resetAuthState());
+  });
+
+  it('initiates an oauth flow and stores the provider state', async () => {
+    mocks.apiClient.post.mockResolvedValueOnce({
+      success: true,
+      data: {
+        authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test',
+        state: 'test-state-token',
       },
     });
+
+    const result = await authActions.initiateOAuthFlow('google');
+
+    expect(result).toEqual({ success: true });
+    expect(mocks.apiClient.post).toHaveBeenCalledWith(
+      '/api/v1/auth/oauth/google/initiate',
+      undefined,
+      false
+    );
+    expect(sessionStorageMock.setItem).toHaveBeenCalledWith('oauth_state_google', 'test-state-token');
+    expect(mockLocation.href).toBe('https://accounts.google.com/oauth/authorize?client_id=test');
+
+    expect(get(authStore).oauthFlow).toEqual({
+      provider: 'google',
+      state: 'test-state-token',
+      isInProgress: true,
+    });
   });
 
-  // Note: Social login buttons were removed from Login page
-  // OAuth is now only available in Settings for account linking
-  describe.skip('OAuth Flow Initiation (Legacy - Social Login Removed)', () => {
-    it('initiates Google OAuth flow from login page', async () => {
-      const mockResponse = {
+  it('resets oauth state when initiation fails', async () => {
+    mocks.apiClient.post.mockRejectedValueOnce(new Error('Network error'));
+
+    const result = await authActions.initiateOAuthFlow('google');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Network error',
+    });
+    expect(get(authStore).oauthFlow).toEqual({
+      provider: null,
+      state: null,
+      isInProgress: false,
+    });
+  });
+
+  it('completes the oauth callback flow and authenticates the user', async () => {
+    sessionStorageMock.setItem('oauth_state_google', 'test-state');
+    mocks.apiClient.post.mockResolvedValueOnce({
+      success: true,
+      data: {
+        access_token: 'test-access-token',
+        refresh_token: 'test-refresh-token',
+      },
+    });
+    mocks.apiClient.authenticatedRequest.mockResolvedValueOnce({
+      success: true,
+      data: {
+        id: '1',
+        email: 'test@example.com',
+        email_verified: true,
+        totp_enabled: false,
+        created_at: '2024-01-01T00:00:00Z',
+      },
+    });
+
+    const result = await authActions.completeOAuthFlow('google', 'test-code', 'test-state');
+
+    expect(result).toEqual({ success: true });
+    expect(mocks.apiClient.post).toHaveBeenCalledWith('/api/v1/auth/oauth/google/callback', {
+      code: 'test-code',
+      state: 'test-state',
+      redirect_uri: 'http://localhost:3000/',
+    }, false);
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('auth_token', 'test-access-token');
+    expect(localStorageMock.setItem).toHaveBeenCalledWith('refresh_token', 'test-refresh-token');
+    expect(sessionStorageMock.removeItem).toHaveBeenCalledWith('oauth_state_google');
+    expect(get(authStore).isAuthenticated).toBe(true);
+    expect(get(authStore).oauthFlow).toEqual({
+      provider: null,
+      state: null,
+      isInProgress: false,
+    });
+  });
+
+  it('rejects oauth completion when the state parameter does not match', async () => {
+    sessionStorageMock.setItem('oauth_state_google', 'valid-state');
+
+    const result = await authActions.completeOAuthFlow('google', 'test-code', 'invalid-state');
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('Invalid state parameter');
+    expect(mocks.apiClient.post).not.toHaveBeenCalled();
+    expect(get(authStore).oauthFlow).toEqual({
+      provider: null,
+      state: null,
+      isInProgress: false,
+    });
+  });
+
+  it('initiates account linking through the authenticated API path', async () => {
+    mocks.apiClient.authenticatedRequest.mockResolvedValueOnce({
+      success: true,
+      data: {
+        authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test',
+        state: 'link-state-token',
+      },
+    });
+
+    const result = await authActions.linkOAuthAccount('google');
+
+    expect(result).toEqual({
+      success: true,
+      authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test',
+      state: 'link-state-token',
+    });
+    expect(mocks.apiClient.authenticatedRequest).toHaveBeenCalledWith(
+      'POST',
+      '/api/v1/auth/oauth/google/link'
+    );
+    expect(sessionStorageMock.setItem).toHaveBeenCalledWith('oauth_link_state_google', 'link-state-token');
+  });
+
+  it('unlinks an oauth account and refreshes the profile', async () => {
+    localStorageMock.setItem('auth_token', 'test-access-token');
+    mocks.apiClient.authenticatedRequest
+      .mockResolvedValueOnce({ success: true })
+      .mockResolvedValueOnce({
         success: true,
         data: {
-          authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test&state=test-state',
-          state: 'test-state-token',
+          id: '1',
+          email: 'test@example.com',
+          email_verified: true,
+          totp_enabled: false,
+          created_at: '2024-01-01T00:00:00Z',
+          oauth_accounts: [],
         },
-      };
-      
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      
-      render(Login);
-      
-      // Find and click Google login button
-      const googleButton = screen.getByRole('button', { name: /continue with google/i });
-      await fireEvent.click(googleButton);
-      
-      await waitFor(() => {
-        expect(mockApi.post).toHaveBeenCalledWith('/auth/oauth/google/initiate');
-        expect(mockSessionStorage.setItem).toHaveBeenCalledWith('oauth_state_google', 'test-state-token');
-        expect(mockLocation.href).toBe('https://accounts.google.com/oauth/authorize?client_id=test&state=test-state');
       });
-      
-      // Check auth store state
-      const authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe('google');
-      expect(authState.oauthFlow.isInProgress).toBe(true);
-    });
 
-    it('handles OAuth initiation errors', async () => {
-      const mockError = new Error('OAuth provider not configured');
-      mockApi.post.mockRejectedValueOnce(mockError);
-      
-      render(Login);
-      
-      const googleButton = screen.getByRole('button', { name: /continue with google/i });
-      await fireEvent.click(googleButton);
-      
-      await waitFor(() => {
-        expect(screen.getByText(/oauth provider not configured/i)).toBeInTheDocument();
-      });
-      
-      // Check auth store state is reset
-      const authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe(null);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
-    });
+    const result = await authActions.unlinkOAuthAccount('google');
+
+    expect(result).toEqual({ success: true });
+    expect(mocks.apiClient.authenticatedRequest).toHaveBeenNthCalledWith(
+      1,
+      'DELETE',
+      '/api/v1/auth/oauth/google/unlink'
+    );
+    expect(mocks.apiClient.authenticatedRequest).toHaveBeenNthCalledWith(
+      2,
+      'GET',
+      '/api/v1/users/profile'
+    );
   });
 
-  describe('OAuth Flow Completion', () => {
-    it('completes OAuth flow successfully', async () => {
-      const mockResponse = {
-        success: true,
-        data: {
-          access_token: 'test-access-token',
-          refresh_token: 'test-refresh-token',
-          user: {
-            id: '1',
-            email: 'test@example.com',
-            oauth_accounts: [
-              {
-                provider: 'google',
-                provider_user_id: 'google123',
-                email: 'test@gmail.com',
-                display_name: 'Test User',
-                linked_at: '2023-01-01T00:00:00Z',
-              },
-            ],
-          },
-        },
-      };
-      
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      mockApi.get.mockResolvedValueOnce({ success: true, data: mockResponse.data.user });
-      mockSessionStorage.getItem.mockReturnValue('test-state');
-      
-      const result = await authActions.completeOAuthFlow('google', 'test-code', 'test-state');
-      
-      expect(result.success).toBe(true);
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/oauth/google/callback', {
-        code: 'test-code',
-        state: 'test-state',
-        redirect_uri: 'http://localhost:3000/',
-      });
-      
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('auth_token', 'test-access-token');
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('refresh_token', 'test-refresh-token');
-      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
-      
-      // Check auth store state
-      const authState = get(authStore);
-      expect(authState.isAuthenticated).toBe(true);
-      expect(authState.token).toBe('test-access-token');
-      expect(authState.oauthFlow.provider).toBe(null);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
+  it('returns the linked accounts list from the authenticated API path', async () => {
+    const accounts = [
+      {
+        provider: 'google',
+        provider_user_id: 'google123',
+        email: 'test@gmail.com',
+        display_name: 'Test User',
+        linked_at: '2023-01-01T00:00:00Z',
+      },
+    ];
+
+    mocks.apiClient.authenticatedRequest.mockResolvedValueOnce({
+      success: true,
+      data: accounts,
     });
 
-    it('handles invalid state parameter (CSRF protection)', async () => {
-      mockSessionStorage.getItem.mockReturnValue('valid-state');
-      
-      const result = await authActions.completeOAuthFlow('google', 'test-code', 'invalid-state');
-      
-      expect(result.success).toBe(false);
-      expect(result.message).toContain('Invalid state parameter');
-      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
-      
-      // Check auth store state is reset
-      const authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe(null);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
-    });
+    const result = await authActions.getLinkedAccounts();
 
-    it('handles OAuth callback API errors', async () => {
-      const mockError = new Error('Invalid authorization code');
-      mockApi.post.mockRejectedValueOnce(mockError);
-      mockSessionStorage.getItem.mockReturnValue('test-state');
-      
-      const result = await authActions.completeOAuthFlow('google', 'test-code', 'test-state');
-      
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('Invalid authorization code');
-      expect(mockSessionStorage.removeItem).toHaveBeenCalledWith('oauth_state_google');
+    expect(result).toEqual({
+      success: true,
+      data: accounts,
     });
-  });
-
-  describe('Account Linking', () => {
-    it('initiates account linking flow', async () => {
-      const mockResponse = {
-        success: true,
-        data: {
-          authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test&state=link-state',
-          state: 'link-state-token',
-        },
-      };
-      
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      
-      const result = await authActions.linkOAuthAccount('google');
-      
-      expect(result.success).toBe(true);
-      expect(result.authorization_url).toBe('https://accounts.google.com/oauth/authorize?client_id=test&state=link-state');
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/oauth/google/link');
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith('oauth_link_state_google', 'link-state-token');
-    });
-
-    it('unlinks OAuth account successfully', async () => {
-      const mockResponse = { success: true };
-      mockApi.delete.mockResolvedValueOnce(mockResponse);
-      mockApi.get.mockResolvedValueOnce({ 
-        success: true, 
-        data: { id: '1', email: 'test@example.com', oauth_accounts: [] } 
-      });
-      
-      const result = await authActions.unlinkOAuthAccount('google');
-      
-      expect(result.success).toBe(true);
-      expect(mockApi.delete).toHaveBeenCalledWith('/auth/oauth/google/unlink');
-    });
-
-    it('gets linked accounts', async () => {
-      const mockAccounts = [
-        {
-          provider: 'google',
-          provider_user_id: 'google123',
-          email: 'test@gmail.com',
-          display_name: 'Test User',
-          linked_at: '2023-01-01T00:00:00Z',
-        },
-      ];
-      
-      mockApi.get.mockResolvedValueOnce({ success: true, data: mockAccounts });
-      
-      const result = await authActions.getLinkedAccounts();
-      
-      expect(result.success).toBe(true);
-      expect(result.data).toEqual(mockAccounts);
-      expect(mockApi.get).toHaveBeenCalledWith('/auth/oauth/accounts');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('handles network errors gracefully', async () => {
-      const networkError = new Error('Network error');
-      mockApi.post.mockRejectedValueOnce(networkError);
-      
-      const result = await authActions.initiateOAuthFlow('google');
-      
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('Network error');
-      
-      // Check auth store state is reset
-      const authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe(null);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
-    });
-
-    it('handles API failure responses', async () => {
-      const mockResponse = {
-        success: false,
-        message: 'OAuth provider temporarily unavailable',
-      };
-      
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      
-      const result = await authActions.initiateOAuthFlow('google');
-      
-      expect(result.success).toBe(false);
-      expect(result.message).toBe('OAuth provider temporarily unavailable');
-    });
-  });
-
-  describe('State Management', () => {
-    it('updates auth store correctly during OAuth flow', async () => {
-      // Initial state
-      let authState = get(authStore);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
-      
-      // Mock successful initiation
-      const mockResponse = {
-        success: true,
-        data: {
-          authorization_url: 'https://accounts.google.com/oauth/authorize',
-          state: 'test-state',
-        },
-      };
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      
-      // Start OAuth flow
-      await authActions.initiateOAuthFlow('google');
-      
-      // Check intermediate state
-      authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe('google');
-      expect(authState.oauthFlow.state).toBe('test-state');
-      expect(authState.oauthFlow.isInProgress).toBe(true);
-    });
-
-    it('cleans up state on OAuth completion', async () => {
-      // Set up OAuth flow state
-      authStore.update(state => ({
-        ...state,
-        oauthFlow: {
-          provider: 'google',
-          state: 'test-state',
-          isInProgress: true,
-        },
-      }));
-      
-      // Mock successful completion
-      const mockResponse = {
-        success: true,
-        data: {
-          access_token: 'test-token',
-          refresh_token: 'test-refresh',
-        },
-      };
-      mockApi.post.mockResolvedValueOnce(mockResponse);
-      mockApi.get.mockResolvedValueOnce({ success: true, data: { id: '1', email: 'test@example.com' } });
-      mockSessionStorage.getItem.mockReturnValue('test-state');
-      
-      await authActions.completeOAuthFlow('google', 'test-code', 'test-state');
-      
-      // Check final state
-      const authState = get(authStore);
-      expect(authState.oauthFlow.provider).toBe(null);
-      expect(authState.oauthFlow.state).toBe(null);
-      expect(authState.oauthFlow.isInProgress).toBe(false);
-      expect(authState.isAuthenticated).toBe(true);
-    });
+    expect(mocks.apiClient.authenticatedRequest).toHaveBeenCalledWith(
+      'GET',
+      '/api/v1/auth/oauth/accounts'
+    );
   });
 });

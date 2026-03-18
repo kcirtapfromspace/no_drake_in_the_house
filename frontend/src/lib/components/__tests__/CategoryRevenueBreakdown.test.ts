@@ -594,6 +594,14 @@ describe('CategoryRevenueBreakdown - Accessibility', () => {
       isLoading: false,
       error: null,
     };
+    mockFetchGlobalCategoryRevenue.mockResolvedValue({
+      success: true,
+      data: mockGlobalCategoryRevenue,
+    });
+    mockFetchCategoryRevenue.mockResolvedValue({
+      success: true,
+      data: mockCategoryDetails,
+    });
   });
 
   it('should have proper role attributes on interactive elements', async () => {

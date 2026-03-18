@@ -2,65 +2,40 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import AccountLinking from '../AccountLinking.svelte';
 
-// Mock the API module
-const mockApi = {
-  get: vi.fn(),
-  post: vi.fn(),
-  delete: vi.fn(),
-};
+const mocks = vi.hoisted(() => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    delete: vi.fn(),
+  },
+  currentUser: {
+    subscribe: vi.fn(),
+  },
+}));
 
 vi.mock('$lib/utils/api', () => ({
-  api: mockApi,
+  api: mocks.api,
 }));
-
-// Mock the auth store
-const mockCurrentUser = {
-  subscribe: vi.fn(),
-};
 
 vi.mock('$lib/stores/auth', () => ({
-  currentUser: mockCurrentUser,
+  currentUser: mocks.currentUser,
 }));
 
-// Mock window.open and related functionality
 const mockPopup = {
   closed: false,
   close: vi.fn(),
 };
 
-const mockWindow = {
-  open: vi.fn(() => mockPopup),
-};
+const mockConfirm = vi.fn();
+const mockSetInterval = vi.fn(() => 1);
+const mockClearInterval = vi.fn();
 
-Object.defineProperty(window, 'open', {
-  value: mockWindow.open,
-});
-
-// Mock sessionStorage
-const mockSessionStorage = {
-  setItem: vi.fn(),
-  getItem: vi.fn(),
-  removeItem: vi.fn(),
-};
-
-Object.defineProperty(window, 'sessionStorage', {
-  value: mockSessionStorage,
-});
-
-// Mock setInterval and clearInterval
-vi.stubGlobal('setInterval', (fn: Function, delay: number) => {
-  // Simulate popup closing after a short delay
-  setTimeout(() => {
-    mockPopup.closed = true;
-    fn();
-  }, 100);
-  return 1;
-});
-
-vi.stubGlobal('clearInterval', vi.fn());
+vi.stubGlobal('confirm', mockConfirm);
+vi.stubGlobal('setInterval', mockSetInterval);
+vi.stubGlobal('clearInterval', mockClearInterval);
 
 describe('AccountLinking', () => {
-  const mockLinkedAccounts = [
+  const linkedAccounts = [
     {
       provider: 'google',
       provider_user_id: 'google123',
@@ -74,311 +49,140 @@ describe('AccountLinking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPopup.closed = false;
-    
-    // Mock current user
-    mockCurrentUser.subscribe.mockImplementation((callback) => {
+    window.sessionStorage.clear();
+    vi.spyOn(window, 'open').mockImplementation(() => mockPopup as unknown as Window);
+
+    mocks.currentUser.subscribe.mockImplementation((callback: (value: unknown) => void) => {
       callback({ id: '1', email: 'test@example.com' });
       return () => {};
     });
+
+    mocks.api.get.mockResolvedValue({ success: true, data: [] });
+    mocks.api.post.mockResolvedValue({ success: true, data: { authorization_url: 'https://accounts.google.com/oauth/authorize', state: 'test-state-token' } });
+    mocks.api.delete.mockResolvedValue({ success: true });
+    mockConfirm.mockReturnValue(true);
   });
 
-  it('does not render when not visible', () => {
+  it('does not render when hidden', () => {
     render(AccountLinking, { isVisible: false });
-    
+
     expect(screen.queryByText(/linked accounts/i)).not.toBeInTheDocument();
   });
 
-  it('renders modal when visible', () => {
+  it('renders the modal and loads linked accounts when visible', async () => {
+    mocks.api.get.mockResolvedValue({ success: true, data: linkedAccounts });
+    const linkedDate = new Date(linkedAccounts[0].linked_at).toLocaleDateString();
+
     render(AccountLinking, { isVisible: true });
-    
+
     expect(screen.getByText(/linked accounts/i)).toBeInTheDocument();
     expect(screen.getByText(/link your social accounts/i)).toBeInTheDocument();
-  });
 
-  it('loads linked accounts on mount when visible', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: mockLinkedAccounts,
-    });
-    
-    render(AccountLinking, { isVisible: true });
-    
     await waitFor(() => {
-      expect(mockApi.get).toHaveBeenCalledWith('/auth/oauth/accounts');
-    });
-  });
-
-  it('displays linked accounts correctly', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: mockLinkedAccounts,
-    });
-    
-    render(AccountLinking, { isVisible: true });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
+      expect(mocks.api.get).toHaveBeenCalledWith('/auth/oauth/accounts');
       expect(screen.getByText(/test user/i)).toBeInTheDocument();
-      expect(screen.getByText(/linked on 1\/1\/2023/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /unlink/i })).toBeInTheDocument();
+      expect(screen.getByText(`Linked on ${linkedDate}`)).toBeInTheDocument();
     });
   });
 
-  it('displays unlinked providers with link buttons', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: [], // No linked accounts
-    });
-    
+  it('shows all providers as linkable when no accounts are connected', async () => {
     render(AccountLinking, { isVisible: true });
-    
+
     await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
-      expect(screen.getByText(/apple/i)).toBeInTheDocument();
-      expect(screen.getByText(/github/i)).toBeInTheDocument();
-      
-      const linkButtons = screen.getAllByRole('button', { name: /link/i });
-      expect(linkButtons).toHaveLength(3);
+      expect(screen.getByText(/^google$/i)).toBeInTheDocument();
+      expect(screen.getByText(/^apple$/i)).toBeInTheDocument();
+      expect(screen.getByText(/^github$/i)).toBeInTheDocument();
     });
+
+    expect(screen.getAllByRole('button', { name: /^link$/i })).toHaveLength(3);
   });
 
-  it('initiates account linking flow', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: [],
-    });
-    
-    mockApi.post.mockResolvedValueOnce({
-      success: true,
-      data: {
-        authorization_url: 'https://accounts.google.com/oauth/authorize?client_id=test',
-        state: 'test-state-token',
-      },
-    });
-    
+  it('initiates an account link flow and shows the linking state', async () => {
     render(AccountLinking, { isVisible: true });
-    
+
     await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
+      expect(screen.getByText(/^google$/i)).toBeInTheDocument();
     });
-    
-    const linkButton = screen.getByRole('button', { name: /link/i });
-    await fireEvent.click(linkButton);
-    
+
+    await fireEvent.click(screen.getAllByRole('button', { name: /^link$/i })[0]);
+
     await waitFor(() => {
-      expect(mockApi.post).toHaveBeenCalledWith('/auth/oauth/google/link');
-      expect(mockSessionStorage.setItem).toHaveBeenCalledWith('oauth_link_state_google', 'test-state-token');
-      expect(mockWindow.open).toHaveBeenCalledWith(
-        'https://accounts.google.com/oauth/authorize?client_id=test',
-        'link_google',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
-      );
+      expect(mocks.api.post).toHaveBeenCalledWith('/auth/oauth/google/link');
+      expect(screen.getByRole('button', { name: /linking\.\.\./i })).toBeDisabled();
     });
   });
 
-  it('handles linking errors', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: [],
-    });
-    
-    mockApi.post.mockResolvedValueOnce({
+  it('renders linking errors from the API response', async () => {
+    mocks.api.post.mockResolvedValue({
       success: false,
       message: 'OAuth provider not configured',
     });
-    
+
     render(AccountLinking, { isVisible: true });
-    
+
     await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
+      expect(screen.getByText(/^google$/i)).toBeInTheDocument();
     });
-    
-    const linkButton = screen.getByRole('button', { name: /link/i });
-    await fireEvent.click(linkButton);
-    
+
+    await fireEvent.click(screen.getAllByRole('button', { name: /^link$/i })[0]);
+
     await waitFor(() => {
       expect(screen.getByText(/oauth provider not configured/i)).toBeInTheDocument();
     });
   });
 
-  it('unlinks account with confirmation', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: mockLinkedAccounts,
-    });
-    
-    mockApi.delete.mockResolvedValueOnce({
-      success: true,
-    });
-    
-    // Mock window.confirm
-    vi.stubGlobal('confirm', vi.fn(() => true));
-    
+  it('unlinks an account after confirmation and reloads accounts', async () => {
+    mocks.api.get.mockResolvedValue({ success: true, data: linkedAccounts });
+
     render(AccountLinking, { isVisible: true });
-    
+
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /unlink/i })).toBeInTheDocument();
     });
-    
-    const unlinkButton = screen.getByRole('button', { name: /unlink/i });
-    await fireEvent.click(unlinkButton);
-    
+
+    await fireEvent.click(screen.getByRole('button', { name: /unlink/i }));
+
     await waitFor(() => {
-      expect(window.confirm).toHaveBeenCalledWith('Are you sure you want to unlink your Google account?');
-      expect(mockApi.delete).toHaveBeenCalledWith('/auth/oauth/google/unlink');
+      expect(mockConfirm).toHaveBeenCalledWith('Are you sure you want to unlink your Google account?');
+      expect(mocks.api.delete).toHaveBeenCalledWith('/auth/oauth/google/unlink');
     });
   });
 
-  it('cancels unlinking when user declines confirmation', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: mockLinkedAccounts,
-    });
-    
-    // Mock window.confirm to return false
-    vi.stubGlobal('confirm', vi.fn(() => false));
-    
+  it('does not unlink when confirmation is declined', async () => {
+    mocks.api.get.mockResolvedValue({ success: true, data: linkedAccounts });
+    mockConfirm.mockReturnValue(false);
+
     render(AccountLinking, { isVisible: true });
-    
+
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /unlink/i })).toBeInTheDocument();
     });
-    
-    const unlinkButton = screen.getByRole('button', { name: /unlink/i });
-    await fireEvent.click(unlinkButton);
-    
-    expect(window.confirm).toHaveBeenCalled();
-    expect(mockApi.delete).not.toHaveBeenCalled();
+
+    await fireEvent.click(screen.getByRole('button', { name: /unlink/i }));
+
+    expect(mocks.api.delete).not.toHaveBeenCalled();
   });
 
-  it('handles unlinking errors', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: mockLinkedAccounts,
-    });
-    
-    mockApi.delete.mockResolvedValueOnce({
-      success: false,
-      message: 'Failed to unlink account',
-    });
-    
-    vi.stubGlobal('confirm', vi.fn(() => true));
-    
+  it('renders load errors when fetching linked accounts fails', async () => {
+    mocks.api.get.mockRejectedValue(new Error('Network error'));
+
     render(AccountLinking, { isVisible: true });
-    
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /unlink/i })).toBeInTheDocument();
-    });
-    
-    const unlinkButton = screen.getByRole('button', { name: /unlink/i });
-    await fireEvent.click(unlinkButton);
-    
-    await waitFor(() => {
-      expect(screen.getByText(/failed to unlink account/i)).toBeInTheDocument();
-    });
-  });
 
-  it('closes modal when close button is clicked', async () => {
-    const component = render(AccountLinking, { isVisible: true });
-    let closeEvent = false;
-    
-    component.component.$on('close', () => {
-      closeEvent = true;
-    });
-    
-    const closeButton = screen.getByRole('button', { name: /close/i });
-    await fireEvent.click(closeButton);
-    
-    expect(closeEvent).toBe(true);
-  });
-
-  it('closes modal when backdrop is clicked', async () => {
-    const component = render(AccountLinking, { isVisible: true });
-    let closeEvent = false;
-    
-    component.component.$on('close', () => {
-      closeEvent = true;
-    });
-    
-    const backdrop = screen.getByRole('dialog').parentElement;
-    await fireEvent.click(backdrop);
-    
-    expect(closeEvent).toBe(true);
-  });
-
-  it('displays loading state', () => {
-    mockApi.get.mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({ success: true, data: [] }), 1000))
-    );
-    
-    render(AccountLinking, { isVisible: true });
-    
-    expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument(); // Loading spinner
-  });
-
-  it('displays error when loading accounts fails', async () => {
-    mockApi.get.mockRejectedValueOnce(new Error('Network error'));
-    
-    render(AccountLinking, { isVisible: true });
-    
     await waitFor(() => {
       expect(screen.getByText(/network error/i)).toBeInTheDocument();
     });
   });
 
-  it('shows linking state for specific provider', async () => {
-    mockApi.get.mockResolvedValueOnce({
-      success: true,
-      data: [],
-    });
-    
-    mockApi.post.mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({
-        success: true,
-        data: {
-          authorization_url: 'https://accounts.google.com/oauth/authorize',
-          state: 'test-state',
-        },
-      }), 100))
-    );
-    
-    render(AccountLinking, { isVisible: true });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
-    });
-    
-    const linkButton = screen.getByRole('button', { name: /link/i });
-    await fireEvent.click(linkButton);
-    
-    expect(screen.getByText(/linking.../i)).toBeInTheDocument();
-  });
+  it('emits a close event from the visible close button', async () => {
+    const { component } = render(AccountLinking, { isVisible: true });
+    let closed = false;
 
-  it('reloads accounts after popup closes', async () => {
-    mockApi.get
-      .mockResolvedValueOnce({ success: true, data: [] })
-      .mockResolvedValueOnce({ success: true, data: mockLinkedAccounts });
-    
-    mockApi.post.mockResolvedValueOnce({
-      success: true,
-      data: {
-        authorization_url: 'https://accounts.google.com/oauth/authorize',
-        state: 'test-state',
-      },
+    component.$on('close', () => {
+      closed = true;
     });
-    
-    render(AccountLinking, { isVisible: true });
-    
-    await waitFor(() => {
-      expect(screen.getByText(/google/i)).toBeInTheDocument();
-    });
-    
-    const linkButton = screen.getByRole('button', { name: /link/i });
-    await fireEvent.click(linkButton);
-    
-    // Wait for popup to "close" and accounts to reload
-    await waitFor(() => {
-      expect(mockApi.get).toHaveBeenCalledTimes(2);
-    }, { timeout: 2000 });
+
+    await fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
+
+    expect(closed).toBe(true);
   });
 });

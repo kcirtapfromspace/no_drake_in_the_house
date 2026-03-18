@@ -480,14 +480,16 @@ describe('Design System Consistency', () => {
 
     it('should not use rounded-none or border-radius: 0', () => {
       const violations: Array<{ file: string; line: number; match: string }> = [];
+      const hasZeroBorderRadius = (line: string) =>
+        line.includes('rounded-none') ||
+        /\bborder-radius\s*:\s*0(?:[a-z%]+)?(?:\s*[;}]\s*|\s*$)/.test(line) ||
+        /\bborder(?:-[a-z]+)*-radius\s*:\s*0(?:[a-z%]+)?(?:\s*[;}]\s*|\s*$)/.test(line);
 
       componentFiles.forEach((content, filePath) => {
         const lines = content.split('\n');
         lines.forEach((line, index) => {
           // Check for explicit removal of border radius
-          if (line.includes('rounded-none') ||
-              /border-radius:\s*0/.test(line) ||
-              /border.*radius.*:\s*0/.test(line)) {
+          if (hasZeroBorderRadius(line)) {
             violations.push({
               file: path.basename(filePath),
               line: index + 1,

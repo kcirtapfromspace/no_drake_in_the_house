@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  RENDER_BACKEND_CARGO_FEATURES: render-api
 
 jobs:
   create-release:
@@ -112,6 +113,9 @@ jobs:
         push: true
         tags: ${{ steps.meta-backend.outputs.tags }}
         labels: ${{ steps.meta-backend.outputs.labels }}
+        build-args: |
+          BACKEND_CARGO_FEATURES=${{ env.RENDER_BACKEND_CARGO_FEATURES }}
+          BACKEND_CARGO_NO_DEFAULT_FEATURES=true
         cache-from: type=gha
         cache-to: type=gha,mode=max
         platforms: linux/amd64,linux/arm64

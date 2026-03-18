@@ -99,6 +99,7 @@ pnpm-debug.log*
 .parcel-cache/
 .eslintcache
 .fastembed_cache/
+.quant/
 *.tsbuildinfo
 
 # ===================
@@ -112,6 +113,12 @@ pids/
 *.temp
 tmp/
 temp/
+/output/
+/build
+/cargo
+/touch
+plan-*.md
+**/plan-*.md
 
 # ===================
 # Kubernetes / Docker
@@ -126,3 +133,5 @@ kubeconfig
 .claude/
 *.bak
 .sqlx.bak/
+.known-good-images.csv
+ralph/workspace/**/target-check/

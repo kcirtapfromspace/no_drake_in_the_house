@@ -28,7 +28,7 @@ ENV BACKEND_BIN="${BACKEND_BIN}" \
     BACKEND_CARGO_NO_DEFAULT_FEATURES="${BACKEND_CARGO_NO_DEFAULT_FEATURES}"
 ENV SQLX_OFFLINE=true
 ENV SQLX_OFFLINE_DIR=/app/.sqlx
-RUN sed -i 's#^target-dir = .*#target-dir = "/tmp/cargo-target"#' /app/.cargo/config.toml
+ENV CARGO_TARGET_DIR=/tmp/cargo-target
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,target=/tmp/cargo-target,sharing=locked \

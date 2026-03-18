@@ -24,6 +24,7 @@ if [ -f "$INDEX_HTML" ]; then
         -e "s|/build/bundle.js[^\"']*|/build/bundle.js?v=${ASSET_VERSION}|g" \
         "$INDEX_HTML" > "$tmp_index"
     mv "$tmp_index" "$INDEX_HTML"
+    chmod 644 "$INDEX_HTML"
 fi
 
 export BACKEND_UPSTREAM_URL PORT DNS_RESOLVER ASSET_VERSION

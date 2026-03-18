@@ -466,7 +466,7 @@ mod tests {
         let auth_url = provider.build_auth_url(redirect_uri, state, None);
 
         assert!(auth_url.contains("client_id=test_client_id"));
-        assert!(auth_url.contains("redirect_uri=http%3A//localhost%3A3000/auth/callback"));
+        assert!(auth_url.contains("redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback"));
         assert!(auth_url.contains("response_type=code"));
         assert!(auth_url.contains("state=test_state"));
         assert!(auth_url.contains("scope=openid%20email%20profile"));

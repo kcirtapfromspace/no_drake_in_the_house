@@ -723,7 +723,7 @@ mod tests {
 
     fn create_test_google_provider() -> GoogleOAuthProvider {
         GoogleOAuthProvider::with_credentials(
-            "test_client_id".to_string(),
+            "test-client-id.apps.googleusercontent.com".to_string(),
             "test_client_secret".to_string(),
             "http://localhost:3000/auth/google/callback".to_string(),
         )
@@ -752,32 +752,26 @@ mod tests {
             additional_params: HashMap::new(),
         };
 
-        let provider = GoogleOAuthProvider::from_config(config).unwrap();
-        let result = provider.validate_config();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("client_id is required"));
+        let err = GoogleOAuthProvider::from_config(config)
+            .err()
+            .expect("invalid Google config should be rejected");
+        assert!(err.to_string().contains("client_id is required"));
     }
 
     #[test]
     fn test_google_provider_validation_missing_scope() {
         let config = OAuthConfig {
-            client_id: "test_client_id".to_string(),
+            client_id: "test-client-id.apps.googleusercontent.com".to_string(),
             client_secret: "test_secret".to_string(),
             redirect_uri: "http://localhost:3000/auth/callback".to_string(),
             scopes: vec!["profile".to_string()], // Missing required scopes
             additional_params: HashMap::new(),
         };
 
-        let provider = GoogleOAuthProvider::from_config(config).unwrap();
-        let result = provider.validate_config();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("requires 'openid' scope"));
+        let err = GoogleOAuthProvider::from_config(config)
+            .err()
+            .expect("config missing required scopes should be rejected");
+        assert!(err.to_string().contains("requires 'openid' scope"));
     }
 
     #[tokio::test]
@@ -792,7 +786,7 @@ mod tests {
             .contains("accounts.google.com"));
         assert!(flow_response
             .authorization_url
-            .contains("client_id=test_client_id"));
+            .contains("client_id=test-client-id.apps.googleusercontent.com"));
         assert!(flow_response.authorization_url.contains("redirect_uri="));
         assert!(flow_response
             .authorization_url

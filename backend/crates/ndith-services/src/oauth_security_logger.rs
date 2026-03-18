@@ -332,7 +332,7 @@ impl OAuthSecurityLogger {
                 .or_insert(0) += 1;
             *stats
                 .events_by_provider
-                .entry(event.provider.to_string())
+                .entry(event.provider.display_name().to_string())
                 .or_insert(0) += 1;
         }
 

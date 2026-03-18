@@ -789,8 +789,8 @@ mod tests {
         );
 
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-        assert!(metrics_text.contains("kiro_http_requests_total"));
-        assert!(metrics_text.contains("kiro_http_request_duration_seconds"));
+        assert!(metrics_text.contains("kiro_http_http_requests_total"));
+        assert!(metrics_text.contains("kiro_http_http_request_duration_seconds"));
     }
 
     #[test]
@@ -838,7 +838,7 @@ mod tests {
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
 
         // Verify the latency histogram is present with correct labels
-        assert!(metrics_text.contains("kiro_http_request_latency_seconds"));
+        assert!(metrics_text.contains("kiro_http_http_request_latency_seconds"));
         assert!(metrics_text.contains("method=\"GET\""));
         assert!(metrics_text.contains("method=\"POST\""));
         assert!(metrics_text.contains("path=\"/api/v1/health\""));

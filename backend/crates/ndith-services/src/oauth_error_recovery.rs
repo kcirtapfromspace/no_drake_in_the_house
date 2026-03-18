@@ -333,10 +333,10 @@ impl OAuthErrorRecoveryService {
     pub fn get_user_guidance(&self, oauth_error: &OAuthError) -> UserGuidance {
         match oauth_error {
             OAuthError::ProviderNotConfigured { provider, .. } => UserGuidance {
-                title: format!("{} Authentication Not Available", provider),
+                title: format!("{} Authentication Not Available", provider.display_name()),
                 message: format!(
                     "{} authentication is not configured on this server.",
-                    provider
+                    provider.display_name()
                 ),
                 actions: vec![
                     "Contact your system administrator to enable this authentication method"
@@ -347,10 +347,10 @@ impl OAuthErrorRecoveryService {
                 contact_support: true,
             },
             OAuthError::InvalidConfiguration { provider, .. } => UserGuidance {
-                title: format!("{} Authentication Error", provider),
+                title: format!("{} Authentication Error", provider.display_name()),
                 message: format!(
                     "{} authentication is temporarily unavailable due to a configuration issue.",
-                    provider
+                    provider.display_name()
                 ),
                 actions: vec![
                     "Try again in a few minutes".to_string(),
@@ -378,13 +378,16 @@ impl OAuthErrorRecoveryService {
             } => {
                 if *requires_reauth {
                     UserGuidance {
-                        title: format!("{} Authentication Expired", provider),
+                        title: format!("{} Authentication Expired", provider.display_name()),
                         message: format!(
                             "Your {} authentication has expired and needs to be renewed.",
-                            provider
+                            provider.display_name()
                         ),
                         actions: vec![
-                            format!("Click 'Sign in with {}' to re-authenticate", provider),
+                            format!(
+                                "Click 'Sign in with {}' to re-authenticate",
+                                provider.display_name()
+                            ),
                             "You may need to grant permissions again".to_string(),
                         ],
                         is_user_actionable: true,
@@ -392,7 +395,7 @@ impl OAuthErrorRecoveryService {
                     }
                 } else {
                     UserGuidance {
-                        title: format!("{} Authentication Error", provider),
+                        title: format!("{} Authentication Error", provider.display_name()),
                         message: "There was a temporary issue refreshing your authentication."
                             .to_string(),
                         actions: vec![
@@ -409,15 +412,15 @@ impl OAuthErrorRecoveryService {
                 required_scopes,
                 ..
             } => UserGuidance {
-                title: format!("{} Permissions Required", provider),
+                title: format!("{} Permissions Required", provider.display_name()),
                 message: format!(
                     "Additional permissions are needed to complete this action with {}.",
-                    provider
+                    provider.display_name()
                 ),
                 actions: vec![
                     format!(
                         "Re-authorize with {} to grant the required permissions",
-                        provider
+                        provider.display_name()
                     ),
                     format!("Required permissions: {}", required_scopes.join(", ")),
                 ],
@@ -429,10 +432,10 @@ impl OAuthErrorRecoveryService {
                 retry_after,
                 ..
             } => UserGuidance {
-                title: format!("{} Rate Limit", provider),
+                title: format!("{} Rate Limit", provider.display_name()),
                 message: format!(
                     "Too many requests to {}. Please wait before trying again.",
-                    provider
+                    provider.display_name()
                 ),
                 actions: vec![
                     format!("Wait {} seconds before trying again", retry_after),
@@ -456,8 +459,11 @@ impl OAuthErrorRecoveryService {
                 };
 
                 UserGuidance {
-                    title: format!("{} Temporarily Unavailable", provider),
-                    message: format!("{} authentication is temporarily unavailable.", provider),
+                    title: format!("{} Temporarily Unavailable", provider.display_name()),
+                    message: format!(
+                        "{} authentication is temporarily unavailable.",
+                        provider.display_name()
+                    ),
                     actions: vec![
                         recovery_message,
                         "Try using a different authentication method if available".to_string(),
@@ -468,7 +474,10 @@ impl OAuthErrorRecoveryService {
             }
             OAuthError::NetworkError { provider, .. } => UserGuidance {
                 title: "Connection Error".to_string(),
-                message: format!("Unable to connect to {} for authentication.", provider),
+                message: format!(
+                    "Unable to connect to {} for authentication.",
+                    provider.display_name()
+                ),
                 actions: vec![
                     "Check your internet connection".to_string(),
                     "Try again in a few moments".to_string(),

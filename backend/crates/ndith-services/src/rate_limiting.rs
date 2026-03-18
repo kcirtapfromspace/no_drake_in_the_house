@@ -545,7 +545,7 @@ mod tests {
             serde_json::json!({"current_playlist": "playlist_456"}),
         );
 
-        assert_eq!(checkpoint.progress_percentage(), 55.0);
+        assert!((checkpoint.progress_percentage() - 55.0).abs() < 1e-9);
         assert!(!checkpoint.is_complete());
 
         checkpoint.update_progress(

@@ -550,6 +550,7 @@
     min-height: 3rem;
     border-radius: var(--login-radius-lg);
     padding: 0.8125rem 0.95rem;
+    box-sizing: border-box;
     color: var(--login-text-primary);
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
@@ -561,6 +562,7 @@
       box-shadow var(--transition-fast, 120ms ease),
       transform var(--transition-fast, 120ms ease);
     font-size: var(--text-base, 0.9375rem);
+    line-height: 1.4;
     font-family: var(--font-family-sans, 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
     appearance: none;
   }

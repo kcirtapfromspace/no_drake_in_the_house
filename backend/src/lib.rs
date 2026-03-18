@@ -14,7 +14,7 @@
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
-    routing::{delete, get, post, put},
+    routing::{delete, get, put},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -851,11 +851,11 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
 fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
     router
         .route("/graph", any(full_platform_unavailable))
-        .route("/graph/{*path}", any(full_platform_unavailable))
+        .route("/graph/*path", any(full_platform_unavailable))
         .route("/analytics", any(full_platform_unavailable))
-        .route("/analytics/{*path}", any(full_platform_unavailable))
+        .route("/analytics/*path", any(full_platform_unavailable))
         .route("/news", any(full_platform_unavailable))
-        .route("/news/{*path}", any(full_platform_unavailable))
+        .route("/news/*path", any(full_platform_unavailable))
 }
 
 #[cfg(not(feature = "full-platform"))]
@@ -963,4 +963,16 @@ async fn comprehensive_monitoring_endpoint(
     );
 
     Ok(Json(monitoring_response))
+}
+
+#[cfg(all(test, not(feature = "full-platform")))]
+mod route_tests {
+    use super::{add_full_platform_routes, AppState};
+    use axum::Router;
+
+    #[test]
+    fn disabled_full_platform_routes_register_without_panicking() {
+        let router = Router::<AppState>::new();
+        let _ = add_full_platform_routes(router);
+    }
 }

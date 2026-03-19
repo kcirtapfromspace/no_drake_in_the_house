@@ -1,3 +1,4 @@
+# Public API plus internal scoped services for analytics, graph, and news.
 previews:
   generation: off
 

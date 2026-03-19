@@ -4,7 +4,10 @@ This repo includes a production-focused Render Blueprint at `render.yaml`.
 
 It provisions:
 
-- `ndith-backend`: image-backed web service for the Rust API
+- `ndith-backend`: public image-backed API service
+- `ndith-analytics`: internal image-backed analytics service
+- `ndith-graph`: internal image-backed graph service
+- `ndith-news`: internal image-backed news service
 - `ndith-frontend`: Docker-based web service that serves the SPA and reverse-proxies backend traffic on the same origin
 - `ndith-postgres`: managed Postgres
 - `ndith-redis`: Render Key Value for `REDIS_URL`
@@ -17,7 +20,14 @@ The production URL layout is:
 - Public backend hostname: `https://api.nodrakeinthe.house`
 - Browser-facing API traffic: `https://nodrakeinthe.house/api/...`
 
-The frontend no longer calls the backend's public `onrender.com` hostname directly. Render serves the SPA at the apex domain and proxies `/api`, `/oauth`, `/metrics`, and `/monitoring` to the backend over the private network. This avoids the CORS failure that drops the UI into the maintenance screen when the apex domain is attached before the backend CORS settings are updated.
+The frontend no longer calls the backend's public `onrender.com` hostname directly. Render serves the SPA at the apex domain and proxies:
+
+- `/api`, `/oauth`, `/metrics`, and `/monitoring` to `ndith-backend`
+- `/api/v1/analytics/*` to `ndith-analytics`
+- `/api/v1/graph/*` to `ndith-graph`
+- `/api/v1/news/*` to `ndith-news`
+
+All of those routes stay same-origin in the browser. This avoids the CORS failure that drops the UI into the maintenance screen when the apex domain is attached before the backend CORS settings are updated.
 
 Because Render Blueprint files do not support variable interpolation, the URL-sensitive backend variables stay as `sync: false` in `render.yaml` and must be supplied in the dashboard during the initial import.
 
@@ -26,10 +36,14 @@ Because Render Blueprint files do not support variable interpolation, the URL-se
 The backend deploys from a prebuilt Docker image instead of building on Render.
 
 Mainline publishing is handled by GitHub Actions in `.github/workflows/render-backend-image.yml`.
-On every push to `main`, the workflow publishes a `linux/amd64` image to GitHub Container Registry with:
+On every push to `main`, the workflow publishes `linux/amd64` images to GitHub Container Registry for:
 
-- an immutable short-SHA tag
-- `:latest` for the default Render image reference in `render.yaml`
+- API: `ghcr.io/kcirtapfromspace/ndith-backend:latest`
+- Analytics: `ghcr.io/kcirtapfromspace/ndith-backend:analytics-latest`
+- Graph: `ghcr.io/kcirtapfromspace/ndith-backend:graph-latest`
+- News: `ghcr.io/kcirtapfromspace/ndith-backend:news-latest`
+
+Each service also gets an immutable short-SHA tag.
 
 Workflow requirements:
 
@@ -46,7 +60,11 @@ Manual fallback:
 ## Import the Blueprint and first deploy
 
 1. Push the repo to `main` and wait for the `Publish Render Backend Image` workflow to finish.
-2. Confirm `ghcr.io/kcirtapfromspace/ndith-backend:latest` exists, or publish manually if you are bootstrapping outside GitHub Actions.
+2. Confirm the required GHCR tags exist before syncing the Blueprint:
+   - `ghcr.io/kcirtapfromspace/ndith-backend:latest`
+   - `ghcr.io/kcirtapfromspace/ndith-backend:analytics-latest`
+   - `ghcr.io/kcirtapfromspace/ndith-backend:graph-latest`
+   - `ghcr.io/kcirtapfromspace/ndith-backend:news-latest`
 3. In Render, choose `New` -> `Blueprint`.
 4. Point Render at this repository and approve `render.yaml`.
 5. Before the first deploy, fill in the required secrets:
@@ -77,6 +95,13 @@ The Blueprint wires these automatically:
 - `ENVIRONMENT=production`
 - `HOST=0.0.0.0`
 - Render injects `PORT` at runtime
+
+The internal services also inherit shared runtime config from the main backend service where appropriate:
+
+- `JWT_SECRET`
+- `CORS_ALLOWED_ORIGINS`
+- `DATABASE_URL`
+- `REDIS_URL`
 
 You must provide these during the Blueprint import because they depend on your public frontend URL:
 
@@ -143,6 +168,14 @@ curl -fsS https://ndith-frontend.onrender.com/api/health/ready
 curl -fsS https://ndith-backend.onrender.com/health
 ```
 
+If the internal microservices are up, the frontend same-origin routes should also respond:
+
+```bash
+curl -fsS https://ndith-frontend.onrender.com/api/v1/analytics/health || true
+curl -fsS https://ndith-frontend.onrender.com/api/v1/graph/health || true
+curl -fsS https://ndith-frontend.onrender.com/api/v1/news/health || true
+```
+
 Final custom-domain rollout checks:
 
 ```bash
@@ -171,7 +204,7 @@ FRONTEND_URL=https://nodrakeinthe.house \
 ## Notes
 
 - The frontend is now a Docker-based web service instead of a Render static site.
-- The frontend image serves the SPA and proxies backend traffic over Render's private network using `BACKEND_HOSTPORT`.
-- `render.yaml` points the backend at `ghcr.io/kcirtapfromspace/ndith-backend:latest`, which is maintained by the GitHub Actions publish workflow.
-- The backend health contract on Render remains `/health`, `/health/ready`, and `/metrics` on port `3000`.
+- The frontend image serves the SPA and proxies backend traffic over Render's private network using Render `hostport` bindings from the backend and internal services.
+- `render.yaml` now points at four GHCR tags from the same repo: `latest`, `analytics-latest`, `graph-latest`, and `news-latest`.
+- The public backend health contract on Render remains `/health`, `/health/ready`, and `/metrics` on port `3000`.
 - The frontend health check path on Render is `/render-health`.

@@ -1,7 +1,5 @@
 use chrono::Utc;
-use music_streaming_blocklist_backend::models::{
-    DnpListEntry, DnpListResponse, ProviderBadge,
-};
+use music_streaming_blocklist_backend::models::{DnpListEntry, DnpListResponse, ProviderBadge};
 use music_streaming_blocklist_backend::DnpListService;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
@@ -13,8 +11,8 @@ fn lazy_test_pool() -> PgPool {
         .expect("lazy postgres pool should be constructible for smoke tests")
 }
 
-#[test]
-fn dnp_service_constructs_for_router_integration_smoke() {
+#[tokio::test]
+async fn dnp_service_constructs_for_router_integration_smoke() {
     let _service = DnpListService::new(lazy_test_pool());
 }
 
@@ -42,6 +40,12 @@ fn dnp_list_response_serializes_entries_and_tags() {
 
     assert_eq!(value["total"], 1);
     assert_eq!(value["entries"][0]["artist_name"], "Smoke Test Artist");
-    assert_eq!(value["entries"][0]["provider_badges"][0]["provider"], "spotify");
-    assert_eq!(value["tags"], serde_json::json!(["high-risk", "manual-review"]));
+    assert_eq!(
+        value["entries"][0]["provider_badges"][0]["provider"],
+        "spotify"
+    );
+    assert_eq!(
+        value["tags"],
+        serde_json::json!(["high-risk", "manual-review"])
+    );
 }

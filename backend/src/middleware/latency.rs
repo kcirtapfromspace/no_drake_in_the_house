@@ -99,7 +99,7 @@ mod tests {
 
         // Verify metrics were recorded
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-        assert!(metrics_text.contains("kiro_http_request_latency_seconds"));
+        assert!(metrics_text.contains("kiro_http_http_request_latency_seconds"));
         assert!(metrics_text.contains("method=\"GET\""));
         assert!(metrics_text.contains("path=\"/test\""));
         assert!(metrics_text.contains("status_code=\"200\""));
@@ -127,7 +127,7 @@ mod tests {
 
         // Verify metrics were recorded with duration > 50ms
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-        assert!(metrics_text.contains("kiro_http_request_latency_seconds"));
+        assert!(metrics_text.contains("kiro_http_http_request_latency_seconds"));
         // The 50ms bucket should have count, and the 10ms bucket should not include this request
         assert!(metrics_text.contains("le=\"0.05\"")); // 50ms bucket exists
     }

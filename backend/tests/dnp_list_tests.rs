@@ -1,6 +1,4 @@
-use music_streaming_blocklist_backend::models::{
-    AddToDnpRequest, DnpEntry, UpdateDnpEntryRequest,
-};
+use music_streaming_blocklist_backend::models::{AddToDnpRequest, DnpEntry, UpdateDnpEntryRequest};
 use music_streaming_blocklist_backend::DnpListService;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use uuid::Uuid;
@@ -12,8 +10,8 @@ fn lazy_test_pool() -> PgPool {
         .expect("lazy postgres pool should be constructible for smoke tests")
 }
 
-#[test]
-fn dnp_service_smoke_constructs() {
+#[tokio::test]
+async fn dnp_service_smoke_constructs() {
     let _service = DnpListService::new(lazy_test_pool());
 }
 
@@ -41,7 +39,10 @@ fn update_request_allows_tag_only_updates() {
         note: None,
     };
 
-    assert_eq!(request.tags.as_deref(), Some(["updated".to_string()].as_slice()));
+    assert_eq!(
+        request.tags.as_deref(),
+        Some(["updated".to_string()].as_slice())
+    );
     assert!(request.note.is_none());
 }
 
@@ -59,6 +60,9 @@ fn dnp_entry_model_stores_basic_metadata() {
 
     assert_eq!(entry.user_id, user_id);
     assert_eq!(entry.artist_id, artist_id);
-    assert_eq!(entry.tags.as_deref(), Some(["archived".to_string()].as_slice()));
+    assert_eq!(
+        entry.tags.as_deref(),
+        Some(["archived".to_string()].as_slice())
+    );
     assert_eq!(entry.note.as_deref(), Some("Legacy blocklist entry"));
 }

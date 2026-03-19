@@ -401,6 +401,7 @@ impl AppError {
             AppError::OperationNotAllowed { reason } => {
                 format!("Operation not allowed: {}", reason)
             }
+            AppError::ConfigurationError { message } => message.clone(),
             _ => "An unexpected error occurred".to_string(),
         }
     }

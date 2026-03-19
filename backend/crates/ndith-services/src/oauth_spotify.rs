@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 use crate::oauth::OAuthProvider;
+use ndith_core::config::provider_callback_uri;
 use ndith_core::error::{AppError, Result};
 use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
@@ -65,7 +66,7 @@ impl SpotifyOAuthProvider {
                 message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
             })?;
         let redirect_uri = std::env::var("SPOTIFY_REDIRECT_URI")
-            .unwrap_or_else(|_| "http://localhost:3000/auth/callback/spotify".to_string());
+            .unwrap_or_else(|_| provider_callback_uri("spotify"));
 
         let config = OAuthConfig {
             client_id,

@@ -31,6 +31,7 @@ concurrency:
 
 env:
   IMAGE_REPO: ghcr.io/kcirtapfromspace/ndith-backend
+  RENDER_BACKEND_SERVICE_ID: srv-d6suog0gjchc73c41djg
 
 jobs:
   publish:
@@ -39,6 +40,7 @@ jobs:
     env:
       BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || 'render-api' }}
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
@@ -103,14 +105,29 @@ jobs:
             --data-urlencode "imgURL=${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}" \
             "$RENDER_DEPLOY_HOOK_URL"
 
+      - name: Trigger Render deploy via API
+        if: ${{ env.RENDER_DEPLOY_HOOK_URL == '' && env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --request POST \
+            --url "https://api.render.com/v1/services/${RENDER_BACKEND_SERVICE_ID}/deploys" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data '{}'
+
       - name: Summarize published tags
         run: |
           echo "Published tags:"
           echo "${{ steps.meta.outputs.tags }}"
           if [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
             echo "Triggered Render deploy for ${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}"
+          elif [ -n "${RENDER_API_KEY}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            echo "Triggered Render deploy via Render API for service ${RENDER_BACKEND_SERVICE_ID}"
           elif [ -n "${RENDER_DEPLOY_HOOK_URL}" ]; then
             echo "Render deploy hook configured, but skipped because this is not the default branch."
+          elif [ -n "${RENDER_API_KEY}" ]; then
+            echo "Render API key configured, but skipped because this is not the default branch."
           else
-            echo "Render deploy hook not configured; image publish only."
+            echo "Render deploy hook/API key not configured; image publish only."
           fi

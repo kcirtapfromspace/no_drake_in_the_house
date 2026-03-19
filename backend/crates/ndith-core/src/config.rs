@@ -679,9 +679,86 @@ pub fn env_or_default(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
 }
 
+fn non_empty_env(key: &str) -> Option<String> {
+    std::env::var(key)
+        .ok()
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn split_url_base(value: &str) -> Option<(&str, &str)> {
+    let trimmed = value.trim().trim_end_matches('/');
+    let (scheme, rest) = trimmed.split_once("://")?;
+    let authority = rest.split('/').next()?;
+    if authority.is_empty() {
+        None
+    } else {
+        Some((scheme, authority))
+    }
+}
+
+fn derive_backend_authority(frontend_authority: &str) -> String {
+    let (host, explicit_port) = frontend_authority
+        .split_once(':')
+        .map_or((frontend_authority, None), |(host, port)| {
+            (host, Some(port))
+        });
+
+    let backend_host = if host.starts_with("api.") {
+        host.to_string()
+    } else if matches!(host, "localhost" | "127.0.0.1") {
+        "localhost".to_string()
+    } else if host.ends_with("-frontend.onrender.com") {
+        host.replacen("-frontend.onrender.com", "-backend.onrender.com", 1)
+    } else if host.ends_with(".onrender.com") && host.contains("frontend") {
+        host.replacen("frontend", "backend", 1)
+    } else {
+        format!("api.{}", host)
+    };
+
+    if backend_host == "localhost" {
+        "localhost:3000".to_string()
+    } else if let Some(port) = explicit_port {
+        format!("{}:{}", backend_host, port)
+    } else {
+        backend_host
+    }
+}
+
+pub fn public_frontend_base_url() -> String {
+    non_empty_env("OAUTH_FRONTEND_BASE_URL").unwrap_or_else(|| "http://localhost:5050".to_string())
+}
+
+pub fn public_backend_base_url() -> String {
+    if let Some(explicit) = non_empty_env("OAUTH_BACKEND_BASE_URL")
+        .or_else(|| non_empty_env("PUBLIC_BACKEND_BASE_URL"))
+        .or_else(|| non_empty_env("RENDER_EXTERNAL_URL"))
+    {
+        return explicit;
+    }
+
+    let frontend_base = public_frontend_base_url();
+    if let Some((scheme, authority)) = split_url_base(&frontend_base) {
+        return format!("{}://{}", scheme, derive_backend_authority(authority));
+    }
+
+    "http://localhost:3000".to_string()
+}
+
+pub fn provider_callback_uri(provider: &str) -> String {
+    format!(
+        "{}/auth/callback/{}",
+        public_backend_base_url().trim_end_matches('/'),
+        provider
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_environment_detection() {
@@ -693,5 +770,37 @@ mod tests {
     fn test_default_jwt_secret() {
         let secret = AuthConfig::default_jwt_secret();
         assert!(secret.len() > 32);
+    }
+
+    #[test]
+    fn test_provider_callback_uri_uses_custom_domain_api_subdomain() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
+        std::env::remove_var("OAUTH_BACKEND_BASE_URL");
+        std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
+
+        assert_eq!(
+            provider_callback_uri("tidal"),
+            "https://api.nodrakeinthe.house/auth/callback/tidal"
+        );
+
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+    }
+
+    #[test]
+    fn test_provider_callback_uri_derives_backend_from_render_host() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::set_var("RENDER_EXTERNAL_URL", "https://ndith-backend.onrender.com");
+        std::env::remove_var("OAUTH_BACKEND_BASE_URL");
+        std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
+
+        assert_eq!(
+            provider_callback_uri("youtube"),
+            "https://ndith-backend.onrender.com/auth/callback/youtube"
+        );
+
+        std::env::remove_var("RENDER_EXTERNAL_URL");
     }
 }

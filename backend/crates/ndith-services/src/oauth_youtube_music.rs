@@ -8,6 +8,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::oauth::{BaseOAuthProvider, OAuthProvider};
+use ndith_core::config::provider_callback_uri;
 use ndith_core::error::oauth::{parse_provider_error, OAuthError};
 use ndith_core::error::{AppError, Result};
 use ndith_core::models::oauth::{
@@ -52,7 +53,7 @@ impl YouTubeMusicOAuthProvider {
                 message: "YOUTUBE_MUSIC_CLIENT_SECRET or GOOGLE_CLIENT_SECRET environment variable is required".to_string(),
             })?;
         let redirect_uri = std::env::var("YOUTUBE_MUSIC_REDIRECT_URI")
-            .unwrap_or_else(|_| "http://localhost:3000/auth/callback/youtube_music".to_string());
+            .unwrap_or_else(|_| provider_callback_uri("youtube"));
 
         Self::with_credentials(client_id, client_secret, redirect_uri)
     }

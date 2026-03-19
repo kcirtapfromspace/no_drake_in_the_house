@@ -316,8 +316,16 @@ pub async fn get_developer_token(
         .apple_music_service
         .generate_developer_token()
         .await
-        .map_err(|e| AppError::Internal {
-            message: Some(format!("Failed to generate developer token: {}", e)),
+        .map_err(|e| {
+            let message = e.to_string();
+            if message.contains("Apple Music is not configured") || message.contains("APPLE_MUSIC_")
+            {
+                AppError::ConfigurationError { message }
+            } else {
+                AppError::Internal {
+                    message: Some(format!("Failed to generate developer token: {}", message)),
+                }
+            }
         })?;
 
     Ok(Json(DeveloperTokenResponse {

@@ -33,6 +33,9 @@ pub struct AppleMusicConfig {
     pub api_base_url: String,
 }
 
+const APPLE_MUSIC_PLACEHOLDER_PRIVATE_KEY: &str =
+    "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----";
+
 fn normalize_private_key(raw_key: String) -> String {
     raw_key
         .trim()
@@ -41,35 +44,63 @@ fn normalize_private_key(raw_key: String) -> String {
         .replace("\\r", "\n")
 }
 
+fn missing_or_placeholder(value: &str) -> bool {
+    let trimmed = value.trim();
+    trimmed.is_empty()
+        || trimmed == "YOUR_TEAM_ID"
+        || trimmed == "YOUR_KEY_ID"
+        || trimmed == APPLE_MUSIC_PLACEHOLDER_PRIVATE_KEY
+        || trimmed.starts_with("YOUR_")
+}
+
 impl Default for AppleMusicConfig {
     fn default() -> Self {
         // Try to read private key from file path first, then fall back to direct env var
-        let private_key =
-            if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
-                normalize_private_key(std::fs::read_to_string(&key_path).unwrap_or_else(|e| {
+        let private_key = if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
+            match std::fs::read_to_string(&key_path) {
+                Ok(contents) => normalize_private_key(contents),
+                Err(error) => {
                     tracing::warn!(
                         "Failed to read Apple Music private key from {}: {}",
                         key_path,
-                        e
+                        error
                     );
-                    "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
-                }))
-            } else {
-                normalize_private_key(std::env::var("APPLE_MUSIC_PRIVATE_KEY").unwrap_or_else(
-                    |_| "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string(),
-                ))
-            };
+                    String::new()
+                }
+            }
+        } else {
+            normalize_private_key(std::env::var("APPLE_MUSIC_PRIVATE_KEY").unwrap_or_default())
+        };
 
         Self {
-            team_id: std::env::var("APPLE_MUSIC_TEAM_ID")
-                .unwrap_or_else(|_| "YOUR_TEAM_ID".to_string()),
-            key_id: std::env::var("APPLE_MUSIC_KEY_ID")
-                .unwrap_or_else(|_| "YOUR_KEY_ID".to_string()),
+            team_id: std::env::var("APPLE_MUSIC_TEAM_ID").unwrap_or_default(),
+            key_id: std::env::var("APPLE_MUSIC_KEY_ID").unwrap_or_default(),
             private_key,
             bundle_id: std::env::var("APPLE_MUSIC_BUNDLE_ID")
                 .unwrap_or_else(|_| "com.nodrakeinthehouse".to_string()),
             api_base_url: "https://api.music.apple.com".to_string(),
         }
+    }
+}
+
+impl AppleMusicConfig {
+    fn validate_for_developer_token(&self) -> Result<()> {
+        if missing_or_placeholder(&self.team_id)
+            || missing_or_placeholder(&self.key_id)
+            || missing_or_placeholder(&self.private_key)
+        {
+            return Err(anyhow!(
+                "Apple Music is not configured on the server. Set APPLE_MUSIC_TEAM_ID, APPLE_MUSIC_KEY_ID, and APPLE_MUSIC_PRIVATE_KEY."
+            ));
+        }
+
+        if !self.private_key.contains("-----BEGIN PRIVATE KEY-----") {
+            return Err(anyhow!(
+                "APPLE_MUSIC_PRIVATE_KEY must contain a valid PEM private key."
+            ));
+        }
+
+        Ok(())
     }
 }
 
@@ -113,6 +144,8 @@ impl AppleMusicService {
 
     /// Generate Apple Music developer token (JWT)
     pub async fn generate_developer_token(&self) -> Result<AppleMusicDeveloperToken> {
+        self.config.validate_for_developer_token()?;
+
         // Check if we have a valid cached token
         {
             let cache = self.developer_token_cache.read().await;
@@ -145,7 +178,7 @@ impl AppleMusicService {
                     e,
                     &self.config.private_key.chars().take(50).collect::<String>()
                 );
-                anyhow!("Failed to parse private key: {}", e)
+                anyhow!("APPLE_MUSIC_PRIVATE_KEY is invalid: {}", e)
             })?;
 
         let token = encode(&header, &claims, &encoding_key).map_err(|e| {

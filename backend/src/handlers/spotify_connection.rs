@@ -24,6 +24,7 @@ use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::AppState;
+use ndith_core::config::provider_callback_uri;
 use std::collections::HashMap;
 
 /// Required Spotify scopes for DNP enforcement
@@ -37,8 +38,6 @@ pub const SPOTIFY_CONNECTION_SCOPES: &[&str] = &[
     "user-follow-modify",
 ];
 
-const DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI: &str = "http://localhost:3000/auth/callback/spotify";
-
 /// Create a Spotify OAuth provider configured with connection-specific scopes
 fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
     let client_id =
@@ -50,7 +49,8 @@ fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
             message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
         })?;
     let redirect_uri = std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
-        .unwrap_or_else(|_| DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI.to_string());
+        .or_else(|_| std::env::var("SPOTIFY_REDIRECT_URI"))
+        .unwrap_or_else(|_| provider_callback_uri("spotify"));
 
     let config = OAuthConfig {
         client_id,
@@ -174,7 +174,8 @@ pub async fn spotify_authorize_handler(
     // Determine redirect URI (override if provided in query)
     let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
         std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
-            .unwrap_or_else(|_| DEFAULT_SPOTIFY_CONNECTION_REDIRECT_URI.to_string())
+            .or_else(|_| std::env::var("SPOTIFY_REDIRECT_URI"))
+            .unwrap_or_else(|_| provider_callback_uri("spotify"))
     });
 
     // Initiate OAuth flow

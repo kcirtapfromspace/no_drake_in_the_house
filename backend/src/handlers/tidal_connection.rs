@@ -26,6 +26,7 @@ use crate::services::tidal::{TidalConfig, TidalService};
 use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::AppState;
+use ndith_core::config::provider_callback_uri;
 
 /// Query parameters for the authorize endpoint
 #[derive(Debug, Deserialize)]
@@ -147,8 +148,7 @@ pub async fn tidal_authorize_handler(
 
     // Determine redirect URI
     let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
-        std::env::var("TIDAL_REDIRECT_URI")
-            .unwrap_or_else(|_| "http://localhost:3000/auth/callback/tidal".to_string())
+        std::env::var("TIDAL_REDIRECT_URI").unwrap_or_else(|_| provider_callback_uri("tidal"))
     });
     let requested_scopes = TidalService::configured_oauth_scopes();
 
@@ -276,7 +276,7 @@ pub async fn tidal_callback_handler(
                 .map(str::to_string)
         })
         .or_else(|| std::env::var("TIDAL_REDIRECT_URI").ok())
-        .unwrap_or_else(|| "http://localhost:3000/auth/callback/tidal".to_string());
+        .unwrap_or_else(|| provider_callback_uri("tidal"));
 
     let client_unique_key = state_data
         .client_unique_key

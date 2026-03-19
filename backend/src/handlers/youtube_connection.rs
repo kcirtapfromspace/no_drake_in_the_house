@@ -22,6 +22,7 @@ use crate::services::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::AppState;
+use ndith_core::config::provider_callback_uri;
 
 /// Query parameters for the authorize endpoint
 #[derive(Debug, Deserialize)]
@@ -141,7 +142,7 @@ pub async fn youtube_authorize_handler(
     // Determine redirect URI
     let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
         std::env::var("YOUTUBE_MUSIC_REDIRECT_URI")
-            .unwrap_or_else(|_| "http://localhost:3000/auth/callback/youtube".to_string())
+            .unwrap_or_else(|_| provider_callback_uri("youtube"))
     });
 
     // Initiate OAuth flow

@@ -79,6 +79,23 @@ jobs:
           analytics=false
           news=false
 
+          if has_any_change '^\.github/workflows/ci\.yml$'; then
+            frontend=true
+            backend_any=true
+            render_smoke=true
+            backend_quality=true
+            e2e=true
+            apple_music_sandbox=true
+            api_package=true
+            api_render=true
+            api_full=true
+            core=true
+            db=true
+            services=true
+            analytics=true
+            news=true
+          fi
+
           if has_any_change '^frontend/'; then
             frontend=true
           fi

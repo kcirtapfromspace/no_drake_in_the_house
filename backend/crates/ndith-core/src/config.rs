@@ -755,12 +755,9 @@ fn normalized_oauth_callback_provider(provider: &str) -> &str {
 pub fn provider_callback_uri(provider: &str) -> String {
     let provider = normalized_oauth_callback_provider(provider);
 
-    let callback_base = match provider {
-        // Streaming connection providers complete the code exchange from the frontend callback
-        // screen, so keep their provider-facing redirect URIs on the apex domain.
-        "spotify" | "tidal" | "youtube" => public_frontend_base_url(),
-        _ => public_backend_base_url(),
-    };
+    // Keep provider-facing OAuth redirects on the backend callback route. The backend owns
+    // the code exchange and then forwards the browser back to the SPA callback screen.
+    let callback_base = public_backend_base_url();
 
     format!(
         "{}/auth/callback/{}",
@@ -789,19 +786,20 @@ mod tests {
     }
 
     #[test]
-    fn test_provider_callback_uri_uses_frontend_callback_for_streaming_providers() {
+    fn test_provider_callback_uri_uses_backend_callback_for_streaming_providers() {
         let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
-        std::env::remove_var("RENDER_EXTERNAL_URL");
+        std::env::set_var("RENDER_EXTERNAL_URL", "https://api.nodrakeinthe.house");
         std::env::remove_var("OAUTH_BACKEND_BASE_URL");
         std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
 
         assert_eq!(
             provider_callback_uri("tidal"),
-            "https://nodrakeinthe.house/auth/callback/tidal"
+            "https://api.nodrakeinthe.house/auth/callback/tidal"
         );
 
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
     }
 
     #[test]

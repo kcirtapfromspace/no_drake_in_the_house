@@ -247,6 +247,10 @@
     (libraryStatsRows ?? []).map((row) => [row.provider, row])
   );
 
+  function getPlatformById(platformId: string): Platform | undefined {
+    return platforms.find((platform) => platform.id === platformId);
+  }
+
   function getPlatformStatusColor(status: PlatformStatus): string {
     switch (status) {
       case 'ready': return 'bg-green-500/20 text-green-400 border-green-500/30';
@@ -454,6 +458,16 @@
     try {
       if (platform.id === 'apple') {
         const preview = await loadAppleLibraryPreview(true);
+        let importedTracks: ImportedLibraryTrack[] = [];
+        try {
+          importedTracks = await fetchImportedLibraryTracks('apple_music');
+        } catch (error) {
+          console.warn('Failed to load Apple imported library cache:', error);
+        }
+
+        if (importedTracks.length > 0) {
+          return summarizeImportedLibrary(platform, importedTracks);
+        }
 
         if (!preview) {
           return {
@@ -487,6 +501,7 @@
           lastSynced: preview.scannedAt,
           source: 'live_api',
           status: 'ready',
+          message: 'Preview loaded from Apple Music. Use "Sync Library" or "Sync All" to import items into the cached library views.',
         };
       }
 
@@ -949,15 +964,39 @@
   async function handleTriggerSync() {
     if (selectedPlatforms.length === 0) return;
 
-    const request: TriggerSyncRequest = {
-      platforms: selectedPlatforms,
-      sync_type: syncType,
-      priority,
-    };
+    const directSyncPlatforms = selectedPlatforms
+      .map((platformId) => getPlatformById(platformId))
+      .filter((platform): platform is Platform => Boolean(platform))
+      .filter(
+        (platform) =>
+          Boolean(platform.connectionProvider) &&
+          hasActiveConnection(platform.connectionProvider) &&
+          ['apple', 'spotify', 'youtube', 'tidal'].includes(platform.id)
+      );
 
-    const result = await syncActions.triggerSync(request);
-    if (result.success) {
+    const directSyncPlatformIds = new Set(directSyncPlatforms.map((platform) => platform.id));
+    const pipelinePlatforms = selectedPlatforms.filter(
+      (platformId) => !directSyncPlatformIds.has(platformId)
+    );
+
+    if (directSyncPlatforms.length > 0) {
       closeTriggerModal();
+      for (const platform of directSyncPlatforms) {
+        await syncLibrary(platform);
+      }
+    }
+
+    if (pipelinePlatforms.length > 0) {
+      const request: TriggerSyncRequest = {
+        platforms: pipelinePlatforms,
+        sync_type: syncType,
+        priority,
+      };
+
+      const result = await syncActions.triggerSync(request);
+      if (result.success) {
+        closeTriggerModal();
+      }
     }
   }
 
@@ -1398,21 +1437,47 @@
               <div class="space-y-2 text-sm text-zinc-400 mb-4">
                 {#if platform.id === 'apple' && appleLibrary}
                   <div class="flex justify-between">
-                    <span>Library songs:</span>
+                    <span>Preview songs:</span>
                     <span class="font-medium text-zinc-300">{appleLibrary.tracksCount.toLocaleString()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span>Library albums:</span>
+                    <span>Preview albums:</span>
                     <span class="font-medium text-zinc-300">{appleLibrary.albumsCount.toLocaleString()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span>Library playlists:</span>
+                    <span>Preview playlists:</span>
                     <span class="font-medium text-zinc-300">{appleLibrary.playlistsCount.toLocaleString()}</span>
                   </div>
                   <div class="flex justify-between">
-                    <span>Last synced:</span>
+                    <span>Preview refreshed:</span>
                     <span class="font-medium text-zinc-300">{formatDate(appleLibrary.scannedAt)}</span>
                   </div>
+                  {#if libraryRow && libraryRow.source === 'imported_cache'}
+                    <div class="flex justify-between">
+                      <span>Imported items:</span>
+                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.totalItems)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Imported songs:</span>
+                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.songs)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Imported albums:</span>
+                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.albums)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Imported playlists:</span>
+                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.playlists)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Imported cache:</span>
+                      <span class="font-medium text-zinc-300">{formatDate(libraryRow.lastSynced)}</span>
+                    </div>
+                  {:else}
+                    <div class="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      Apple preview is loaded, but the cached library is still empty. Use <span class="font-semibold text-white">Sync Library</span> or <span class="font-semibold text-white">Sync All</span> to import items for the sections below.
+                    </div>
+                  {/if}
                   <button
                     type="button"
                     on:click={async () => {

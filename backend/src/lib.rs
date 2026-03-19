@@ -12,14 +12,14 @@
 //! - Root binary: Handlers, middleware, router, main entry point
 #![allow(clippy::result_large_err)]
 
+#[cfg(feature = "full-platform")]
+use axum::routing::post;
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
     routing::{delete, get, put},
     Router,
 };
-#[cfg(feature = "full-platform")]
-use axum::routing::post;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::PgPool;

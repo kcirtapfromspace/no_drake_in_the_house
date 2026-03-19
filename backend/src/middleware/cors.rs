@@ -211,12 +211,53 @@ pub async fn cors_preflight_handler() -> axum::response::Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::env;
+    use std::{
+        env,
+        sync::{Mutex, MutexGuard, OnceLock},
+    };
+
+    fn env_lock() -> MutexGuard<'static, ()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("env lock poisoned")
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl EnvVarGuard {
+        fn set(key: &'static str, value: &str) -> Self {
+            let original = env::var(key).ok();
+            env::set_var(key, value);
+            Self { key, original }
+        }
+
+        fn remove(key: &'static str) -> Self {
+            let original = env::var(key).ok();
+            env::remove_var(key);
+            Self { key, original }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            if let Some(original) = &self.original {
+                env::set_var(self.key, original);
+            } else {
+                env::remove_var(self.key);
+            }
+        }
+    }
 
     #[test]
     fn test_cors_origins_parsing() {
+        let _env_lock = env_lock();
         // Test parsing of comma-separated origins
-        env::set_var(
+        let _origins_guard = EnvVarGuard::set(
             "CORS_ALLOWED_ORIGINS",
             "https://example.com,https://app.example.com",
         );
@@ -225,14 +266,13 @@ mod tests {
         assert_eq!(origins.len(), 2);
         assert!(origins.contains(&"https://example.com".to_string()));
         assert!(origins.contains(&"https://app.example.com".to_string()));
-
-        env::remove_var("CORS_ALLOWED_ORIGINS");
     }
 
     #[test]
     fn test_cors_origins_with_spaces() {
+        let _env_lock = env_lock();
         // Test parsing with spaces around commas
-        env::set_var(
+        let _origins_guard = EnvVarGuard::set(
             "CORS_ALLOWED_ORIGINS",
             " https://example.com , https://app.example.com ",
         );
@@ -241,14 +281,13 @@ mod tests {
         assert_eq!(origins.len(), 2);
         assert!(origins.contains(&"https://example.com".to_string()));
         assert!(origins.contains(&"https://app.example.com".to_string()));
-
-        env::remove_var("CORS_ALLOWED_ORIGINS");
     }
 
     #[test]
     fn test_cors_validation_production() {
-        env::set_var("ENVIRONMENT", "production");
-        env::set_var(
+        let _env_lock = env_lock();
+        let _environment_guard = EnvVarGuard::set("ENVIRONMENT", "production");
+        let _origins_guard = EnvVarGuard::set(
             "CORS_ALLOWED_ORIGINS",
             "https://example.com,https://app.example.com",
         );
@@ -262,28 +301,24 @@ mod tests {
         // Test localhost in production
         env::set_var("CORS_ALLOWED_ORIGINS", "https://localhost:3000");
         assert!(validate_cors_config().is_err());
-
-        env::remove_var("ENVIRONMENT");
-        env::remove_var("CORS_ALLOWED_ORIGINS");
     }
 
     #[test]
     fn test_cors_validation_development() {
-        env::set_var("ENVIRONMENT", "development");
-        env::set_var(
+        let _env_lock = env_lock();
+        let _environment_guard = EnvVarGuard::set("ENVIRONMENT", "development");
+        let _origins_guard = EnvVarGuard::set(
             "CORS_ALLOWED_ORIGINS",
             "http://localhost:3000,http://127.0.0.1:5000",
         );
 
         assert!(validate_cors_config().is_ok());
-
-        env::remove_var("ENVIRONMENT");
-        env::remove_var("CORS_ALLOWED_ORIGINS");
     }
 
     #[test]
     fn test_cors_no_origins_env() {
-        env::remove_var("CORS_ALLOWED_ORIGINS");
+        let _env_lock = env_lock();
+        let _origins_guard = EnvVarGuard::remove("CORS_ALLOWED_ORIGINS");
 
         let origins = get_allowed_origins_from_env();
         assert!(origins.is_none());
@@ -291,11 +326,10 @@ mod tests {
 
     #[test]
     fn test_cors_empty_origins_env() {
-        env::set_var("CORS_ALLOWED_ORIGINS", "");
+        let _env_lock = env_lock();
+        let _origins_guard = EnvVarGuard::set("CORS_ALLOWED_ORIGINS", "");
 
         let origins = get_allowed_origins_from_env().unwrap();
         assert!(origins.is_empty());
-
-        env::remove_var("CORS_ALLOWED_ORIGINS");
     }
 }

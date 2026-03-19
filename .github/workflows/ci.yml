@@ -12,9 +12,219 @@ env:
   RENDER_BACKEND_CARGO_FEATURES: render-api
 
 jobs:
+  changes:
+    name: Detect Changed Areas
+    runs-on: ubuntu-latest
+    outputs:
+      backend_quality: ${{ steps.detect.outputs.backend_quality }}
+      render_smoke: ${{ steps.detect.outputs.render_smoke }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+      e2e: ${{ steps.detect.outputs.e2e }}
+      apple_music_sandbox: ${{ steps.detect.outputs.apple_music_sandbox }}
+      backend_build_required: ${{ steps.detect.outputs.backend_build_required }}
+      backend_test_required: ${{ steps.detect.outputs.backend_test_required }}
+      backend_build_targets: ${{ steps.detect.outputs.backend_build_targets }}
+      backend_test_targets: ${{ steps.detect.outputs.backend_test_targets }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed files
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "pull_request" ]]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+          else
+            base="${{ github.event.before }}"
+            head="${GITHUB_SHA}"
+            if [[ "$base" == "0000000000000000000000000000000000000000" ]]; then
+              base="$(git rev-list --max-parents=0 "$head")"
+            fi
+          fi
+
+          git diff --name-only "$base" "$head" > changed_files.txt
+
+          echo "Changed files:"
+          cat changed_files.txt || true
+
+          has_any_change() {
+            for pattern in "$@"; do
+              if grep -Eq "$pattern" changed_files.txt; then
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          add_target() {
+            local name="$1"
+            local var_name="$2"
+            local current="${!var_name}"
+            if [[ "$current" != *",$name,"* ]]; then
+              printf -v "$var_name" "%s%s," "$current" "$name"
+            fi
+          }
+
+          workflow=false
+          frontend=false
+          backend_any=false
+          render_smoke=false
+          backend_quality=false
+          e2e=false
+          apple_music_sandbox=false
+          api_render=false
+          api_full=false
+          core=false
+          db=false
+          services=false
+          analytics=false
+          news=false
+
+          if has_any_change '^\.github/workflows/ci\.yml$'; then
+            workflow=true
+          fi
+
+          if [[ "$workflow" == "true" ]]; then
+            frontend=true
+            backend_any=true
+            render_smoke=true
+            backend_quality=true
+            e2e=true
+            apple_music_sandbox=true
+            api_render=true
+            api_full=true
+            core=true
+            db=true
+            services=true
+            analytics=true
+            news=true
+          else
+            if has_any_change '^frontend/'; then
+              frontend=true
+            fi
+
+            if has_any_change '^backend/'; then
+              backend_any=true
+              backend_quality=true
+            fi
+
+            if has_any_change '^backend/' '^render\.yaml$'; then
+              render_smoke=true
+            fi
+
+            if has_any_change '^backend/crates/ndith-core/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              core=true
+            fi
+
+            if has_any_change '^backend/crates/ndith-db/' '^backend/migrations/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              db=true
+            fi
+
+            if has_any_change '^backend/crates/ndith-services/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              services=true
+            fi
+
+            if has_any_change '^backend/crates/ndith-analytics/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              analytics=true
+            fi
+
+            if has_any_change '^backend/crates/ndith-news/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              news=true
+            fi
+
+            if has_any_change '^backend/src/' '^backend/tests/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$' '^backend/crates/ndith-core/' '^backend/crates/ndith-db/' '^backend/crates/ndith-services/' '^backend/migrations/'; then
+              api_render=true
+            fi
+
+            if [[ "$api_render" == "true" || "$analytics" == "true" || "$news" == "true" ]]; then
+              api_full=true
+            fi
+
+            if [[ "$frontend" == "true" || "$api_render" == "true" ]]; then
+              e2e=true
+            fi
+
+            if has_any_change '^backend/tests/apple_music_sandbox_tests\.rs$' '^backend/crates/ndith-services/src/apple_music.*' '^backend/crates/ndith-services/src/oauth_apple.*' '^backend/src/handlers/oauth.*' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+              apple_music_sandbox=true
+            fi
+          fi
+
+          backend_build_targets=","
+          backend_test_targets=","
+
+          if [[ "$api_full" == "true" ]]; then
+            add_target "api" backend_build_targets
+            add_target "api" backend_test_targets
+            add_target "api-graph-ladybugdb" backend_build_targets
+          fi
+
+          if [[ "$api_render" == "true" ]]; then
+            add_target "api-render" backend_build_targets
+          fi
+
+          if [[ "$core" == "true" ]]; then
+            add_target "core" backend_build_targets
+            add_target "core" backend_test_targets
+          fi
+
+          if [[ "$db" == "true" ]]; then
+            add_target "db" backend_build_targets
+            add_target "db" backend_test_targets
+          fi
+
+          if [[ "$services" == "true" ]]; then
+            add_target "services" backend_build_targets
+            add_target "services" backend_test_targets
+          fi
+
+          if [[ "$news" == "true" ]]; then
+            add_target "news" backend_build_targets
+            add_target "news" backend_test_targets
+          fi
+
+          if [[ "$analytics" == "true" ]]; then
+            add_target "analytics" backend_build_targets
+            add_target "analytics" backend_test_targets
+            add_target "analytics-graph-ladybugdb" backend_build_targets
+            add_target "analytics-graph-ladybugdb" backend_test_targets
+          fi
+
+          if [[ "$backend_build_targets" == "," ]]; then
+            backend_build_required=false
+          else
+            backend_build_required=true
+          fi
+
+          if [[ "$backend_test_targets" == "," ]]; then
+            backend_test_required=false
+          else
+            backend_test_required=true
+          fi
+
+          {
+            echo "backend_quality=$backend_quality"
+            echo "render_smoke=$render_smoke"
+            echo "frontend=$frontend"
+            echo "e2e=$e2e"
+            echo "apple_music_sandbox=$apple_music_sandbox"
+            echo "backend_build_required=$backend_build_required"
+            echo "backend_test_required=$backend_test_required"
+            echo "backend_build_targets=$backend_build_targets"
+            echo "backend_test_targets=$backend_test_targets"
+          } >> "$GITHUB_OUTPUT"
+
   render-backend-image-smoke:
     name: Render Backend Image Smoke
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.render_smoke == 'true' }}
 
     steps:
       - name: Checkout code
@@ -47,10 +257,11 @@ jobs:
           cache-from: type=gha,scope=ci-render-backend-image
           cache-to: type=gha,mode=max,scope=ci-render-backend-image
 
-  # Workspace-wide Rust quality gates
   backend-rust-quality:
     name: Backend Rust Quality
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.backend_quality == 'true' }}
 
     steps:
       - name: Checkout code
@@ -88,11 +299,15 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
         continue-on-error: true
 
-  # Package- and feature-level Rust builds. These are package build lanes until
-  # the backend is split into separately deployed services.
   backend-component-build:
     name: Backend Component Builds (${{ matrix.target.name }})
     runs-on: ubuntu-latest
+    needs: changes
+    if: >-
+      ${{
+        needs.changes.outputs.backend_build_required == 'true' &&
+        contains(needs.changes.outputs.backend_build_targets, format(',{0},', matrix.target.name))
+      }}
 
     strategy:
       fail-fast: false
@@ -149,10 +364,15 @@ jobs:
           RUST_LOG: warn
         run: ${{ matrix.target.command }}
 
-  # Package- and feature-level Rust coverage
   backend-component-test:
     name: Backend Component Tests (${{ matrix.target.name }})
     runs-on: ubuntu-latest
+    needs: changes
+    if: >-
+      ${{
+        needs.changes.outputs.backend_test_required == 'true' &&
+        contains(needs.changes.outputs.backend_test_targets, format(',{0},', matrix.target.name))
+      }}
 
     strategy:
       fail-fast: false
@@ -233,10 +453,11 @@ jobs:
           RUST_LOG: warn
         run: ${{ matrix.target.command }}
 
-  # Frontend unit tests
   frontend-unit-test:
     name: Frontend Unit Tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.frontend == 'true' }}
 
     steps:
       - name: Checkout code
@@ -262,11 +483,28 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
 
-  # E2E browser tests
   e2e-test:
     name: E2E Browser Tests
     runs-on: ubuntu-latest
-    needs: [render-backend-image-smoke, backend-rust-quality, backend-component-build, backend-component-test, frontend-unit-test]
+    needs:
+      [
+        changes,
+        render-backend-image-smoke,
+        backend-rust-quality,
+        backend-component-build,
+        backend-component-test,
+        frontend-unit-test,
+      ]
+    if: >-
+      ${{
+        always() &&
+        needs.changes.outputs.e2e == 'true' &&
+        contains(fromJSON('["success","skipped"]'), needs.render-backend-image-smoke.result) &&
+        contains(fromJSON('["success","skipped"]'), needs.backend-rust-quality.result) &&
+        contains(fromJSON('["success","skipped"]'), needs.backend-component-build.result) &&
+        contains(fromJSON('["success","skipped"]'), needs.backend-component-test.result) &&
+        contains(fromJSON('["success","skipped"]'), needs.frontend-unit-test.result)
+      }}
 
     services:
       postgres:
@@ -377,12 +615,17 @@ jobs:
           path: frontend/test-results/
           retention-days: 7
 
-  # Cross-browser E2E tests (runs on main branch only)
   e2e-cross-browser:
     name: Cross-Browser E2E Tests
     runs-on: ubuntu-latest
-    needs: [e2e-test]
-    if: github.ref == 'refs/heads/main'
+    needs: [changes, e2e-test]
+    if: >-
+      ${{
+        always() &&
+        github.ref == 'refs/heads/main' &&
+        needs.changes.outputs.e2e == 'true' &&
+        needs.e2e-test.result == 'success'
+      }}
 
     services:
       postgres:
@@ -490,14 +733,19 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 30
 
-  # Apple Music API Sandbox Tests
-  # Validates Apple Music API interactions against real Apple Music API
-  # Only runs when Apple Music secrets are configured
   apple-music-sandbox:
     name: Apple Music Sandbox Tests
     runs-on: ubuntu-latest
-    needs: [backend-component-build, backend-component-test]
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    needs: [changes, backend-component-build, backend-component-test]
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/main' &&
+        needs.changes.outputs.apple_music_sandbox == 'true' &&
+        contains(fromJSON('["success","skipped"]'), needs.backend-component-build.result) &&
+        contains(fromJSON('["success","skipped"]'), needs.backend-component-test.result)
+      }}
 
     steps:
       - name: Checkout code
@@ -559,22 +807,47 @@ jobs:
         if: always()
         run: rm -f /tmp/apple_music_key.p8
 
-  # Summary job
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
-    needs: [backend-rust-quality, backend-component-build, backend-component-test, frontend-unit-test, e2e-test]
+    needs:
+      [
+        changes,
+        render-backend-image-smoke,
+        backend-rust-quality,
+        backend-component-build,
+        backend-component-test,
+        frontend-unit-test,
+        e2e-test,
+        e2e-cross-browser,
+        apple-music-sandbox,
+      ]
     if: always()
 
     steps:
-      - name: Check all jobs passed
+      - name: Check all jobs passed or were skipped
         run: |
-          if [[ "${{ needs.backend-rust-quality.result }}" != "success" ]] || \
-             [[ "${{ needs.backend-component-build.result }}" != "success" ]] || \
-             [[ "${{ needs.backend-component-test.result }}" != "success" ]] || \
-             [[ "${{ needs.frontend-unit-test.result }}" != "success" ]] || \
-             [[ "${{ needs.e2e-test.result }}" != "success" ]]; then
-            echo "One or more jobs failed"
+          if [[ "${{ needs.changes.result }}" != "success" ]]; then
+            echo "Change detection failed"
             exit 1
           fi
+
+          results=(
+            "${{ needs.render-backend-image-smoke.result }}"
+            "${{ needs.backend-rust-quality.result }}"
+            "${{ needs.backend-component-build.result }}"
+            "${{ needs.backend-component-test.result }}"
+            "${{ needs.frontend-unit-test.result }}"
+            "${{ needs.e2e-test.result }}"
+            "${{ needs.e2e-cross-browser.result }}"
+            "${{ needs.apple-music-sandbox.result }}"
+          )
+
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "One or more jobs failed"
+              exit 1
+            fi
+          done
+
           echo "All CI checks passed!"

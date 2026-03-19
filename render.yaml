@@ -38,6 +38,108 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         sync: false
 
+  - type: web
+    name: ndith-analytics
+    runtime: image
+    plan: starter
+    image:
+      url: ghcr.io/kcirtapfromspace/ndith-backend:analytics-latest
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: RUST_LOG
+        value: info,music_streaming_blocklist_backend=debug
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ndith-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: ndith-redis
+          property: connectionString
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: JWT_SECRET
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: CORS_ALLOWED_ORIGINS
+
+  - type: web
+    name: ndith-graph
+    runtime: image
+    plan: starter
+    image:
+      url: ghcr.io/kcirtapfromspace/ndith-backend:graph-latest
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: RUST_LOG
+        value: info,music_streaming_blocklist_backend=debug
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ndith-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: ndith-redis
+          property: connectionString
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: JWT_SECRET
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: CORS_ALLOWED_ORIGINS
+
+  - type: web
+    name: ndith-news
+    runtime: image
+    plan: starter
+    image:
+      url: ghcr.io/kcirtapfromspace/ndith-backend:news-latest
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: RUST_LOG
+        value: info,music_streaming_blocklist_backend=debug
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ndith-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: ndith-redis
+          property: connectionString
+      - key: JWT_SECRET
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: JWT_SECRET
+      - key: CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: ndith-backend
+          envVarKey: CORS_ALLOWED_ORIGINS
+
   - type: keyvalue
     name: ndith-redis
     plan: starter
@@ -60,6 +162,21 @@ services:
         fromService:
           type: web
           name: ndith-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: ANALYTICS_UPSTREAM_URL
+        fromService:
+          type: web
+          name: ndith-analytics
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: GRAPH_UPSTREAM_URL
+        fromService:
+          type: web
+          name: ndith-graph
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NEWS_UPSTREAM_URL
+        fromService:
+          type: web
+          name: ndith-news
           envVarKey: RENDER_EXTERNAL_URL
 
 databases:

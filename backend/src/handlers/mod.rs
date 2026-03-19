@@ -15,9 +15,9 @@ pub mod tidal_connection;
 pub mod user;
 pub mod youtube_connection;
 
-#[cfg(feature = "full-platform")]
+#[cfg(feature = "analytics")]
 pub mod analytics_v2;
-#[cfg(feature = "full-platform")]
+#[cfg(feature = "analytics")]
 pub mod graph;
-#[cfg(feature = "full-platform")]
+#[cfg(feature = "news")]
 pub mod news;

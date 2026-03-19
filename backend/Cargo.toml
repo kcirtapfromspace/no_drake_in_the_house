@@ -108,9 +108,11 @@ edition = "2021"
 
 [features]
 default = ["full-platform", "graph-ladybugdb"]
-full-platform = ["dep:ndith-analytics", "dep:ndith-news"]
+full-platform = ["analytics", "news"]
+analytics = ["dep:ndith-analytics"]
+news = ["dep:ndith-news"]
 render-api = []
-graph-ladybugdb = ["full-platform", "ndith-analytics/graph-ladybugdb"]
+graph-ladybugdb = ["analytics", "ndith-analytics/graph-ladybugdb"]
 
 [dependencies]
 # Workspace crates

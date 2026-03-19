@@ -12,12 +12,10 @@
 //! - Root binary: Handlers, middleware, router, main entry point
 #![allow(clippy::result_large_err)]
 
-#[cfg(feature = "full-platform")]
-use axum::routing::post;
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
-    routing::{delete, get, put},
+    routing::{any, delete, get, put},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -28,14 +26,16 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-#[cfg(not(feature = "full-platform"))]
-use axum::{http::StatusCode, response::IntoResponse, routing::any};
+#[cfg(any(feature = "analytics", feature = "news"))]
+use axum::routing::post;
+use axum::{http::StatusCode, response::IntoResponse};
 
 // ---- Root-local modules (handlers, middleware, metrics, monitoring stay here) ----
 pub mod backfill_orchestrator;
 pub mod handlers;
 pub mod middleware;
 pub mod monitoring;
+pub mod runtime;
 
 // metrics module from ndith-services (not a root-local module)
 pub use ndith_services::metrics;
@@ -81,7 +81,7 @@ pub use ndith_db::{retry_database_operation, retry_redis_operation, CircuitBreak
 pub use ndith_services as services;
 
 pub use backfill_orchestrator::{BackfillOrchestrator, BackfillProgress, BackfillResult};
-#[cfg(feature = "full-platform")]
+#[cfg(feature = "news")]
 pub use ndith_news::{
     NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineHandle, ScheduledPipelineRunner,
 };
@@ -104,6 +104,7 @@ pub use monitoring::{
     MonitoringResponse, MonitoringSystem, PerformanceProfiler, RedisServiceMetrics, ServiceMetrics,
     SystemMetrics,
 };
+pub use runtime::{run_service, ServiceMode};
 
 // Re-export stub services for testing
 #[cfg(test)]
@@ -617,8 +618,57 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-#[cfg(feature = "full-platform")]
+pub fn create_graph_router(state: AppState) -> Router {
+    create_scoped_service_router(state, add_graph_routes(Router::new()))
+}
+
+pub fn create_analytics_router(state: AppState) -> Router {
+    create_scoped_service_router(state, add_analytics_routes(Router::new()))
+}
+
+pub fn create_news_router(state: AppState) -> Router {
+    create_scoped_service_router(state, add_news_routes(Router::new()))
+}
+
+fn create_scoped_service_router(state: AppState, protected_routes: Router<AppState>) -> Router {
+    let auth_service = state.auth_service.clone();
+    let metrics = state.metrics.clone();
+
+    Router::new()
+        .route("/health", get(health_check))
+        .route("/health/ready", get(readiness_check_endpoint))
+        .route("/health/live", get(liveness_check_endpoint))
+        .route("/metrics", get(metrics_endpoint))
+        .route("/metrics/prometheus", get(prometheus_metrics_endpoint))
+        .route("/monitoring", get(comprehensive_monitoring_endpoint))
+        .nest(
+            "/api/v1",
+            protected_routes.layer(axum::middleware::from_fn_with_state(
+                auth_service,
+                crate::middleware::auth::auth_middleware,
+            )),
+        )
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(create_cors_layer()),
+        )
+        .layer(axum::middleware::from_fn(
+            crate::middleware::security::security_headers_middleware,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            metrics,
+            crate::middleware::latency::latency_middleware,
+        ))
+        .with_state(state)
+}
+
 fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
+    add_news_routes(add_analytics_routes(add_graph_routes(router)))
+}
+
+#[cfg(feature = "analytics")]
+fn add_graph_routes(router: Router<AppState>) -> Router<AppState> {
     router
         .route(
             "/graph/search",
@@ -688,6 +738,18 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/graph/artists/:artist_id/offense-connections",
             get(handlers::graph::get_artist_offense_connections_handler),
         )
+}
+
+#[cfg(not(feature = "analytics"))]
+fn add_graph_routes(router: Router<AppState>) -> Router<AppState> {
+    router
+        .route("/graph", any(full_platform_unavailable))
+        .route("/graph/*path", any(full_platform_unavailable))
+}
+
+#[cfg(feature = "analytics")]
+fn add_analytics_routes(router: Router<AppState>) -> Router<AppState> {
+    router
         .route(
             "/analytics/dashboard",
             get(handlers::analytics_v2::get_dashboard_handler),
@@ -812,6 +874,18 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
             "/analytics/summary",
             get(handlers::analytics_v2::get_user_activity_summary_handler),
         )
+}
+
+#[cfg(not(feature = "analytics"))]
+fn add_analytics_routes(router: Router<AppState>) -> Router<AppState> {
+    router
+        .route("/analytics", any(full_platform_unavailable))
+        .route("/analytics/*path", any(full_platform_unavailable))
+}
+
+#[cfg(feature = "news")]
+fn add_news_routes(router: Router<AppState>) -> Router<AppState> {
+    router
         .route("/news/articles", get(handlers::news::list_articles_handler))
         .route(
             "/news/articles/:article_id",
@@ -850,18 +924,13 @@ fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
         )
 }
 
-#[cfg(not(feature = "full-platform"))]
-fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
+#[cfg(not(feature = "news"))]
+fn add_news_routes(router: Router<AppState>) -> Router<AppState> {
     router
-        .route("/graph", any(full_platform_unavailable))
-        .route("/graph/*path", any(full_platform_unavailable))
-        .route("/analytics", any(full_platform_unavailable))
-        .route("/analytics/*path", any(full_platform_unavailable))
         .route("/news", any(full_platform_unavailable))
         .route("/news/*path", any(full_platform_unavailable))
 }
 
-#[cfg(not(feature = "full-platform"))]
 async fn full_platform_unavailable() -> impl IntoResponse {
     (
         StatusCode::SERVICE_UNAVAILABLE,

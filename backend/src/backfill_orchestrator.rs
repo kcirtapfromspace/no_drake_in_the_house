@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
-#[cfg(feature = "full-platform")]
+#[cfg(feature = "news")]
 use ndith_news::NewsPipelineOrchestrator;
 
 /// Backfill progress tracking
@@ -47,7 +47,7 @@ struct ArtistForBackfill {
 /// Backfill orchestrator for offense discovery
 pub struct BackfillOrchestrator {
     db_pool: PgPool,
-    #[cfg(feature = "full-platform")]
+    #[cfg(feature = "news")]
     news_pipeline: Option<Arc<NewsPipelineOrchestrator>>,
     /// Current progress
     progress: Arc<RwLock<BackfillProgress>>,
@@ -60,7 +60,7 @@ impl BackfillOrchestrator {
     pub fn new(db_pool: PgPool) -> Self {
         Self {
             db_pool,
-            #[cfg(feature = "full-platform")]
+            #[cfg(feature = "news")]
             news_pipeline: None,
             progress: Arc::new(RwLock::new(BackfillProgress::default())),
             is_running: Arc::new(RwLock::new(false)),
@@ -68,7 +68,7 @@ impl BackfillOrchestrator {
     }
 
     /// Create with news pipeline for offense searching
-    #[cfg(feature = "full-platform")]
+    #[cfg(feature = "news")]
     pub fn with_news_pipeline(
         db_pool: PgPool,
         news_pipeline: Arc<NewsPipelineOrchestrator>,
@@ -147,7 +147,7 @@ impl BackfillOrchestrator {
     }
 
     /// Search for offenses for a single artist using news pipeline
-    #[cfg(feature = "full-platform")]
+    #[cfg(feature = "news")]
     async fn search_artist_offenses(&self, artist: &ArtistForBackfill) -> Result<usize> {
         let news_pipeline = self
             .news_pipeline
@@ -164,7 +164,7 @@ impl BackfillOrchestrator {
     }
 
     /// Search for offenses for a single artist using news pipeline
-    #[cfg(not(feature = "full-platform"))]
+    #[cfg(not(feature = "news"))]
     async fn search_artist_offenses(&self, _artist: &ArtistForBackfill) -> Result<usize> {
         Err(anyhow::anyhow!(
             "News pipeline is not enabled in this render-api build"

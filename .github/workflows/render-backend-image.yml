@@ -11,10 +11,6 @@ on:
       - scripts/publish-render-backend-image.sh
   workflow_dispatch:
     inputs:
-      cargo_features:
-        description: Optional backend cargo features (for example `graph-ladybugdb`)
-        required: false
-        type: string
       deploy_to_render:
         description: Trigger the Render deploy hook after publishing
         required: false
@@ -31,14 +27,48 @@ concurrency:
 
 env:
   IMAGE_REPO: ghcr.io/kcirtapfromspace/ndith-backend
-  RENDER_BACKEND_SERVICE_ID: srv-d6suog0gjchc73c41djg
 
 jobs:
   publish:
-    name: Build And Publish Backend Image
+    name: Publish ${{ matrix.service.label }} Image
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - label: API
+            render_service_name: ndith-backend
+            backend_bin: music-streaming-blocklist-backend
+            cargo_features: render-api
+            cargo_no_default_features: true
+            latest_tag: latest
+            sha_tag_prefix: ""
+            use_deploy_hook: true
+          - label: Analytics
+            render_service_name: ndith-analytics
+            backend_bin: ndith-analytics-service
+            cargo_features: analytics
+            cargo_no_default_features: true
+            latest_tag: analytics-latest
+            sha_tag_prefix: analytics-
+            use_deploy_hook: false
+          - label: Graph
+            render_service_name: ndith-graph
+            backend_bin: ndith-graph-service
+            cargo_features: graph-ladybugdb
+            cargo_no_default_features: true
+            latest_tag: graph-latest
+            sha_tag_prefix: graph-
+            use_deploy_hook: false
+          - label: News
+            render_service_name: ndith-news
+            backend_bin: ndith-news-service
+            cargo_features: news
+            cargo_no_default_features: true
+            latest_tag: news-latest
+            sha_tag_prefix: news-
+            use_deploy_hook: false
     env:
-      BACKEND_CARGO_FEATURES: ${{ github.event.inputs.cargo_features || 'render-api' }}
       RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL }}
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
 
@@ -62,6 +92,14 @@ jobs:
         shell: bash
         run: |
           echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_REPO}:${{ matrix.service.sha_tag_prefix }}${GITHUB_SHA::7}"
+            if [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+              echo "${IMAGE_REPO}:${{ matrix.service.latest_tag }}"
+            fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -69,15 +107,6 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Derive image metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_REPO }}
-          tags: |
-            type=sha,format=short,prefix=
-            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -88,46 +117,95 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.vars.outputs.tags }}
           build-args: |
-            BACKEND_CARGO_FEATURES=${{ env.BACKEND_CARGO_FEATURES }}
-            BACKEND_CARGO_NO_DEFAULT_FEATURES=true
-          cache-from: type=gha,scope=render-backend-image
-          cache-to: type=gha,mode=max,scope=render-backend-image
+            BACKEND_BIN=${{ matrix.service.backend_bin }}
+            BACKEND_CARGO_FEATURES=${{ matrix.service.cargo_features }}
+            BACKEND_CARGO_NO_DEFAULT_FEATURES=${{ matrix.service.cargo_no_default_features }}
+          cache-from: type=gha,scope=render-backend-image-${{ matrix.service.render_service_name }}
+          cache-to: type=gha,mode=max,scope=render-backend-image-${{ matrix.service.render_service_name }}
 
       - name: Trigger Render deploy
-        if: ${{ env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        if: ${{ matrix.service.use_deploy_hook && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
         run: |
           curl --fail --silent --show-error \
             --get \
-            --data-urlencode "imgURL=${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}" \
+            --data-urlencode "imgURL=${IMAGE_REPO}:${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}" \
             "$RENDER_DEPLOY_HOOK_URL"
 
+      - name: Resolve Render service id
+        id: render_service
+        if: ${{ env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        shell: bash
+        run: |
+          service_id="$(
+            curl --fail --silent --show-error \
+              --url "https://api.render.com/v1/services" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            | python3 -c '
+              import json
+              import sys
+
+              target = sys.argv[1]
+              payload = json.load(sys.stdin)
+
+              if isinstance(payload, list):
+                  items = payload
+              elif isinstance(payload, dict):
+                  items = []
+                  for key in ("services", "items", "results"):
+                      value = payload.get(key)
+                      if isinstance(value, list):
+                          items = value
+                          break
+                  if not items:
+                      items = [payload]
+              else:
+                  items = []
+
+              for item in items:
+                  if not isinstance(item, dict):
+                      continue
+                  service = item.get("service") if isinstance(item.get("service"), dict) else item
+                  name = service.get("name") or item.get("name")
+                  service_id = service.get("id") or item.get("id")
+                  if name == target and service_id:
+                      print(service_id)
+                      break
+              ' "${{ matrix.service.render_service_name }}"
+          )"
+
+          if [ -n "${service_id}" ]; then
+            echo "service_id=${service_id}" >> "$GITHUB_OUTPUT"
+            echo "Resolved Render service id ${service_id} for ${{ matrix.service.render_service_name }}"
+          else
+            echo "Render service ${{ matrix.service.render_service_name }} not found yet; publish only."
+          fi
+
       - name: Trigger Render deploy via API
-        if: ${{ env.RENDER_DEPLOY_HOOK_URL == '' && env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        if: ${{ (!matrix.service.use_deploy_hook || env.RENDER_DEPLOY_HOOK_URL == '') && steps.render_service.outputs.service_id != '' }}
         shell: bash
         run: |
           curl --fail --silent --show-error \
             --request POST \
-            --url "https://api.render.com/v1/services/${RENDER_BACKEND_SERVICE_ID}/deploys" \
+            --url "https://api.render.com/v1/services/${{ steps.render_service.outputs.service_id }}/deploys" \
             --header "Authorization: Bearer ${RENDER_API_KEY}" \
             --header "Content-Type: application/json" \
             --data '{}'
 
       - name: Summarize published tags
         run: |
-          echo "Published tags:"
-          echo "${{ steps.meta.outputs.tags }}"
-          if [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
-            echo "Triggered Render deploy for ${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}"
+          echo "Published ${{ matrix.service.label }} image tags:"
+          echo "${{ steps.vars.outputs.tags }}"
+          if [ "${{ matrix.service.use_deploy_hook }}" = "true" ] && [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            echo "Triggered Render deploy hook for ${{ matrix.service.render_service_name }}"
+          elif [ -n "${{ steps.render_service.outputs.service_id }}" ]; then
+            echo "Triggered Render API deploy for ${{ matrix.service.render_service_name }} (${{ steps.render_service.outputs.service_id }})"
           elif [ -n "${RENDER_API_KEY}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
-            echo "Triggered Render deploy via Render API for service ${RENDER_BACKEND_SERVICE_ID}"
-          elif [ -n "${RENDER_DEPLOY_HOOK_URL}" ]; then
-            echo "Render deploy hook configured, but skipped because this is not the default branch."
-          elif [ -n "${RENDER_API_KEY}" ]; then
-            echo "Render API key configured, but skipped because this is not the default branch."
+            echo "Render service ${{ matrix.service.render_service_name }} is not available yet; image published only."
+          elif [ -n "${RENDER_DEPLOY_HOOK_URL}" ] || [ -n "${RENDER_API_KEY}" ]; then
+            echo "Render deploy credentials configured, but skipped because this is not the default branch."
           else
             echo "Render deploy hook/API key not configured; image publish only."
           fi

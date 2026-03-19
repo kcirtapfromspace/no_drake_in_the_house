@@ -43,8 +43,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     cargo build ${build_args}; \
     cp "/tmp/cargo-target/release/${BACKEND_BIN}" /tmp/backend
 
-# Runtime stage
-FROM debian:bookworm-slim
+# Runtime stage. Match the Rust image family so glibc/libstdc++ stay ABI-compatible
+# with the binary produced in the builder stage.
+FROM rust:1.94-slim as runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -52,6 +53,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     libpq5 \
     libssl3 \
+    libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user

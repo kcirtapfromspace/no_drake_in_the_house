@@ -18,6 +18,8 @@ use axum::{
     routing::{delete, get, put},
     Router,
 };
+#[cfg(feature = "full-platform")]
+use axum::routing::post;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::PgPool;

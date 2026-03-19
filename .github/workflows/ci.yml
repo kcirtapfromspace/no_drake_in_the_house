@@ -455,7 +455,14 @@ jobs:
           set -euo pipefail
           case "${{ matrix.target }}" in
             api)
-              cargo test -p music-streaming-blocklist-backend
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --lib
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test auth_service_unit_tests
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test integration_tests
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test entity_resolution_unit_tests
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test end_to_end_workflow_tests
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test dnp_api_integration_test
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test dnp_list_integration_tests
+              cargo test -p music-streaming-blocklist-backend --no-default-features --features render-api --test dnp_list_tests
               ;;
             core)
               cargo test -p ndith-core

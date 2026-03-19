@@ -14,7 +14,7 @@
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
-    routing::{delete, get, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use chrono::{DateTime, Utc};

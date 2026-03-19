@@ -125,15 +125,6 @@ jobs:
           cache-from: type=gha,scope=render-backend-image-${{ matrix.service.render_service_name }}
           cache-to: type=gha,mode=max,scope=render-backend-image-${{ matrix.service.render_service_name }}
 
-      - name: Trigger Render deploy
-        if: ${{ matrix.service.use_deploy_hook && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
-        shell: bash
-        run: |
-          curl --fail --silent --show-error \
-            --get \
-            --data-urlencode "imgURL=${IMAGE_REPO}:${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}" \
-            "$RENDER_DEPLOY_HOOK_URL"
-
       - name: Resolve Render service id
         id: render_service
         if: ${{ env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
@@ -165,7 +156,7 @@ jobs:
           fi
 
       - name: Trigger Render deploy via API
-        if: ${{ (!matrix.service.use_deploy_hook || env.RENDER_DEPLOY_HOOK_URL == '') && steps.render_service.outputs.service_id != '' }}
+        if: ${{ steps.render_service.outputs.service_id != '' }}
         shell: bash
         run: |
           curl --fail --silent --show-error \
@@ -175,14 +166,23 @@ jobs:
             --header "Content-Type: application/json" \
             --data '{}'
 
+      - name: Trigger Render deploy hook fallback
+        if: ${{ matrix.service.use_deploy_hook && steps.render_service.outputs.service_id == '' && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --get \
+            --data-urlencode "imgURL=${IMAGE_REPO}:${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}" \
+            "$RENDER_DEPLOY_HOOK_URL"
+
       - name: Summarize published tags
         run: |
           echo "Published ${{ matrix.service.label }} image tags:"
           echo "${{ steps.vars.outputs.tags }}"
-          if [ "${{ matrix.service.use_deploy_hook }}" = "true" ] && [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
-            echo "Triggered Render deploy hook for ${{ matrix.service.render_service_name }}"
-          elif [ -n "${{ steps.render_service.outputs.service_id }}" ]; then
+          if [ -n "${{ steps.render_service.outputs.service_id }}" ]; then
             echo "Triggered Render API deploy for ${{ matrix.service.render_service_name }} (${{ steps.render_service.outputs.service_id }})"
+          elif [ "${{ matrix.service.use_deploy_hook }}" = "true" ] && [ -n "${RENDER_DEPLOY_HOOK_URL}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
+            echo "Triggered Render deploy hook fallback for ${{ matrix.service.render_service_name }}"
           elif [ -n "${RENDER_API_KEY}" ] && [ "${GITHUB_REF}" = "refs/heads/${{ github.event.repository.default_branch }}" ]; then
             echo "Render service ${{ matrix.service.render_service_name }} is not available yet; image published only."
           elif [ -n "${RENDER_DEPLOY_HOOK_URL}" ] || [ -n "${RENDER_API_KEY}" ]; then

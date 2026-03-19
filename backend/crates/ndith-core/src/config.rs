@@ -745,10 +745,26 @@ pub fn public_backend_base_url() -> String {
     "http://localhost:3000".to_string()
 }
 
+fn normalized_oauth_callback_provider(provider: &str) -> &str {
+    match provider {
+        "youtube_music" => "youtube",
+        other => other,
+    }
+}
+
 pub fn provider_callback_uri(provider: &str) -> String {
+    let provider = normalized_oauth_callback_provider(provider);
+
+    let callback_base = match provider {
+        // Streaming connection providers complete the code exchange from the frontend callback
+        // screen, so keep their provider-facing redirect URIs on the apex domain.
+        "spotify" | "tidal" | "youtube" => public_frontend_base_url(),
+        _ => public_backend_base_url(),
+    };
+
     format!(
         "{}/auth/callback/{}",
-        public_backend_base_url().trim_end_matches('/'),
+        callback_base.trim_end_matches('/'),
         provider
     )
 }
@@ -773,7 +789,7 @@ mod tests {
     }
 
     #[test]
-    fn test_provider_callback_uri_uses_custom_domain_api_subdomain() {
+    fn test_provider_callback_uri_uses_frontend_callback_for_streaming_providers() {
         let _guard = ENV_LOCK.lock().unwrap();
         std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
         std::env::remove_var("RENDER_EXTERNAL_URL");
@@ -782,14 +798,14 @@ mod tests {
 
         assert_eq!(
             provider_callback_uri("tidal"),
-            "https://api.nodrakeinthe.house/auth/callback/tidal"
+            "https://nodrakeinthe.house/auth/callback/tidal"
         );
 
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
     }
 
     #[test]
-    fn test_provider_callback_uri_derives_backend_from_render_host() {
+    fn test_provider_callback_uri_derives_backend_for_non_connection_providers() {
         let _guard = ENV_LOCK.lock().unwrap();
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
         std::env::set_var("RENDER_EXTERNAL_URL", "https://ndith-backend.onrender.com");
@@ -797,8 +813,8 @@ mod tests {
         std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
 
         assert_eq!(
-            provider_callback_uri("youtube"),
-            "https://ndith-backend.onrender.com/auth/callback/youtube"
+            provider_callback_uri("google"),
+            "https://ndith-backend.onrender.com/auth/callback/google"
         );
 
         std::env::remove_var("RENDER_EXTERNAL_URL");

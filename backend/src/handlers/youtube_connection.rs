@@ -140,10 +140,9 @@ pub async fn youtube_authorize_handler(
     })?;
 
     // Determine redirect URI
-    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
-        std::env::var("YOUTUBE_MUSIC_REDIRECT_URI")
-            .unwrap_or_else(|_| provider_callback_uri("youtube"))
-    });
+    let redirect_uri = query
+        .redirect_uri
+        .unwrap_or_else(|| provider_callback_uri("youtube"));
 
     // Initiate OAuth flow
     let flow_response = youtube_provider.initiate_flow(&redirect_uri).await?;

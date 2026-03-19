@@ -267,7 +267,7 @@ fn library_scan_timeout() -> Duration {
         .ok()
         .and_then(|value| value.parse::<u64>().ok())
         .filter(|value| *value > 0)
-        .unwrap_or(45);
+        .unwrap_or(300);
     Duration::from_secs(seconds)
 }
 

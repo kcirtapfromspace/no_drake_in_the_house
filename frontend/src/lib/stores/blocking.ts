@@ -57,7 +57,7 @@ const initialState: BlockingState = {
 };
 
 function createBlockingStore() {
-  const { subscribe, update, set } = writable<BlockingState>(initialState);
+  const { subscribe, update } = writable<BlockingState>(initialState);
 
   // Load saved enforcement statuses from localStorage
   function loadFromStorage() {
@@ -175,9 +175,6 @@ function createBlockingStore() {
           }
 
           // Update progress in toast
-          const completedCount = platforms.filter(p => p.status === 'completed' || p.status === 'failed').length;
-          const progress = Math.round((completedCount / platforms.length) * 100);
-
           return { ...op, platforms, overallStatus };
         });
 
@@ -273,17 +270,19 @@ function createBlockingStore() {
 
     // Add a custom toast
     addToast: (toast: Omit<Toast, 'id' | 'createdAt'>) => {
+      const id = `toast-${Date.now()}`;
       update(state => ({
         ...state,
         toasts: [
           ...state.toasts,
           {
             ...toast,
-            id: `toast-${Date.now()}`,
+            id,
             createdAt: Date.now(),
           },
         ],
       }));
+      return id;
     },
 
     // Remove a toast

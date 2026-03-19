@@ -2,31 +2,108 @@
   import { onMount } from 'svelte';
   import { currentUser, authActions } from '../stores/auth';
   import { navigateTo } from '../utils/simple-router';
-  import { apiClient } from '../utils/api-client';
-  import { connectionsStore, connectionActions } from '../stores/connections';
+  import {
+    connectionsStore,
+    connectionActions,
+    type ServiceConnection,
+  } from '../stores/connections';
   import { theme, resolvedTheme } from '../stores/theme';
 
-  interface ConnectedAccount {
-    provider: string;
-    provider_user_id: string;
-    email?: string;
-    display_name?: string;
-    linked_at: string;
+  type ServiceId = 'spotify' | 'apple' | 'youtube' | 'tidal' | 'deezer';
+
+  interface ServicePlatform {
+    id: ServiceId;
+    name: string;
+    icon: 'spotify' | 'apple' | 'youtube' | 'tidal' | 'deezer';
+    color: string;
+    description: string;
+    connectedDescription: string;
+    connectionProvider?: string;
+    statusLabel: string;
+    disabled?: boolean;
+    catalogOnly?: boolean;
   }
 
+  const services: ServicePlatform[] = [
+    {
+      id: 'spotify',
+      name: 'Spotify',
+      icon: 'spotify',
+      color: '#1DB954',
+      description: 'Spotify OAuth is paused until the developer app is restored.',
+      connectedDescription: 'Spotify remains connected but enforcement is paused.',
+      connectionProvider: 'spotify',
+      statusLabel: 'Paused',
+      disabled: true,
+    },
+    {
+      id: 'apple',
+      name: 'Apple Music',
+      icon: 'apple',
+      color: '#FA2D48',
+      description: 'Connect your Apple Music account to sync the full library into analysis.',
+      connectedDescription:
+        'Apple Music is connected. Use Library Control to import and refresh your library.',
+      connectionProvider: 'apple_music',
+      statusLabel: 'Ready',
+    },
+    {
+      id: 'youtube',
+      name: 'YouTube Music',
+      icon: 'youtube',
+      color: '#FF0000',
+      description: 'Connect YouTube Music to sync playlists, likes, and subscriptions.',
+      connectedDescription:
+        'YouTube Music is connected. Use Library Control to import your YouTube library.',
+      connectionProvider: 'youtube_music',
+      statusLabel: 'Ready',
+    },
+    {
+      id: 'tidal',
+      name: 'Tidal',
+      icon: 'tidal',
+      color: '#000000',
+      description: 'Connect Tidal to import favorites, albums, artists, and playlists.',
+      connectedDescription:
+        'Tidal is connected. Use Library Control to import your Tidal favorites.',
+      connectionProvider: 'tidal',
+      statusLabel: 'Ready',
+    },
+    {
+      id: 'deezer',
+      name: 'Deezer',
+      icon: 'deezer',
+      color: '#FEAA2D',
+      description: 'Deezer currently powers catalog metadata only.',
+      connectedDescription: 'Deezer is available for catalog lookups only.',
+      statusLabel: 'Catalog Only',
+      catalogOnly: true,
+    },
+  ];
+
   let isLoggingOut = false;
-  let connectedAccounts: ConnectedAccount[] = [];
   let isLoadingConnections = true;
   let connectingProvider: string | null = null;
   let connectionError: string | null = null;
+  let connectionSuccess: string | null = null;
+  let confirmingDisconnect: string | null = null;
+  let connectionBannerTimeout: ReturnType<typeof setTimeout> | null = null;
 
   let blockFeatured = true;
   let blockProducers = false;
   let notifications = true;
 
-  let confirmingDisconnect: string | null = null;
+  let connectionsByProvider = new Map<string, ServiceConnection>();
+
+  $: connectionsByProvider = new Map<string, ServiceConnection>(
+    ($connectionsStore.connections ?? []).map((connection) => [
+      connection.provider,
+      connection,
+    ])
+  );
 
   onMount(async () => {
+    await connectionActions.prepareAppleMusic();
     await loadConnections();
   });
 
@@ -34,93 +111,177 @@
     isLoadingConnections = true;
     try {
       await connectionActions.fetchConnections();
-
-      const result = await apiClient.get<{ accounts: ConnectedAccount[]; total_count: number }>('/api/v1/auth/oauth/accounts');
-      if (result.success && result.data) {
-        // API returns {accounts: [], total_count: n}
-        connectedAccounts = result.data.accounts || [];
-      }
-    } catch (e) {
-      console.error('Failed to load connections:', e);
-      connectedAccounts = [];
     } finally {
       isLoadingConnections = false;
     }
   }
 
-  function isConnected(provider: string): boolean {
-    if (provider === 'spotify' || provider === 'tidal') {
-      const connection = $connectionsStore.connections.find(c => c.provider === provider);
-      if (connection?.status === 'active') {
-        return true;
-      }
+  function clearConnectionBannerTimer(): void {
+    if (connectionBannerTimeout) {
+      clearTimeout(connectionBannerTimeout);
+      connectionBannerTimeout = null;
     }
-
-    return connectedAccounts.some(a => a.provider === provider);
   }
 
-  async function initiateOAuth(provider: string) {
-    if (provider === 'spotify') {
-      connectionError = 'Spotify OAuth is currently unavailable while the Spotify developer portal is paused.';
-      return;
-    }
-
-    connectingProvider = provider;
+  function showConnectionSuccess(message: string, duration = 5000): void {
+    clearConnectionBannerTimer();
     connectionError = null;
-    try {
-      // Streaming providers use /connections/* endpoints
-      if (provider === 'tidal') {
-        const endpoint = '/api/v1/connections/tidal/authorize';
-
-        const result = await apiClient.get<{ authorization_url: string; state: string }>(
-          endpoint
-        );
-        if (result.success && result.data?.authorization_url) {
-          sessionStorage.setItem(`oauth_link_state_${provider}`, result.data.state);
-          window.location.href = result.data.authorization_url;
-        } else {
-          connectionError = `Failed to initiate ${provider === 'tidal' ? 'Tidal' : 'Spotify'} connection`;
-        }
-      } else {
-        const result = await apiClient.post<{ auth_url: string }>(`/api/v1/auth/oauth/${provider}/link`);
-        if (result.success && result.data?.auth_url) {
-          window.location.href = result.data.auth_url;
-        } else {
-          connectionError = 'Failed to initiate connection';
-        }
-      }
-    } catch (e) {
-      connectionError = 'Failed to connect. Please try again.';
-    } finally {
-      connectingProvider = null;
+    connectionSuccess = message;
+    if (duration > 0) {
+      connectionBannerTimeout = setTimeout(() => {
+        connectionSuccess = null;
+        connectionBannerTimeout = null;
+      }, duration);
     }
   }
 
-  function requestDisconnect(provider: string) {
-    confirmingDisconnect = provider;
+  function showConnectionError(message: string): void {
+    clearConnectionBannerTimer();
+    connectionSuccess = null;
+    connectionError = message;
+  }
+
+  function isSuccessLikeMessage(message: string | undefined): boolean {
+    if (!message) return false;
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('connected successfully') ||
+      normalized.includes('disconnected successfully') ||
+      normalized.includes('already connected')
+    );
+  }
+
+  function getConnection(service: ServicePlatform): ServiceConnection | null {
+    if (!service.connectionProvider) return null;
+    return connectionsByProvider.get(service.connectionProvider) ?? null;
+  }
+
+  function isConnected(service: ServicePlatform): boolean {
+    return getConnection(service)?.status === 'active';
+  }
+
+  function serviceStatusLabel(
+    service: ServicePlatform,
+    connection: ServiceConnection | null
+  ): string {
+    if (service.disabled) return service.statusLabel;
+    if (service.catalogOnly) return service.statusLabel;
+    if (isLoadingConnections) return 'Checking...';
+    if (connection?.status === 'active') return 'Connected';
+    if (connection?.status === 'expired') return 'Needs Reconnect';
+    if (connection?.status === 'error') return 'Action Required';
+    return 'Not Connected';
+  }
+
+  function serviceStatusTone(
+    service: ServicePlatform,
+    connection: ServiceConnection | null
+  ): string {
+    if (service.disabled) return 'settings__status-pill--paused';
+    if (service.catalogOnly) return 'settings__status-pill--catalog';
+    if (connection?.status === 'active') return 'settings__status-pill--connected';
+    if (connection?.status === 'expired') return 'settings__status-pill--warning';
+    if (connection?.status === 'error') return 'settings__status-pill--error';
+    return 'settings__status-pill--idle';
+  }
+
+  function requestDisconnect(serviceId: ServiceId) {
+    confirmingDisconnect = serviceId;
   }
 
   function cancelDisconnect() {
     confirmingDisconnect = null;
   }
 
-  async function confirmDisconnect(provider: string) {
+  async function connectService(service: ServicePlatform) {
+    if (service.catalogOnly) return;
+
+    if (service.disabled) {
+      showConnectionError(
+        'Spotify OAuth is currently unavailable while the Spotify developer portal is paused.'
+      );
+      return;
+    }
+
+    const provider = service.connectionProvider;
+    if (!provider) return;
+
+    connectingProvider = provider;
+    connectionError = null;
+    connectionSuccess = null;
+
+    try {
+      if (service.id === 'apple') {
+        const result = await connectionActions.connectAppleMusic();
+        if (result.success || isSuccessLikeMessage(result.message)) {
+          await loadConnections();
+          showConnectionSuccess(
+            'Apple Music connected. Use Library Control to run the first library import.'
+          );
+        } else {
+          showConnectionError(result.message || 'Failed to connect Apple Music');
+        }
+        return;
+      }
+
+      if (service.id === 'youtube') {
+        const result = await connectionActions.initiateYouTubeAuth();
+        if (!result.success) {
+          showConnectionError(result.message || 'Failed to initiate YouTube Music auth');
+        }
+        return;
+      }
+
+      if (service.id === 'tidal') {
+        const result = await connectionActions.initiateTidalAuth();
+        if (result.alreadyConnected) {
+          await loadConnections();
+          showConnectionSuccess(
+            'Tidal is already connected. Use Library Control to sync or disconnect to reconnect.'
+          );
+        } else if (!result.success) {
+          showConnectionError(result.message || 'Failed to initiate Tidal auth');
+        }
+      }
+    } catch (error) {
+      showConnectionError(
+        error instanceof Error ? error.message : `Failed to connect ${service.name}`
+      );
+    } finally {
+      connectingProvider = null;
+    }
+  }
+
+  async function confirmDisconnect(service: ServicePlatform) {
     confirmingDisconnect = null;
+
+    const provider = service.connectionProvider;
+    if (!provider) return;
+
     connectingProvider = provider;
     try {
-      const endpoint =
-        provider === 'tidal'
-          ? '/api/v1/connections/tidal'
-          : provider === 'spotify'
-            ? '/api/v1/connections/spotify'
-            : `/api/v1/auth/oauth/${provider}/unlink`;
-      const result = await apiClient.delete(endpoint);
-      if (result.success) {
-        connectedAccounts = connectedAccounts.filter(a => a.provider !== provider);
-        await connectionActions.fetchConnections();
+      let result: { success: boolean; message?: string };
+
+      if (service.id === 'apple') {
+        result = await connectionActions.disconnectAppleMusic();
+      } else if (service.id === 'youtube') {
+        result = await connectionActions.disconnectYouTube();
+      } else if (service.id === 'tidal') {
+        result = await connectionActions.disconnectTidal();
+      } else {
+        result = await connectionActions.disconnectSpotify();
       }
-    } catch (e) {
-      console.error('Disconnect failed:', e);
+
+      if (result.success || isSuccessLikeMessage(result.message)) {
+        await loadConnections();
+        showConnectionSuccess(`${service.name} disconnected.`);
+      } else {
+        showConnectionError(result.message || `Failed to disconnect ${service.name}`);
+      }
+    } catch (error) {
+      showConnectionError(
+        error instanceof Error ? error.message : `Failed to disconnect ${service.name}`
+      );
     } finally {
       connectingProvider = null;
     }
@@ -131,7 +292,7 @@
     try {
       await authActions.logout();
       window.location.href = '/';
-    } catch (e) {
+    } catch (_error) {
       isLoggingOut = false;
     }
   }
@@ -142,13 +303,14 @@
     <section class="brand-hero settings__hero">
       <div class="brand-hero__header">
         <div class="brand-hero__copy">
-          <button
-            type="button"
-            on:click={() => navigateTo('home')}
-            class="brand-back"
-          >
+          <button type="button" on:click={() => navigateTo('home')} class="brand-back">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              />
             </svg>
             Back to Home
           </button>
@@ -156,9 +318,12 @@
             <span class="brand-kicker">Account Controls</span>
             <span class="brand-kicker brand-kicker--accent">Services + Preferences</span>
           </div>
-          <h1 class="brand-title brand-title--compact">Tune the account, not just the blocklist.</h1>
+          <h1 class="brand-title brand-title--compact">
+            Tune the account, not just the blocklist.
+          </h1>
           <p class="brand-subtitle">
-            Keep your theme, linked services, preferences, and developer tools on the same visual system as the rest of the product.
+            Keep your theme, linked services, preferences, and developer tools on the same visual
+            system as the rest of the product.
           </p>
           {#if $currentUser?.email}
             <div class="brand-meta">
@@ -170,7 +335,6 @@
     </section>
 
     <div class="settings__sections">
-      <!-- Account -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Account</h2>
@@ -181,7 +345,6 @@
         </div>
       </section>
 
-      <!-- Appearance -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Appearance</h2>
@@ -202,184 +365,165 @@
               type="button"
               class="settings__theme-btn"
               class:settings__theme-btn--active={$theme === 'system'}
-              on:click={() => theme.setTheme('system')}
-            >Auto</button>
+              on:click={() => theme.setTheme('system')}>Auto</button
+            >
             <button
               type="button"
               class="settings__theme-btn"
               class:settings__theme-btn--active={$theme === 'light'}
-              on:click={() => theme.setTheme('light')}
-            >Light</button>
+              on:click={() => theme.setTheme('light')}>Light</button
+            >
             <button
               type="button"
               class="settings__theme-btn"
               class:settings__theme-btn--active={$theme === 'dark'}
-              on:click={() => theme.setTheme('dark')}
-            >Dark</button>
+              on:click={() => theme.setTheme('dark')}>Dark</button
+            >
           </div>
         </div>
       </section>
 
-      <!-- Music Services -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Music Services</h2>
-          <p class="settings__section-desc">Connect your streaming accounts to sync your blocklist</p>
+          <p class="settings__section-desc">
+            Connection states and service badges now match Library Control.
+          </p>
         </div>
 
         {#if connectionError}
-          <div class="settings__alert">
-            <p>{connectionError}</p>
+          <div class="brand-alert brand-alert--error settings__banner">
+            <span aria-hidden="true">✕</span>
+            <span>{connectionError}</span>
+            <button type="button" on:click={() => (connectionError = null)} class="brand-alert__dismiss">
+              Dismiss
+            </button>
           </div>
         {/if}
 
-        <div>
-          <!-- Spotify -->
-          <div class="settings__row settings__row--border">
-            <div class="settings__service-info">
-              <div class="settings__service-icon settings__service-icon--spotify">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                </svg>
-              </div>
-              <div>
-                <p class="settings__service-name">Spotify</p>
-                {#if isLoadingConnections}
-                  <p class="settings__service-status">Loading...</p>
-                {:else if isConnected('spotify')}
-                  <p class="settings__service-status settings__service-status--connected">Connected</p>
-                {:else}
-                  <p class="settings__service-status">Not connected</p>
-                {/if}
-              </div>
-            </div>
-            {#if isConnected('spotify')}
-              {#if confirmingDisconnect === 'spotify'}
-                <div class="settings__confirm-group">
-                  <span class="settings__confirm-label">Disconnect?</span>
-                  <button type="button" on:click={() => confirmDisconnect('spotify')} class="settings__confirm-yes">Yes</button>
-                  <button type="button" on:click={cancelDisconnect} class="settings__confirm-no">No</button>
-                </div>
-              {:else}
-                <button
-                  type="button"
-                  on:click={() => requestDisconnect('spotify')}
-                  disabled={connectingProvider === 'spotify'}
-                  class="settings__service-btn settings__service-btn--disconnect"
-                >
-                  {connectingProvider === 'spotify' ? 'Disconnecting...' : 'Disconnect'}
-                </button>
-              {/if}
-            {:else}
-              <button
-                type="button"
-                disabled
-                class="settings__service-btn settings__service-btn--spotify"
-              >
-                Paused
-              </button>
-            {/if}
+        {#if connectionSuccess}
+          <div class="brand-alert brand-alert--success settings__banner">
+            <svg
+              class="settings__banner-check"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span>{connectionSuccess}</span>
+            <button type="button" on:click={() => (connectionSuccess = null)} class="brand-alert__dismiss">
+              Dismiss
+            </button>
           </div>
+        {/if}
 
-          <!-- Apple Music -->
-          <div class="settings__row settings__row--border">
-            <div class="settings__service-info">
-              <div class="settings__service-icon settings__service-icon--apple">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M23.994 6.124a9.23 9.23 0 00-.24-2.19c-.317-1.31-1.062-2.31-2.18-3.043a5.022 5.022 0 00-1.877-.726 10.496 10.496 0 00-1.564-.15c-.04-.003-.083-.01-.124-.013H5.986c-.152.01-.303.017-.455.026-.747.043-1.49.123-2.193.4-1.336.53-2.3 1.452-2.865 2.78-.192.448-.292.925-.363 1.408-.056.392-.088.785-.1 1.18 0 .032-.007.062-.01.093v12.223c.01.14.017.283.027.424.05.815.154 1.624.497 2.373.65 1.42 1.738 2.353 3.234 2.801.42.127.856.187 1.293.228.555.053 1.11.06 1.667.06h11.03a12.5 12.5 0 001.57-.1c.822-.106 1.596-.35 2.295-.81a5.046 5.046 0 001.88-2.207c.186-.42.293-.87.37-1.324.113-.675.138-1.358.137-2.04-.002-3.8 0-7.595-.003-11.393zm-6.423 3.99v5.712c0 .417-.058.827-.244 1.206-.29.59-.76.962-1.388 1.14-.35.1-.706.157-1.07.173-.95.042-1.785-.476-2.144-1.32-.238-.56-.223-1.136-.017-1.7.303-.825.96-1.277 1.743-1.49.294-.08.595-.13.893-.18.323-.054.65-.1.973-.157.274-.048.47-.202.53-.486a.707.707 0 00.017-.146c.002-1.633.002-3.265.002-4.898v-.07l-.06-.01c-2.097.4-4.194.8-6.29 1.202-.014.002-.032.014-.037.026-.006.016-.003.037-.003.056v7.36c0 .418-.052.832-.227 1.218-.282.622-.76 1.02-1.416 1.207-.313.09-.634.138-.96.166-.906.08-1.732-.4-2.134-1.203-.268-.534-.278-1.1-.096-1.66.267-.817.864-1.304 1.64-1.55.376-.12.763-.185 1.148-.25.278-.047.558-.088.832-.145.317-.065.522-.25.58-.574a.504.504 0 00.007-.115v-8.41c0-.25.042-.493.15-.72.183-.385.486-.62.882-.728.17-.047.346-.073.522-.11 2.55-.526 5.1-1.05 7.65-1.573.093-.02.19-.03.285-.03.316.004.528.2.613.5.032.113.044.233.044.35v5.9z"/>
-                </svg>
-              </div>
-              <div>
-                <p class="settings__service-name">Apple Music</p>
-                {#if isLoadingConnections}
-                  <p class="settings__service-status">Loading...</p>
-                {:else if isConnected('apple')}
-                  <p class="settings__service-status settings__service-status--connected">Connected</p>
-                {:else}
-                  <p class="settings__service-status">Not connected</p>
-                {/if}
-              </div>
-            </div>
-            {#if isConnected('apple')}
-              {#if confirmingDisconnect === 'apple'}
-                <div class="settings__confirm-group">
-                  <span class="settings__confirm-label">Disconnect?</span>
-                  <button type="button" on:click={() => confirmDisconnect('apple')} class="settings__confirm-yes">Yes</button>
-                  <button type="button" on:click={cancelDisconnect} class="settings__confirm-no">No</button>
-                </div>
-              {:else}
-                <button
-                  type="button"
-                  on:click={() => requestDisconnect('apple')}
-                  disabled={connectingProvider === 'apple'}
-                  class="settings__service-btn settings__service-btn--disconnect"
+        <div class="settings__service-grid">
+          {#each services as service}
+            {@const connection = getConnection(service)}
+            {@const connected = isConnected(service)}
+            <article class="settings__service-card">
+              <div class="settings__service-top">
+                <div
+                  class="settings__service-avatar"
+                  style={`background-color: ${service.color}20; border-color: ${service.color}40;`}
                 >
-                  {connectingProvider === 'apple' ? 'Disconnecting...' : 'Disconnect'}
-                </button>
-              {/if}
-            {:else}
-              <button
-                type="button"
-                on:click={() => initiateOAuth('apple')}
-                disabled={connectingProvider === 'apple'}
-                class="settings__service-btn settings__service-btn--apple"
-              >
-                {connectingProvider === 'apple' ? 'Connecting...' : 'Connect'}
-              </button>
-            {/if}
-          </div>
+                  {#if service.icon === 'spotify'}
+                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z" />
+                    </svg>
+                  {:else if service.icon === 'apple'}
+                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+                    </svg>
+                  {:else if service.icon === 'youtube'}
+                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                    </svg>
+                  {:else if service.icon === 'tidal'}
+                    <svg class="settings__service-glyph" fill="white" viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l4.004-4.004L12.012 3.992zM12.012 12l-4.004 4.004L12.012 20.008l4.004-4.004L12.012 12zM20.02 7.996L16.016 3.992l-4.004 4.004 4.004 4.004 4.004-4.004L24.024 3.992 20.02 7.996z" />
+                    </svg>
+                  {:else}
+                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M18.81 4.16v3.03H24V4.16h-5.19zM6.27 8.38v3.027h5.189V8.38h-5.19zm12.54 0v3.027H24V8.38h-5.19zM6.27 12.594v3.027h5.189v-3.027h-5.19zm6.271 0v3.027h5.19v-3.027h-5.19zm6.27 0v3.027H24v-3.027h-5.19zM0 16.81v3.028h5.19v-3.027H0zm6.27 0v3.028h5.189v-3.027h-5.19zm6.271 0v3.028h5.19v-3.027h-5.19zm6.27 0v3.028H24v-3.027h-5.19z" />
+                    </svg>
+                  {/if}
+                </div>
 
-          <!-- Tidal -->
-          <div class="settings__row">
-            <div class="settings__service-info">
-              <div class="settings__service-icon settings__service-icon--tidal">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l4.004-4.004L20.02 12l4.004-4.004-4.004-4.004-4.004 4.004-4.004-4.004z"/>
-                </svg>
+                <div class="settings__service-copy">
+                  <div class="settings__service-title-row">
+                    <h3 class="settings__service-name">{service.name}</h3>
+                    <span class={`settings__status-pill ${serviceStatusTone(service, connection)}`}>
+                      {serviceStatusLabel(service, connection)}
+                    </span>
+                  </div>
+                  <p class="settings__service-desc">
+                    {connected ? service.connectedDescription : service.description}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p class="settings__service-name">Tidal</p>
-                {#if isLoadingConnections}
-                  <p class="settings__service-status">Loading...</p>
-                {:else if isConnected('tidal')}
-                  <p class="settings__service-status settings__service-status--connected">Connected</p>
+
+              <div class="settings__service-actions">
+                {#if service.catalogOnly}
+                  <button type="button" class="settings__service-btn settings__service-btn--secondary" disabled>
+                    Catalog Only
+                  </button>
+                {:else if service.disabled}
+                  <button type="button" class="settings__service-btn settings__service-btn--paused" disabled>
+                    Paused
+                  </button>
+                {:else if connected}
+                  {#if confirmingDisconnect === service.id}
+                    <div class="settings__confirm-strip">
+                      <span class="settings__confirm-label">Disconnect {service.name}?</span>
+                      <button type="button" on:click={() => confirmDisconnect(service)} class="settings__confirm-yes">
+                        Yes
+                      </button>
+                      <button type="button" on:click={cancelDisconnect} class="settings__confirm-no">
+                        No
+                      </button>
+                    </div>
+                  {:else}
+                    <button
+                      type="button"
+                      class="settings__service-btn settings__service-btn--secondary"
+                      on:click={() => navigateTo('sync')}
+                    >
+                      Open Library
+                    </button>
+                    <button
+                      type="button"
+                      class="settings__service-btn settings__service-btn--disconnect"
+                      on:click={() => requestDisconnect(service.id)}
+                      disabled={connectingProvider === service.connectionProvider}
+                    >
+                      {connectingProvider === service.connectionProvider ? 'Disconnecting...' : 'Disconnect'}
+                    </button>
+                  {/if}
                 {:else}
-                  <p class="settings__service-status">Not connected</p>
+                  <button
+                    type="button"
+                    class={`settings__service-btn ${
+                      service.icon === 'tidal'
+                        ? 'settings__service-btn--tidal'
+                        : service.icon === 'youtube'
+                          ? 'settings__service-btn--youtube'
+                          : 'settings__service-btn--primary'
+                    }`}
+                    on:click={() => connectService(service)}
+                    disabled={connectingProvider === service.connectionProvider}
+                  >
+                    {connectingProvider === service.connectionProvider ? 'Connecting...' : 'Connect Account'}
+                  </button>
                 {/if}
               </div>
-            </div>
-            {#if isConnected('tidal')}
-              {#if confirmingDisconnect === 'tidal'}
-                <div class="settings__confirm-group">
-                  <span class="settings__confirm-label">Disconnect?</span>
-                  <button type="button" on:click={() => confirmDisconnect('tidal')} class="settings__confirm-yes">Yes</button>
-                  <button type="button" on:click={cancelDisconnect} class="settings__confirm-no">No</button>
-                </div>
-              {:else}
-                <button
-                  type="button"
-                  on:click={() => requestDisconnect('tidal')}
-                  disabled={connectingProvider === 'tidal'}
-                  class="settings__service-btn settings__service-btn--disconnect"
-                >
-                  {connectingProvider === 'tidal' ? 'Disconnecting...' : 'Disconnect'}
-                </button>
-              {/if}
-            {:else}
-              <button
-                type="button"
-                on:click={() => initiateOAuth('tidal')}
-                disabled={connectingProvider === 'tidal'}
-                class="settings__service-btn settings__service-btn--tidal"
-              >
-                {connectingProvider === 'tidal' ? 'Connecting...' : 'Connect'}
-              </button>
-            {/if}
-          </div>
+            </article>
+          {/each}
         </div>
       </section>
 
-      <!-- Preferences -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Preferences</h2>
@@ -392,7 +536,7 @@
             </div>
             <button
               type="button"
-              on:click={() => blockFeatured = !blockFeatured}
+              on:click={() => (blockFeatured = !blockFeatured)}
               class="toggle"
               class:toggle--active={blockFeatured}
               role="switch"
@@ -408,7 +552,7 @@
             </div>
             <button
               type="button"
-              on:click={() => blockProducers = !blockProducers}
+              on:click={() => (blockProducers = !blockProducers)}
               class="toggle"
               class:toggle--active={blockProducers}
               role="switch"
@@ -424,7 +568,7 @@
             </div>
             <button
               type="button"
-              on:click={() => notifications = !notifications}
+              on:click={() => (notifications = !notifications)}
               class="toggle"
               class:toggle--active={notifications}
               role="switch"
@@ -436,7 +580,6 @@
         </div>
       </section>
 
-      <!-- Developer -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Developer</h2>
@@ -450,33 +593,40 @@
           <button
             type="button"
             on:click={() => navigateTo('service-health')}
-            class="settings__service-btn settings__service-btn--disconnect"
+            class="settings__service-btn settings__service-btn--secondary"
           >
             View
           </button>
         </div>
       </section>
 
-      <!-- Account Actions -->
       <section class="settings__section">
         <div class="settings__section-header">
           <h2 class="settings__section-title">Account Actions</h2>
         </div>
         <div class="settings__actions">
-          <button type="button" on:click={handleLogout} disabled={isLoggingOut} class="settings__logout-btn">
+          <button
+            type="button"
+            on:click={handleLogout}
+            disabled={isLoggingOut}
+            class="settings__logout-btn"
+          >
             {#if isLoggingOut}
               <div class="settings__spinner"></div>
               <span>Signing out...</span>
             {:else}
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
               </svg>
               <span>Sign out</span>
             {/if}
           </button>
-          <button type="button" class="settings__delete-btn">
-            Delete account
-          </button>
+          <button type="button" class="settings__delete-btn">Delete account</button>
         </div>
       </section>
 
@@ -504,7 +654,6 @@
     gap: 1.25rem;
   }
 
-  /* Section */
   .settings__section {
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
@@ -529,9 +678,9 @@
   }
 
   .settings__section-desc {
+    margin-top: 0.1875rem;
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
-    margin-top: 0.1875rem;
   }
 
   .settings__section-body {
@@ -547,19 +696,18 @@
   }
 
   .settings__value {
+    margin-top: 0.25rem;
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-primary);
-    margin-top: 0.25rem;
   }
 
-  /* Rows */
   .settings__row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1.25rem;
     gap: 1rem;
+    padding: 1rem 1.25rem;
   }
 
   .settings__row--border {
@@ -578,21 +726,20 @@
   }
 
   .settings__row-desc {
+    margin-top: 0.125rem;
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
-    margin-top: 0.125rem;
   }
 
-  /* Theme buttons */
   .settings__theme-btns {
     display: flex;
+    gap: 0.125rem;
+    padding: 0.1875rem;
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
       rgba(24, 24, 27, 0.92);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-lg);
-    padding: 0.1875rem;
-    gap: 0.125rem;
   }
 
   .settings__theme-btn {
@@ -613,220 +760,300 @@
   }
 
   .settings__theme-btn--active {
-    background: rgba(255, 255, 255, 0.06);
     color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.06);
     box-shadow: var(--shadow-sm);
   }
 
-  /* Toggle (using design system classes) */
-
-  /* Music Services */
-  .settings__service-info {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+  .settings__banner {
+    margin: 1rem 1.25rem 0;
   }
 
-  .settings__service-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: var(--radius-full);
+  .settings__banner-check {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+  }
+
+  .settings__service-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .settings__service-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 15rem;
+    padding: 1.1rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
+      rgba(15, 17, 24, 0.86);
+    border: 1px solid rgba(82, 93, 124, 0.45);
+    border-radius: 1.1rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+
+  .settings__service-top {
+    display: flex;
+    gap: 0.9rem;
+    align-items: flex-start;
+  }
+
+  .settings__service-avatar {
     display: flex;
     align-items: center;
     justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.95rem;
+  }
+
+  .settings__service-glyph {
+    width: 1.55rem;
+    height: 1.55rem;
     flex-shrink: 0;
   }
 
-  .settings__service-icon svg {
-    width: 1.375rem;
-    height: 1.375rem;
-    max-width: none;
-    max-height: none;
-    color: white;
+  .settings__service-copy {
+    min-width: 0;
+    flex: 1;
   }
 
-  .settings__service-icon--spotify {
-    background-color: #1DB954;
-  }
-
-  .settings__service-icon--apple {
-    background: linear-gradient(135deg, #FA2D48, #A833B9);
+  .settings__service-title-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .settings__service-name {
-    font-size: var(--text-sm);
-    font-weight: 500;
+    font-size: 1rem;
+    font-weight: 600;
     color: var(--color-text-primary);
   }
 
-  .settings__service-status {
-    font-size: var(--text-xs);
-    color: var(--color-text-tertiary);
-    margin-top: 0.0625rem;
+  .settings__service-desc {
+    margin-top: 0.45rem;
+    font-size: 0.83rem;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
   }
 
-  .settings__service-status--connected {
-    color: var(--color-success);
-    font-weight: 500;
+  .settings__status-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.22rem 0.55rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .settings__status-pill--connected {
+    color: #4ade80;
+    background: rgba(34, 197, 94, 0.16);
+    border-color: rgba(74, 222, 128, 0.2);
+  }
+
+  .settings__status-pill--warning {
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.16);
+    border-color: rgba(251, 191, 36, 0.22);
+  }
+
+  .settings__status-pill--error {
+    color: #fda4af;
+    background: rgba(225, 29, 72, 0.16);
+    border-color: rgba(251, 113, 133, 0.24);
+  }
+
+  .settings__status-pill--paused {
+    color: #fbbf24;
+    background: rgba(180, 83, 9, 0.18);
+    border-color: rgba(251, 191, 36, 0.2);
+  }
+
+  .settings__status-pill--catalog {
+    color: #d4d4d8;
+    background: rgba(113, 113, 122, 0.22);
+    border-color: rgba(161, 161, 170, 0.16);
+  }
+
+  .settings__status-pill--idle {
+    color: #d4d4d8;
+    background: rgba(63, 63, 70, 0.5);
+    border-color: rgba(113, 113, 122, 0.2);
+  }
+
+  .settings__service-actions {
+    display: flex;
+    gap: 0.7rem;
+    align-items: center;
+    flex-wrap: wrap;
   }
 
   .settings__service-btn {
-    flex-shrink: 0;
-    padding: 0.375rem 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.625rem;
+    padding: 0.675rem 1rem;
     font-family: var(--font-family-sans);
     font-size: var(--text-xs);
-    font-weight: 600;
-    border: none;
-    border-radius: var(--radius-md);
+    font-weight: 700;
+    border: 1px solid transparent;
+    border-radius: 0.9rem;
     cursor: pointer;
     transition: all var(--transition-fast);
   }
 
   .settings__service-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.65;
     cursor: not-allowed;
   }
 
-  .settings__service-btn--spotify {
-    background-color: #1DB954;
+  .settings__service-btn--primary {
     color: white;
+    background: linear-gradient(135deg, #fb7185, #f43f5e);
+    box-shadow: 0 12px 28px rgba(244, 63, 94, 0.22);
   }
 
-  .settings__service-btn--spotify:hover:not(:disabled) {
-    background-color: #1ed760;
+  .settings__service-btn--primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 34px rgba(244, 63, 94, 0.26);
   }
 
-  .settings__service-btn--apple {
-    background: linear-gradient(90deg, #FA2D48, #A833B9);
+  .settings__service-btn--youtube {
     color: white;
+    background: linear-gradient(135deg, #ff3b30, #ff0000);
+    box-shadow: 0 12px 28px rgba(255, 59, 48, 0.18);
   }
 
-  .settings__service-btn--apple:hover:not(:disabled) {
-    opacity: 0.9;
+  .settings__service-btn--youtube:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 34px rgba(255, 59, 48, 0.22);
   }
 
   .settings__service-btn--tidal {
-    background-color: #000000;
     color: white;
+    background: linear-gradient(135deg, #111827, #000000);
+    border-color: rgba(255, 255, 255, 0.08);
   }
 
   .settings__service-btn--tidal:hover:not(:disabled) {
-    background-color: #1a1a1a;
+    transform: translateY(-1px);
+    border-color: rgba(255, 255, 255, 0.14);
   }
 
-  .settings__service-icon--tidal {
-    background-color: #000000;
-    color: white;
+  .settings__service-btn--paused {
+    color: #fde68a;
+    background: rgba(120, 53, 15, 0.34);
+    border-color: rgba(251, 191, 36, 0.16);
+  }
+
+  .settings__service-btn--secondary {
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .settings__service-btn--secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .settings__service-btn--disconnect {
-    background-color: var(--color-bg-interactive);
-    color: var(--color-text-secondary);
-    border: 1px solid var(--color-border-default);
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.28);
+    border-color: rgba(248, 113, 113, 0.16);
   }
 
   .settings__service-btn--disconnect:hover:not(:disabled) {
-    background-color: var(--color-bg-hover);
-    color: var(--color-text-primary);
+    background: rgba(127, 29, 29, 0.38);
   }
 
-  .settings__confirm-group {
+  .settings__confirm-strip {
     display: flex;
+    gap: 0.45rem;
     align-items: center;
-    gap: 0.375rem;
-    flex-shrink: 0;
+    flex-wrap: wrap;
   }
 
   .settings__confirm-label {
     font-size: var(--text-xs);
     color: var(--color-text-tertiary);
-    white-space: nowrap;
+  }
+
+  .settings__confirm-yes,
+  .settings__confirm-no {
+    padding: 0.45rem 0.7rem;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
   }
 
   .settings__confirm-yes {
-    padding: 0.3125rem 0.625rem;
-    font-size: var(--text-xs);
-    font-weight: 600;
-    font-family: var(--font-family-sans);
     color: white;
-    background-color: var(--color-brand-primary);
+    background: linear-gradient(135deg, #fb7185, #f43f5e);
     border: none;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: background-color var(--transition-fast);
-  }
-
-  .settings__confirm-yes:hover {
-    background-color: var(--color-brand-primary-hover);
   }
 
   .settings__confirm-no {
-    padding: 0.3125rem 0.625rem;
-    font-size: var(--text-xs);
-    font-weight: 500;
-    font-family: var(--font-family-sans);
     color: var(--color-text-secondary);
-    background-color: var(--color-bg-interactive);
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .settings__confirm-no:hover {
-    background-color: var(--color-bg-hover);
-    color: var(--color-text-primary);
-  }
-
-  .settings__alert {
-    margin: 0.75rem 1.25rem 0;
-    padding: 0.75rem;
-    border-radius: var(--radius-lg);
-    background-color: var(--color-brand-primary-muted);
-    border: 1px solid rgba(244, 63, 94, 0.3);
-    font-size: var(--text-sm);
-    color: var(--color-brand-primary);
-  }
-
-  /* Actions */
   .settings__actions {
-    padding: 1rem 1.25rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.65rem;
+    padding: 1rem 1.25rem;
+  }
+
+  .settings__logout-btn,
+  .settings__delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0.8rem 1rem;
+    font-family: var(--font-family-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
   }
 
   .settings__logout-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    padding: 0.75rem;
-    font-family: var(--font-family-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-    background-color: var(--color-bg-interactive);
-    border: 1px solid var(--color-border-default);
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .settings__logout-btn:hover:not(:disabled) {
-    background-color: var(--color-bg-hover);
-    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .settings__logout-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
   }
 
   .settings__logout-btn svg {
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 1.1rem;
+    height: 1.1rem;
     max-width: none;
     max-height: none;
   }
@@ -841,34 +1068,45 @@
   }
 
   .settings__delete-btn {
-    width: 100%;
-    padding: 0.75rem;
-    font-family: var(--font-family-sans);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-brand-primary);
-    background-color: var(--color-brand-primary-muted);
-    border: 1px solid rgba(244, 63, 94, 0.2);
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.24);
+    border: 1px solid rgba(248, 113, 113, 0.16);
   }
 
   .settings__delete-btn:hover {
-    background-color: var(--color-brand-primary);
-    color: white;
-    border-color: var(--color-brand-primary);
+    background: rgba(153, 27, 27, 0.34);
   }
 
   .settings__version {
+    margin-top: 0.5rem;
     text-align: center;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    margin-top: 0.5rem;
   }
 
   @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+      transform: rotate(0deg);
+    }
+
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .settings__row {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .settings__theme-btns {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .settings__theme-btn {
+      flex: 1;
+    }
   }
 </style>

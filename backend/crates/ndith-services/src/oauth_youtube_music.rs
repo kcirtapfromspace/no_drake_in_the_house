@@ -52,8 +52,7 @@ impl YouTubeMusicOAuthProvider {
             .map_err(|_| AppError::ConfigurationError {
                 message: "YOUTUBE_MUSIC_CLIENT_SECRET or GOOGLE_CLIENT_SECRET environment variable is required".to_string(),
             })?;
-        let redirect_uri = std::env::var("YOUTUBE_MUSIC_REDIRECT_URI")
-            .unwrap_or_else(|_| provider_callback_uri("youtube"));
+        let redirect_uri = provider_callback_uri("youtube");
 
         Self::with_credentials(client_id, client_secret, redirect_uri)
     }

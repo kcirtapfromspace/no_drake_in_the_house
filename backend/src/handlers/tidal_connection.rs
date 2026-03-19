@@ -147,19 +147,15 @@ pub async fn tidal_authorize_handler(
     let oauth_state = Uuid::new_v4().to_string();
 
     // Determine redirect URI
-    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
-        std::env::var("TIDAL_REDIRECT_URI").unwrap_or_else(|_| provider_callback_uri("tidal"))
-    });
+    let redirect_uri = query
+        .redirect_uri
+        .unwrap_or_else(|| provider_callback_uri("tidal"));
     let requested_scopes = TidalService::configured_oauth_scopes();
 
-    // Create service with custom redirect URI if needed
-    // Tidal modern OAuth uses `client_unique_key` as an application/device identifier.
-    // Treat it as optional configuration, but generate a per-auth value when not set so
-    // local dev doesn't fail with opaque authorize/token errors.
-    let client_unique_key = tidal_config
-        .client_unique_key
-        .clone()
-        .or_else(|| Some(Uuid::new_v4().to_string()));
+    // Create service with custom redirect URI if needed.
+    // `client_unique_key` is optional and some TIDAL app setups reject synthetic values,
+    // so only send it when the provider configuration explicitly includes one.
+    let client_unique_key = tidal_config.client_unique_key.clone();
 
     let tidal_service = TidalService::new(TidalConfig {
         client_id: tidal_config.client_id,
@@ -275,7 +271,6 @@ pub async fn tidal_callback_handler(
                 .filter(|uri| !uri.is_empty())
                 .map(str::to_string)
         })
-        .or_else(|| std::env::var("TIDAL_REDIRECT_URI").ok())
         .unwrap_or_else(|| provider_callback_uri("tidal"));
 
     let client_unique_key = state_data

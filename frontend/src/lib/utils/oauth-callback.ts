@@ -95,7 +95,7 @@ export async function resolveOAuthCallback(
     };
   }
 
-  const request = {
+  const request: OAuthCallbackRequest = {
     code,
     state,
   };

@@ -18,6 +18,7 @@
   let syncingLibrary: string | null = null;
   let connectionSuccess: string | null = null;
   let connectionError: string | null = null;
+  let connectionBannerTimeout: ReturnType<typeof setTimeout> | null = null;
 
   interface AppleLibraryPreview {
     tracks: Array<{ id: string; name?: string; artist?: string; album?: string }>;
@@ -239,7 +240,7 @@
 
   $: connectedPlatforms = platforms.filter((platform) => {
     const provider = platform.connectionProvider;
-    return Boolean(provider) && !platform.disabled && activeProviders.has(provider);
+    return provider != null && !platform.disabled && activeProviders.has(provider);
   });
 
   $: libraryStatsByProvider = new Map<string, ProviderLibraryStatsRow>(
@@ -372,8 +373,7 @@
     const result = await apiClient.authenticatedRequest<any>(
       'GET',
       `/api/v1/library/tracks?provider=${encodeURIComponent(provider)}`,
-      undefined,
-      { retries: 0 }
+      undefined
     );
 
     if (!result.success) {
@@ -571,11 +571,45 @@
   }
 
   function showAlreadyConnectedMessage(platformName: string): void {
+    showConnectionSuccess(
+      `${platformName} is already connected. Use "Sync Library" or disconnect first to reconnect.`
+    );
+  }
+
+  function clearConnectionBannerTimer(): void {
+    if (connectionBannerTimeout) {
+      clearTimeout(connectionBannerTimeout);
+      connectionBannerTimeout = null;
+    }
+  }
+
+  function showConnectionSuccess(message: string, duration = 5000): void {
+    clearConnectionBannerTimer();
     connectionError = null;
-    connectionSuccess = `${platformName} is already connected. Use "Sync Library" or disconnect first to reconnect.`;
-    setTimeout(() => {
-      connectionSuccess = null;
-    }, 5000);
+    connectionSuccess = message;
+    if (duration > 0) {
+      connectionBannerTimeout = setTimeout(() => {
+        connectionSuccess = null;
+        connectionBannerTimeout = null;
+      }, duration);
+    }
+  }
+
+  function showConnectionError(message: string): void {
+    clearConnectionBannerTimer();
+    connectionSuccess = null;
+    connectionError = message;
+  }
+
+  function isSuccessLikeMessage(message: string | undefined): boolean {
+    if (!message) return false;
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('connected successfully') ||
+      normalized.includes('library imported') ||
+      normalized.includes('synced successfully') ||
+      normalized.includes('sync complete')
+    );
   }
 
   async function connectPlatform(platform: Platform) {
@@ -583,6 +617,7 @@
 
     connectingPlatform = platform.id;
     connectionError = null;
+    connectionSuccess = null;
 
     try {
       // Refresh connection state before triggering OAuth to avoid reconnect loops
@@ -595,15 +630,16 @@
 
       if (platform.id === 'apple') {
         const result = await connectionActions.connectAppleMusic();
-        if (result.success) {
-          connectionSuccess = `${platform.name} connected successfully. Click "Sync Library" to fetch your library.`;
+        if (result.success || isSuccessLikeMessage(result.message)) {
+          showConnectionSuccess(
+            `${platform.name} connected successfully. Click "Sync Library" to fetch your library.`
+          );
           appleLibraryRequested = false;
-          setTimeout(() => { connectionSuccess = null; }, 5000);
         } else if (isAlreadyConnectedError(result.message, platform)) {
           await connectionActions.fetchConnections();
           showAlreadyConnectedMessage(platform.name);
         } else {
-          connectionError = result.message || `Failed to connect ${platform.name}`;
+          showConnectionError(result.message || `Failed to connect ${platform.name}`);
         }
       } else if (platform.id === 'spotify') {
         await connectionActions.initiateSpotifyAuth();
@@ -613,8 +649,10 @@
         if (!result.success && isAlreadyConnectedError(result.message, platform)) {
           await connectionActions.fetchConnections();
           showAlreadyConnectedMessage(platform.name);
+        } else if (!result.success && isSuccessLikeMessage(result.message)) {
+          showConnectionSuccess(result.message || `${platform.name} connected successfully.`);
         } else if (!result.success) {
-          connectionError = result.message || 'Failed to initiate YouTube auth';
+          showConnectionError(result.message || 'Failed to initiate YouTube auth');
         }
         // Note: If successful, page will redirect to Google OAuth
       } else if (platform.id === 'tidal') {
@@ -627,8 +665,10 @@
           if (isAlreadyConnectedError(result.message, platform)) {
             await connectionActions.fetchConnections();
             showAlreadyConnectedMessage(platform.name);
+          } else if (isSuccessLikeMessage(result.message)) {
+            showConnectionSuccess(result.message || `${platform.name} connected successfully.`);
           } else {
-            connectionError = result.message || 'Failed to initiate Tidal auth';
+            showConnectionError(result.message || 'Failed to initiate Tidal auth');
           }
         }
         // Note: If successful, page will redirect to Tidal OAuth
@@ -640,7 +680,7 @@
         await connectionActions.fetchConnections();
         showAlreadyConnectedMessage(platform.name);
       } else {
-        connectionError = errorMessage;
+        showConnectionError(errorMessage);
       }
     } finally {
       await refreshLibraryStats();
@@ -690,6 +730,7 @@
 
     syncingLibrary = platform.id;
     connectionError = null;
+    connectionSuccess = null;
 
     try {
       const triggerGenericSync = async () => {
@@ -699,8 +740,9 @@
           priority: 'normal',
         };
         await syncActions.triggerSync(request);
-        connectionSuccess = `${platform.name} sync started. Provider-specific sync endpoint unavailable, using catalog pipeline.`;
-        setTimeout(() => { connectionSuccess = null; }, 5000);
+        showConnectionSuccess(
+          `${platform.name} sync started. Provider-specific sync endpoint unavailable, using catalog pipeline.`
+        );
       };
 
       // Use platform-specific library sync endpoints
@@ -719,12 +761,11 @@
         });
 
         try {
-          const syncResult = await apiClient.authenticatedRequest<any>(
-            'POST',
-            '/api/v1/apple-music/library/sync',
-            undefined,
-            { retries: 0 }
-          );
+      const syncResult = await apiClient.authenticatedRequest<any>(
+        'POST',
+        '/api/v1/apple-music/library/sync',
+        undefined
+      );
 
           blockingStore.removeToast(inProgressToastId);
 
@@ -763,22 +804,23 @@
         const syncResult = await apiClient.authenticatedRequest<any>(
           'POST',
           endpoint,
-          undefined,
-          { retries: 0 }
+          undefined
         );
 
         if (syncResult.success) {
           const payload = (syncResult.data ?? syncResult) as any;
-          connectionSuccess =
-            payload?.message || `${platform.name} library synced successfully.`;
-          setTimeout(() => { connectionSuccess = null; }, 5000);
+          showConnectionSuccess(
+            payload?.message || `${platform.name} library synced successfully.`
+          );
         } else if (
           syncResult.error_code === 'HTTP_404' ||
           syncResult.error_code === 'HTTP_405'
         ) {
           await triggerGenericSync();
         } else {
-          connectionError = syncResult.message || `Failed to sync ${platform.name} library`;
+          showConnectionError(
+            syncResult.message || `Failed to sync ${platform.name} library`
+          );
         }
       } else {
         // Fallback to generic catalog sync for other platforms
@@ -788,7 +830,7 @@
       const message =
         error instanceof Error ? error.message : `Failed to sync library from ${platform.name}`;
       console.error(`Failed to sync library from ${platform.name}:`, error);
-      connectionError = message;
+      showConnectionError(message);
       if (platform.id === 'apple') {
         blockingStore.addToast({
           type: 'error',
@@ -981,8 +1023,7 @@
       const result = await apiClient.authenticatedRequest<LibraryItemsPage>(
         'GET',
         endpoint,
-        undefined,
-        { retries: 0 }
+        undefined
       );
 
       if (!result.success || !result.data) {
@@ -1026,8 +1067,7 @@
       const result = await apiClient.authenticatedRequest<LibraryGroupsPage>(
         'GET',
         endpoint,
-        undefined,
-        { retries: 0 }
+        undefined
       );
 
       if (!result.success || !result.data) {
@@ -1106,8 +1146,7 @@
       const result = await apiClient.authenticatedRequest<TasteGradeResponse>(
         'GET',
         '/api/v1/library/taste-grade',
-        undefined,
-        { retries: 0 }
+        undefined
       );
 
       if (result.success && result.data) {
@@ -1137,8 +1176,7 @@
       const result = await apiClient.authenticatedRequest<LibraryOffendersResponse>(
         'GET',
         `/api/v1/library/offenders?${params.toString()}`,
-        undefined,
-        { retries: 0 }
+        undefined
       );
 
       if (result.success && result.data) {

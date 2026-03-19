@@ -280,7 +280,7 @@ impl NewsApiClient {
 
         let response = self
             .client
-            .get(&format!("{}/top-headlines", NEWSAPI_BASE))
+            .get(format!("{}/top-headlines", NEWSAPI_BASE))
             .query(&query_params)
             .send()
             .await

@@ -219,7 +219,7 @@ impl RedditMonitor {
             seen.insert(post.id.clone());
 
             let created_at =
-                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(|| Utc::now());
+                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(Utc::now);
 
             posts.push(ProcessedRedditPost {
                 id: Uuid::new_v4(),
@@ -299,7 +299,7 @@ impl RedditMonitor {
             seen.insert(post.id.clone());
 
             let created_at =
-                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(|| Utc::now());
+                DateTime::from_timestamp(post.created_utc as i64, 0).unwrap_or_else(Utc::now);
 
             posts.push(ProcessedRedditPost {
                 id: Uuid::new_v4(),

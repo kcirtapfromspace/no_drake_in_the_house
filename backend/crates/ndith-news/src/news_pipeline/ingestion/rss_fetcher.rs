@@ -350,7 +350,7 @@ impl RssFetcher {
 
         for source in sources.iter().filter(|s| s.enabled) {
             // Check if we should poll this source
-            if !self.should_poll(&source).await {
+            if !self.should_poll(source).await {
                 continue;
             }
 

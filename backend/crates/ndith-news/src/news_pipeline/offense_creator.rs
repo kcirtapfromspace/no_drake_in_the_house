@@ -117,7 +117,7 @@ impl OffenseCreator {
         )
         .bind(artist_id)
         .bind(&category)
-        .bind(&severity)
+        .bind(severity)
         .bind(format!("Auto-detected: {}", article_title))
         .bind(&classification.context)
         .bind(incident_date)
@@ -182,7 +182,7 @@ impl OffenseCreator {
             "#,
         )
         .bind(artist_id)
-        .bind(&category_str)
+        .bind(category_str)
         .bind(incident_date)
         .fetch_optional(&self.db_pool)
         .await
@@ -361,7 +361,7 @@ impl OffenseCreator {
                 artist_id: record.artist_id,
                 category: parse_category(&record.category),
                 severity: parse_severity(&record.severity),
-                confidence: record.confidence as f64,
+                confidence: record.confidence,
                 context: record.evidence_snippet.unwrap_or_default(),
                 matched_keywords: vec![],
                 needs_review: true, // Backfilled items always need review

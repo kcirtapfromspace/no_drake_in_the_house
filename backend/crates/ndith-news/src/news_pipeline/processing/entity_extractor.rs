@@ -254,10 +254,8 @@ impl EntityExtractor {
 
         for (known_name, artist) in known_artists.iter() {
             let similarity = self.string_similarity(&normalized, known_name);
-            if similarity >= 0.85 {
-                if best_match.is_none() || similarity > best_match.unwrap().0 {
-                    best_match = Some((similarity, artist));
-                }
+            if similarity >= 0.85 && (best_match.is_none() || similarity > best_match.unwrap().0) {
+                best_match = Some((similarity, artist));
             }
         }
 
@@ -278,7 +276,7 @@ impl EntityExtractor {
 
         // Multi-word names are more likely to be real entities
         let word_count = name.split_whitespace().count();
-        if word_count >= 2 && word_count <= 4 {
+        if (2..=4).contains(&word_count) {
             confidence += 0.1;
         }
 
@@ -313,7 +311,7 @@ impl EntityExtractor {
             EntityType::Venue
         } else if lower.contains("festival") || lower.contains("tour") {
             EntityType::Event
-        } else if lower.contains("the ") && !self.title_prefixes.contains(&"The".to_string()) {
+        } else if lower.contains("the ") && !self.title_prefixes.contains("The") {
             EntityType::Band
         } else {
             EntityType::Artist

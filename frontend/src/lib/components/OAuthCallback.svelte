@@ -5,6 +5,7 @@
   import {
     getProviderFromPath,
     getProviderName,
+    isConnectionProvider,
     resolveOAuthCallback,
   } from '../utils/oauth-callback';
 
@@ -24,7 +25,7 @@
     if (result.status === 'success') {
       status = 'success';
       setTimeout(() => {
-        navigateTo('settings');
+        navigateTo(isConnectionProvider(result.provider) ? 'sync' : 'settings');
       }, 1500);
     } else {
       status = 'error';
@@ -33,7 +34,7 @@
   });
 
   function goToSettings() {
-    navigateTo('settings');
+    navigateTo(isConnectionProvider(provider) ? 'sync' : 'settings');
   }
 
   function goHome() {

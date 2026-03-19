@@ -15,6 +15,8 @@ describe('oauth callback helpers', () => {
     expect(getProviderName('google')).toBe('Google');
     expect(getProviderName('apple')).toBe('Apple Music');
     expect(getProviderName('github')).toBe('GitHub');
+    expect(getProviderName('youtube')).toBe('YouTube Music');
+    expect(getProviderName('tidal')).toBe('Tidal');
   });
 
   it('completes a successful callback with the expected request payload', async () => {
@@ -96,6 +98,26 @@ describe('oauth callback helpers', () => {
     expect(result.status).toBe('error');
     expect(result.provider).toBe('google');
     expect(result.errorMessage).toBe('Invalid authorization code');
+  });
+
+  it('routes streaming providers to the connection callback endpoints', async () => {
+    const post = vi.fn().mockResolvedValue({ success: true });
+
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'https://nodrakeinthe.house',
+        pathname: '/auth/callback/youtube',
+        search: '?code=test-code&state=test-state',
+      },
+      post
+    );
+
+    expect(post).toHaveBeenCalledWith('/api/v1/connections/youtube/callback', {
+      code: 'test-code',
+      state: 'test-state',
+    });
+    expect(result.status).toBe('success');
+    expect(result.provider).toBe('youtube');
   });
 
   it('surfaces thrown request errors', async () => {

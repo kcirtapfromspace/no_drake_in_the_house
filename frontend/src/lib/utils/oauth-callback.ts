@@ -7,7 +7,7 @@ export interface OAuthCallbackLocation {
 export interface OAuthCallbackRequest {
   code: string;
   state: string;
-  redirect_uri: string;
+  redirect_uri?: string;
 }
 
 export interface OAuthCallbackResponse {
@@ -33,6 +33,11 @@ export function getProviderName(provider: string): string {
       return 'Spotify';
     case 'apple':
       return 'Apple Music';
+    case 'youtube':
+    case 'youtube_music':
+      return 'YouTube Music';
+    case 'tidal':
+      return 'Tidal';
     case 'google':
       return 'Google';
     case 'github':
@@ -40,6 +45,27 @@ export function getProviderName(provider: string): string {
     default:
       return provider;
   }
+}
+
+export function isConnectionProvider(provider: string): boolean {
+  return (
+    provider === 'spotify' ||
+    provider === 'youtube' ||
+    provider === 'youtube_music' ||
+    provider === 'tidal'
+  );
+}
+
+function getCallbackEndpoint(provider: string): string {
+  if (provider === 'spotify' || provider === 'tidal') {
+    return `/api/v1/connections/${provider}/callback`;
+  }
+
+  if (provider === 'youtube' || provider === 'youtube_music') {
+    return '/api/v1/connections/youtube/callback';
+  }
+
+  return `/api/v1/auth/oauth/${provider}/link-callback`;
 }
 
 export async function resolveOAuthCallback(
@@ -72,11 +98,14 @@ export async function resolveOAuthCallback(
   const request = {
     code,
     state,
-    redirect_uri: location.origin + location.pathname,
   };
 
+  if (!isConnectionProvider(provider)) {
+    request.redirect_uri = location.origin + location.pathname;
+  }
+
   try {
-    const result = await post(`/api/v1/auth/oauth/${provider}/link-callback`, request);
+    const result = await post(getCallbackEndpoint(provider), request);
 
     if (result.success) {
       return {

@@ -1247,7 +1247,7 @@
     {#if $syncStore.error}
       <div class="brand-alert brand-alert--error mb-6">
         <div class="flex items-center gap-2">
-          <span>\u2717</span>
+          <span aria-hidden="true">✕</span>
           <span>{$syncStore.error}</span>
           <button type="button" on:click={syncActions.clearError} class="brand-alert__dismiss">
             Dismiss
@@ -1259,7 +1259,7 @@
     {#if connectionError}
       <div class="brand-alert brand-alert--error mb-6">
         <div class="flex items-center gap-2">
-          <span>\u2717</span>
+          <span aria-hidden="true">✕</span>
           <span>{connectionError}</span>
           <button type="button" on:click={() => connectionError = null} class="brand-alert__dismiss">
             Dismiss

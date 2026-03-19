@@ -325,6 +325,7 @@
   .login__form-panel {
     position: relative;
     z-index: 1;
+    min-width: 0;
     padding: clamp(1.1rem, 2.5vw, 1.85rem);
   }
 
@@ -476,6 +477,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.875rem;
+    width: 100%;
+    min-width: 0;
   }
 
   .login__alert {
@@ -535,6 +538,7 @@
   .login__field {
     display: flex;
     flex-direction: column;
+    min-width: 0;
   }
 
   .login__label {

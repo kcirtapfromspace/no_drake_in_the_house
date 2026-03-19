@@ -33,23 +33,32 @@ pub struct AppleMusicConfig {
     pub api_base_url: String,
 }
 
+fn normalize_private_key(raw_key: String) -> String {
+    raw_key
+        .trim()
+        .replace("\\r\\n", "\n")
+        .replace("\\n", "\n")
+        .replace("\\r", "\n")
+}
+
 impl Default for AppleMusicConfig {
     fn default() -> Self {
         // Try to read private key from file path first, then fall back to direct env var
-        let private_key = if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
-            std::fs::read_to_string(&key_path).unwrap_or_else(|e| {
-                tracing::warn!(
-                    "Failed to read Apple Music private key from {}: {}",
-                    key_path,
-                    e
-                );
-                "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
-            })
-        } else {
-            std::env::var("APPLE_MUSIC_PRIVATE_KEY").unwrap_or_else(|_| {
-                "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
-            })
-        };
+        let private_key =
+            if let Ok(key_path) = std::env::var("APPLE_MUSIC_KEY_PATH") {
+                normalize_private_key(std::fs::read_to_string(&key_path).unwrap_or_else(|e| {
+                    tracing::warn!(
+                        "Failed to read Apple Music private key from {}: {}",
+                        key_path,
+                        e
+                    );
+                    "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string()
+                }))
+            } else {
+                normalize_private_key(std::env::var("APPLE_MUSIC_PRIVATE_KEY").unwrap_or_else(
+                    |_| "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----".to_string(),
+                ))
+            };
 
         Self {
             team_id: std::env::var("APPLE_MUSIC_TEAM_ID")

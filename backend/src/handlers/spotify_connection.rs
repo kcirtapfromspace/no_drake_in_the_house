@@ -48,9 +48,7 @@ fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
         std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
             message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
         })?;
-    let redirect_uri = std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
-        .or_else(|_| std::env::var("SPOTIFY_REDIRECT_URI"))
-        .unwrap_or_else(|_| provider_callback_uri("spotify"));
+    let redirect_uri = provider_callback_uri("spotify");
 
     let config = OAuthConfig {
         client_id,
@@ -172,11 +170,9 @@ pub async fn spotify_authorize_handler(
     })?;
 
     // Determine redirect URI (override if provided in query)
-    let redirect_uri = query.redirect_uri.unwrap_or_else(|| {
-        std::env::var("SPOTIFY_CONNECTION_REDIRECT_URI")
-            .or_else(|_| std::env::var("SPOTIFY_REDIRECT_URI"))
-            .unwrap_or_else(|_| provider_callback_uri("spotify"))
-    });
+    let redirect_uri = query
+        .redirect_uri
+        .unwrap_or_else(|| provider_callback_uri("spotify"));
 
     // Initiate OAuth flow
     let flow_response = spotify_provider

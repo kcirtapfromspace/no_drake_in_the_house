@@ -212,7 +212,7 @@
   }
 
   const platforms: Platform[] = [
-    { id: 'spotify', name: 'Spotify', abbr: 'SP', icon: 'spotify', color: '#1DB954', status: 'paused', statusLabel: 'Paused', disabled: true, connectionProvider: 'spotify' },
+    { id: 'spotify', name: 'Spotify', abbr: 'SP', icon: 'spotify', color: '#1DB954', status: 'ready', statusLabel: 'Ready', connectionProvider: 'spotify' },
     { id: 'apple', name: 'Apple Music', abbr: 'AM', icon: 'apple', color: '#FA2D48', status: 'ready', statusLabel: 'Ready', connectionProvider: 'apple_music' },
     { id: 'youtube', name: 'YouTube Music', abbr: 'YT', icon: 'youtube', color: '#FF0000', status: 'ready', statusLabel: 'Ready', connectionProvider: 'youtube_music' },
     { id: 'tidal', name: 'Tidal', abbr: 'TI', icon: 'tidal', color: '#000000', status: 'ready', statusLabel: 'Ready', connectionProvider: 'tidal' },

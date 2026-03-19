@@ -177,33 +177,35 @@ export const connectionActions = {
   },
 
   initiateSpotifyAuth: async () => {
-    const response = await apiClient.authenticatedRequest<{authorization_url: string; state: string}>(
-      'POST',
-      '/api/v1/auth/oauth/spotify/link'
-    );
+    const response = await apiClient.authenticatedRequest<{
+      authorization_url?: string;
+      state?: string;
+      already_connected?: boolean;
+      message?: string;
+    }>('GET', '/api/v1/connections/spotify/authorize');
 
     if (response.success && response.data?.authorization_url) {
-      // Store state for callback validation
-      sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
-      // Redirect to Spotify authorization
+      if (response.data.state) {
+        sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
+      }
       window.location.href = response.data.authorization_url;
+      return { success: true };
     } else {
+      const message =
+        response.data?.message || response.message || 'Failed to initiate Spotify auth';
       connectionsStore.update(state => ({
         ...state,
-        error: response.message || 'Failed to initiate Spotify auth',
+        error: message,
       }));
+      return { success: false, message };
     }
   },
 
   handleSpotifyCallback: async (code: string, state: string) => {
     const response = await apiClient.authenticatedRequest<any>(
       'POST',
-      '/api/v1/auth/oauth/spotify/link-callback',
-      {
-        code,
-        state,
-        redirect_uri: window.location.origin + window.location.pathname
-      }
+      '/api/v1/connections/spotify/callback',
+      { code, state }
     );
     
     if (response.success) {
@@ -218,7 +220,7 @@ export const connectionActions = {
   disconnectSpotify: async () => {
     const response = await apiClient.authenticatedRequest<any>(
       'DELETE',
-      '/api/v1/auth/oauth/spotify/unlink'
+      '/api/v1/connections/spotify'
     );
     
     if (response.success) {
@@ -231,10 +233,9 @@ export const connectionActions = {
   },
 
   checkSpotifyHealth: async () => {
-    // Use the OAuth health endpoint instead of Spotify-specific one
     const response = await apiClient.authenticatedRequest<any>(
       'GET',
-      '/oauth/health/spotify'
+      '/api/v1/connections/spotify/status'
     );
 
     if (response.success) {

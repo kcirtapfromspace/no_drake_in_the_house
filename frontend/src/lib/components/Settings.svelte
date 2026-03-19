@@ -30,11 +30,11 @@
       name: 'Spotify',
       icon: 'spotify',
       color: '#1DB954',
-      description: 'Spotify OAuth is paused until the developer app is restored.',
-      connectedDescription: 'Spotify remains connected but enforcement is paused.',
+      description: 'Connect Spotify to sync saved tracks, playlists, and followed artists.',
+      connectedDescription:
+        'Spotify is connected. Use Library Control to import saved tracks, playlists, and followed artists.',
       connectionProvider: 'spotify',
-      statusLabel: 'Paused',
-      disabled: true,
+      statusLabel: 'Ready',
     },
     {
       id: 'apple',
@@ -196,13 +196,6 @@
   async function connectService(service: ServicePlatform) {
     if (service.catalogOnly) return;
 
-    if (service.disabled) {
-      showConnectionError(
-        'Spotify OAuth is currently unavailable while the Spotify developer portal is paused.'
-      );
-      return;
-    }
-
     const provider = service.connectionProvider;
     if (!provider) return;
 
@@ -220,6 +213,14 @@
           );
         } else {
           showConnectionError(result.message || 'Failed to connect Apple Music');
+        }
+        return;
+      }
+
+      if (service.id === 'spotify') {
+        const result = await connectionActions.initiateSpotifyAuth();
+        if (!result.success) {
+          showConnectionError(result.message || 'Failed to initiate Spotify auth');
         }
         return;
       }

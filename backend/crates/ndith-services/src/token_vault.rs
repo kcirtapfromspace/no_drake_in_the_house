@@ -860,11 +860,10 @@ impl TokenVaultService {
                 .ok_or_else(|| anyhow!("No connection found for user and provider"))
         } else {
             let connection_key = (user_id, provider.clone());
-            let connection_id = self
+            let connection_id = *self
                 .connections_by_user_provider
                 .get(&connection_key)
-                .ok_or_else(|| anyhow!("No connection found for user and provider"))?
-                .clone();
+                .ok_or_else(|| anyhow!("No connection found for user and provider"))?;
 
             self.connections
                 .get(&connection_id)

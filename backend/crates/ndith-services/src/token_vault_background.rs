@@ -267,9 +267,6 @@ mod tests {
         // Test that the service can be created with custom intervals
         let _custom_service =
             background_service.with_intervals(Duration::from_secs(60), Duration::from_secs(3600));
-
-        // Just verify the service was created successfully
-        assert!(true);
     }
 
     #[tokio::test]

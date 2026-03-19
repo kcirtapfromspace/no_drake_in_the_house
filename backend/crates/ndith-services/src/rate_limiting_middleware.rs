@@ -559,7 +559,7 @@ mod tests {
     #[ignore] // Requires Redis connection
     async fn test_rate_limiting_window_reset() {
         let redis_url = "redis://localhost:6379";
-        let mut rate_limiter = RateLimitService::new(redis_url).unwrap();
+        let rate_limiter = RateLimitService::new(redis_url).unwrap();
 
         // Set a very short window for testing
         rate_limiter

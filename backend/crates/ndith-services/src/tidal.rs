@@ -1437,7 +1437,7 @@ impl TidalService {
         let mut requests: u32 = 0;
 
         loop {
-            let params_owned = vec![
+            let params_owned = [
                 ("countryCode".to_string(), country_code.to_string()),
                 ("locale".to_string(), TIDAL_DEFAULT_LOCALE.to_string()),
             ];
@@ -1508,8 +1508,7 @@ impl TidalService {
         let duration = attributes
             .get("duration")
             .and_then(|v| v.as_str())
-            .and_then(parse_iso8601_duration_seconds)
-            .map(|s| s as u32);
+            .and_then(parse_iso8601_duration_seconds);
         let number_of_tracks = attributes
             .get("numberOfItems")
             .and_then(|v| v.as_u64())

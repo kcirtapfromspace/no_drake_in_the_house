@@ -3,12 +3,11 @@ use axum::{
     extract::Request,
     http::{header::AUTHORIZATION, Method, StatusCode},
     middleware,
-    response::Response,
     routing::get,
     Router,
 };
 use music_streaming_blocklist_backend::middleware::auth::auth_middleware;
-use music_streaming_blocklist_backend::models::{Claims, CreateUserRequest, LoginRequest, User};
+use music_streaming_blocklist_backend::models::{CreateUserRequest, LoginRequest, User};
 use music_streaming_blocklist_backend::services::auth::AuthService;
 use sqlx::PgPool;
 use std::{env, sync::Arc};

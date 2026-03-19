@@ -435,7 +435,7 @@ impl CreditsSyncService {
         .bind(&attrs.upc)
         .bind(&cover_url)
         .bind(&album.id)
-        .bind(&attrs.genre_names.clone().unwrap_or_default())
+        .bind(attrs.genre_names.clone().unwrap_or_default())
         .fetch_one(&self.db_pool)
         .await?;
 

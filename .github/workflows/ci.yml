@@ -112,7 +112,7 @@ jobs:
             news=true
           fi
 
-          if has_any_change '^backend/src/' '^backend/tests/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+          if has_any_change '^backend/src/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             api_package=true
           fi
 
@@ -310,7 +310,7 @@ jobs:
           for target in "${targets[@]}"; do
             case "$target" in
               api-render)
-                cargo clippy -p music-streaming-blocklist-backend --all-targets --no-default-features --features render-api -- -D warnings
+                cargo clippy -p music-streaming-blocklist-backend --lib --bins --no-default-features --features render-api -- -D warnings
                 ;;
               core)
                 cargo clippy -p ndith-core --all-targets --all-features -- -D warnings

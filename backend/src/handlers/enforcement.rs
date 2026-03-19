@@ -341,7 +341,7 @@ async fn get_blocked_artist_names(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{BlockedAlbumInfo, BlockedSongInfo, EnforcementRunStatus};
+    use crate::models::{BlockedAlbumInfo, BlockedSongInfo};
 
     // ============================================
     // RunEnforcementRequest Tests

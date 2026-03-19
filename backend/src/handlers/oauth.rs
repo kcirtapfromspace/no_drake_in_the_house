@@ -110,7 +110,7 @@ pub async fn initiate_oauth_handler(
     });
 
     // Validate redirect URI format
-    if let Err(_) = Url::parse(&redirect_uri) {
+    if Url::parse(&redirect_uri).is_err() {
         tracing::warn!(redirect_uri = %redirect_uri, "Invalid redirect URI format");
         return Err(AppError::InvalidFieldValue {
             field: "redirect_uri".to_string(),
@@ -121,7 +121,7 @@ pub async fn initiate_oauth_handler(
     // Initiate OAuth flow using the auth service
     let flow_response = match state
         .auth_service
-        .initiate_oauth_flow(provider_type.clone(), redirect_uri.clone())
+        .initiate_oauth_flow(provider_type, redirect_uri.clone())
         .await
     {
         Ok(response) => response,
@@ -144,11 +144,8 @@ pub async fn initiate_oauth_handler(
                         provider_type
                     )
                 }
-                _ => {
-                    format!(
-                        "Authentication service temporarily unavailable. Please try again later."
-                    )
-                }
+                _ => "Authentication service temporarily unavailable. Please try again later."
+                    .to_string(),
             };
 
             return Err(AppError::ExternalServiceError(user_message));
@@ -599,7 +596,7 @@ pub async fn oauth_callback_handler(
         })?;
 
     // Validate redirect URI format
-    if let Err(_) = Url::parse(&request.redirect_uri) {
+    if Url::parse(&request.redirect_uri).is_err() {
         tracing::warn!(redirect_uri = %request.redirect_uri, "Invalid redirect URI format in callback");
         return Err(AppError::InvalidFieldValue {
             field: "redirect_uri".to_string(),
@@ -611,7 +608,7 @@ pub async fn oauth_callback_handler(
     let token_pair = match state
         .auth_service
         .complete_oauth_flow(
-            provider_type.clone(),
+            provider_type,
             request.code.clone(),
             request.state.clone(),
             request.redirect_uri.clone(),
@@ -645,11 +642,8 @@ pub async fn oauth_callback_handler(
                         provider_type
                     )
                 }
-                _ => {
-                    format!(
-                        "Authentication service temporarily unavailable. Please try again later."
-                    )
-                }
+                _ => "Authentication service temporarily unavailable. Please try again later."
+                    .to_string(),
             };
 
             return Err(AppError::ExternalServiceError(user_message));
@@ -763,7 +757,7 @@ async fn oauth_callback_handler_impl(
             message: format!("Unsupported OAuth provider: {}", provider),
         })?;
 
-    let oauth_provider = get_oauth_provider(provider_type.clone())?;
+    let oauth_provider = get_oauth_provider(provider_type)?;
 
     // Exchange authorization code for tokens
     let tokens = oauth_provider
@@ -784,7 +778,7 @@ async fn oauth_callback_handler_impl(
     // Check if user exists or create new user
     let user = match state
         .auth_service
-        .find_user_by_oauth_account_public(provider_type.clone(), &user_info.provider_user_id)
+        .find_user_by_oauth_account_public(provider_type, &user_info.provider_user_id)
         .await
     {
         Ok(existing_user) => {
@@ -901,7 +895,7 @@ pub async fn link_oauth_account_handler(
     });
 
     // Validate redirect URI format
-    if let Err(_) = Url::parse(&redirect_uri) {
+    if Url::parse(&redirect_uri).is_err() {
         tracing::warn!(redirect_uri = %redirect_uri, "Invalid redirect URI format for linking");
         return Err(AppError::InvalidFieldValue {
             field: "redirect_uri".to_string(),
@@ -912,7 +906,7 @@ pub async fn link_oauth_account_handler(
     // Initiate OAuth flow for account linking
     let flow_response = match state
         .auth_service
-        .initiate_oauth_flow(provider_type.clone(), redirect_uri.clone())
+        .initiate_oauth_flow(provider_type, redirect_uri.clone())
         .await
     {
         Ok(response) => response,
@@ -1011,7 +1005,7 @@ pub async fn oauth_link_callback_handler(
 
     // Use the link_oauth_account method from auth service
     let account_link_request = crate::models::oauth::AccountLinkRequest {
-        provider: provider_type.clone(),
+        provider: provider_type,
         code: request.code.clone(),
         state: request.state.clone(),
         redirect_uri: request.redirect_uri.clone(),
@@ -1203,7 +1197,7 @@ pub async fn unlink_oauth_account_handler(
     // Perform the unlinking
     match state
         .auth_service
-        .unlink_oauth_account(authenticated_user.id, provider_type.clone())
+        .unlink_oauth_account(authenticated_user.id, provider_type)
         .await
     {
         Ok(()) => {

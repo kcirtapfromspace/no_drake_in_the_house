@@ -242,11 +242,8 @@ impl RegistrationMonitoringService {
         db_pool: &sqlx::PgPool,
         redis_pool: &deadpool_redis::Pool,
     ) -> Result<RegistrationHealthStatus> {
-        let mut health = RegistrationHealthStatus::default();
-        health.last_check = Utc::now();
-
         // Check database health
-        health.database_healthy = match self.check_database_health(db_pool).await {
+        let database_healthy = match self.check_database_health(db_pool).await {
             Ok(_) => true,
             Err(e) => {
                 tracing::warn!("Database health check failed: {}", e);
@@ -255,7 +252,7 @@ impl RegistrationMonitoringService {
         };
 
         // Check Redis health
-        health.redis_healthy = match self.check_redis_health(redis_pool).await {
+        let redis_healthy = match self.check_redis_health(redis_pool).await {
             Ok(_) => true,
             Err(e) => {
                 tracing::warn!("Redis health check failed: {}", e);
@@ -264,20 +261,26 @@ impl RegistrationMonitoringService {
         };
 
         // Check validation service health
-        health.validation_service_healthy = self.check_validation_service_health().await;
+        let validation_service_healthy = self.check_validation_service_health().await;
 
         // Calculate overall health status
-        if health.database_healthy && health.redis_healthy && health.validation_service_healthy {
-            health.status = "healthy".to_string();
-        } else if health.database_healthy {
-            health.status = "degraded".to_string();
-        } else {
-            health.status = "unhealthy".to_string();
-        }
-
         // Calculate performance metrics
-        health.avg_response_time_ms = self.calculate_avg_response_time();
-        health.error_rate_percent = self.calculate_error_rate();
+        let health = RegistrationHealthStatus {
+            status: if database_healthy && redis_healthy && validation_service_healthy {
+                "healthy".to_string()
+            } else if database_healthy {
+                "degraded".to_string()
+            } else {
+                "unhealthy".to_string()
+            },
+            database_healthy,
+            redis_healthy,
+            validation_service_healthy,
+            avg_response_time_ms: self.calculate_avg_response_time(),
+            error_rate_percent: self.calculate_error_rate(),
+            last_check: Utc::now(),
+            ..RegistrationHealthStatus::default()
+        };
 
         // Update stored health status
         {

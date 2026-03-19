@@ -538,7 +538,7 @@ impl OAuthProvider for GitHubOAuthProvider {
         }
 
         // Validate redirect URI format
-        if let Err(_) = reqwest::Url::parse(&self.base.config.redirect_uri) {
+        if reqwest::Url::parse(&self.base.config.redirect_uri).is_err() {
             return Err(AppError::ConfigurationError {
                 message: "GitHub OAuth redirect_uri must be a valid URL".to_string(),
             });

@@ -34,7 +34,7 @@ impl<'a> OffenseService<'a> {
         .bind(artist_id)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(offenses)
     }
@@ -54,7 +54,7 @@ impl<'a> OffenseService<'a> {
         .bind(offense_id)
         .fetch_optional(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?
+        .map_err(AppError::DatabaseQueryFailed)?
         .ok_or_else(|| AppError::NotFound {
             resource: "Offense".to_string(),
         })?;
@@ -72,7 +72,7 @@ impl<'a> OffenseService<'a> {
         .bind(offense_id)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         // Get artist name
         let artist_name: String =
@@ -80,7 +80,7 @@ impl<'a> OffenseService<'a> {
                 .bind(offense.artist_id)
                 .fetch_optional(self.db)
                 .await
-                .map_err(|e| AppError::DatabaseQueryFailed(e))?
+                .map_err(AppError::DatabaseQueryFailed)?
                 .unwrap_or_else(|| "Unknown Artist".to_string());
 
         Ok(OffenseWithEvidence {
@@ -124,7 +124,7 @@ impl<'a> OffenseService<'a> {
         .bind(submitted_by)
         .fetch_one(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(offense)
     }
@@ -159,7 +159,7 @@ impl<'a> OffenseService<'a> {
         .bind(submitted_by)
         .fetch_one(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(evidence)
     }
@@ -177,7 +177,7 @@ impl<'a> OffenseService<'a> {
         .bind(verified_by)
         .execute(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(())
     }
@@ -209,7 +209,7 @@ impl<'a> OffenseService<'a> {
         .bind(offset)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         let mut flagged_artists = Vec::new();
         for (artist_id, artist_name, severity, _) in rows {
@@ -250,7 +250,7 @@ impl<'a> OffenseService<'a> {
         .bind(artist_id)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(rows
             .into_iter()
@@ -285,7 +285,7 @@ impl<'a> OffenseService<'a> {
             .bind(&track.artist_name)
             .fetch_optional(self.db)
             .await
-            .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+            .map_err(AppError::DatabaseQueryFailed)?;
 
             // Insert or update the track
             sqlx::query(
@@ -316,7 +316,7 @@ impl<'a> OffenseService<'a> {
             .bind(track.added_at)
             .execute(self.db)
             .await
-            .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+            .map_err(AppError::DatabaseQueryFailed)?;
 
             imported += 1;
         }
@@ -339,7 +339,7 @@ impl<'a> OffenseService<'a> {
         .bind(user_id)
         .fetch_one(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         // Find flagged artists in user's library
         let flagged_rows = sqlx::query_as::<_, (Uuid, String, i64, OffenseSeverity)>(
@@ -361,7 +361,7 @@ impl<'a> OffenseService<'a> {
         .bind(user_id)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         let mut flagged_artists = Vec::new();
         let mut flagged_tracks = 0i64;
@@ -439,7 +439,7 @@ impl<'a> OffenseService<'a> {
         .bind(&flagged_artists_json)
         .execute(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(LibraryScanResponse {
             total_tracks: stats.0 as i32,
@@ -463,7 +463,7 @@ impl<'a> OffenseService<'a> {
         .bind(user_id)
         .fetch_optional(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         match row {
             Some((total_tracks, total_artists, flagged_tracks, json, completed_at)) => {
@@ -500,7 +500,7 @@ impl<'a> OffenseService<'a> {
         .bind(provider)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(tracks)
     }
@@ -527,7 +527,7 @@ impl<'a> OffenseService<'a> {
         .bind(category)
         .fetch_all(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+        .map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(artists)
     }
@@ -548,7 +548,7 @@ impl<'a> OffenseService<'a> {
         .bind(artist_id)
         .fetch_optional(self.db)
         .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?
+        .map_err(AppError::DatabaseQueryFailed)?
         .ok_or_else(|| AppError::NotFound {
             resource: "Artist".to_string(),
         })?;
@@ -577,7 +577,7 @@ impl<'a> OffenseService<'a> {
             .bind(offense.id)
             .fetch_all(self.db)
             .await
-            .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+            .map_err(AppError::DatabaseQueryFailed)?;
 
             offense_details.push(ndith_core::models::offense::OffenseDetail {
                 id: offense.id,

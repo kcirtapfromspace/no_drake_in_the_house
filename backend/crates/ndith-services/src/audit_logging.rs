@@ -224,11 +224,9 @@ impl AuditLoggingService {
             "timestamp": Utc::now().to_rfc3339()
         });
 
-        if let Some(additional) = additional_details {
-            if let serde_json::Value::Object(map) = additional {
-                for (key, value) in map {
-                    details[key] = value;
-                }
+        if let Some(serde_json::Value::Object(map)) = additional_details {
+            for (key, value) in map {
+                details[key] = value;
             }
         }
 
@@ -412,11 +410,11 @@ impl AuditLoggingService {
                 _ => AuditSeverity::Info,
             };
 
-            let ip_address = row.ip_address.as_ref().and_then(|ip_net| {
+            let ip_address = row.ip_address.as_ref().map(|ip_net| {
                 // Convert from IpNetwork to IpAddr
                 match ip_net.ip() {
-                    std::net::IpAddr::V4(v4) => Some(std::net::IpAddr::V4(v4)),
-                    std::net::IpAddr::V6(v6) => Some(std::net::IpAddr::V6(v6)),
+                    std::net::IpAddr::V4(v4) => std::net::IpAddr::V4(v4),
+                    std::net::IpAddr::V6(v6) => std::net::IpAddr::V6(v6),
                 }
             });
 
@@ -432,7 +430,7 @@ impl AuditLoggingService {
                 resource_id: None,   // Not used in current schema
                 action: row.action,
                 details: row.details.unwrap_or_else(|| serde_json::json!({})),
-                timestamp: row.timestamp.unwrap_or_else(|| Utc::now()),
+                timestamp: row.timestamp.unwrap_or_else(Utc::now),
                 correlation_id: row.correlation_id,
             });
         }

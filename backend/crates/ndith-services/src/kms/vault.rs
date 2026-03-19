@@ -296,49 +296,49 @@ impl VaultKmsProvider {
             .context("Failed to connect to Vault")?;
 
         // Handle 403 by clearing cached token and retrying with AppRole
-        if response.status().as_u16() == 403 {
-            if matches!(self.config.auth, VaultAuthMethod::AppRole { .. }) {
-                // Clear cached token to force re-authentication
-                {
-                    let mut token_guard = self.token.write().await;
-                    *token_guard = None;
-                }
-
-                // Retry the request
-                let new_token = self.get_token().await?;
-                let mut retry_builder = self
-                    .client
-                    .request(method, &url)
-                    .header("X-Vault-Token", &new_token);
-
-                if let Some(ref ns) = self.config.namespace {
-                    retry_builder = retry_builder.header("X-Vault-Namespace", ns);
-                }
-
-                if let Some(b) = body {
-                    retry_builder = retry_builder.json(b);
-                }
-
-                let retry_response = retry_builder
-                    .send()
-                    .await
-                    .context("Failed to connect to Vault on retry")?;
-
-                if !retry_response.status().is_success() {
-                    let status = retry_response.status();
-                    let body_text = retry_response.text().await.unwrap_or_default();
-                    return Err(anyhow!(
-                        "Vault request failed after retry ({}): {}",
-                        status,
-                        body_text
-                    ));
-                }
-
-                return retry_response
-                    .json()
-                    .await
-                    .context("Failed to parse Vault response");
+        if response.status().as_u16() == 403
+            && matches!(self.config.auth, VaultAuthMethod::AppRole { .. })
+        {
+            // Clear cached token to force re-authentication
+            {
+                let mut token_guard = self.token.write().await;
+                *token_guard = None;
             }
+
+            // Retry the request
+            let new_token = self.get_token().await?;
+            let mut retry_builder = self
+                .client
+                .request(method, &url)
+                .header("X-Vault-Token", &new_token);
+
+            if let Some(ref ns) = self.config.namespace {
+                retry_builder = retry_builder.header("X-Vault-Namespace", ns);
+            }
+
+            if let Some(b) = body {
+                retry_builder = retry_builder.json(b);
+            }
+
+            let retry_response = retry_builder
+                .send()
+                .await
+                .context("Failed to connect to Vault on retry")?;
+
+            if !retry_response.status().is_success() {
+                let status = retry_response.status();
+                let body_text = retry_response.text().await.unwrap_or_default();
+                return Err(anyhow!(
+                    "Vault request failed after retry ({}): {}",
+                    status,
+                    body_text
+                ));
+            }
+
+            return retry_response
+                .json()
+                .await
+                .context("Failed to parse Vault response");
         }
 
         if !response.status().is_success() {

@@ -142,9 +142,9 @@ impl OAuthHealthMonitor {
 
         for provider_type in self.providers.keys() {
             status_map.insert(
-                provider_type.clone(),
+                *provider_type,
                 OAuthProviderHealth {
-                    provider: provider_type.clone(),
+                    provider: *provider_type,
                     status: OAuthProviderHealthStatus::Unknown,
                     last_check: Utc::now(),
                     response_time_ms: None,
@@ -241,8 +241,8 @@ impl OAuthHealthMonitor {
             ))
         })?;
 
-        if !discovery_doc.get("authorization_endpoint").is_some()
-            || !discovery_doc.get("token_endpoint").is_some()
+        if discovery_doc.get("authorization_endpoint").is_none()
+            || discovery_doc.get("token_endpoint").is_none()
         {
             return Err(AppError::ExternalServiceError(
                 "Google OAuth endpoints not found in discovery document".to_string(),
@@ -302,21 +302,18 @@ impl OAuthHealthMonitor {
             ))
         })?;
 
-        let rate_limit_info = if let Some(core) = rate_limit_data.get("rate") {
-            Some(RateLimitInfo {
-                requests_remaining: core
-                    .get("remaining")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as u32),
-                reset_time: core.get("reset").and_then(|v| v.as_i64()).map(|timestamp| {
-                    DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now)
-                }),
-                retry_after: None,
-                is_rate_limited: core.get("remaining").and_then(|v| v.as_u64()).unwrap_or(1) == 0,
-            })
-        } else {
-            None
-        };
+        let rate_limit_info = rate_limit_data.get("rate").map(|core| RateLimitInfo {
+            requests_remaining: core
+                .get("remaining")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32),
+            reset_time: core
+                .get("reset")
+                .and_then(|v| v.as_i64())
+                .map(|timestamp| DateTime::from_timestamp(timestamp, 0).unwrap_or_else(Utc::now)),
+            retry_after: None,
+            is_rate_limited: core.get("remaining").and_then(|v| v.as_u64()).unwrap_or(1) == 0,
+        });
 
         Ok(rate_limit_info)
     }
@@ -534,7 +531,7 @@ impl OAuthHealthMonitor {
         status_map
             .iter()
             .filter(|(_, health)| matches!(health.status, OAuthProviderHealthStatus::Healthy))
-            .map(|(provider, _)| provider.clone())
+            .map(|(provider, _)| *provider)
             .collect()
     }
 

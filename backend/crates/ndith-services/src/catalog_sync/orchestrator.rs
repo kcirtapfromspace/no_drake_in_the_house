@@ -175,9 +175,9 @@ impl CatalogSyncOrchestrator {
             };
 
             platforms.insert(
-                platform.clone(),
+                *platform,
                 PlatformSyncStatus {
-                    platform: platform.clone(),
+                    platform: *platform,
                     is_healthy,
                     last_sync: None,
                     last_sync_result: None,
@@ -203,7 +203,7 @@ impl CatalogSyncOrchestrator {
         for platform in &request.platforms {
             if let Some(worker) = self.workers.get(platform) {
                 let run_id = self
-                    .start_platform_sync(worker.clone(), request.sync_type.clone())
+                    .start_platform_sync(worker.clone(), request.sync_type)
                     .await?;
                 run_ids.push(run_id);
             } else {
@@ -227,13 +227,13 @@ impl CatalogSyncOrchestrator {
         // Create initial run state
         let run_state = SyncRunState {
             run_id,
-            platform: platform.clone(),
-            sync_type: sync_type.clone(),
+            platform,
+            sync_type,
             status: SyncStatus::Running,
             started_at,
             updated_at: started_at,
             progress: SyncProgress {
-                platform: platform.clone(),
+                platform,
                 sync_run_id: run_id,
                 status: SyncStatus::Running,
                 total_items: None,
@@ -270,7 +270,7 @@ impl CatalogSyncOrchestrator {
                     tokio::spawn(async move {
                         let mut runs = active_runs.write().await;
                         if let Some(state) = runs.get_mut(&run_id) {
-                            state.status = progress_clone.status.clone();
+                            state.status = progress_clone.status;
                             state.progress = progress_clone;
                             state.updated_at = Utc::now();
                         }
@@ -348,11 +348,11 @@ impl CatalogSyncOrchestrator {
         for (platform, worker) in &self.workers {
             match worker.search_artist(query, limit_per_platform).await {
                 Ok(artists) => {
-                    results.insert(platform.clone(), artists);
+                    results.insert(*platform, artists);
                 }
                 Err(e) => {
                     tracing::warn!("Search failed on {:?}: {}", platform, e);
-                    results.insert(platform.clone(), vec![]);
+                    results.insert(*platform, vec![]);
                 }
             }
         }
@@ -559,7 +559,7 @@ impl CatalogSyncOrchestrator {
 
         for (platform, worker) in &self.workers {
             let is_healthy = worker.health_check().await.unwrap_or(false);
-            results.insert(platform.clone(), is_healthy);
+            results.insert(*platform, is_healthy);
         }
 
         results
@@ -584,7 +584,7 @@ impl CatalogSyncOrchestrator {
         for (platform, platform_id) in &canonical_artist.platform_ids {
             if let Some(worker) = self.workers.get(platform) {
                 if let Ok(Some(artist)) = worker.get_artist(platform_id).await {
-                    results.insert(platform.clone(), artist);
+                    results.insert(*platform, artist);
                 }
             }
         }
@@ -597,7 +597,7 @@ impl CatalogSyncOrchestrator {
                     for artist in artists {
                         let score = self.quick_match_score(&artist, canonical_artist);
                         if score >= 0.85 {
-                            results.insert(platform.clone(), artist);
+                            results.insert(*platform, artist);
                             break;
                         }
                     }
@@ -614,14 +614,12 @@ impl CatalogSyncOrchestrator {
         platform_artist: &PlatformArtist,
         canonical: &CanonicalArtist,
     ) -> f64 {
-        let name_match = if platform_artist.name.to_lowercase() == canonical.name.to_lowercase() {
+        // Could add genre matching here too
+        if platform_artist.name.to_lowercase() == canonical.name.to_lowercase() {
             1.0
         } else {
             0.0
-        };
-
-        // Could add genre matching here too
-        name_match
+        }
     }
 }
 

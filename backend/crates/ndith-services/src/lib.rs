@@ -2,6 +2,7 @@
 //!
 //! Contains auth, OAuth, token vault, catalog sync, enforcement, and other services.
 //! No heavyweight native dependencies (duckdb, graph backends, lancedb, fastembed are in separate crates).
+#![allow(clippy::result_large_err)]
 
 // Auth
 pub mod auth;

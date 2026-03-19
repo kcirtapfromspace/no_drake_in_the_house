@@ -220,10 +220,10 @@ impl OAuthTokenEncryption {
                 });
             }
 
-            return Err(AppError::EncryptionError(format!(
+            Err(AppError::EncryptionError(format!(
                 "No key found for key ID: {}",
                 key_id
-            )));
+            )))
         } else {
             // Legacy format (version 0): [nonce(12)] + [ciphertext]
             if encrypted_data.len() < 12 {
@@ -256,9 +256,9 @@ impl OAuthTokenEncryption {
                 }
             }
 
-            return Err(AppError::EncryptionError(
+            Err(AppError::EncryptionError(
                 "Token decryption failed with all available keys".to_string(),
-            ));
+            ))
         }
     }
 
@@ -454,7 +454,7 @@ mod tests {
         let refresh_token = Some("refresh_token_456");
 
         let (encrypted_access, encrypted_refresh) = encryption
-            .encrypt_token_pair(access_token, refresh_token.as_deref())
+            .encrypt_token_pair(access_token, refresh_token)
             .unwrap();
 
         let (decrypted_access, decrypted_refresh) = encryption

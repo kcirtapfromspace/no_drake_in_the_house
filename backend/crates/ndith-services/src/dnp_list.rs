@@ -173,7 +173,7 @@ impl DnpListService {
                 provider_badges,
                 tags,
                 note: row.note,
-                added_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                added_at: row.created_at.unwrap_or_else(Utc::now),
             });
         }
 
@@ -331,7 +331,7 @@ impl DnpListService {
                     external_ids,
                     tags: row.tags.unwrap_or_default(),
                     note: row.note,
-                    added_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                    added_at: row.created_at.unwrap_or_else(Utc::now),
                 }
             })
             .collect();
@@ -426,7 +426,7 @@ impl DnpListService {
             provider_badges,
             tags: row.tags.unwrap_or_default(),
             note: row.note,
-            added_at: row.created_at.unwrap_or_else(|| Utc::now()),
+            added_at: row.created_at.unwrap_or_else(Utc::now),
         })
     }
 
@@ -437,7 +437,11 @@ impl DnpListService {
     ) -> Vec<ProviderBadge> {
         let mut badges = Vec::new();
 
-        if let Some(_) = external_ids.get("spotify").and_then(|v| v.as_str()) {
+        if external_ids
+            .get("spotify")
+            .and_then(|v| v.as_str())
+            .is_some()
+        {
             badges.push(ProviderBadge {
                 provider: "spotify".to_string(),
                 verified: metadata
@@ -448,7 +452,7 @@ impl DnpListService {
             });
         }
 
-        if let Some(_) = external_ids.get("apple").and_then(|v| v.as_str()) {
+        if external_ids.get("apple").and_then(|v| v.as_str()).is_some() {
             badges.push(ProviderBadge {
                 provider: "apple".to_string(),
                 verified: false, // Apple Music doesn't have verification badges
@@ -456,7 +460,11 @@ impl DnpListService {
             });
         }
 
-        if let Some(_) = external_ids.get("youtube").and_then(|v| v.as_str()) {
+        if external_ids
+            .get("youtube")
+            .and_then(|v| v.as_str())
+            .is_some()
+        {
             badges.push(ProviderBadge {
                 provider: "youtube".to_string(),
                 verified: metadata
@@ -467,7 +475,7 @@ impl DnpListService {
             });
         }
 
-        if let Some(_) = external_ids.get("tidal").and_then(|v| v.as_str()) {
+        if external_ids.get("tidal").and_then(|v| v.as_str()).is_some() {
             badges.push(ProviderBadge {
                 provider: "tidal".to_string(),
                 verified: false,
@@ -555,7 +563,7 @@ impl DnpListService {
         let mut writer = csv::Writer::from_writer(Vec::new());
 
         // Write header
-        writer.write_record(&[
+        writer.write_record([
             "artist_name",
             "spotify_id",
             "apple_id",
@@ -579,7 +587,7 @@ impl DnpListService {
             let tags = entry.tags.join(";");
             let note = entry.note.as_deref().unwrap_or("");
 
-            writer.write_record(&[
+            writer.write_record([
                 &entry.artist_name,
                 spotify_id,
                 apple_id,
@@ -627,7 +635,7 @@ impl DnpListService {
                 artist_id: row.artist_id,
                 tags: row.tags,
                 note: row.note,
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                created_at: row.created_at.unwrap_or_else(Utc::now),
                 canonical_name: row.canonical_name,
                 external_ids: row.external_ids.unwrap_or_else(|| json!({})),
                 metadata: row.metadata.unwrap_or_else(|| json!({})),
@@ -679,7 +687,7 @@ impl DnpListService {
             artist_id: entry.artist_id,
             tags: entry.tags,
             note: entry.note,
-            created_at: entry.created_at.unwrap_or_else(|| chrono::Utc::now()),
+            created_at: entry.created_at.unwrap_or_else(chrono::Utc::now),
         })
     }
 

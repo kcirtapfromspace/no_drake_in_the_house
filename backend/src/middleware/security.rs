@@ -198,7 +198,7 @@ impl SecurityMonitor {
             .filter(|tracker| {
                 tracker
                     .locked_until
-                    .map_or(false, |until| chrono::Utc::now() < until)
+                    .is_some_and(|until| chrono::Utc::now() < until)
             })
             .count();
 
@@ -207,7 +207,7 @@ impl SecurityMonitor {
             .filter(|activity| {
                 activity
                     .blocked_until
-                    .map_or(false, |until| chrono::Utc::now() < until)
+                    .is_some_and(|until| chrono::Utc::now() < until)
             })
             .count();
 
@@ -217,6 +217,12 @@ impl SecurityMonitor {
             total_suspicious_ips: activities.len(),
             blocked_ips,
         }
+    }
+}
+
+impl Default for SecurityMonitor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -366,6 +372,12 @@ impl VulnerabilityScanner {
                 last_scan: None,
             }
         }
+    }
+}
+
+impl Default for VulnerabilityScanner {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

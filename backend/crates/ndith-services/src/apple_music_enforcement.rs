@@ -197,9 +197,7 @@ impl AppleMusicEnforcementService {
         progress_callback(progress.clone());
 
         let duration_seconds = start_time.elapsed().as_secs();
-        let status = if errors.is_empty() {
-            EnforcementRunStatus::Completed
-        } else if songs_disliked + albums_disliked > 0 {
+        let status = if errors.is_empty() || songs_disliked + albums_disliked > 0 {
             EnforcementRunStatus::Completed // Partial success
         } else {
             EnforcementRunStatus::Failed
@@ -450,6 +448,7 @@ impl AppleMusicEnforcementService {
         Ok(id)
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn update_enforcement_run(
         &self,
         run_id: &Uuid,
@@ -510,6 +509,7 @@ impl AppleMusicEnforcementService {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn record_enforcement_action(
         &self,
         run_id: &Uuid,
@@ -1329,7 +1329,7 @@ mod tests {
     #[test]
     fn test_artist_name_matching_case_insensitive() {
         // Test the matching logic used in scan_for_blocked_content
-        let blocked_names = vec!["drake".to_string(), "r. kelly".to_string()];
+        let blocked_names = ["drake".to_string(), "r. kelly".to_string()];
         let blocked_names_lower: Vec<String> =
             blocked_names.iter().map(|n| n.to_lowercase()).collect();
 
@@ -1364,7 +1364,7 @@ mod tests {
     #[test]
     fn test_partial_artist_name_matching() {
         // Test that partial matches work (e.g., "Drake" matches "Drake & Future")
-        let blocked_names = vec!["drake".to_string()];
+        let blocked_names = ["drake".to_string()];
         let blocked_names_lower: Vec<String> =
             blocked_names.iter().map(|n| n.to_lowercase()).collect();
 
@@ -1426,9 +1426,7 @@ mod tests {
         ];
 
         for (songs, albums, errors, expected) in test_cases {
-            let status = if errors == 0 {
-                EnforcementRunStatus::Completed
-            } else if songs + albums > 0 {
+            let status = if errors == 0 || songs + albums > 0 {
                 EnforcementRunStatus::Completed // Partial success
             } else {
                 EnforcementRunStatus::Failed

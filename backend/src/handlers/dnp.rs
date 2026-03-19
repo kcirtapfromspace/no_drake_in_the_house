@@ -610,7 +610,7 @@ pub async fn get_blocked_tracks_handler(
     "#,
     )
     .bind(user.id)
-    .bind(roles_filter.as_ref().map(|r| r.as_slice()))
+    .bind(roles_filter.as_deref())
     .bind(query.limit)
     .bind(query.offset)
     .fetch_all(&state.db_pool)

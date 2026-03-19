@@ -226,7 +226,7 @@ pub async fn trigger_sync_handler(
     // Build sync trigger request
     let trigger_request = SyncTriggerRequest {
         platforms: platforms.clone(),
-        sync_type: sync_type.clone(),
+        sync_type,
         priority,
         artist_ids: None,
     };

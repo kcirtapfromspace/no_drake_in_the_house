@@ -122,7 +122,7 @@ impl RegistrationPerformanceService {
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:password_rules";
 
-        let cached_rules: Option<String> = conn.get(&redis_key).await?;
+        let cached_rules: Option<String> = conn.get(redis_key).await?;
 
         let rules = if let Some(rules_json) = cached_rules {
             match serde_json::from_str::<PasswordValidationRules>(&rules_json) {
@@ -168,7 +168,7 @@ impl RegistrationPerformanceService {
         let rules_json = serde_json::to_string(rules)?;
 
         // Cache for 24 hours
-        let _: () = conn.set_ex(&redis_key, rules_json, 86400).await?;
+        let _: () = conn.set_ex(redis_key, rules_json, 86400).await?;
         Ok(())
     }
 
@@ -365,7 +365,7 @@ impl RegistrationPerformanceService {
         let metrics_json = serde_json::to_string(metrics)?;
 
         // Cache for 7 days
-        let _: () = conn.set_ex(&redis_key, metrics_json, 604800).await?;
+        let _: () = conn.set_ex(redis_key, metrics_json, 604800).await?;
         Ok(())
     }
 
@@ -374,7 +374,7 @@ impl RegistrationPerformanceService {
         let mut conn = self.redis_pool.get().await?;
         let redis_key = "registration:metrics";
 
-        let cached_metrics: Option<String> = conn.get(&redis_key).await?;
+        let cached_metrics: Option<String> = conn.get(redis_key).await?;
 
         if let Some(metrics_json) = cached_metrics {
             if let Ok(cached_metrics) = serde_json::from_str::<RegistrationMetrics>(&metrics_json) {
@@ -483,10 +483,12 @@ mod tests {
 
     #[test]
     fn test_metrics_calculation() {
-        let mut metrics = RegistrationMetrics::default();
+        let mut metrics = RegistrationMetrics {
+            avg_validation_time_ms: 100.0,
+            ..RegistrationMetrics::default()
+        };
 
         // Test exponential moving average calculation
-        metrics.avg_validation_time_ms = 100.0;
         let new_time = 200.0;
         metrics.avg_validation_time_ms = 0.9 * metrics.avg_validation_time_ms + 0.1 * new_time;
 

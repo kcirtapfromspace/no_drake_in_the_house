@@ -427,7 +427,6 @@ mod tests {
             }
             Err(_) => {
                 // Redis not available, which is fine for this test
-                assert!(true);
             }
         }
     }

@@ -820,25 +820,26 @@ impl AuthService {
         };
 
         // Get user info from provider with error logging
-        let user_info = if provider_type == OAuthProviderType::Apple && tokens.id_token.is_some() {
-            // For Apple, extract user info from ID token
-            match self
-                .extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
-                .await
-            {
-                Ok(info) => info,
-                Err(e) => {
-                    if let ndith_core::error::AppError::OAuth(ref oauth_error) = e {
-                        let security_logger = Arc::clone(&self.oauth_security_logger);
-                        let oauth_error_clone = oauth_error.clone();
-                        tokio::spawn(async move {
-                            security_logger
-                                .log_oauth_error(&oauth_error_clone, None, None)
-                                .await;
-                        });
+        let user_info = if provider_type == OAuthProviderType::Apple {
+            if let Some(id_token) = tokens.id_token.as_ref() {
+                // For Apple, extract user info from ID token
+                match self.extract_apple_user_info(id_token).await {
+                    Ok(info) => info,
+                    Err(e) => {
+                        if let ndith_core::error::AppError::OAuth(ref oauth_error) = e {
+                            let security_logger = Arc::clone(&self.oauth_security_logger);
+                            let oauth_error_clone = oauth_error.clone();
+                            tokio::spawn(async move {
+                                security_logger
+                                    .log_oauth_error(&oauth_error_clone, None, None)
+                                    .await;
+                            });
+                        }
+                        return Err(e);
                     }
-                    return Err(e);
                 }
+            } else {
+                provider.get_user_info(&tokens.access_token).await?
             }
         } else {
             match provider.get_user_info(&tokens.access_token).await {
@@ -932,10 +933,12 @@ impl AuthService {
             .await?;
 
         // Get user info from provider
-        let user_info = if request.provider == OAuthProviderType::Apple && tokens.id_token.is_some()
-        {
-            self.extract_apple_user_info(&tokens.id_token.as_ref().unwrap())
-                .await?
+        let user_info = if request.provider == OAuthProviderType::Apple {
+            if let Some(id_token) = tokens.id_token.as_ref() {
+                self.extract_apple_user_info(id_token).await?
+            } else {
+                provider.get_user_info(&tokens.access_token).await?
+            }
         } else {
             provider.get_user_info(&tokens.access_token).await?
         };
@@ -1268,10 +1271,7 @@ impl AuthService {
                 "Token near expiry, refreshing automatically"
             );
 
-            match self
-                .refresh_oauth_tokens(user_id, provider_type.clone())
-                .await
-            {
+            match self.refresh_oauth_tokens(user_id, provider_type).await {
                 Ok(()) => {
                     // Get the updated token after refresh
                     let updated_account = sqlx::query!(
@@ -2217,12 +2217,9 @@ impl AuthService {
 
         for account in oauth_accounts {
             if account.is_token_expired() && account.refresh_token_encrypted.is_some() {
-                match self
-                    .refresh_oauth_tokens(user_id, account.provider.clone())
-                    .await
-                {
+                match self.refresh_oauth_tokens(user_id, account.provider).await {
                     Ok(()) => {
-                        let provider = account.provider.clone();
+                        let provider = account.provider;
                         refreshed_providers.push(account.provider);
                         tracing::info!(
                             user_id = %user_id,
@@ -2276,10 +2273,7 @@ impl AuthService {
                 AppError::ExternalServiceError(format!("Invalid OAuth provider: {}", e))
             })?;
 
-            match self
-                .refresh_oauth_tokens(account.user_id, provider.clone())
-                .await
-            {
+            match self.refresh_oauth_tokens(account.user_id, provider).await {
                 Ok(()) => {
                     refreshed_count += 1;
                     tracing::debug!(
@@ -2684,7 +2678,7 @@ impl AuthService {
         self
     }
 
-    /// Add OAuth provider for testing (disabled due to clone constraints)
+    // Add OAuth provider for testing (disabled due to clone constraints)
     // pub fn add_oauth_provider(&mut self, provider_type: OAuthProviderType, provider: Box<dyn OAuthProvider>) {
     //     // Cannot clone HashMap<OAuthProviderType, Box<dyn OAuthProvider>>
     //     // This method is disabled for now

@@ -252,7 +252,7 @@ impl OAuthErrorRecoveryService {
     async fn can_execute_operation(&self, provider: &OAuthProviderType) -> bool {
         let mut circuit_breakers = self.circuit_breakers.write().await;
         let circuit_breaker = circuit_breakers
-            .entry(provider.clone())
+            .entry(*provider)
             .or_insert_with(|| CircuitBreaker::new(self.config.clone()));
 
         circuit_breaker.can_execute()
@@ -270,7 +270,7 @@ impl OAuthErrorRecoveryService {
     async fn record_failure(&self, provider: &OAuthProviderType) {
         let mut circuit_breakers = self.circuit_breakers.write().await;
         let circuit_breaker = circuit_breakers
-            .entry(provider.clone())
+            .entry(*provider)
             .or_insert_with(|| CircuitBreaker::new(self.config.clone()));
 
         circuit_breaker.record_failure();
@@ -555,7 +555,7 @@ impl OAuthSecurityMonitor {
             match oauth_error {
                 OAuthError::SecurityViolation { .. } | OAuthError::CsrfAttackDetected { .. } => {
                     let mut violation_counts = self.violation_counts.write().await;
-                    let count = violation_counts.entry(provider.clone()).or_insert(0);
+                    let count = violation_counts.entry(*provider).or_insert(0);
                     *count += 1;
 
                     warn!(

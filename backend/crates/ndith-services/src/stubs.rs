@@ -197,6 +197,12 @@ pub struct ExternalApiService {
     // Stub implementation
 }
 
+impl Default for ExternalApiService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExternalApiService {
     pub fn new() -> Self {
         Self {}

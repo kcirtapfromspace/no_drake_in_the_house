@@ -284,7 +284,7 @@ impl CircuitBreakerService {
             }
             CircuitBreakerStateEnum::HalfOpen => {
                 // Allow one test request every half_open_test_interval_seconds
-                let should_allow = circuit.last_half_open_test.map_or(true, |last| {
+                let should_allow = circuit.last_half_open_test.is_none_or(|last| {
                     now.duration_since(last).as_secs()
                         >= self.config.half_open_test_interval_seconds
                 });

@@ -185,26 +185,14 @@ async fn get_redis_pool(_state: &AppState) -> Result<deadpool_redis::Pool> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::extract::State;
-    use sqlx::PgPool;
-
-    // Mock AppState for testing
-    fn create_mock_app_state() -> AppState {
-        // This would need to be implemented based on your actual AppState structure
-        todo!("Implement mock AppState for testing")
-    }
 
     #[tokio::test]
     async fn test_registration_health_handler() {
-        // This test would require a proper test setup with database and Redis
-        // For now, just test that the handler function exists and compiles
-        assert!(true);
+        let _ = registration_health_handler;
     }
 
     #[tokio::test]
     async fn test_registration_metrics_handler() {
-        // This test would require a proper test setup
-        // For now, just test that the handler function exists and compiles
-        assert!(true);
+        let _ = registration_metrics_handler;
     }
 }

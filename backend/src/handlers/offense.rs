@@ -220,10 +220,7 @@ pub async fn get_library_offenders(
     let limit = query.limit.unwrap_or(5).clamp(1, 20);
 
     // Default to songs-only unless explicitly set to "all".
-    let songs_only = match kind.as_deref() {
-        Some("all") => false,
-        _ => true,
-    };
+    let songs_only = !matches!(kind.as_deref(), Some("all"));
 
     let mut qb: QueryBuilder<Postgres> = QueryBuilder::new(
         r#"
@@ -896,7 +893,7 @@ fn grade_from_score(score: f64) -> &'static str {
 }
 
 fn clamp01(value: f64) -> f64 {
-    value.max(0.0).min(1.0)
+    value.clamp(0.0, 1.0)
 }
 
 /// Grade "music taste" using library metadata and the offense database (fun + informative).
@@ -1021,7 +1018,7 @@ pub async fn get_taste_grade(
     let diversity_base = if songs_total > 0.0 {
         let ua = (summary.unique_artists.max(0) as f64) + 1.0;
         let st = songs_total + 1.0;
-        (ua.ln() / st.ln()).max(0.0).min(1.0)
+        (ua.ln() / st.ln()).clamp(0.0, 1.0)
     } else {
         0.0
     };

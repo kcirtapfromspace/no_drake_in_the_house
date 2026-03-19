@@ -101,7 +101,7 @@ async fn upsert_user_library_cache(
                 .push_bind(&track.artist_name)
                 .push_bind(&track.source_type)
                 .push_bind(&track.playlist_name)
-                .push_bind(&track.added_at)
+                .push_bind(track.added_at)
                 .push_bind(sync_ts);
         });
 
@@ -587,7 +587,7 @@ pub async fn sync_library(
                 .to_string(),
             source_type: Some("library_playlist".to_string()),
             playlist_name: clean_optional_string(&attrs.name),
-            added_at: attrs.last_modified_date.clone(),
+            added_at: attrs.last_modified_date,
         });
     }
 

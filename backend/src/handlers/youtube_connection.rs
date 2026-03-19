@@ -263,7 +263,7 @@ pub async fn youtube_callback_handler(
     // Calculate expiry
     let expires_at = tokens
         .expires_in
-        .map(|secs| Utc::now() + Duration::seconds(secs as i64));
+        .map(|secs| Utc::now() + Duration::seconds(secs));
 
     // Store connection in database
     let connection_id = store_youtube_connection(

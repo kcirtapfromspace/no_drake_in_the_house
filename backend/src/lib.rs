@@ -10,11 +10,12 @@
 //! - `ndith-news`: LanceDB + fastembed news pipeline (heavyweight deps isolated)
 //! - `ndith-services`: Business logic (auth, OAuth, token vault, catalog sync, etc.)
 //! - Root binary: Handlers, middleware, router, main entry point
+#![allow(clippy::result_large_err)]
 
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
-    routing::{delete, get, post, put},
+    routing::{delete, get, put},
     Router,
 };
 use chrono::{DateTime, Utc};

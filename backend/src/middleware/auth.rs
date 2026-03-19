@@ -25,13 +25,7 @@ pub async fn auth_middleware(
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                Some(&header[7..])
-            } else {
-                None
-            }
-        });
+        .and_then(|header| header.strip_prefix("Bearer "));
 
     let token = match auth_header {
         Some(token) => token,
@@ -74,13 +68,7 @@ pub async fn optional_auth_middleware(
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                Some(&header[7..])
-            } else {
-                None
-            }
-        });
+        .and_then(|header| header.strip_prefix("Bearer "));
 
     if let Some(token) = auth_header {
         // Try to verify token, but don't fail if invalid
@@ -109,13 +97,7 @@ pub async fn admin_auth_middleware(
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                Some(&header[7..])
-            } else {
-                None
-            }
-        });
+        .and_then(|header| header.strip_prefix("Bearer "));
 
     let token = match auth_header {
         Some(token) => token,
@@ -206,13 +188,7 @@ pub async fn moderator_auth_middleware(
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
-        .and_then(|header| {
-            if header.starts_with("Bearer ") {
-                Some(&header[7..])
-            } else {
-                None
-            }
-        });
+        .and_then(|header| header.strip_prefix("Bearer "));
 
     let token = match auth_header {
         Some(token) => token,

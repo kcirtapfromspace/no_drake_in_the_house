@@ -251,10 +251,10 @@ impl CrossPlatformIdentityResolver {
 
         for mb_artist in search_result.artists {
             let score = self.score_musicbrainz_match(&mb_artist, name, genres);
-            if score >= REVIEW_THRESHOLD {
-                if best_match.is_none() || score > best_match.as_ref().unwrap().1 {
-                    best_match = Some((mb_artist, score));
-                }
+            if score >= REVIEW_THRESHOLD
+                && (best_match.is_none() || score > best_match.as_ref().unwrap().1)
+            {
+                best_match = Some((mb_artist, score));
             }
         }
 
@@ -348,10 +348,10 @@ impl CrossPlatformIdentityResolver {
 
         for existing in existing_artists {
             let score = self.score_artist_match(platform_artist, existing);
-            if score >= REVIEW_THRESHOLD {
-                if best_match.is_none() || score > best_match.as_ref().unwrap().1 {
-                    best_match = Some((existing, score));
-                }
+            if score >= REVIEW_THRESHOLD
+                && (best_match.is_none() || score > best_match.as_ref().unwrap().1)
+            {
+                best_match = Some((existing, score));
             }
         }
 
@@ -402,7 +402,7 @@ impl CrossPlatformIdentityResolver {
     fn create_new_artist(&self, platform_artist: &PlatformArtist) -> IdentityMatch {
         let mut platform_ids = HashMap::new();
         platform_ids.insert(
-            platform_artist.platform.clone(),
+            platform_artist.platform,
             platform_artist.platform_id.clone(),
         );
 
@@ -460,11 +460,11 @@ impl CrossPlatformIdentityResolver {
 
         let mut matrix = vec![vec![0; b_len + 1]; a_len + 1];
 
-        for i in 0..=a_len {
-            matrix[i][0] = i;
+        for (i, row) in matrix.iter_mut().enumerate().take(a_len + 1) {
+            row[0] = i;
         }
-        for j in 0..=b_len {
-            matrix[0][j] = j;
+        for (j, cell) in matrix[0].iter_mut().enumerate().take(b_len + 1) {
+            *cell = j;
         }
 
         for i in 1..=a_len {
@@ -598,7 +598,7 @@ impl CrossPlatformIdentityResolver {
         for (platform, id) in &secondary.platform_ids {
             merged
                 .platform_ids
-                .entry(platform.clone())
+                .entry(*platform)
                 .or_insert_with(|| id.clone());
         }
 

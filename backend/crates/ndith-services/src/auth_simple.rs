@@ -13,6 +13,12 @@ pub struct AuthService {
     access_token_ttl: i64, // seconds
 }
 
+impl Default for AuthService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuthService {
     pub fn new() -> Self {
         let jwt_secret = std::env::var("JWT_SECRET")
@@ -23,10 +29,6 @@ impl AuthService {
             jwt_secret,
             access_token_ttl: 15 * 60, // 15 minutes
         }
-    }
-
-    pub fn default() -> Self {
-        Self::new()
     }
 
     pub fn with_database(mut self, db_pool: PgPool) -> Self {

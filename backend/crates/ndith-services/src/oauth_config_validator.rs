@@ -93,7 +93,7 @@ impl OAuthConfigValidator {
         self.validation_results
             .iter()
             .filter(|(_, validation)| validation.is_configured && validation.is_valid)
-            .map(|(provider, _)| provider.clone())
+            .map(|(provider, _)| *provider)
             .collect()
     }
 
@@ -243,21 +243,21 @@ impl OAuthConfigValidator {
             }
 
             // Validate team ID format (10 characters alphanumeric)
-            if team_id.len() != 10 || !team_id.chars().all(|c| c.is_alphanumeric()) {
-                if !team_id.starts_with("demo-") {
-                    validation.validation_errors.push(
-                        "APPLE_TEAM_ID should be a 10-character alphanumeric string".to_string(),
-                    );
-                }
+            if (team_id.len() != 10 || !team_id.chars().all(|c| c.is_alphanumeric()))
+                && !team_id.starts_with("demo-")
+            {
+                validation
+                    .validation_errors
+                    .push("APPLE_TEAM_ID should be a 10-character alphanumeric string".to_string());
             }
 
             // Validate key ID format (10 characters alphanumeric)
-            if key_id.len() != 10 || !key_id.chars().all(|c| c.is_alphanumeric()) {
-                if !key_id.starts_with("demo-") {
-                    validation.validation_errors.push(
-                        "APPLE_KEY_ID should be a 10-character alphanumeric string".to_string(),
-                    );
-                }
+            if (key_id.len() != 10 || !key_id.chars().all(|c| c.is_alphanumeric()))
+                && !key_id.starts_with("demo-")
+            {
+                validation
+                    .validation_errors
+                    .push("APPLE_KEY_ID should be a 10-character alphanumeric string".to_string());
             }
 
             // Validate private key format (should be PEM format)

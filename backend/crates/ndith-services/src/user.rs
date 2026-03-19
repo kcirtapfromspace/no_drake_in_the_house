@@ -64,6 +64,27 @@ pub struct UserService {
     db_pool: PgPool,
 }
 
+type UserProfileRow = (
+    Uuid,
+    String,
+    Option<bool>,
+    Option<bool>,
+    Option<DateTime<Utc>>,
+    Option<DateTime<Utc>>,
+    Option<DateTime<Utc>>,
+    Option<serde_json::Value>,
+);
+
+type OAuthAccountRow = (
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<DateTime<Utc>>,
+    Option<DateTime<Utc>>,
+);
+
 impl UserService {
     pub fn new(db_pool: PgPool) -> Self {
         Self { db_pool }
@@ -72,16 +93,7 @@ impl UserService {
     /// Get user profile by ID
     pub async fn get_profile(&self, user_id: Uuid) -> Result<UserProfile> {
         // Use dynamic query to avoid SQLx offline mode issues
-        let user: (
-            Uuid,
-            String,
-            Option<bool>,
-            Option<bool>,
-            Option<DateTime<Utc>>,
-            Option<DateTime<Utc>>,
-            Option<DateTime<Utc>>,
-            Option<serde_json::Value>,
-        ) = sqlx::query_as(
+        let user: UserProfileRow = sqlx::query_as(
             r#"
                 SELECT
                     id,
@@ -145,15 +157,7 @@ impl UserService {
         use std::str::FromStr;
 
         // Use dynamic query to avoid SQLx offline mode issues
-        let accounts: Vec<(
-            String,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<DateTime<Utc>>,
-            Option<DateTime<Utc>>,
-        )> = sqlx::query_as(
+        let accounts: Vec<OAuthAccountRow> = sqlx::query_as(
             r#"
                 SELECT
                     provider,
@@ -417,7 +421,7 @@ impl UserService {
                 artist_name: row.canonical_name,
                 tags: row.tags,
                 note: row.note,
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                created_at: row.created_at.unwrap_or_else(Utc::now),
             })
             .collect())
     }
@@ -450,7 +454,7 @@ impl UserService {
             .map(|row| CommunityListSubscriptionExport {
                 list_name: row.name,
                 list_description: row.description,
-                subscribed_at: row.created_at.unwrap_or_else(|| Utc::now()),
+                subscribed_at: row.created_at.unwrap_or_else(Utc::now),
                 auto_update: row.auto_update.unwrap_or(true),
             })
             .collect())
@@ -479,7 +483,7 @@ impl UserService {
             .into_iter()
             .map(|row| AuditLogExport {
                 event_type: row.action,
-                timestamp: row.timestamp.unwrap_or_else(|| Utc::now()),
+                timestamp: row.timestamp.unwrap_or_else(Utc::now),
                 details: row.old_subject_type,
             })
             .collect())

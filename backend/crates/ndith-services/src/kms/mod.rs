@@ -28,7 +28,7 @@ pub trait KmsProvider: Send + Sync {
     ///
     /// # Arguments
     /// * `key_id` - A unique identifier for this key, typically derived from
-    ///              the user ID and provider (e.g., "user-{uuid}-spotify")
+    ///   the user ID and provider (e.g., "user-{uuid}-spotify")
     ///
     /// # Returns
     /// * `Ok(DataKey)` - A new data key with plaintext and encrypted versions

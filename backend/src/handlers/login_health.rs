@@ -215,12 +215,12 @@ mod tests {
 
     #[test]
     fn test_performance_recommendations() {
-        let mut metrics = LoginPerformanceMetrics::default();
-
-        // Test slow login time
-        metrics.avg_login_time_ms = 1500.0;
-        metrics.total_logins = 100;
-        metrics.successful_logins = 95;
+        let metrics = LoginPerformanceMetrics {
+            avg_login_time_ms: 1500.0,
+            total_logins: 100,
+            successful_logins: 95,
+            ..LoginPerformanceMetrics::default()
+        };
 
         let recommendations = generate_performance_recommendations(&metrics);
         assert!(!recommendations.is_empty());
@@ -234,15 +234,15 @@ mod tests {
 
     #[test]
     fn test_healthy_recommendations() {
-        let mut metrics = LoginPerformanceMetrics::default();
-
-        // Set optimal values
-        metrics.avg_login_time_ms = 200.0;
-        metrics.cache_hit_rate = 85.0;
-        metrics.password_verification_time_ms = 150.0;
-        metrics.database_query_time_ms = 50.0;
-        metrics.total_logins = 100;
-        metrics.successful_logins = 98;
+        let metrics = LoginPerformanceMetrics {
+            avg_login_time_ms: 200.0,
+            cache_hit_rate: 85.0,
+            password_verification_time_ms: 150.0,
+            database_query_time_ms: 50.0,
+            total_logins: 100,
+            successful_logins: 98,
+            ..LoginPerformanceMetrics::default()
+        };
 
         let recommendations = generate_performance_recommendations(&metrics);
 

@@ -1,23 +1,19 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use uuid::Uuid;
 
 /// User roles for role-based access control
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum UserRole {
     /// Regular user with standard permissions
+    #[default]
     User,
     /// Moderator can verify offenses and manage content
     Moderator,
     /// Admin has full system access
     Admin,
-}
-
-impl Default for UserRole {
-    fn default() -> Self {
-        UserRole::User
-    }
 }
 
 impl UserRole {
@@ -30,14 +26,17 @@ impl UserRole {
     pub fn is_admin(&self) -> bool {
         matches!(self, UserRole::Admin)
     }
+}
 
-    /// Convert from string
-    pub fn from_str(s: &str) -> Self {
-        match s.to_lowercase().as_str() {
+impl FromStr for UserRole {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s.to_lowercase().as_str() {
             "admin" => UserRole::Admin,
             "moderator" => UserRole::Moderator,
             _ => UserRole::User,
-        }
+        })
     }
 }
 

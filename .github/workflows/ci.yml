@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       backend_quality: ${{ steps.detect.outputs.backend_quality }}
+      backend_quality_targets: ${{ steps.detect.outputs.backend_quality_targets }}
       render_smoke: ${{ steps.detect.outputs.render_smoke }}
       frontend: ${{ steps.detect.outputs.frontend }}
       e2e: ${{ steps.detect.outputs.e2e }}
@@ -63,22 +64,13 @@ jobs:
             return 1
           }
 
-          add_target() {
-            local name="$1"
-            local var_name="$2"
-            local current="${!var_name}"
-            if [[ "$current" != *",$name,"* ]]; then
-              printf -v "$var_name" "%s%s," "$current" "$name"
-            fi
-          }
-
-          workflow=false
           frontend=false
           backend_any=false
           render_smoke=false
           backend_quality=false
           e2e=false
           apple_music_sandbox=false
+          api_package=false
           api_render=false
           api_full=false
           core=false
@@ -87,81 +79,74 @@ jobs:
           analytics=false
           news=false
 
-          if has_any_change '^\.github/workflows/ci\.yml$'; then
-            workflow=true
+          if has_any_change '^frontend/'; then
+            frontend=true
           fi
 
-          if [[ "$workflow" == "true" ]]; then
-            frontend=true
+          if has_any_change '^backend/'; then
             backend_any=true
-            render_smoke=true
             backend_quality=true
-            e2e=true
-            apple_music_sandbox=true
-            api_render=true
-            api_full=true
+          fi
+
+          if has_any_change '^backend/' '^render\.yaml$'; then
+            render_smoke=true
+          fi
+
+          if has_any_change '^backend/crates/ndith-core/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             core=true
+          fi
+
+          if has_any_change '^backend/crates/ndith-db/' '^backend/migrations/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             db=true
+          fi
+
+          if has_any_change '^backend/crates/ndith-services/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             services=true
+          fi
+
+          if has_any_change '^backend/crates/ndith-analytics/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             analytics=true
+          fi
+
+          if has_any_change '^backend/crates/ndith-news/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
             news=true
-          else
-            if has_any_change '^frontend/'; then
-              frontend=true
-            fi
+          fi
 
-            if has_any_change '^backend/'; then
-              backend_any=true
-              backend_quality=true
-            fi
+          if has_any_change '^backend/src/' '^backend/tests/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+            api_package=true
+          fi
 
-            if has_any_change '^backend/' '^render\.yaml$'; then
-              render_smoke=true
-            fi
+          if has_any_change '^backend/src/' '^backend/tests/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$' '^backend/crates/ndith-core/' '^backend/crates/ndith-db/' '^backend/crates/ndith-services/' '^backend/migrations/'; then
+            api_render=true
+          fi
 
-            if has_any_change '^backend/crates/ndith-core/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              core=true
-            fi
+          if [[ "$api_render" == "true" || "$analytics" == "true" || "$news" == "true" ]]; then
+            api_full=true
+          fi
 
-            if has_any_change '^backend/crates/ndith-db/' '^backend/migrations/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              db=true
-            fi
+          if [[ "$frontend" == "true" || "$api_render" == "true" ]]; then
+            e2e=true
+          fi
 
-            if has_any_change '^backend/crates/ndith-services/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              services=true
-            fi
-
-            if has_any_change '^backend/crates/ndith-analytics/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              analytics=true
-            fi
-
-            if has_any_change '^backend/crates/ndith-news/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              news=true
-            fi
-
-            if has_any_change '^backend/src/' '^backend/tests/' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$' '^backend/crates/ndith-core/' '^backend/crates/ndith-db/' '^backend/crates/ndith-services/' '^backend/migrations/'; then
-              api_render=true
-            fi
-
-            if [[ "$api_render" == "true" || "$analytics" == "true" || "$news" == "true" ]]; then
-              api_full=true
-            fi
-
-            if [[ "$frontend" == "true" || "$api_render" == "true" ]]; then
-              e2e=true
-            fi
-
-            if has_any_change '^backend/tests/apple_music_sandbox_tests\.rs$' '^backend/crates/ndith-services/src/apple_music.*' '^backend/crates/ndith-services/src/oauth_apple.*' '^backend/src/handlers/oauth.*' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
-              apple_music_sandbox=true
-            fi
+          if has_any_change '^backend/tests/apple_music_sandbox_tests\.rs$' '^backend/crates/ndith-services/src/apple_music.*' '^backend/crates/ndith-services/src/oauth_apple.*' '^backend/src/handlers/oauth.*' '^backend/Cargo\.toml$' '^backend/Cargo\.lock$'; then
+            apple_music_sandbox=true
           fi
 
           add_json_target() {
             python3 -c 'import json, sys; items = json.loads(sys.argv[1]); name = sys.argv[2]; items.append(name) if name not in items else None; print(json.dumps(items, separators=(",", ":")))' "$1" "$2"
           }
 
+          backend_quality_targets='[]'
           backend_build_matrix='[]'
           backend_test_matrix='[]'
+
+          if [[ "$api_package" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" api-render)"
+          fi
+
+          if [[ "$api_render" == "true" ]]; then
+            backend_build_matrix="$(add_json_target "$backend_build_matrix" api-render)"
+          fi
 
           if [[ "$api_full" == "true" ]]; then
             backend_build_matrix="$(add_json_target "$backend_build_matrix" api)"
@@ -169,35 +154,41 @@ jobs:
             backend_build_matrix="$(add_json_target "$backend_build_matrix" api-graph-ladybugdb)"
           fi
 
-          if [[ "$api_render" == "true" ]]; then
-            backend_build_matrix="$(add_json_target "$backend_build_matrix" api-render)"
-          fi
-
           if [[ "$core" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" core)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" core)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" core)"
           fi
 
           if [[ "$db" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" db)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" db)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" db)"
           fi
 
           if [[ "$services" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" services)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" services)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" services)"
           fi
 
           if [[ "$news" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" news)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" news)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" news)"
           fi
 
           if [[ "$analytics" == "true" ]]; then
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" analytics)"
+            backend_quality_targets="$(add_json_target "$backend_quality_targets" analytics-graph-ladybugdb)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" analytics)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" analytics)"
             backend_build_matrix="$(add_json_target "$backend_build_matrix" analytics-graph-ladybugdb)"
             backend_test_matrix="$(add_json_target "$backend_test_matrix" analytics-graph-ladybugdb)"
+          fi
+
+          if [[ "$backend_quality_targets" == "[]" ]]; then
+            backend_quality=false
           fi
 
           if [[ "$backend_build_matrix" == "[]" ]]; then
@@ -214,6 +205,7 @@ jobs:
 
           {
             echo "backend_quality=$backend_quality"
+            echo "backend_quality_targets=$backend_quality_targets"
             echo "render_smoke=$render_smoke"
             echo "frontend=$frontend"
             echo "e2e=$e2e"
@@ -300,8 +292,50 @@ jobs:
 
       - name: Run Clippy
         working-directory: backend
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        continue-on-error: true
+        shell: bash
+        env:
+          QUALITY_TARGETS: ${{ needs.changes.outputs.backend_quality_targets }}
+          SQLX_OFFLINE: true
+        run: |
+          set -euo pipefail
+          mapfile -t targets < <(python3 - "$QUALITY_TARGETS" <<'PY'
+          import json
+          import sys
+
+          for item in json.loads(sys.argv[1]):
+              print(item)
+          PY
+          )
+
+          for target in "${targets[@]}"; do
+            case "$target" in
+              api-render)
+                cargo clippy -p music-streaming-blocklist-backend --all-targets --no-default-features --features render-api -- -D warnings
+                ;;
+              core)
+                cargo clippy -p ndith-core --all-targets --all-features -- -D warnings
+                ;;
+              db)
+                cargo clippy -p ndith-db --all-targets --all-features -- -D warnings
+                ;;
+              services)
+                cargo clippy -p ndith-services --all-targets --all-features -- -D warnings
+                ;;
+              news)
+                cargo clippy -p ndith-news --all-targets --all-features -- -D warnings
+                ;;
+              analytics)
+                cargo clippy -p ndith-analytics --all-targets --no-default-features -- -D warnings
+                ;;
+              analytics-graph-ladybugdb)
+                cargo clippy -p ndith-analytics --all-targets --no-default-features --features graph-ladybugdb -- -D warnings
+                ;;
+              *)
+                echo "Unknown quality target: $target"
+                exit 1
+                ;;
+            esac
+          done
 
   backend-component-build:
     name: Backend Component Builds (${{ matrix.target }})

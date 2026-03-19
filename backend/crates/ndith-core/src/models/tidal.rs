@@ -239,7 +239,7 @@ impl TidalLibraryScanResult {
 }
 
 /// Blocked content found in Tidal library during enforcement scan
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TidalBlockedContent {
     pub blocked_tracks: Vec<BlockedTidalTrack>,
     pub blocked_artists: Vec<BlockedTidalArtist>,
@@ -286,17 +286,6 @@ pub struct BlockedTidalPlaylistTrack {
     pub artist_name: String,
     pub blocked_artist_ids: Vec<u64>,
     pub block_reason: String,
-}
-
-impl Default for TidalBlockedContent {
-    fn default() -> Self {
-        Self {
-            blocked_tracks: Vec::new(),
-            blocked_artists: Vec::new(),
-            blocked_albums: Vec::new(),
-            blocked_playlist_tracks: Vec::new(),
-        }
-    }
 }
 
 /// Tidal enforcement run request

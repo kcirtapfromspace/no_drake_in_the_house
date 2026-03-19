@@ -212,7 +212,7 @@ pub struct EnforcementImpact {
 }
 
 /// Impact on liked songs
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct LibraryImpact {
     pub total_tracks: u32,
     pub tracks_to_remove: u32,
@@ -222,7 +222,7 @@ pub struct LibraryImpact {
 }
 
 /// Impact on playlists
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct PlaylistImpact {
     pub total_playlists: u32,
     pub playlists_to_modify: u32,
@@ -246,7 +246,7 @@ pub struct PlaylistModification {
 }
 
 /// Impact on followed artists
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FollowingImpact {
     pub total_followed: u32,
     pub artists_to_unfollow: u32,
@@ -254,7 +254,7 @@ pub struct FollowingImpact {
 }
 
 /// Impact on saved albums
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AlbumImpact {
     pub total_albums: u32,
     pub albums_to_remove: u32,
@@ -421,53 +421,6 @@ impl Default for EnforcementImpact {
             saved_albums: AlbumImpact::default(),
             total_items_affected: 0,
             estimated_time_saved_hours: 0.0,
-        }
-    }
-}
-
-impl Default for LibraryImpact {
-    fn default() -> Self {
-        Self {
-            total_tracks: 0,
-            tracks_to_remove: 0,
-            collaborations_found: 0,
-            featuring_found: 0,
-            exact_matches: 0,
-        }
-    }
-}
-
-impl Default for PlaylistImpact {
-    fn default() -> Self {
-        Self {
-            total_playlists: 0,
-            playlists_to_modify: 0,
-            total_tracks: 0,
-            tracks_to_remove: 0,
-            user_playlists_affected: 0,
-            collaborative_playlists_affected: 0,
-            playlist_details: Vec::new(),
-        }
-    }
-}
-
-impl Default for FollowingImpact {
-    fn default() -> Self {
-        Self {
-            total_followed: 0,
-            artists_to_unfollow: 0,
-            exact_matches: 0,
-        }
-    }
-}
-
-impl Default for AlbumImpact {
-    fn default() -> Self {
-        Self {
-            total_albums: 0,
-            albums_to_remove: 0,
-            exact_matches: 0,
-            collaboration_albums: 0,
         }
     }
 }

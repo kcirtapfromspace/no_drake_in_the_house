@@ -331,7 +331,7 @@ impl HealthChecker {
         let mut sys = System::new_all();
         sys.refresh_all();
 
-        let memory_usage_mb = (sys.used_memory() / 1024 / 1024) as u64;
+        let memory_usage_mb = sys.used_memory() / 1024 / 1024;
         let cpu_usage_percent = sys.global_cpu_info().cpu_usage();
 
         // Calculate disk usage - simplified for compatibility

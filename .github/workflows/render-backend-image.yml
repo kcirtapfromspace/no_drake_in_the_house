@@ -139,41 +139,22 @@ jobs:
         if: ${{ env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
         run: |
-          service_id="$(
+          response="$(
             curl --fail --silent --show-error \
               --url "https://api.render.com/v1/services" \
-              --header "Authorization: Bearer ${RENDER_API_KEY}" \
-            | python3 -c '
-              import json
-              import sys
+              --header "Authorization: Bearer ${RENDER_API_KEY}"
+          )"
 
-              target = sys.argv[1]
-              payload = json.load(sys.stdin)
-
-              if isinstance(payload, list):
-                  items = payload
-              elif isinstance(payload, dict):
-                  items = []
-                  for key in ("services", "items", "results"):
-                      value = payload.get(key)
-                      if isinstance(value, list):
-                          items = value
-                          break
-                  if not items:
-                      items = [payload]
-              else:
-                  items = []
-
-              for item in items:
-                  if not isinstance(item, dict):
-                      continue
-                  service = item.get("service") if isinstance(item.get("service"), dict) else item
-                  name = service.get("name") or item.get("name")
-                  service_id = service.get("id") or item.get("id")
-                  if name == target and service_id:
-                      print(service_id)
-                      break
-              ' "${{ matrix.service.render_service_name }}"
+          service_id="$(
+            jq -r --arg target "${{ matrix.service.render_service_name }}" '
+              (if type == "array" then .
+               elif type == "object" then (.services // .items // .results // [.] )
+               else []
+               end)
+              | map(if (.service | type) == "object" then .service else . end)
+              | map(select(.name == $target) | .id)
+              | .[0] // empty
+            ' <<<"${response}"
           )"
 
           if [ -n "${service_id}" ]; then

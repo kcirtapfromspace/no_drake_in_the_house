@@ -729,15 +729,36 @@ pub fn public_frontend_base_url() -> String {
     non_empty_env("OAUTH_FRONTEND_BASE_URL").unwrap_or_else(|| "http://localhost:5050".to_string())
 }
 
+fn sanitize_backend_base_url(candidate: String, frontend_base: &str) -> String {
+    let Some((scheme, candidate_authority)) = split_url_base(&candidate) else {
+        return candidate;
+    };
+
+    let Some((_, frontend_authority)) = split_url_base(frontend_base) else {
+        return candidate;
+    };
+
+    if candidate_authority.eq_ignore_ascii_case(frontend_authority) {
+        return format!(
+            "{}://{}",
+            scheme,
+            derive_backend_authority(frontend_authority)
+        );
+    }
+
+    candidate
+}
+
 pub fn public_backend_base_url() -> String {
+    let frontend_base = public_frontend_base_url();
+
     if let Some(explicit) = non_empty_env("OAUTH_BACKEND_BASE_URL")
         .or_else(|| non_empty_env("PUBLIC_BACKEND_BASE_URL"))
         .or_else(|| non_empty_env("RENDER_EXTERNAL_URL"))
     {
-        return explicit;
+        return sanitize_backend_base_url(explicit, &frontend_base);
     }
 
-    let frontend_base = public_frontend_base_url();
     if let Some((scheme, authority)) = split_url_base(&frontend_base) {
         return format!("{}://{}", scheme, derive_backend_authority(authority));
     }
@@ -816,5 +837,19 @@ mod tests {
         );
 
         std::env::remove_var("RENDER_EXTERNAL_URL");
+    }
+
+    #[test]
+    fn test_public_backend_base_url_sanitizes_frontend_override() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::set_var("OAUTH_BACKEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
+
+        assert_eq!(public_backend_base_url(), "https://api.nodrakeinthe.house");
+
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::remove_var("OAUTH_BACKEND_BASE_URL");
     }
 }

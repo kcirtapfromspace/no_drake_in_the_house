@@ -426,14 +426,15 @@ impl AppleMusicService {
         let mut library =
             AppleMusicLibrary::new(connection.user_id, connection.provider_user_id.clone());
 
-        // Scan library tracks
-        library.library_tracks = self.get_library_tracks(connection).await?;
+        let (library_tracks, library_albums, library_playlists) = tokio::try_join!(
+            self.get_library_tracks(connection),
+            self.get_library_albums(connection),
+            self.get_library_playlists(connection)
+        )?;
 
-        // Scan library albums
-        library.library_albums = self.get_library_albums(connection).await?;
-
-        // Scan library playlists
-        library.library_playlists = self.get_library_playlists(connection).await?;
+        library.library_tracks = library_tracks;
+        library.library_albums = library_albums;
+        library.library_playlists = library_playlists;
 
         library.scanned_at = Utc::now();
 

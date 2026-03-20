@@ -103,8 +103,6 @@ struct OAuthStateData {
     pub redirect_uri: Option<String>,
     #[serde(default)]
     pub code_verifier: Option<String>,
-    #[serde(default)]
-    pub client_unique_key: Option<String>,
     pub created_at: chrono::DateTime<Utc>,
 }
 
@@ -152,16 +150,11 @@ pub async fn tidal_authorize_handler(
         .unwrap_or_else(|| provider_callback_uri("tidal"));
     let requested_scopes = TidalService::configured_oauth_scopes();
 
-    // Create service with custom redirect URI if needed.
-    // `client_unique_key` is optional and some TIDAL app setups reject synthetic values,
-    // so only send it when the provider configuration explicitly includes one.
-    let client_unique_key = tidal_config.client_unique_key.clone();
-
     let tidal_service = TidalService::new(TidalConfig {
         client_id: tidal_config.client_id,
         client_secret: tidal_config.client_secret,
         redirect_uri: redirect_uri.clone(),
-        client_unique_key: client_unique_key.clone(),
+        client_unique_key: None,
     });
     let (code_verifier, code_challenge) = if tidal_service.uses_pkce() {
         let (verifier, challenge) = generate_pkce_verifier_and_challenge();
@@ -178,7 +171,6 @@ pub async fn tidal_authorize_handler(
         user_id: authenticated_user.id,
         redirect_uri: Some(redirect_uri.clone()),
         code_verifier,
-        client_unique_key,
         created_at: Utc::now(),
     };
 
@@ -273,16 +265,11 @@ pub async fn tidal_callback_handler(
         })
         .unwrap_or_else(|| provider_callback_uri("tidal"));
 
-    let client_unique_key = state_data
-        .client_unique_key
-        .clone()
-        .or_else(|| tidal_config.client_unique_key.clone());
-
     let tidal_service = TidalService::new(TidalConfig {
         client_id: tidal_config.client_id,
         client_secret: tidal_config.client_secret,
         redirect_uri,
-        client_unique_key,
+        client_unique_key: None,
     });
     tracing::info!(
         user_id = %state_data.user_id,

@@ -365,9 +365,6 @@ impl TidalService {
             ("state", state),
         ];
         if matches!(self.oauth_mode, TidalOAuthMode::Modern) {
-            if let Some(client_unique_key) = self.config.client_unique_key.as_deref() {
-                params.push(("client_unique_key", client_unique_key));
-            }
             if let Some(challenge) = code_challenge {
                 params.push(("code_challenge", challenge));
                 params.push(("code_challenge_method", "S256"));
@@ -423,19 +420,12 @@ impl TidalService {
             ));
         }
 
-        let requested_scope = Self::configured_oauth_scopes_for_mode(self.oauth_mode).join(" ");
         let mut params = vec![
             ("grant_type", "authorization_code"),
             ("code", code),
             ("redirect_uri", self.config.redirect_uri.as_str()),
             ("client_id", self.config.client_id.as_str()),
         ];
-        if !requested_scope.is_empty() {
-            params.push(("scope", requested_scope.as_str()));
-        }
-        if let Some(client_unique_key) = self.config.client_unique_key.as_deref() {
-            params.push(("client_unique_key", client_unique_key));
-        }
         if let Some(verifier) = code_verifier {
             params.push(("code_verifier", verifier));
         }
@@ -522,18 +512,11 @@ impl TidalService {
             ));
         }
 
-        let requested_scope = Self::configured_oauth_scopes_for_mode(self.oauth_mode).join(" ");
-        let mut params = vec![
+        let params = vec![
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token),
             ("client_id", self.config.client_id.as_str()),
         ];
-        if !requested_scope.is_empty() {
-            params.push(("scope", requested_scope.as_str()));
-        }
-        if let Some(client_unique_key) = self.config.client_unique_key.as_deref() {
-            params.push(("client_unique_key", client_unique_key));
-        }
 
         let response = self
             .client

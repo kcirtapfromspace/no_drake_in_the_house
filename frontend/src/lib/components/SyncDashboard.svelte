@@ -35,6 +35,23 @@
   let appleLibraryLoading = false;
   let appleLibraryError: string | null = null;
   let appleLibraryRequested = false;
+  let appleLibrarySyncPolling = false;
+
+  interface AppleLibrarySyncStatus {
+    state: 'idle' | 'running' | 'completed' | 'failed';
+    message: string;
+    started_at: string;
+    completed_at?: string;
+    tracks_count?: number;
+    albums_count?: number;
+    playlists_count?: number;
+    imported_items_count?: number;
+    added?: number;
+    removed?: number;
+    unchanged?: number;
+  }
+
+  let appleLibrarySyncStatus: AppleLibrarySyncStatus | null = null;
 
   interface ImportedLibraryTrack {
     id?: string;
@@ -415,10 +432,15 @@
         sourceType === 'liked' ||
         sourceType === 'playlist_track' ||
         sourceType === 'liked_video' ||
-        sourceType === 'playlist_item'
+        sourceType === 'playlist_item' ||
+        sourceType === 'library_song'
       ) {
         songs += 1;
-      } else if (sourceType === 'favorite_album' || sourceType === 'saved_album') {
+      } else if (
+        sourceType === 'favorite_album' ||
+        sourceType === 'saved_album' ||
+        sourceType === 'library_album'
+      ) {
         albums += 1;
       } else if (
         sourceType === 'favorite_artist' ||
@@ -430,7 +452,7 @@
         songs += 1;
       }
 
-      if (sourceType.includes('playlist')) {
+      if (sourceType.includes('playlist') || sourceType === 'library_playlist') {
         playlistEntries += 1;
       }
     }
@@ -501,7 +523,10 @@
           lastSynced: preview.scannedAt,
           source: 'live_api',
           status: 'ready',
-          message: 'Preview loaded from Apple Music. Use "Sync Library" or "Sync All" to import items into the cached library views.',
+          message:
+            appleLibrarySyncStatus?.state === 'running'
+              ? 'Apple Music preview is loaded and the cached import is still running. The sections below will populate when the import finishes.'
+              : 'Preview loaded from Apple Music. Use "Sync Library" or "Sync All" to import items into the cached library views.',
         };
       }
 
@@ -524,6 +549,69 @@
         status: 'error',
         message,
       };
+    }
+  }
+
+  function getAppleLibraryStatsRow(): ProviderLibraryStatsRow | undefined {
+    return libraryStatsByProvider.get('apple_music');
+  }
+
+  function hasAppleImportedCache(): boolean {
+    const row = getAppleLibraryStatsRow();
+    return Boolean(row && row.source === 'imported_cache' && (row.totalItems ?? 0) > 0);
+  }
+
+  function isAppleImportPendingForLibraryView(): boolean {
+    const providerFilter = normalizeLibraryParam(libraryItemsProviderFilter);
+    const providerMatches = providerFilter === null || providerFilter === 'apple_music';
+    return providerMatches && appleLibrarySyncStatus?.state === 'running' && !hasAppleImportedCache();
+  }
+
+  async function refreshAppleLibrarySyncStatus(): Promise<AppleLibrarySyncStatus | null> {
+    const result = await apiClient.authenticatedRequest<AppleLibrarySyncStatus>(
+      'GET',
+      '/api/v1/apple-music/library/sync-status',
+      undefined
+    );
+
+    if (result.success && result.data) {
+      appleLibrarySyncStatus = result.data;
+      return result.data;
+    }
+
+    appleLibrarySyncStatus = null;
+    return null;
+  }
+
+  async function waitForAppleLibraryImport(
+    maxWaitMs = 1_200_000
+  ): Promise<AppleLibrarySyncStatus | null> {
+    if (appleLibrarySyncPolling) {
+      return appleLibrarySyncStatus;
+    }
+
+    appleLibrarySyncPolling = true;
+    const deadline = Date.now() + maxWaitMs;
+
+    try {
+      while (Date.now() < deadline) {
+        const status = await refreshAppleLibrarySyncStatus();
+        await refreshLibraryStats();
+
+        if (status?.state === 'failed') {
+          throw new Error(status.message || 'Apple Music library sync failed');
+        }
+
+        if ((status?.state === 'completed' && status.imported_items_count !== undefined) || hasAppleImportedCache()) {
+          return status;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+      }
+
+      return appleLibrarySyncStatus;
+    } finally {
+      appleLibrarySyncPolling = false;
     }
   }
 
@@ -762,38 +850,41 @@
 
       // Use platform-specific library sync endpoints
       if (platform.id === 'apple') {
-        // Detect first sync: no cached items for this provider yet
-        const cachedStats = libraryStatsByProvider.get('apple_music');
-        const isLikelyFirstSync = !cachedStats || (cachedStats.totalItems ?? 0) === 0;
-
-        // Show in-progress toast
         const inProgressToastId = blockingStore.addToast({
           type: 'info',
-          message: isLikelyFirstSync
-            ? `Importing your Apple Music library. First sync takes a few minutes...`
-            : 'Syncing Apple Music library...',
+          message: 'Starting Apple Music library import...',
           dismissible: false,
         });
 
         try {
-      const syncResult = await apiClient.authenticatedRequest<any>(
-        'POST',
-        '/api/v1/apple-music/library/sync',
-        undefined
-      );
+          const syncResult = await apiClient.authenticatedRequest<any>(
+            'POST',
+            '/api/v1/apple-music/library/sync',
+            undefined
+          );
 
           blockingStore.removeToast(inProgressToastId);
 
           if (syncResult.success) {
             const payload = (syncResult.data ?? syncResult) as any;
-            const msg = payload?.message || 'Apple Music library synced.';
+            const msg =
+              payload?.message ||
+              'Apple Music library sync started. Refresh will update once cached rows are ready.';
             blockingStore.addToast({
-              type: 'success',
+              type: 'info',
               message: msg,
               dismissible: true,
               duration: 6000,
             });
+            await refreshAppleLibrarySyncStatus();
             await loadAppleLibraryPreview(true);
+
+            const completedStatus = await waitForAppleLibraryImport();
+            if (completedStatus?.state === 'completed') {
+              showConnectionSuccess(
+                completedStatus.message || 'Apple Music library imported successfully.'
+              );
+            }
           } else {
             const errMsg = syncResult.message || 'Failed to sync Apple Music library';
             blockingStore.addToast({
@@ -869,6 +960,7 @@
 
   onMount(async () => {
     await Promise.all([
+      refreshAppleLibrarySyncStatus(),
       syncActions.fetchStatus(),
       syncActions.fetchRuns(),
       syncActions.fetchHealth(),
@@ -943,7 +1035,14 @@
   }
 
   function openTriggerModal() {
-    selectedPlatforms = [];
+    selectedPlatforms = connectedPlatforms
+      .filter(
+        (platform) =>
+          Boolean(platform.connectionProvider) &&
+          hasActiveConnection(platform.connectionProvider) &&
+          !platform.disabled
+      )
+      .map((platform) => platform.id);
     syncType = 'incremental';
     priority = 'normal';
     showTriggerModal = true;
@@ -963,6 +1062,7 @@
 
   async function handleTriggerSync() {
     if (selectedPlatforms.length === 0) return;
+    closeTriggerModal();
 
     const directSyncPlatforms = selectedPlatforms
       .map((platformId) => getPlatformById(platformId))
@@ -980,7 +1080,6 @@
     );
 
     if (directSyncPlatforms.length > 0) {
-      closeTriggerModal();
       for (const platform of directSyncPlatforms) {
         await syncLibrary(platform);
       }
@@ -994,8 +1093,8 @@
       };
 
       const result = await syncActions.triggerSync(request);
-      if (result.success) {
-        closeTriggerModal();
+      if (!result.success && result.message) {
+        showConnectionError(result.message);
       }
     }
   }
@@ -1057,6 +1156,14 @@
       libraryItems = [];
     }
 
+    if (isAppleImportPendingForLibraryView()) {
+      libraryItemsError =
+        'Apple Music library import is still running. The cached library list will populate automatically when the import completes.';
+      libraryItemsLoading = false;
+      libraryItemsTotal = 0;
+      return;
+    }
+
     try {
       const endpoint = buildLibraryItemsEndpoint(requestOffset, libraryItemsLimit);
       const result = await apiClient.authenticatedRequest<LibraryItemsPage>(
@@ -1099,6 +1206,14 @@
     if (!append) {
       libraryGroupsOffset = 0;
       libraryGroups = [];
+    }
+
+    if (isAppleImportPendingForLibraryView()) {
+      libraryGroupsError =
+        'Apple Music library import is still running. Grouped library views will populate when cached rows are ready.';
+      libraryGroupsLoading = false;
+      libraryGroupsTotal = 0;
+      return;
     }
 
     try {
@@ -1181,6 +1296,14 @@
     tasteGradeLoading = true;
     tasteGradeError = null;
 
+    if (appleLibrarySyncStatus?.state === 'running' && !hasAppleImportedCache()) {
+      tasteGrade = null;
+      tasteGradeError =
+        'Apple Music library import is still running. Taste grade will populate when cached rows are ready.';
+      tasteGradeLoading = false;
+      return;
+    }
+
     try {
       const result = await apiClient.authenticatedRequest<TasteGradeResponse>(
         'GET',
@@ -1205,6 +1328,14 @@
   async function refreshLibraryOffenders() {
     libraryOffendersLoading = true;
     libraryOffendersError = null;
+
+    if (appleLibrarySyncStatus?.state === 'running' && !hasAppleImportedCache()) {
+      libraryOffenders = null;
+      libraryOffendersError =
+        'Apple Music library import is still running. Offender analysis will populate when cached rows are ready.';
+      libraryOffendersLoading = false;
+      return;
+    }
 
     try {
       const params = new URLSearchParams();

@@ -9,6 +9,7 @@
 
 use axum::{
     extract::{Query, State},
+    http::StatusCode,
     Json,
 };
 use serde::{Deserialize, Serialize};
@@ -271,6 +272,91 @@ fn library_scan_timeout() -> Duration {
     Duration::from_secs(seconds)
 }
 
+const APPLE_LIBRARY_SYNC_STATUS_TTL_SECONDS: u64 = 3600;
+const APPLE_LIBRARY_SYNC_RUNNING_TTL_SECONDS: u64 = 7200;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct AppleLibrarySyncStatus {
+    pub state: String,
+    pub message: String,
+    pub started_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tracks_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub albums_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub playlists_count: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imported_items_count: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub added: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub removed: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unchanged: Option<i64>,
+}
+
+fn apple_library_sync_status_key(user_id: Uuid) -> String {
+    format!("apple_music_library_sync_status:{}", user_id)
+}
+
+async fn store_apple_library_sync_status(
+    redis_pool: &deadpool_redis::Pool,
+    user_id: Uuid,
+    status: &AppleLibrarySyncStatus,
+    ttl_seconds: u64,
+) -> Result<(), AppError> {
+    use deadpool_redis::redis::AsyncCommands;
+
+    let key = apple_library_sync_status_key(user_id);
+    let value = serde_json::to_string(status).map_err(|e| AppError::Internal {
+        message: Some(format!(
+            "Failed to serialize Apple Music sync status: {}",
+            e
+        )),
+    })?;
+
+    let mut conn = redis_pool.get().await.map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to acquire Redis connection: {}", e)),
+    })?;
+
+    let _: () = conn
+        .set_ex(key, value, ttl_seconds)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to store Apple Music sync status: {}", e)),
+        })?;
+
+    Ok(())
+}
+
+async fn get_apple_library_sync_status(
+    redis_pool: &deadpool_redis::Pool,
+    user_id: Uuid,
+) -> Result<Option<AppleLibrarySyncStatus>, AppError> {
+    use deadpool_redis::redis::AsyncCommands;
+
+    let key = apple_library_sync_status_key(user_id);
+    let mut conn = redis_pool.get().await.map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to acquire Redis connection: {}", e)),
+    })?;
+
+    let value: Option<String> = conn.get(key).await.map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to fetch Apple Music sync status: {}", e)),
+    })?;
+
+    value
+        .map(|raw| {
+            serde_json::from_str(&raw).map_err(|e| AppError::Internal {
+                message: Some(format!("Failed to parse Apple Music sync status: {}", e)),
+            })
+        })
+        .transpose()
+}
+
 /// Response containing the developer token for MusicKit JS initialization
 #[derive(Debug, Serialize)]
 pub struct DeveloperTokenResponse {
@@ -483,22 +569,12 @@ pub struct LibrarySyncResponse {
     pub message: String,
 }
 
-/// Sync user's Apple Music library
-///
-/// POST /api/v1/apple-music/library/sync
-///
-/// Fetches the user's Apple Music library (tracks, albums, playlists)
-/// and caches it for analysis against the DNP list.
-pub async fn sync_library(
-    State(state): State<AppState>,
-    authenticated_user: AuthenticatedUser,
-) -> Result<Json<LibrarySyncResponse>, AppError> {
-    let user_id = authenticated_user.id;
-    let scan_timeout = library_scan_timeout();
-
+async fn perform_apple_music_library_sync(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<LibrarySyncResponse, AppError> {
     tracing::info!(user_id = %user_id, "Starting Apple Music library sync");
 
-    // Get user's Apple Music connection
     let connection = state
         .apple_music_service
         .get_user_connection(user_id)
@@ -510,34 +586,20 @@ pub async fn sync_library(
             resource: "Apple Music connection".to_string(),
         })?;
 
-    // Scan the library from Apple Music
-    let library = tokio::time::timeout(
-        scan_timeout,
-        state.apple_music_service.scan_library(&connection),
-    )
-    .await
-    .map_err(|_| {
-        let error_message = format!(
-            "Timed out waiting for Apple Music library sync after {} seconds",
-            scan_timeout.as_secs()
-        );
-        tracing::warn!(
-            user_id = %user_id,
-            timeout_seconds = scan_timeout.as_secs(),
-            "Apple Music library sync timed out"
-        );
-        map_library_error(&error_message, "sync")
-    })?
-    .map_err(|e| {
-        let error_message = e.to_string();
-        tracing::warn!(
-            user_id = %user_id,
-            error = %error_message,
-            "Apple Music library sync failed"
-        );
+    let library = state
+        .apple_music_service
+        .scan_library(&connection)
+        .await
+        .map_err(|e| {
+            let error_message = e.to_string();
+            tracing::warn!(
+                user_id = %user_id,
+                error = %error_message,
+                "Apple Music library sync failed"
+            );
 
-        map_library_error(&error_message, "sync")
-    })?;
+            map_library_error(&error_message, "sync")
+        })?;
 
     let tracks_count = library.library_tracks.len();
     let albums_count = library.library_albums.len();
@@ -551,8 +613,6 @@ pub async fn sync_library(
         "Apple Music library scan complete"
     );
 
-    // Cache the full library in `user_library_tracks` so the frontend can display items and
-    // other services (scan/enforcement) can run without re-fetching the provider each time.
     let mut import_tracks: Vec<ImportTrack> =
         Vec::with_capacity(tracks_count + albums_count + playlists_count);
 
@@ -630,7 +690,7 @@ pub async fn sync_library(
         "Apple Music library sync complete"
     );
 
-    Ok(Json(LibrarySyncResponse {
+    Ok(LibrarySyncResponse {
         success: true,
         tracks_count,
         albums_count,
@@ -641,7 +701,173 @@ pub async fn sync_library(
         removed: diff.removed,
         unchanged: diff.unchanged,
         message,
-    }))
+    })
+}
+
+/// Sync user's Apple Music library
+///
+/// POST /api/v1/apple-music/library/sync
+///
+/// Fetches the user's Apple Music library (tracks, albums, playlists)
+/// and caches it for analysis against the DNP list.
+pub async fn sync_library(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<(StatusCode, Json<LibrarySyncResponse>), AppError> {
+    let user_id = authenticated_user.id;
+
+    state
+        .apple_music_service
+        .get_user_connection(user_id)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to get connection: {}", e)),
+        })?
+        .ok_or_else(|| AppError::NotFound {
+            resource: "Apple Music connection".to_string(),
+        })?;
+
+    if let Some(status) = get_apple_library_sync_status(&state.redis_pool, user_id).await? {
+        if status.state == "running" {
+            return Ok((
+                StatusCode::ACCEPTED,
+                Json(LibrarySyncResponse {
+                    success: true,
+                    tracks_count: 0,
+                    albums_count: 0,
+                    playlists_count: 0,
+                    imported_items_count: None,
+                    is_first_sync: false,
+                    added: 0,
+                    removed: 0,
+                    unchanged: 0,
+                    message: "Apple Music library sync is already running. Refresh will update when the cached library is ready.".to_string(),
+                }),
+            ));
+        }
+    }
+
+    let started_at = chrono::Utc::now();
+    store_apple_library_sync_status(
+        &state.redis_pool,
+        user_id,
+        &AppleLibrarySyncStatus {
+            state: "running".to_string(),
+            message: "Apple Music library sync is in progress.".to_string(),
+            started_at: started_at.to_rfc3339(),
+            completed_at: None,
+            tracks_count: None,
+            albums_count: None,
+            playlists_count: None,
+            imported_items_count: None,
+            added: None,
+            removed: None,
+            unchanged: None,
+        },
+        APPLE_LIBRARY_SYNC_RUNNING_TTL_SECONDS,
+    )
+    .await?;
+
+    let background_state = state.clone();
+    tokio::spawn(async move {
+        match perform_apple_music_library_sync(&background_state, user_id).await {
+            Ok(result) => {
+                let finished_at = chrono::Utc::now();
+                let status = AppleLibrarySyncStatus {
+                    state: "completed".to_string(),
+                    message: result.message.clone(),
+                    started_at: started_at.to_rfc3339(),
+                    completed_at: Some(finished_at.to_rfc3339()),
+                    tracks_count: Some(result.tracks_count),
+                    albums_count: Some(result.albums_count),
+                    playlists_count: Some(result.playlists_count),
+                    imported_items_count: result.imported_items_count,
+                    added: Some(result.added),
+                    removed: Some(result.removed),
+                    unchanged: Some(result.unchanged),
+                };
+
+                if let Err(error) = store_apple_library_sync_status(
+                    &background_state.redis_pool,
+                    user_id,
+                    &status,
+                    APPLE_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(user_id = %user_id, error = %error, "Failed to persist Apple Music sync completion status");
+                }
+            }
+            Err(error) => {
+                let finished_at = chrono::Utc::now();
+                let status = AppleLibrarySyncStatus {
+                    state: "failed".to_string(),
+                    message: error.to_string(),
+                    started_at: started_at.to_rfc3339(),
+                    completed_at: Some(finished_at.to_rfc3339()),
+                    tracks_count: None,
+                    albums_count: None,
+                    playlists_count: None,
+                    imported_items_count: None,
+                    added: None,
+                    removed: None,
+                    unchanged: None,
+                };
+
+                tracing::error!(user_id = %user_id, error = %status.message, "Apple Music background sync failed");
+
+                if let Err(status_error) = store_apple_library_sync_status(
+                    &background_state.redis_pool,
+                    user_id,
+                    &status,
+                    APPLE_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(user_id = %user_id, error = %status_error, "Failed to persist Apple Music sync failure status");
+                }
+            }
+        }
+    });
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(LibrarySyncResponse {
+            success: true,
+            tracks_count: 0,
+            albums_count: 0,
+            playlists_count: 0,
+            imported_items_count: None,
+            is_first_sync: false,
+            added: 0,
+            removed: 0,
+            unchanged: 0,
+            message: "Apple Music library sync started. Large libraries can take a few minutes to finish importing.".to_string(),
+        }),
+    ))
+}
+
+pub async fn get_library_sync_status(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<Json<AppleLibrarySyncStatus>, AppError> {
+    let status = get_apple_library_sync_status(&state.redis_pool, authenticated_user.id)
+        .await?
+        .unwrap_or_else(|| AppleLibrarySyncStatus {
+            state: "idle".to_string(),
+            message: "No Apple Music library sync has been started yet.".to_string(),
+            started_at: chrono::Utc::now().to_rfc3339(),
+            completed_at: None,
+            tracks_count: None,
+            albums_count: None,
+            playlists_count: None,
+            imported_items_count: None,
+            added: None,
+            removed: None,
+            unchanged: None,
+        });
+
+    Ok(Json(status))
 }
 
 /// Get user's cached Apple Music library

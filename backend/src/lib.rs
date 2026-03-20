@@ -484,6 +484,10 @@ pub fn create_router(state: AppState) -> Router {
             post(handlers::apple_music_auth::sync_library),
         )
         .route(
+            "/apple-music/library/sync-status",
+            get(handlers::apple_music_auth::get_library_sync_status),
+        )
+        .route(
             "/apple-music/library",
             get(handlers::apple_music_auth::get_library),
         )

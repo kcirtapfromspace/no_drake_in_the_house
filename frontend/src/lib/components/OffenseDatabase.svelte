@@ -336,14 +336,14 @@
 
     <div class="max-w-4xl mx-auto px-4 py-2 sm:px-6 lg:px-8">
     {#if error}
-      <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+      <div class="bg-red-900/20 border border-red-500/40 rounded-xl p-4 mb-6">
         <div class="flex items-start">
-          <svg class="w-5 h-5 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <svg class="w-5 h-5 text-red-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
           </svg>
           <div class="flex-1">
-            <p class="text-red-800">{error}</p>
-            <button type="button" on:click={() => error = null} class="text-red-600 underline text-sm mt-1">Dismiss</button>
+            <p class="text-red-400">{error}</p>
+            <button type="button" on:click={() => error = null} class="text-red-300 underline text-sm mt-1">Dismiss</button>
           </div>
         </div>
       </div>
@@ -598,8 +598,8 @@
           {/if}
         </div>
       {:else}
-        <div class="bg-red-50 rounded-xl p-6 text-center">
-          <p class="text-red-800">Failed to load offense details.</p>
+        <div class="bg-red-900/20 border border-red-500/40 rounded-xl p-6 text-center">
+          <p class="text-red-400">Failed to load offense details.</p>
         </div>
       {/if}
 

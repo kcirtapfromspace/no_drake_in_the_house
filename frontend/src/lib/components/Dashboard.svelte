@@ -138,8 +138,8 @@
               <div class="w-12 h-12 rounded-full flex items-center justify-center text-xl mr-4 bg-zinc-600">
                 🎤
               </div>
-              <div class="flex-1">
-                <div class="font-medium text-white group-hover:text-indigo-400">
+              <div class="flex-1 min-w-0">
+                <div class="font-medium text-white group-hover:text-indigo-400 truncate">
                   {artist.canonical_name}
                 </div>
                 {#if artist.genres?.length}
@@ -225,7 +225,7 @@
                   <svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="font-medium text-white">{entry.artist.canonical_name}</div>
+                  <div class="font-medium text-white truncate">{entry.artist.canonical_name}</div>
                   {#if entry.note}
                     <p class="text-sm text-zinc-400 mt-1 line-clamp-2">{entry.note}</p>
                   {/if}

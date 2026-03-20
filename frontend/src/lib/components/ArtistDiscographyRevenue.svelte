@@ -397,19 +397,21 @@
             class="w-full px-4 py-3 flex items-center gap-4 hover:bg-zinc-700/50 transition-colors text-left"
             on:click={() => toggleAlbum(album.id)}
           >
-            <!-- Album Art (small thumbnail with fallback) -->
-            <div class="w-8 h-8 bg-zinc-700 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+            <!-- Album Art -->
+            <div class="w-8 h-8 bg-zinc-700 rounded overflow-hidden flex-shrink-0 relative">
               {#if album.cover_url}
                 <img
                   src={album.cover_url}
-                  alt={album.title}
-                  class="w-8 h-8 object-cover"
+                  alt=""
+                  class="w-8 h-8 object-cover absolute inset-0"
                   on:error={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
               {/if}
-              <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
+              <div class="w-8 h-8 flex items-center justify-center">
+                <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+              </div>
             </div>
 
             <!-- Album Info -->
@@ -587,7 +589,11 @@
     <!-- Revenue Context -->
     <div class="mt-6 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700" data-testid="revenue-context">
       <div class="flex items-start gap-3">
-        <div class="text-2xl">$</div>
+        <div class="w-8 h-8 rounded-full bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
         <div>
           <div class="text-zinc-200 font-medium mb-1">Revenue Methodology</div>
           <div class="text-sm text-zinc-400">

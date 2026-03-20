@@ -266,19 +266,21 @@
           {#each list.artists as item}
             <div class="flex items-center justify-between py-3 px-4 rounded-lg bg-zinc-700" >
               <div class="flex items-center space-x-3">
-                {#if item.artist.metadata.image}
-                  <img
-                    src={item.artist.metadata.image}
-                    alt={item.artist.canonical_name}
-                    class="w-10 h-10 rounded-full object-cover"
-                  />
-                {:else}
-                  <div class="w-10 h-10 rounded-full flex items-center justify-center bg-zinc-600">
+                <div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative bg-zinc-600">
+                  {#if item.artist.metadata.image}
+                    <img
+                      src={item.artist.metadata.image}
+                      alt=""
+                      class="w-10 h-10 rounded-full object-cover absolute inset-0"
+                      on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  {/if}
+                  <div class="w-10 h-10 flex items-center justify-center">
                     <svg aria-hidden="true" class="w-5 h-5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
-                {/if}
+                </div>
 
                 <div>
                   <div class="text-sm font-medium text-white">

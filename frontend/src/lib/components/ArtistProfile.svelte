@@ -935,26 +935,25 @@
 
         <div class="profile__header-row">
           <!-- Artist Photo -->
-          {#if profile.primary_image?.url}
-            <div class="profile__photo-wrap">
-              <div
-                class="profile__photo"
-                style="border-color: {statusColor?.border || 'var(--color-border-default)'};"
-              >
+          <div class="profile__photo-wrap">
+            <div
+              class="profile__photo"
+              style="border-color: {statusColor?.border || 'var(--color-border-default)'}; overflow: hidden; position: relative;"
+            >
+              {#if profile.primary_image?.url}
                 <img
                   src={profile.primary_image.url}
-                  alt={profile.canonical_name}
+                  alt=""
                   class="profile__photo-img"
+                  style="position: absolute; inset: 0;"
+                  on:error={(e) => { e.currentTarget.style.display = 'none'; }}
                 />
-              </div>
-            </div>
-          {:else}
-            <div class="profile__photo-wrap">
+              {/if}
               <div class="profile__photo-placeholder">
                 {profile.canonical_name.charAt(0)}
               </div>
             </div>
-          {/if}
+          </div>
 
           <!-- Artist Info -->
           <div class="profile__info">
@@ -1512,90 +1511,72 @@
 
             <div class="space-y-3">
               {#each catalogAlbums as album}
-                <div class="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-900">
-                  <!-- Album Header (clickable) -->
-                  <button
-                    type="button"
-                    class="w-full p-4 flex items-center gap-4 hover:bg-zinc-800/50 transition-colors text-left"
-                    on:click={() => toggleCatalogAlbum(album.name)}
-                  >
-                    <!-- Block Toggle (left side) - Crystal clear state indication -->
+                <div class="rounded-xl overflow-hidden bg-zinc-900 border border-zinc-800/50">
+                  <!-- Album Header Row -->
+                  <div class="w-full p-4 flex items-center gap-3 hover:bg-zinc-800/30 transition-colors">
+                    <!-- Block Toggle -->
                     <button
                       type="button"
-                      on:click|stopPropagation={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)}
-                      class="flex-shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 group relative"
+                      on:click={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)}
+                      class="flex-shrink-0 transition-all duration-200 hover:scale-105 active:scale-95 group"
                       title={album.blockedCount === album.totalCount ? 'Click to ALLOW all tracks' : 'Click to BLOCK all tracks'}
                     >
                       {#if album.blockedCount === album.totalCount}
-                        <!-- BLOCKED STATE: Vibrant rose on dark -->
-                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all bg-rose-500/20 border border-rose-500/40 group-hover:bg-rose-500/30">
-                          <svg class="w-4 h-4 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30">
+                          <svg class="w-3.5 h-3.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <circle cx="12" cy="12" r="9" />
                             <path d="M5.5 5.5l13 13" />
                           </svg>
-                          <span class="text-xs font-semibold uppercase tracking-wide text-rose-400">Blocked</span>
+                          <span class="text-xs font-semibold text-rose-400">Blocked</span>
                         </div>
                       {:else if album.blockedCount > 0}
-                        <!-- PARTIAL STATE: Vibrant amber -->
-                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-all bg-amber-500/20 border border-amber-500/40 group-hover:bg-amber-500/30">
-                          <svg class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30">
+                          <svg class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="9" />
                             <path d="M12 8v4m0 4h.01" stroke-linecap="round" />
                           </svg>
                           <span class="text-xs font-medium text-amber-400">{album.blockedCount}/{album.totalCount}</span>
                         </div>
                       {:else}
-                        <!-- ALLOWED STATE: Subtle warm gray -->
-                        <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-800/30 border border-zinc-700/30 group-hover:bg-zinc-700/40 group-hover:border-zinc-500/50 transition-all">
-                          <svg class="w-4 h-4 text-zinc-400 group-hover:text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <div class="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-zinc-800/30 border border-zinc-700/30 group-hover:border-zinc-600/50">
+                          <svg class="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="9" />
                             <path d="M8 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round" />
                           </svg>
-                          <span class="text-xs font-medium text-zinc-400 group-hover:text-zinc-300">Allowed</span>
+                          <span class="text-xs font-medium text-zinc-500 group-hover:text-zinc-400">OK</span>
                         </div>
                       {/if}
                     </button>
 
-                    <!-- Album Art (thumbnail) -->
-                    {#if album.cover && !album.cover.includes('data:image')}
-                    <button
-                      type="button"
-                      class="flex-shrink-0 group relative w-10 h-10"
-                      on:click|stopPropagation={() => openAlbumCover(album.cover, album.name)}
-                      title="Click to enlarge"
+                    <!-- Album Art -->
+                    <div
+                      class="flex-shrink-0 w-10 h-10 rounded overflow-hidden bg-zinc-800 relative cursor-pointer group"
+                      role="button"
+                      tabindex="0"
+                      on:click={() => album.cover ? openAlbumCover(album.cover, album.name) : null}
+                      on:keydown={(e) => e.key === 'Enter' && album.cover ? openAlbumCover(album.cover, album.name) : null}
                     >
-                      <img
-                        src={album.cover}
-                        alt={album.name}
-                        class="w-10 h-10 rounded object-cover bg-zinc-800 transition-all group-hover:ring-2 group-hover:ring-white/30"
-                        on:error={(e) => {
-                          const parent = e.currentTarget.parentElement;
-                          e.currentTarget.style.display = 'none';
-                          const fallback = parent.querySelector('.album-cover-fallback');
-                          if (fallback) fallback.style.display = 'flex';
-                        }}
-                      />
-                      <div class="album-cover-fallback w-10 h-10 rounded bg-zinc-800 items-center justify-center" style="display: none;">
-                        <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {#if album.cover && !album.cover.includes('data:image')}
+                        <img
+                          src={album.cover}
+                          alt=""
+                          class="w-10 h-10 object-cover absolute inset-0"
+                          on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                      {/if}
+                      <div class="w-10 h-10 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
                       </div>
-                      <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded">
-                        <svg class="w-4 h-4 text-white" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                        </svg>
-                      </div>
-                    </button>
-                    {:else}
-                    <div class="flex-shrink-0 w-10 h-10 rounded bg-zinc-800 flex items-center justify-center">
-                      <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                      </svg>
                     </div>
-                    {/if}
 
-                    <!-- Album Info -->
-                    <div class="flex-1 min-w-0">
+                    <!-- Album Info (clickable to expand) -->
+                    <button
+                      type="button"
+                      class="flex-1 min-w-0 text-left"
+                      on:click={() => toggleCatalogAlbum(album.name)}
+                    >
                       <div class="font-semibold text-stone-100 truncate">{album.name}</div>
                       <div class="text-sm text-zinc-400">{album.year} · {album.totalCount} tracks</div>
                       <div class="flex items-center gap-2 mt-1">
@@ -1607,10 +1588,15 @@
                         </div>
                         <span class="text-xs {album.blockedCount > 0 ? 'text-rose-400' : 'text-zinc-500'}">{album.blockedCount}/{album.totalCount} blocked</span>
                       </div>
-                    </div>
+                    </button>
 
-                    <!-- Expand/Collapse Icon (plus/minus) -->
-                    <div class="w-6 h-6 rounded-full border border-zinc-700 flex items-center justify-center flex-shrink-0">
+                    <!-- Expand/Collapse -->
+                    <button
+                      type="button"
+                      class="w-7 h-7 rounded-full border border-zinc-700 flex items-center justify-center flex-shrink-0 hover:border-zinc-500 transition-colors"
+                      on:click={() => toggleCatalogAlbum(album.name)}
+                      aria-label={expandedCatalogAlbums.has(album.name) ? 'Collapse' : 'Expand'}
+                    >
                       {#if expandedCatalogAlbums.has(album.name)}
                         <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
@@ -1620,8 +1606,8 @@
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
                       {/if}
-                    </div>
-                  </button>
+                    </button>
+                  </div>
 
                   <!-- Expanded Track List -->
                   {#if expandedCatalogAlbums.has(album.name)}
@@ -1935,8 +1921,18 @@
                   >
                     <div class="flex items-center justify-between">
                       <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-zinc-800 text-zinc-400">
-                          {writer.name.charAt(0)}
+                        <div class="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden relative">
+                          {#if writer.image_url}
+                            <img
+                              src={writer.image_url}
+                              alt=""
+                              class="w-10 h-10 rounded-full object-cover absolute inset-0"
+                              on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          {/if}
+                          <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold bg-zinc-800 text-zinc-400">
+                            {writer.name.charAt(0)}
+                          </div>
                         </div>
                         <div>
                           <div class="flex items-center gap-2">
@@ -1991,13 +1987,19 @@
                   >
                     <div class="flex items-center justify-between">
                       <div class="flex items-center gap-3">
-                        {#if producer.image_url}
-                          <img src={producer.image_url} alt={producer.name} class="w-10 h-10 rounded-full object-cover" />
-                        {:else}
+                        <div class="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden relative">
+                          {#if producer.image_url}
+                            <img
+                              src={producer.image_url}
+                              alt=""
+                              class="w-10 h-10 rounded-full object-cover absolute inset-0"
+                              on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          {/if}
                           <div class="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold" style="background: linear-gradient(135deg, #7C3AED, #A855F7); color: white;">
                             {producer.name.charAt(0)}
                           </div>
-                        {/if}
+                        </div>
                         <div>
                           <div class="flex items-center gap-2">
                             <span class="font-medium text-white">{producer.name}</span>
@@ -2066,14 +2068,18 @@
                     style="background: #0a0a0c; border: 1px solid {collab.is_flagged ? '#ef4444' : '#3f3f46'};"
                     on:click={() => navigateToArtist(collab.id)}
                   >
-                    <div class="relative aspect-square mb-3 rounded-xl overflow-hidden bg-gradient-panel-soft">
+                    <div class="relative aspect-square mb-3 rounded-xl overflow-hidden" style="background: var(--color-bg-interactive);">
                       {#if collab.image_url}
-                        <img src={collab.image_url} alt={collab.name} class="w-full h-full object-cover" />
-                      {:else}
-                        <div class="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-400">
-                          {collab.name.charAt(0)}
-                        </div>
+                        <img
+                          src={collab.image_url}
+                          alt=""
+                          class="w-full h-full object-cover absolute inset-0"
+                          on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
                       {/if}
+                      <div class="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-400">
+                        {collab.name.charAt(0)}
+                      </div>
 
                       {#if collab.is_flagged}
                         <div class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-rose-500">
@@ -2209,6 +2215,7 @@
             src={selectedAlbumCover.url}
             alt={selectedAlbumCover.name}
             class="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
+            on:error={(e) => { e.currentTarget.alt = 'Image unavailable'; e.currentTarget.style.minHeight = '200px'; e.currentTarget.style.background = 'var(--color-bg-interactive)'; }}
           />
           <div class="text-center mt-4">
             <p class="text-white font-semibold text-lg">{selectedAlbumCover.name}</p>

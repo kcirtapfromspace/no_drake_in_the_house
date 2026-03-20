@@ -667,27 +667,28 @@
         {:else}
           <div class="blocked-chips">
             {#each uniqueBlockedArtists as artist}
-              <button
-                type="button"
+              <div
                 class="blocked-chip group"
                 data-testid="blocked-artist-chip"
-                on:click={() => goToArtist(artist.id, artist.name)}
-                title="View artist profile"
               >
-                <span class="blocked-chip__name" data-testid="blocked-artist-name">{artist.name}</span>
+                <button
+                  type="button"
+                  class="blocked-chip__name"
+                  data-testid="blocked-artist-name"
+                  on:click={() => goToArtist(artist.id, artist.name)}
+                  title="View artist profile"
+                >{artist.name}</button>
                 <EnforcementBadges artistId={artist.id} compact={true} />
-                <span
-                  role="button"
-                  tabindex="0"
+                <button
+                  type="button"
                   class="blocked-chip__remove"
                   on:click={(e) => unblockArtist(artist.id, e, artist.name)}
-                  on:keydown={(e) => e.key === 'Enter' && unblockArtist(artist.id, e, artist.name)}
                   title="Remove from blocklist"
                   data-testid="unblock-artist-button"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </span>
-              </button>
+                </button>
+              </div>
             {/each}
           </div>
         {/if}

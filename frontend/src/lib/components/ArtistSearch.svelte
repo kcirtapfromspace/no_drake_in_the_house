@@ -116,19 +116,21 @@
           >
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3">
-                {#if artist.metadata.image}
-                  <img
-                    src={artist.metadata.image}
-                    alt={artist.canonical_name}
-                    class="icon icon-xl  rounded-full object-cover"
-                  />
-                {:else}
-                  <div class="h-8 w-8 rounded-full bg-zinc-700 flex items-center justify-center">
+                <div class="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 relative bg-zinc-700">
+                  {#if artist.metadata.image}
+                    <img
+                      src={artist.metadata.image}
+                      alt=""
+                      class="h-8 w-8 rounded-full object-cover absolute inset-0"
+                      on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                    />
+                  {/if}
+                  <div class="h-8 w-8 flex items-center justify-center">
                     <svg aria-hidden="true" class="h-4 w-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                   </div>
-                {/if}
+                </div>
                 <div>
                   <div class="text-sm font-medium text-zinc-200">
                     {artist.canonical_name}
@@ -170,19 +172,21 @@
     <div class="bg-zinc-800 rounded-lg p-4">
       <h4 class="text-sm font-medium text-zinc-300 mb-2">Selected Artist</h4>
       <div class="flex items-center space-x-3">
-        {#if selectedArtist.metadata.image}
-          <img
-            src={selectedArtist.metadata.image}
-            alt={selectedArtist.canonical_name}
-            class="avatar avatar--xl object-cover"
-          />
-        {:else}
-          <div class="avatar avatar--xl bg-zinc-700 avatar__placeholder">
+        <div class="avatar avatar--xl overflow-hidden relative bg-zinc-700">
+          {#if selectedArtist.metadata.image}
+            <img
+              src={selectedArtist.metadata.image}
+              alt=""
+              class="avatar avatar--xl object-cover absolute inset-0"
+              on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          {/if}
+          <div class="avatar avatar--xl avatar__placeholder">
             <svg aria-hidden="true" class="h-8 w-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-        {/if}
+        </div>
         <div class="flex-1">
           <div class="text-sm font-medium text-zinc-200">
             {selectedArtist.canonical_name}

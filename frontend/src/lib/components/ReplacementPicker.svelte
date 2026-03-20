@@ -63,11 +63,13 @@
       <div class="picker__empty">No replacements found</div>
     {:else}
       {#each suggestion.candidates as candidate}
-        <button
-          type="button"
+        <div
           class="picker__candidate"
           class:picker__candidate--selected={selectedId === candidate.track_id}
+          role="button"
+          tabindex="0"
           on:click={() => selectCandidate(candidate.track_id)}
+          on:keydown={(e) => e.key === 'Enter' && selectCandidate(candidate.track_id)}
         >
           <div class="picker__candidate-info">
             <span class="picker__candidate-name">{candidate.track_name}</span>
@@ -102,7 +104,7 @@
               </svg>
             </span>
           {/if}
-        </button>
+        </div>
       {/each}
     {/if}
     <button

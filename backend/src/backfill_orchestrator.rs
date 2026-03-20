@@ -13,6 +13,8 @@ use uuid::Uuid;
 
 #[cfg(feature = "news")]
 use ndith_news::NewsPipelineOrchestrator;
+#[cfg(feature = "news")]
+use ndith_news::{ArtistResearcher, ArtistResearcherConfig, WebSearchClient};
 
 /// Backfill progress tracking
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -146,7 +148,8 @@ impl BackfillOrchestrator {
         Ok(())
     }
 
-    /// Search for offenses for a single artist using news pipeline
+    /// Search for offenses for a single artist using single-pass researcher.
+    /// Falls back to simple pipeline search if researcher deps aren't available.
     #[cfg(feature = "news")]
     async fn search_artist_offenses(&self, artist: &ArtistForBackfill) -> Result<usize> {
         let news_pipeline = self
@@ -154,13 +157,39 @@ impl BackfillOrchestrator {
             .as_ref()
             .context("News pipeline not configured")?;
 
-        // Search for articles about this artist
-        let processed = news_pipeline.search_artist(&artist.canonical_name).await?;
+        // Single-pass researcher — no iterations, no LLM
+        let mut researcher = ArtistResearcher::new(
+            self.db_pool.clone(),
+            ArtistResearcherConfig {
+                target_quality: 50.0,
+                ..Default::default()
+            },
+        )
+        .with_news_pipeline(news_pipeline.clone())
+        .with_wikipedia();
 
-        // Count offenses detected
-        let offenses_found: usize = processed.iter().map(|p| p.offenses.len()).sum();
+        // Add web search if BRAVE_SEARCH_API_KEY is available
+        if let Ok(web_search) = WebSearchClient::from_env() {
+            researcher = researcher.with_web_search(web_search);
+        }
 
-        Ok(offenses_found)
+        match researcher
+            .research_artist(artist.id, &artist.canonical_name)
+            .await
+        {
+            Ok(result) => Ok(result.total_offenses_detected),
+            Err(e) => {
+                tracing::warn!(
+                    artist = artist.canonical_name,
+                    error = %e,
+                    "Research failed, falling back to simple search"
+                );
+                // Fall back to simple NewsAPI search
+                let processed = news_pipeline.search_artist(&artist.canonical_name).await?;
+                let offenses_found: usize = processed.iter().map(|p| p.offenses.len()).sum();
+                Ok(offenses_found)
+            }
+        }
     }
 
     /// Search for offenses for a single artist using news pipeline
@@ -294,6 +323,11 @@ impl BackfillOrchestrator {
                         progress.estimated_completion =
                             Some(Utc::now() + chrono::Duration::seconds(eta_seconds as i64));
                     }
+                }
+
+                // Pacing delay between artists to be respectful of free-tier APIs
+                if processed_count < target_count {
+                    tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
                 }
             }
         }

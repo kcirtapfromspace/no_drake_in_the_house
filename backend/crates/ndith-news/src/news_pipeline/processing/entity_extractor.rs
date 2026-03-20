@@ -1,7 +1,9 @@
 //! Entity Extractor
 //!
 //! Extracts entities (artists, labels, venues) from article text.
-//! Uses pattern matching and fuzzy matching against known artist database.
+//! Uses pattern matching and fuzzy matching against known artists.
+//! No LLM fallback — regex + Levenshtein matching against 353+ seeded
+//! artists is sufficient and completely free.
 
 use anyhow::Result;
 use regex::Regex;
@@ -89,14 +91,22 @@ impl EntityExtractor {
     /// Create a new entity extractor
     pub fn new(config: EntityExtractorConfig) -> Self {
         let name_patterns = vec![
-            // "Artist Name" announced/released/performed/etc.
+            // Standard capitalized names: "John Smith" announced/released/etc.
             Regex::new(r#"(?i)([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:announced|released|performed|revealed|confirmed|denied|apologized|addressed)"#).unwrap(),
-            // Rapper/Singer/Artist Name
-            Regex::new(r#"(?i)(?:rapper|singer|artist|musician|producer|dj)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"#).unwrap(),
+            // Rapper/Singer/Artist Name (supports all-caps, numbers, hyphens)
+            Regex::new(r#"(?i)(?:rapper|singer|artist|musician|producer|dj)\s+([A-Za-z0-9][\w\s.\-']{1,30}?)(?:\s+(?:is|was|has|had|who|announced|released|performed|said|told|revealed))"#).unwrap(),
             // Name's new album/song/tour
             Regex::new(r#"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)'s\s+(?:new|latest|upcoming)"#).unwrap(),
             // Featuring Name
-            Regex::new(r#"(?i)(?:featuring|feat\.?|ft\.?|with)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)"#).unwrap(),
+            Regex::new(r#"(?i)(?:featuring|feat\.?|ft\.?|with)\s+([A-Za-z0-9][\w\s.\-']{1,30}?)(?:\s+(?:on|in|and|,|\.))"#).unwrap(),
+            // All-caps names like DMX, ASAP Rocky, A$AP, NAS
+            Regex::new(r#"\b([A-Z][A-Z$]{1,}(?:\s+[A-Za-z]+)*)\b"#).unwrap(),
+            // Names with numbers: 21 Savage, 6ix9ine, 2 Chainz, 50 Cent, 2Pac
+            Regex::new(r#"\b(\d+\s*[A-Za-z]+(?:\s+[A-Za-z]+)?)\b"#).unwrap(),
+            // Hyphenated names: Jay-Z, A$AP Rocky, Meek Mill
+            Regex::new(r#"\b([A-Z][a-z]*(?:[-$][A-Za-z]+)+)\b"#).unwrap(),
+            // Lil/Young/Big prefixed names
+            Regex::new(r#"\b((?:Lil|Young|Big|King|Queen|DJ|MC)\s+[A-Za-z][\w\-']+(?:\s+[A-Za-z][\w\-']+)?)\b"#).unwrap(),
         ];
 
         let title_prefixes: HashSet<String> =
@@ -140,6 +150,7 @@ impl EntityExtractor {
         name.to_lowercase()
             .trim()
             .replace(['\'', '"', '.', ','], "")
+            .replace('$', "s") // A$AP -> ASAP
             .split_whitespace()
             .collect::<Vec<_>>()
             .join(" ")
@@ -164,8 +175,8 @@ impl EntityExtractor {
                     let name = name_match.as_str().trim();
                     let normalized = self.normalize_name(name);
 
-                    // Skip if already seen
-                    if seen_names.contains(&normalized) {
+                    // Skip if already seen or too short
+                    if seen_names.contains(&normalized) || name.len() < 2 {
                         continue;
                     }
                     seen_names.insert(normalized.clone());
@@ -197,38 +208,34 @@ impl EntityExtractor {
             }
         }
 
-        // Also try direct matching against known artists
+        // Also try direct matching against known artists (case-insensitive search)
         let known_artists = self.known_artists.read().await;
         for (normalized_name, artist) in known_artists.iter() {
             if seen_names.contains(normalized_name) {
                 continue;
             }
 
-            // Check if artist name appears in text
-            let search_terms = vec![
-                artist.name.clone(),
-                artist.name.to_uppercase(),
-                artist.name.to_lowercase(),
-            ];
+            // Search for the artist name case-insensitively in the text
+            let name_lower = artist.name.to_lowercase();
+            let text_lower = full_text.to_lowercase();
 
-            for term in search_terms {
-                if let Some(pos) = full_text.find(&term) {
-                    seen_names.insert(normalized_name.clone());
+            if let Some(pos) = text_lower.find(&name_lower) {
+                seen_names.insert(normalized_name.clone());
 
-                    let context = self.extract_context(&full_text, pos, pos + term.len());
+                // Get the original-case text from that position
+                let original = &full_text[pos..pos + artist.name.len()];
+                let context = self.extract_context(&full_text, pos, pos + artist.name.len());
 
-                    entities.push(ExtractedEntity {
-                        id: Uuid::new_v4(),
-                        name: term.clone(),
-                        normalized_name: Some(normalized_name.clone()),
-                        entity_type: EntityType::Artist,
-                        confidence: 0.9,
-                        position: (pos, pos + term.len()),
-                        context,
-                        artist_id: Some(artist.id),
-                    });
-                    break;
-                }
+                entities.push(ExtractedEntity {
+                    id: Uuid::new_v4(),
+                    name: original.to_string(),
+                    normalized_name: Some(normalized_name.clone()),
+                    entity_type: EntityType::Artist,
+                    confidence: 0.9,
+                    position: (pos, pos + artist.name.len()),
+                    context,
+                    artist_id: Some(artist.id),
+                });
             }
         }
 
@@ -282,6 +289,16 @@ impl EntityExtractor {
 
         // Names with common artist prefixes
         if self.title_prefixes.iter().any(|p| name.starts_with(p)) {
+            confidence += 0.1;
+        }
+
+        // All-caps names (like DMX, NAS) are often stage names
+        if name.chars().all(|c| c.is_uppercase() || c.is_whitespace() || c == '$') && name.len() >= 2 {
+            confidence += 0.15;
+        }
+
+        // Names containing numbers (21 Savage, 6ix9ine)
+        if name.chars().any(|c| c.is_ascii_digit()) {
             confidence += 0.1;
         }
 
@@ -347,6 +364,16 @@ impl EntityExtractor {
             "Statement",
             "Today",
             "Yesterday",
+            "NEW",
+            "BREAKING",
+            "EXCLUSIVE",
+            "UPDATE",
+            "WATCH",
+            "LISTEN",
+            "READ",
+            "MORE",
+            "JUST",
+            "NOW",
         ]
         .iter()
         .copied()
@@ -422,6 +449,7 @@ mod tests {
         assert_eq!(extractor.normalize_name("Drake"), "drake");
         assert_eq!(extractor.normalize_name("Kanye West"), "kanye west");
         assert_eq!(extractor.normalize_name("The Weeknd"), "the weeknd");
+        assert_eq!(extractor.normalize_name("A$AP Rocky"), "asap rocky");
     }
 
     #[test]
@@ -431,7 +459,29 @@ mod tests {
 
         assert!(extractor.is_common_word("The"));
         assert!(extractor.is_common_word("Music"));
+        assert!(extractor.is_common_word("BREAKING"));
         assert!(!extractor.is_common_word("Drake"));
+    }
+
+    #[test]
+    fn test_estimate_all_caps_confidence() {
+        let config = EntityExtractorConfig::default();
+        let extractor = EntityExtractor::new(config);
+
+        // All-caps names should get a confidence boost
+        let dmx_conf = extractor.estimate_entity_confidence("DMX");
+        let regular_conf = extractor.estimate_entity_confidence("Smith");
+        assert!(dmx_conf > regular_conf);
+    }
+
+    #[test]
+    fn test_estimate_numeric_name_confidence() {
+        let config = EntityExtractorConfig::default();
+        let extractor = EntityExtractor::new(config);
+
+        // Names with numbers should get a confidence boost
+        let conf = extractor.estimate_entity_confidence("21 Savage");
+        assert!(conf >= 0.6);
     }
 
     #[tokio::test]
@@ -452,5 +502,28 @@ mod tests {
         assert!(artists.contains_key("kanye west"));
         assert!(artists.contains_key("ye"));
         assert!(artists.contains_key("yeezy"));
+    }
+
+    #[tokio::test]
+    async fn test_case_insensitive_known_artist_matching() {
+        let config = EntityExtractorConfig::default();
+        let extractor = EntityExtractor::new(config);
+
+        let artist_id = Uuid::new_v4();
+        let artist = KnownArtist {
+            id: artist_id,
+            name: "Jay-Z".to_string(),
+            aliases: vec!["Jay Z".to_string(), "Hov".to_string()],
+            genres: vec!["hip hop".to_string()],
+        };
+
+        extractor.add_known_artist(artist).await;
+
+        // Should find "jay-z" even in lowercase text
+        let text = "According to sources, jay-z was seen at the event.";
+        let entities = extractor.extract(text, None).await.unwrap();
+
+        assert!(!entities.is_empty(), "Should find jay-z case-insensitively");
+        assert_eq!(entities[0].artist_id, Some(artist_id));
     }
 }

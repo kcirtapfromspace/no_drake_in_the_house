@@ -10,9 +10,21 @@ pub use databases::LanceDbClient;
 
 // Re-export news pipeline components
 pub use news_pipeline::{
+    // Autoresearch (renamed)
+    ArtistResearcher, ArtistResearcherConfig, ResearchResult,
+    // Backward-compatible aliases
+    AutoresearchAgent, AutoresearchConfig, AutoresearchResult,
+    // Budget controls
+    BudgetGuard, ClaudeClient, ClaudeClientConfig, LlmBudgetConfig,
+    // Ingestion
+    FetchedArticle, NewsApiClient, NewsApiConfig, RedditConfig, RedditMonitor, RssFetcher,
+    RssFetcherConfig, TwitterConfig, TwitterMonitor, WebSearchClient, WebSearchConfig, WebScraper,
+    WebScraperConfig, WikipediaClient,
+    // Processing
     ArticleEmbedding, EmbeddingGenerator, EntityExtractor, EntityType, ExtractedEntity,
-    FetchedArticle, NewsApiClient, NewsApiConfig, NewsPipelineConfig, NewsPipelineOrchestrator,
-    OffenseClassification, OffenseClassifier, PipelineStats, ProcessedArticle, RedditConfig,
-    RedditMonitor, RssFetcher, RssFetcherConfig, ScheduledPipelineHandle, ScheduledPipelineRunner,
-    TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig,
+    HybridClassifier, HybridClassifierConfig, OffenseCategory, OffenseClassification,
+    OffenseClassifier, ResearchQualityScore, ResearchQualityScorer,
+    // Orchestration
+    NewsPipelineConfig, NewsPipelineOrchestrator, PipelineStats, ProcessedArticle,
+    ScheduledPipelineHandle, ScheduledPipelineRunner,
 };

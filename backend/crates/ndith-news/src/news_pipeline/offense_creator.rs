@@ -164,7 +164,7 @@ impl OffenseCreator {
         category: &super::processing::OffenseCategory,
         incident_date: Option<chrono::NaiveDate>,
     ) -> Result<Option<Uuid>> {
-        let category_str = format!("{:?}", category).to_lowercase();
+        let category_str = category.to_string();
 
         // Look for existing offense with same artist and category within 30 days
         let existing: Option<Uuid> = sqlx::query_scalar(
@@ -365,6 +365,7 @@ impl OffenseCreator {
                 context: record.evidence_snippet.unwrap_or_default(),
                 matched_keywords: vec![],
                 needs_review: true, // Backfilled items always need review
+                classification_source: Some("backfill".to_string()),
             };
 
             let result = self
@@ -410,6 +411,9 @@ fn parse_category(s: &str) -> super::processing::OffenseCategory {
         "child_abuse" => OffenseCategory::ChildAbuse,
         "harassment" => OffenseCategory::Harassment,
         "homophobia" => OffenseCategory::Homophobia,
+        "animal_cruelty" => OffenseCategory::AnimalCruelty,
+        "plagiarism" => OffenseCategory::Plagiarism,
+        "certified_creeper" => OffenseCategory::CertifiedCreeper,
         _ => OffenseCategory::Other,
     }
 }

@@ -28,6 +28,7 @@ pub enum OffenseCategory {
     ViolentCrimes,
     Harassment,
     Plagiarism,
+    CertifiedCreeper,
     Other,
 }
 
@@ -47,7 +48,31 @@ impl std::fmt::Display for OffenseCategory {
             OffenseCategory::ViolentCrimes => write!(f, "violent_crimes"),
             OffenseCategory::Harassment => write!(f, "harassment"),
             OffenseCategory::Plagiarism => write!(f, "plagiarism"),
+            OffenseCategory::CertifiedCreeper => write!(f, "certified_creeper"),
             OffenseCategory::Other => write!(f, "other"),
+        }
+    }
+}
+
+/// Convert news classifier category to core database category
+impl From<&OffenseCategory> for ndith_core::models::offense::OffenseCategory {
+    fn from(category: &OffenseCategory) -> Self {
+        match category {
+            OffenseCategory::SexualMisconduct => Self::SexualMisconduct,
+            OffenseCategory::DomesticViolence => Self::DomesticViolence,
+            OffenseCategory::HateSpeech => Self::HateSpeech,
+            OffenseCategory::Racism => Self::Racism,
+            OffenseCategory::Antisemitism => Self::Antisemitism,
+            OffenseCategory::Homophobia => Self::Homophobia,
+            OffenseCategory::ChildAbuse => Self::ChildAbuse,
+            OffenseCategory::AnimalCruelty => Self::AnimalCruelty,
+            OffenseCategory::FinancialCrimes => Self::FinancialCrimes,
+            OffenseCategory::DrugOffenses => Self::DrugOffenses,
+            OffenseCategory::ViolentCrimes => Self::ViolentCrimes,
+            OffenseCategory::Harassment => Self::Harassment,
+            OffenseCategory::Plagiarism => Self::Plagiarism,
+            OffenseCategory::CertifiedCreeper => Self::CertifiedCreeper,
+            OffenseCategory::Other => Self::Other,
         }
     }
 }
@@ -84,6 +109,8 @@ pub struct OffenseClassification {
     pub context: String,
     /// Whether this needs human review
     pub needs_review: bool,
+    /// Classification source (keyword, llm, hybrid)
+    pub classification_source: Option<String>,
 }
 
 /// Classifier configuration
@@ -119,6 +146,7 @@ pub struct OffenseClassifier {
     config: OffenseClassifierConfig,
     category_keywords: HashMap<OffenseCategory, CategoryKeywords>,
     negation_patterns: Vec<Regex>,
+    sentence_splitter: Regex,
 }
 
 impl OffenseClassifier {
@@ -130,11 +158,13 @@ impl OffenseClassifier {
             Regex::new(r"(?i)not guilty|acquitted|exonerated|cleared of").unwrap(),
             Regex::new(r"(?i)no evidence|lacks evidence|unsubstantiated").unwrap(),
         ];
+        let sentence_splitter = Regex::new(r"[.!?]+\s+").unwrap();
 
         Self {
             config,
             category_keywords,
             negation_patterns,
+            sentence_splitter,
         }
     }
 
@@ -451,6 +481,132 @@ impl OffenseClassifier {
             },
         );
 
+        // Animal Cruelty
+        map.insert(
+            OffenseCategory::AnimalCruelty,
+            CategoryKeywords {
+                keywords: [
+                    "animal cruelty",
+                    "animal abuse",
+                    "dogfighting",
+                    "dog fighting",
+                    "animal neglect",
+                    "animal torture",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+                patterns: vec![
+                    Regex::new(r"(?i)animal\s+(cruelty|abuse|neglect|torture)").unwrap(),
+                    Regex::new(r"(?i)dog\s*fight").unwrap(),
+                ],
+                severity_modifiers: [
+                    ("dogfighting", OffenseSeverity::Critical),
+                    ("torture", OffenseSeverity::Critical),
+                    ("cruelty", OffenseSeverity::High),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
+            },
+        );
+
+        // Harassment
+        map.insert(
+            OffenseCategory::Harassment,
+            CategoryKeywords {
+                keywords: [
+                    "harassment",
+                    "stalking",
+                    "cyberbullying",
+                    "threats",
+                    "intimidation",
+                    "bullying",
+                    "doxing",
+                    "death threats",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+                patterns: vec![
+                    Regex::new(r"(?i)(harass|stalk|threaten|bully)\s+(his|her|their|a|the)").unwrap(),
+                    Regex::new(r"(?i)accused\s+of\s+(harassment|stalking|threats)").unwrap(),
+                ],
+                severity_modifiers: [
+                    ("death threats", OffenseSeverity::Critical),
+                    ("stalking", OffenseSeverity::High),
+                    ("harassment", OffenseSeverity::Medium),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
+            },
+        );
+
+        // Plagiarism (was empty — now populated)
+        map.insert(
+            OffenseCategory::Plagiarism,
+            CategoryKeywords {
+                keywords: [
+                    "plagiarism",
+                    "plagiarized",
+                    "plagiarised",
+                    "copied",
+                    "stolen song",
+                    "ghostwriter controversy",
+                    "uncredited",
+                    "copyright infringement",
+                    "sampling without permission",
+                    "music theft",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+                patterns: vec![
+                    Regex::new(r"(?i)plagiari(sm|zed|sed)").unwrap(),
+                    Regex::new(r"(?i)(stole|copied|ripped off)\s+(the\s+)?(song|beat|melody|lyrics)").unwrap(),
+                    Regex::new(r"(?i)copyright\s+(infringement|lawsuit|violation)").unwrap(),
+                ],
+                severity_modifiers: [
+                    ("copyright infringement", OffenseSeverity::High),
+                    ("plagiarism", OffenseSeverity::Medium),
+                    ("uncredited", OffenseSeverity::Low),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
+            },
+        );
+
+        // Certified Creeper (grooming/age-gap predatory behavior)
+        map.insert(
+            OffenseCategory::CertifiedCreeper,
+            CategoryKeywords {
+                keywords: [
+                    "grooming",
+                    "underage girlfriend",
+                    "age gap",
+                    "dating a minor",
+                    "inappropriate relationship",
+                    "teenage girlfriend",
+                ]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+                patterns: vec![
+                    Regex::new(r"(?i)(dating|relationship with)\s+(a\s+)?(minor|underage|teenager|teen)").unwrap(),
+                    Regex::new(r"(?i)groom(ed|ing)\s+(a\s+)?(minor|underage|young|teen)").unwrap(),
+                ],
+                severity_modifiers: [
+                    ("grooming", OffenseSeverity::Critical),
+                    ("underage", OffenseSeverity::Critical),
+                ]
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect(),
+            },
+        );
+
         map
     }
 
@@ -472,6 +628,9 @@ impl OffenseClassifier {
         };
 
         let lower_text = full_text.to_lowercase();
+
+        // Split text into sentences for scoped negation detection
+        let sentences: Vec<&str> = self.sentence_splitter.split(&full_text).collect();
 
         // Check each category
         for (category, keywords) in &self.category_keywords {
@@ -516,11 +675,9 @@ impl OffenseClassifier {
                 continue;
             }
 
-            // Check for negations
-            let has_negation = self
-                .negation_patterns
-                .iter()
-                .any(|p| p.is_match(&full_text));
+            // Per-sentence negation detection: only negate if the negation
+            // appears in the same sentence as a keyword for THIS category
+            let has_negation = self.check_scoped_negation(&sentences, &matched_keywords);
 
             // Calculate confidence
             let keyword_score = (matched_keywords.len() as f64 * 0.2).min(0.6);
@@ -574,6 +731,7 @@ impl OffenseClassifier {
                     context: contexts.first().cloned().unwrap_or_default(),
                     needs_review: confidence < self.config.high_confidence_threshold
                         || has_negation,
+                    classification_source: Some("keyword".to_string()),
                 });
             } else {
                 // Entity-specific classifications
@@ -590,6 +748,7 @@ impl OffenseClassifier {
                         context: entity.context.clone(),
                         needs_review: confidence < self.config.high_confidence_threshold
                             || has_negation,
+                        classification_source: Some("keyword".to_string()),
                     });
                 }
             }
@@ -603,6 +762,30 @@ impl OffenseClassifier {
         });
 
         Ok(classifications)
+    }
+
+    /// Check if negation patterns appear in the same sentence as any matched keyword
+    /// (scoped negation — only affects the relevant category)
+    fn check_scoped_negation(&self, sentences: &[&str], matched_keywords: &[String]) -> bool {
+        for sentence in sentences {
+            let sentence_lower = sentence.to_lowercase();
+            // Check if this sentence contains any of the matched keywords
+            let has_keyword = matched_keywords
+                .iter()
+                .any(|k| sentence_lower.contains(&k.to_lowercase()));
+
+            if !has_keyword {
+                continue;
+            }
+
+            // Check if this same sentence also contains a negation
+            for pattern in &self.negation_patterns {
+                if pattern.is_match(sentence) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Extract context around a position
@@ -691,12 +874,48 @@ mod tests {
     }
 
     #[test]
+    fn test_scoped_negation_doesnt_affect_unrelated_categories() {
+        let config = OffenseClassifierConfig::default();
+        let classifier = OffenseClassifier::new(config);
+
+        let article_id = Uuid::new_v4();
+        // Article with fraud AND a negation about drug charges in a different sentence
+        let text = "The rapper committed massive fraud and stole millions. The drug charges against him were dismissed as unfounded.";
+
+        let classifications = classifier.classify(article_id, text, None, &[]).unwrap();
+
+        // Financial crimes should NOT have reduced confidence since the negation
+        // is in a different sentence about drugs
+        let financial = classifications
+            .iter()
+            .find(|c| c.category == OffenseCategory::FinancialCrimes);
+        if let Some(fin) = financial {
+            assert!(fin.confidence > 0.3, "Financial crimes confidence should not be reduced by unrelated negation");
+        }
+    }
+
+    #[test]
+    fn test_plagiarism_keywords_detect() {
+        let config = OffenseClassifierConfig::default();
+        let classifier = OffenseClassifier::new(config);
+
+        let article_id = Uuid::new_v4();
+        let text = "The artist was sued for plagiarism after copying the melody from another song. A copyright infringement lawsuit was filed.";
+
+        let classifications = classifier.classify(article_id, text, None, &[]).unwrap();
+
+        assert!(classifications
+            .iter()
+            .any(|c| c.category == OffenseCategory::Plagiarism));
+    }
+
+    #[test]
     fn test_extract_context_handles_unicode_boundary() {
         let classifier = OffenseClassifier::new(OffenseClassifierConfig {
             context_window: 5,
             ..Default::default()
         });
-        let text = "Prefix \u{a0}‘headline’ with unicode";
+        let text = "Prefix \u{a0}'headline' with unicode";
 
         let start = text.find("headline").unwrap() + 1;
         let end = start + "headline".len();

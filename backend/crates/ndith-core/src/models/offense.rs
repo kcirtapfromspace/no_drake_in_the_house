@@ -4,7 +4,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 /// Offense category types matching database enum
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "offense_category", rename_all = "snake_case")]
 pub enum OffenseCategory {
     DomesticViolence,
@@ -19,6 +19,13 @@ pub enum OffenseCategory {
     DrugTrafficking,
     Fraud,
     AnimalAbuse,
+    AnimalCruelty,
+    FinancialCrimes,
+    DrugOffenses,
+    ViolentCrimes,
+    Harassment,
+    Plagiarism,
+    CertifiedCreeper,
     Other,
 }
 
@@ -37,6 +44,13 @@ impl std::fmt::Display for OffenseCategory {
             Self::DrugTrafficking => "drug_trafficking",
             Self::Fraud => "fraud",
             Self::AnimalAbuse => "animal_abuse",
+            Self::AnimalCruelty => "animal_cruelty",
+            Self::FinancialCrimes => "financial_crimes",
+            Self::DrugOffenses => "drug_offenses",
+            Self::ViolentCrimes => "violent_crimes",
+            Self::Harassment => "harassment",
+            Self::Plagiarism => "plagiarism",
+            Self::CertifiedCreeper => "certified_creeper",
             Self::Other => "other",
         };
         write!(f, "{}", s)
@@ -58,6 +72,13 @@ impl OffenseCategory {
             Self::DrugTrafficking => "Drug Trafficking",
             Self::Fraud => "Fraud",
             Self::AnimalAbuse => "Animal Abuse",
+            Self::AnimalCruelty => "Animal Cruelty",
+            Self::FinancialCrimes => "Financial Crimes",
+            Self::DrugOffenses => "Drug Offenses",
+            Self::ViolentCrimes => "Violent Crimes",
+            Self::Harassment => "Harassment",
+            Self::Plagiarism => "Plagiarism",
+            Self::CertifiedCreeper => "Certified Creeper",
             Self::Other => "Other",
         }
     }

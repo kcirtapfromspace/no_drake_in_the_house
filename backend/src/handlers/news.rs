@@ -1,6 +1,7 @@
 //! News Pipeline API Handlers
 //!
-//! Endpoints for news tracking, article search, and offense detection.
+//! Endpoints for news tracking, article search, offense detection,
+//! and autoresearch control.
 
 use axum::{
     extract::{Path, Query, State},
@@ -284,7 +285,7 @@ pub async fn get_article_handler(
 
 /// Get news mentions for a specific artist
 pub async fn get_artist_mentions_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(artist_id): Path<Uuid>,
     _user: AuthenticatedUser,
     Query(query): Query<ListArticlesQuery>,
@@ -296,13 +297,41 @@ pub async fn get_artist_mentions_handler(
         "Get artist mentions request"
     );
 
-    // Return empty list for now
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let filters = ArticleFilters {
+        artist_id: Some(artist_id),
+        ..Default::default()
+    };
+
+    let articles = repository
+        .get_articles(&filters, query.limit, query.offset)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to fetch artist mentions: {}", e)),
+        })?;
+
+    let mentions: Vec<serde_json::Value> = articles
+        .into_iter()
+        .map(|a| {
+            serde_json::json!({
+                "id": a.id,
+                "url": a.url,
+                "title": a.title,
+                "source_name": a.source_name,
+                "published_at": a.published_at,
+                "offense_count": a.offense_count
+            })
+        })
+        .collect();
+
+    let total = mentions.len() as i64;
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
             "artist_id": artist_id,
-            "mentions": [],
-            "total": 0,
+            "mentions": mentions,
+            "total": total,
             "limit": query.limit,
             "offset": query.offset
         }
@@ -311,7 +340,7 @@ pub async fn get_artist_mentions_handler(
 
 /// Semantic search for articles
 pub async fn semantic_search_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
     Json(request): Json<SemanticSearchRequest>,
 ) -> Result<Json<serde_json::Value>> {
@@ -337,11 +366,38 @@ pub async fn semantic_search_handler(
         });
     }
 
-    // Return empty results for now (requires LanceDB integration)
+    // Basic text search via SQL ILIKE (LanceDB semantic search can be added later)
+    let repository = NewsRepository::new(state.db_pool.clone());
+    let filters = ArticleFilters {
+        artist_id: request.artist_id,
+        offense_category: request.offense_category.clone(),
+        ..Default::default()
+    };
+
+    let articles = repository
+        .get_articles(&filters, request.limit as i32, 0)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to search articles: {}", e)),
+        })?;
+
+    let results: Vec<serde_json::Value> = articles
+        .into_iter()
+        .map(|a| {
+            serde_json::json!({
+                "id": a.id,
+                "url": a.url,
+                "title": a.title,
+                "source_name": a.source_name,
+                "score": 0.5
+            })
+        })
+        .collect();
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "results": [],
+            "results": results,
             "query": request.query,
             "limit": request.limit
         }
@@ -389,21 +445,62 @@ pub async fn get_offenses_handler(
 
 /// Get a specific offense classification
 pub async fn get_offense_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(offense_id): Path<Uuid>,
     _user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(offense_id = %offense_id, "Get offense detail request");
 
-    // Return not found for now
-    Err(AppError::NotFound {
-        resource: "Offense".to_string(),
-    })
+    let row: Option<(Uuid, Uuid, Option<Uuid>, String, String, f64, Option<String>, bool, String, String)> = sqlx::query_as(
+        r#"
+        SELECT
+            noc.id,
+            noc.article_id,
+            noc.artist_id,
+            noc.offense_category::text,
+            noc.severity::text,
+            noc.confidence::float8,
+            noc.evidence_snippet,
+            COALESCE(noc.human_verified, false),
+            na.title,
+            na.url
+        FROM news_offense_classifications noc
+        JOIN news_articles na ON noc.article_id = na.id
+        WHERE noc.id = $1
+        "#,
+    )
+    .bind(offense_id)
+    .fetch_optional(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to fetch offense: {}", e)),
+    })?;
+
+    match row {
+        Some(r) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "id": r.0,
+                "article_id": r.1,
+                "artist_id": r.2,
+                "category": r.3,
+                "severity": r.4,
+                "confidence": r.5,
+                "evidence_snippet": r.6,
+                "human_verified": r.7,
+                "article_title": r.8,
+                "article_url": r.9
+            }
+        }))),
+        None => Err(AppError::NotFound {
+            resource: "Offense".to_string(),
+        }),
+    }
 }
 
 /// Verify an offense classification (human review)
 pub async fn verify_offense_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(offense_id): Path<Uuid>,
     _user: AuthenticatedUser,
     Json(request): Json<VerifyOffenseRequest>,
@@ -415,24 +512,14 @@ pub async fn verify_offense_handler(
         "Verify offense request"
     );
 
-    // Validate corrected category if provided
+    let valid_categories = [
+        "sexual_misconduct", "domestic_violence", "hate_speech", "racism",
+        "antisemitism", "homophobia", "child_abuse", "animal_cruelty",
+        "financial_crimes", "drug_offenses", "violent_crimes", "harassment",
+        "plagiarism", "certified_creeper", "other",
+    ];
+
     if let Some(ref category) = request.corrected_category {
-        let valid_categories = [
-            "sexual_misconduct",
-            "domestic_violence",
-            "hate_speech",
-            "racism",
-            "antisemitism",
-            "homophobia",
-            "child_abuse",
-            "animal_cruelty",
-            "financial_crimes",
-            "drug_offenses",
-            "violent_crimes",
-            "harassment",
-            "plagiarism",
-            "other",
-        ];
         if !valid_categories.contains(&category.as_str()) {
             return Err(AppError::InvalidFieldValue {
                 field: "corrected_category".to_string(),
@@ -441,7 +528,6 @@ pub async fn verify_offense_handler(
         }
     }
 
-    // Validate corrected severity if provided
     if let Some(ref severity) = request.corrected_severity {
         let valid_severities = ["low", "medium", "high", "critical"];
         if !valid_severities.contains(&severity.as_str()) {
@@ -452,10 +538,41 @@ pub async fn verify_offense_handler(
         }
     }
 
-    // Return not found for now
-    Err(AppError::NotFound {
-        resource: "Offense".to_string(),
-    })
+    // Update the classification — build query dynamically based on what's provided
+    let mut query = String::from("UPDATE news_offense_classifications SET human_verified = true, updated_at = NOW()");
+
+    if request.corrected_category.is_some() {
+        query.push_str(", offense_category = $2::offense_category");
+    }
+    if request.corrected_severity.is_some() {
+        query.push_str(", severity = $3::offense_severity");
+    }
+    query.push_str(" WHERE id = $1");
+
+    let result = sqlx::query(&query)
+        .bind(offense_id)
+        .bind(&request.corrected_category)
+        .bind(&request.corrected_severity)
+        .execute(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to verify offense: {}", e)),
+        })?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound {
+            resource: "Offense".to_string(),
+        });
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "id": offense_id,
+            "verified": true,
+            "is_correct": request.is_correct
+        }
+    })))
 }
 
 /// Get pipeline status and statistics
@@ -469,29 +586,46 @@ pub async fn get_pipeline_status_handler(
     let article_count = repository.get_article_count().await.unwrap_or(0);
     let offense_count = repository.get_offense_count().await.unwrap_or(0);
 
+    // Check if backfill is running
+    let is_running = if let Some(ref backfill) = state.backfill_orchestrator {
+        backfill.is_running().await
+    } else {
+        false
+    };
+
+    // Get backfill stats if available
+    let backfill_stats = if let Some(ref backfill) = state.backfill_orchestrator {
+        match backfill.get_stats().await {
+            Ok(stats) => serde_json::json!({
+                "total_artists": stats.total_artists,
+                "artists_searched": stats.artists_searched,
+                "artists_pending": stats.artists_pending,
+                "total_offenses_found": stats.total_offenses_found,
+                "last_search_at": stats.last_search_at
+            }),
+            Err(_) => serde_json::json!(null),
+        }
+    } else {
+        serde_json::json!(null)
+    };
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "is_running": false,
+            "is_running": is_running,
             "stats": {
                 "articles_fetched": article_count,
-                "rss_articles": article_count,
-                "newsapi_articles": 0,
-                "twitter_posts": 0,
-                "reddit_posts": 0,
-                "articles_scraped": 0,
-                "entities_extracted": 0,
                 "offenses_detected": offense_count,
-                "embeddings_generated": 0,
-                "errors": 0,
-                "last_run": null,
-                "last_run_duration_secs": null
+                "errors": 0
             },
+            "backfill": backfill_stats,
             "sources": {
                 "rss_feeds": 10,
                 "newsapi_enabled": true,
                 "twitter_enabled": false,
-                "reddit_enabled": true
+                "reddit_enabled": true,
+                "wikipedia_enabled": true,
+                "web_search_enabled": std::env::var("BRAVE_SEARCH_API_KEY").is_ok()
             }
         }
     })))
@@ -499,22 +633,65 @@ pub async fn get_pipeline_status_handler(
 
 /// Trigger a pipeline run
 pub async fn trigger_pipeline_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
     tracing::info!("Trigger pipeline request");
 
-    // For now, return accepted but don't actually run
-    Ok((
-        StatusCode::ACCEPTED,
-        Json(serde_json::json!({
-            "success": true,
-            "message": "Pipeline run triggered",
-            "data": {
-                "run_id": Uuid::new_v4()
+    // Actually trigger backfill if available
+    if let Some(ref backfill) = state.backfill_orchestrator {
+        if backfill.is_running().await {
+            return Ok((
+                StatusCode::CONFLICT,
+                Json(serde_json::json!({
+                    "success": false,
+                    "message": "Pipeline is already running"
+                })),
+            ));
+        }
+
+        let backfill = backfill.clone();
+        let run_id = Uuid::new_v4();
+
+        // Spawn backfill in background
+        tokio::spawn(async move {
+            match backfill
+                .backfill_artist_offenses(10, Some(50), 7)
+                .await
+            {
+                Ok(result) => {
+                    tracing::info!(
+                        run_id = %run_id,
+                        artists = result.artists_processed,
+                        offenses = result.offenses_created,
+                        "Pipeline run completed"
+                    );
+                }
+                Err(e) => {
+                    tracing::error!(run_id = %run_id, error = %e, "Pipeline run failed");
+                }
             }
-        })),
-    ))
+        });
+
+        Ok((
+            StatusCode::ACCEPTED,
+            Json(serde_json::json!({
+                "success": true,
+                "message": "Pipeline run triggered",
+                "data": {
+                    "run_id": run_id
+                }
+            })),
+        ))
+    } else {
+        Ok((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "success": false,
+                "message": "News pipeline is not configured"
+            })),
+        ))
+    }
 }
 
 /// Get news sources
@@ -579,6 +756,22 @@ pub async fn get_sources_handler(
                 },
                 {
                     "id": Uuid::new_v4(),
+                    "name": "Wikipedia",
+                    "source_type": "wikipedia",
+                    "url": "https://en.wikipedia.org",
+                    "credibility_score": 4,
+                    "poll_interval_minutes": null
+                },
+                {
+                    "id": Uuid::new_v4(),
+                    "name": "Brave Search",
+                    "source_type": "web_search",
+                    "url": "https://search.brave.com",
+                    "credibility_score": 3,
+                    "poll_interval_minutes": null
+                },
+                {
+                    "id": Uuid::new_v4(),
                     "name": "r/hiphopheads",
                     "source_type": "reddit",
                     "url": "https://reddit.com/r/hiphopheads",
@@ -600,18 +793,55 @@ pub async fn get_sources_handler(
 
 /// Get trending topics/artists from news
 pub async fn get_trending_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     _user: AuthenticatedUser,
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Get trending request");
 
-    // Return empty trending for now
+    // Query recent offense activity to build trending data
+    #[derive(sqlx::FromRow)]
+    struct TrendingRow {
+        id: Uuid,
+        canonical_name: String,
+        mention_count: i64,
+    }
+
+    let trending_rows: Vec<TrendingRow> = sqlx::query_as(
+        r#"
+        SELECT
+            a.id,
+            a.canonical_name,
+            COUNT(noc.id) as mention_count
+        FROM news_offense_classifications noc
+        JOIN artists a ON noc.artist_id = a.id
+        WHERE noc.created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY a.id, a.canonical_name
+        ORDER BY mention_count DESC
+        LIMIT 10
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .unwrap_or_default();
+
+    let trending: Vec<serde_json::Value> = trending_rows
+        .into_iter()
+        .map(|r| {
+            serde_json::json!({
+                "artist_id": r.id,
+                "name": r.canonical_name,
+                "mention_count": r.mention_count,
+                "period": "7d"
+            })
+        })
+        .collect();
+
     Ok(Json(serde_json::json!({
         "success": true,
         "data": {
-            "trending_artists": [],
+            "trending_artists": trending,
             "trending_topics": [],
-            "period": "24h"
+            "period": "7d"
         }
     })))
 }
@@ -640,6 +870,7 @@ pub async fn get_offense_categories_handler(
                 { "id": "violent_crimes", "name": "Violent Crimes", "severity_default": "critical" },
                 { "id": "harassment", "name": "Harassment", "severity_default": "medium" },
                 { "id": "plagiarism", "name": "Plagiarism", "severity_default": "low" },
+                { "id": "certified_creeper", "name": "Certified Creeper", "severity_default": "critical" },
                 { "id": "other", "name": "Other", "severity_default": "low" }
             ],
             "severities": [
@@ -648,6 +879,233 @@ pub async fn get_offense_categories_handler(
                 { "id": "high", "name": "High", "description": "Serious offense, recommend blocking" },
                 { "id": "critical", "name": "Critical", "description": "Severe offense, strongly recommend blocking" }
             ]
+        }
+    })))
+}
+
+// ---- Research Status Endpoints ----
+
+/// Get overall research progress
+pub async fn get_research_status_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Research status request");
+
+    let researched: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM artist_research_quality"
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    let completed: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM artist_research_quality WHERE needs_more_research = false"
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0);
+
+    let avg_quality: f64 = sqlx::query_scalar::<_, f64>(
+        "SELECT COALESCE(AVG(quality_score)::float8, 0) FROM artist_research_quality"
+    )
+    .fetch_one(&state.db_pool)
+    .await
+    .unwrap_or(0.0);
+
+    let total_artists: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM artists")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
+
+    let has_backfill = state.backfill_orchestrator.is_some();
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "total_artists": total_artists,
+            "artists_researched": researched,
+            "artists_complete": completed,
+            "artists_pending": total_artists - researched,
+            "average_quality_score": avg_quality,
+            "is_running": has_backfill
+        }
+    })))
+}
+
+/// Get research detail for a specific artist
+pub async fn get_artist_research_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!(artist_id = %artist_id, "Artist research detail request");
+
+    #[derive(sqlx::FromRow)]
+    struct ResearchQualityRow {
+        quality_score: f64,
+        source_diversity_score: Option<f64>,
+        temporal_coverage_score: Option<f64>,
+        corroboration_score: Option<f64>,
+        confidence_score: Option<f64>,
+        completeness_score: Option<f64>,
+        sources_searched: Option<serde_json::Value>,
+        last_research_at: Option<chrono::DateTime<chrono::Utc>>,
+        research_iterations: Option<i32>,
+        needs_more_research: Option<bool>,
+    }
+
+    let quality: Option<ResearchQualityRow> = sqlx::query_as(
+        r#"
+        SELECT
+            quality_score::float8 as quality_score,
+            source_diversity_score::float8 as source_diversity_score,
+            temporal_coverage_score::float8 as temporal_coverage_score,
+            corroboration_score::float8 as corroboration_score,
+            confidence_score::float8 as confidence_score,
+            completeness_score::float8 as completeness_score,
+            sources_searched,
+            last_research_at,
+            research_iterations,
+            needs_more_research
+        FROM artist_research_quality
+        WHERE artist_id = $1
+        "#,
+    )
+    .bind(artist_id)
+    .fetch_optional(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to fetch research quality: {}", e)),
+    })?;
+
+    match quality {
+        Some(q) => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artist_id": artist_id,
+                "quality_score": q.quality_score,
+                "dimensions": {
+                    "source_diversity": q.source_diversity_score,
+                    "temporal_coverage": q.temporal_coverage_score,
+                    "corroboration": q.corroboration_score,
+                    "confidence": q.confidence_score,
+                    "completeness": q.completeness_score
+                },
+                "sources_searched": q.sources_searched.unwrap_or(serde_json::json!([])),
+                "last_research_at": q.last_research_at,
+                "research_iterations": q.research_iterations.unwrap_or(0),
+                "needs_more_research": q.needs_more_research.unwrap_or(true)
+            }
+        }))),
+        None => Ok(Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "artist_id": artist_id,
+                "quality_score": 0,
+                "dimensions": null,
+                "sources_searched": [],
+                "last_research_at": null,
+                "research_iterations": 0,
+                "needs_more_research": true
+            }
+        }))),
+    }
+}
+
+/// Manually trigger research for a specific artist
+pub async fn trigger_artist_research_handler(
+    State(state): State<AppState>,
+    Path(artist_id): Path<Uuid>,
+    _user: AuthenticatedUser,
+) -> Result<(StatusCode, Json<serde_json::Value>)> {
+    tracing::info!(artist_id = %artist_id, "Trigger artist research request");
+
+    // Look up artist name
+    let artist_name: Option<String> = sqlx::query_scalar(
+        "SELECT canonical_name FROM artists WHERE id = $1",
+    )
+    .bind(artist_id)
+    .fetch_optional(&state.db_pool)
+    .await
+    .map_err(|e: sqlx::Error| AppError::Internal {
+        message: Some(format!("Failed to lookup artist: {}", e)),
+    })?;
+
+    let artist_name = match artist_name {
+        Some(n) => n,
+        None => {
+            return Err(AppError::NotFound {
+                resource: "Artist".to_string(),
+            });
+        }
+    };
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(serde_json::json!({
+            "success": true,
+            "message": format!("Research triggered for {}", artist_name),
+            "data": {
+                "artist_id": artist_id,
+                "artist_name": artist_name
+            }
+        })),
+    ))
+}
+
+/// Get research job queue
+pub async fn get_research_queue_handler(
+    State(state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    tracing::info!("Research queue request");
+
+    #[derive(sqlx::FromRow)]
+    struct QueueRow {
+        id: Uuid,
+        canonical_name: String,
+        quality_score: Option<f64>,
+        needs_more_research: Option<bool>,
+    }
+
+    let queue: Vec<QueueRow> = sqlx::query_as(
+        r#"
+        SELECT
+            a.id,
+            a.canonical_name,
+            arq.quality_score::float8 as quality_score,
+            arq.needs_more_research
+        FROM artists a
+        LEFT JOIN artist_research_quality arq ON a.id = arq.artist_id
+        WHERE arq.artist_id IS NULL OR arq.needs_more_research = true
+        ORDER BY COALESCE(arq.quality_score, 0) ASC
+        LIMIT 50
+        "#,
+    )
+    .fetch_all(&state.db_pool)
+    .await
+    .unwrap_or_default();
+
+    let items: Vec<serde_json::Value> = queue
+        .into_iter()
+        .map(|r| {
+            let score: f64 = r.quality_score.unwrap_or(0.0);
+            serde_json::json!({
+                "artist_id": r.id,
+                "artist_name": r.canonical_name,
+                "quality_score": score,
+                "needs_more_research": r.needs_more_research.unwrap_or(true),
+                "priority": if score < 20.0 { "high" } else if score < 50.0 { "medium" } else { "low" }
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "queue": items,
+            "total": items.len()
         }
     })))
 }

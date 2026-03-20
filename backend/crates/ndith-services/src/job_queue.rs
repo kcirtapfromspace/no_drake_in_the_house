@@ -22,6 +22,7 @@ pub enum JobType {
     LibraryScan,
     CommunityListUpdate,
     HealthCheck,
+    ArtistResearch,
 }
 
 /// Job status in the queue
@@ -763,6 +764,7 @@ impl JobQueueService {
             JobType::LibraryScan,
             JobType::CommunityListUpdate,
             JobType::HealthCheck,
+            JobType::ArtistResearch,
         ];
 
         for job_type in job_types {

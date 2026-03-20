@@ -16,6 +16,7 @@ anyhow = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
+ndith-core = { workspace = true }
 
 # HEAVY deps — the whole point of this crate
 lancedb = { workspace = true }

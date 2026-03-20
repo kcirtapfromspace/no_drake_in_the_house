@@ -578,6 +578,16 @@ impl NewsPipelineOrchestrator {
         self.process_batch(articles).await
     }
 
+    /// Process articles from research sources (Wikipedia, web search)
+    /// through the entity extraction and classification pipeline
+    pub async fn process_research_articles(
+        &self,
+        articles: Vec<FetchedArticle>,
+    ) -> Result<Vec<ProcessedArticle>> {
+        let deduplicated = self.deduplicate(articles).await;
+        self.process_batch(deduplicated).await
+    }
+
     /// Get articles with detected offenses
     pub fn filter_with_offenses(articles: &[ProcessedArticle]) -> Vec<&ProcessedArticle> {
         articles.iter().filter(|a| !a.offenses.is_empty()).collect()

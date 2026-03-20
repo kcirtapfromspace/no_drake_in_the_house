@@ -943,6 +943,23 @@ fn add_news_routes(router: Router<AppState>) -> Router<AppState> {
             "/news/categories",
             get(handlers::news::get_offense_categories_handler),
         )
+        // Research endpoints
+        .route(
+            "/news/research/status",
+            get(handlers::news::get_research_status_handler),
+        )
+        .route(
+            "/news/research/artists/:id",
+            get(handlers::news::get_artist_research_handler),
+        )
+        .route(
+            "/news/research/artists/:id/trigger",
+            post(handlers::news::trigger_artist_research_handler),
+        )
+        .route(
+            "/news/research/queue",
+            get(handlers::news::get_research_queue_handler),
+        )
 }
 
 #[cfg(not(feature = "news"))]

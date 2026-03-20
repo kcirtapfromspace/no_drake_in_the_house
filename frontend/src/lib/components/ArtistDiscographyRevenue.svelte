@@ -397,17 +397,20 @@
             class="w-full px-4 py-3 flex items-center gap-4 hover:bg-zinc-700/50 transition-colors text-left"
             on:click={() => toggleAlbum(album.id)}
           >
-            <!-- Album Art (small thumbnail, hidden if load fails) -->
-            {#if album.cover_url}
-            <div class="w-8 h-8 bg-zinc-700 rounded overflow-hidden flex-shrink-0">
-              <img
-                src={album.cover_url}
-                alt={album.title}
-                class="w-8 h-8 object-cover"
-                on:error={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
-              />
+            <!-- Album Art (small thumbnail with fallback) -->
+            <div class="w-8 h-8 bg-zinc-700 rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
+              {#if album.cover_url}
+                <img
+                  src={album.cover_url}
+                  alt={album.title}
+                  class="w-8 h-8 object-cover"
+                  on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              {/if}
+              <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
             </div>
-            {/if}
 
             <!-- Album Info -->
             <div class="flex-grow min-w-0">
@@ -424,11 +427,11 @@
             <!-- Expand Icon (plus/minus) -->
             <div class="w-6 h-6 rounded-full border border-zinc-600 flex items-center justify-center flex-shrink-0">
               {#if expandedAlbums.has(album.id)}
-                <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-3.5 h-3.5 text-zinc-400" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
                 </svg>
               {:else}
-                <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-3.5 h-3.5 text-zinc-400" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
               {/if}
@@ -503,7 +506,7 @@
         <div class="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center">
-              <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
             </div>
@@ -536,7 +539,7 @@
         <div class="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
           <div class="flex items-center gap-3 mb-3">
             <div class="w-8 h-8 rounded-full bg-purple-900/30 flex items-center justify-center">
-              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
             </div>

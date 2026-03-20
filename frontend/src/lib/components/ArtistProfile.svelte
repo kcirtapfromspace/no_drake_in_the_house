@@ -927,7 +927,7 @@
           on:click={() => navigateTo('home')}
           class="brand-back profile__back-link"
         >
-          <svg class="brand-back__icon profile__back-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="brand-back__icon profile__back-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
           </svg>
           Back to Home
@@ -1025,14 +1025,14 @@
                     class="profile__block-btn {isBlocked ? 'profile__block-btn--blocked' : 'profile__block-btn--unblocked'}"
                   >
                     {#if isBlockingInProgress}
-                      <div class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                      <div class="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
                     {:else if isBlocked}
-                      <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-4 h-4" width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                       </svg>
                       Blocked
                     {:else}
-                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg class="w-4 h-4" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                       </svg>
                       Block
@@ -1043,8 +1043,8 @@
                     on:click={() => showBlockingOptions = !showBlockingOptions}
                     class="profile__block-dropdown {isBlocked ? 'profile__block-dropdown--blocked' : 'profile__block-dropdown--unblocked'}"
                   >
-                    <svg class="w-4 h-4 transition-transform {showBlockingOptions ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    <svg class="w-3 h-3 transition-transform {showBlockingOptions ? 'rotate-180' : ''}" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
                 </div>
@@ -1059,7 +1059,7 @@
                         on:click={() => { toggleRoleBlocking('main', true); showBlockingOptions = false; }}
                         class="profile__dropdown-item"
                       >
-                        <svg class="profile__dropdown-icon profile__dropdown-icon--rose" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="profile__dropdown-icon profile__dropdown-icon--rose" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                         </svg>
                         Block All Main Tracks
@@ -1069,7 +1069,7 @@
                         on:click={() => { toggleRoleBlocking('featured', true); showBlockingOptions = false; }}
                         class="profile__dropdown-item"
                       >
-                        <svg class="profile__dropdown-icon profile__dropdown-icon--orange" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="profile__dropdown-icon profile__dropdown-icon--orange" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                         Block Collaborations
@@ -1079,7 +1079,7 @@
                         on:click={() => { toggleRoleBlocking('producer', true); showBlockingOptions = false; }}
                         class="profile__dropdown-item"
                       >
-                        <svg class="profile__dropdown-icon profile__dropdown-icon--purple" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="profile__dropdown-icon profile__dropdown-icon--purple" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                         </svg>
                         Block Producer Credits
@@ -1089,7 +1089,7 @@
                         on:click={() => { toggleRoleBlocking('writer', true); showBlockingOptions = false; }}
                         class="profile__dropdown-item"
                       >
-                        <svg class="profile__dropdown-icon profile__dropdown-icon--blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="profile__dropdown-icon profile__dropdown-icon--blue" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                         Block Writer Credits
@@ -1123,7 +1123,7 @@
                   on:click={() => activeTab = 'evidence'}
                   class="profile__action-btn profile__action-btn--primary"
                 >
-                  <svg class="profile__action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="profile__action-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                   Evidence
@@ -1133,7 +1133,7 @@
                   on:click={() => showReportModal = true}
                   class="profile__action-btn profile__action-btn--secondary"
                 >
-                  <svg class="profile__action-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg class="profile__action-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   Report
@@ -1184,14 +1184,14 @@
             </h2>
 
             {#if profile.offenses.length === 0}
-              <div class="text-center py-16 rounded-2xl bg-zinc-900 border border-zinc-900">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-green-500/20">
-                  <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-10 h-10 mx-auto mb-3 rounded-full flex items-center justify-center bg-green-500/20">
+                  <svg class="w-5 h-5 text-green-500" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <p class="text-zinc-200 text-lg">No documented incidents</p>
-                <p class="text-zinc-400 text-sm mt-2">No offense records found for this artist</p>
+                <p class="text-zinc-200 text-sm font-medium">No documented incidents</p>
+                <p class="text-zinc-500 text-xs mt-1">No offense records found for this artist</p>
               </div>
             {:else}
               <!-- Timeline -->
@@ -1220,7 +1220,7 @@
                             class="w-12 h-12 rounded-xl flex items-center justify-center relative"
                             style="background: {catColor.bg}; box-shadow: 0 0 20px {catColor.icon}40, 0 0 40px {catColor.icon}20;"
                           >
-                            <svg class="w-6 h-6" style="color: {catColor.icon};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-6 h-6" width="24" height="24" style="color: {catColor.icon};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </div>
@@ -1270,7 +1270,8 @@
                         <!-- Expand Icon -->
                         <div class="flex-shrink-0">
                           <svg
-                            class="w-6 h-6 text-zinc-400 transition-transform"
+                            class="w-5 h-5 text-zinc-400 transition-transform"
+                            width="20" height="20"
                             style="transform: rotate({isExpanded ? '180deg' : '0deg'});"
                             fill="none" stroke="currentColor" viewBox="0 0 24 24"
                           >
@@ -1327,7 +1328,7 @@
                                   </div>
 
                                   <!-- External Link Icon -->
-                                  <svg class="w-5 h-5 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg class="w-5 h-5 text-zinc-400 flex-shrink-0" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                   </svg>
                                 </a>
@@ -1503,7 +1504,7 @@
           {#if catalogAlbums.length > 0}
           <div>
             <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-indigo-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
               Main Artist ({filteredCatalog.filter(t => t.role === 'main').length} tracks across {catalogAlbums.length} albums)
@@ -1555,11 +1556,11 @@
                       {/if}
                     </button>
 
-                    <!-- Album Art (thumbnail) - Clickable for larger view -->
+                    <!-- Album Art (thumbnail) -->
                     {#if album.cover && !album.cover.includes('data:image')}
                     <button
                       type="button"
-                      class="flex-shrink-0 group relative"
+                      class="flex-shrink-0 group relative w-10 h-10"
                       on:click|stopPropagation={() => openAlbumCover(album.cover, album.name)}
                       title="Click to enlarge"
                     >
@@ -1567,14 +1568,30 @@
                         src={album.cover}
                         alt={album.name}
                         class="w-10 h-10 rounded object-cover bg-zinc-800 transition-all group-hover:ring-2 group-hover:ring-white/30"
-                        on:error={(e) => { e.currentTarget.parentElement.style.display = 'none'; }}
+                        on:error={(e) => {
+                          const parent = e.currentTarget.parentElement;
+                          e.currentTarget.style.display = 'none';
+                          const fallback = parent.querySelector('.album-cover-fallback');
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
                       />
+                      <div class="album-cover-fallback w-10 h-10 rounded bg-zinc-800 items-center justify-center" style="display: none;">
+                        <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                      </div>
                       <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded">
-                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg class="w-4 h-4 text-white" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
                         </svg>
                       </div>
                     </button>
+                    {:else}
+                    <div class="flex-shrink-0 w-10 h-10 rounded bg-zinc-800 flex items-center justify-center">
+                      <svg class="w-4 h-4 text-zinc-500" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                      </svg>
+                    </div>
                     {/if}
 
                     <!-- Album Info -->
@@ -1669,7 +1686,7 @@
           {#if filteredCatalog.filter(t => t.role === 'featured').length > 0}
           <div>
             <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-purple-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               Featured Appearances ({catalog.filter(t => t.role === 'featured').length})
@@ -1730,7 +1747,7 @@
           {#if filteredCatalog.filter(t => t.role === 'producer' || t.role === 'writer').length > 0}
             <div>
               <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-amber-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
                 Behind the Scenes ({catalog.filter(t => t.role === 'producer' || t.role === 'writer').length})
@@ -1797,7 +1814,7 @@
           <!-- Catalog Info -->
           <div class="p-4 rounded-xl bg-zinc-900 border border-zinc-900">
             <div class="flex items-start gap-3">
-              <svg class="w-5 h-5 text-zinc-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-zinc-500 mt-0.5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <div>
@@ -1891,7 +1908,7 @@
           <!-- Writers Section -->
           <div>
             <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <svg class="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-indigo-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
               </svg>
               Songwriters
@@ -1901,13 +1918,13 @@
             </h2>
 
             {#if !profile.credits?.writers?.length}
-              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
-                  <svg class="w-8 h-8 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              <div class="text-center py-10 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-10 h-10 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: rgba(99, 102, 241, 0.12);">
+                  <svg class="w-5 h-5 text-indigo-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 </div>
-                <p class="text-zinc-400">No writing credits found</p>
+                <p class="text-zinc-400 text-sm">No writing credits found</p>
               </div>
             {:else}
               <div class="space-y-3">
@@ -1947,7 +1964,7 @@
           <!-- Producers Section -->
           <div>
             <h2 class="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-              <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5 text-purple-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
               </svg>
               Producers
@@ -1957,13 +1974,13 @@
             </h2>
 
             {#if !profile.credits?.producers?.length}
-              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
-                <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
-                  <svg class="w-8 h-8 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              <div class="text-center py-10 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-10 h-10 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: rgba(168, 85, 247, 0.12);">
+                  <svg class="w-5 h-5 text-purple-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                   </svg>
                 </div>
-                <p class="text-zinc-400">No production credits found</p>
+                <p class="text-zinc-400 text-sm">No production credits found</p>
               </div>
             {:else}
               <div class="space-y-3">
@@ -2006,7 +2023,7 @@
         <!-- Credits Info Box -->
         <div class="mt-8 p-6 rounded-2xl bg-gradient-deep border border-zinc-900">
           <h3 class="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-zinc-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             About Credits
@@ -2030,14 +2047,14 @@
             </h2>
 
             {#if profile.collaborators.length === 0}
-              <div class="text-center py-16 rounded-2xl bg-zinc-900 border border-zinc-900">
-                <div class="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center bg-zinc-900" >
-                  <svg class="w-10 h-10 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              <div class="text-center py-12 rounded-2xl bg-zinc-900 border border-zinc-900">
+                <div class="w-10 h-10 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: rgba(99, 102, 241, 0.12);">
+                  <svg class="w-5 h-5 text-indigo-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                   </svg>
                 </div>
-                <p class="text-zinc-200 text-lg">No collaborations found</p>
-                <p class="text-zinc-400 text-sm mt-2">Collaboration data is being populated</p>
+                <p class="text-zinc-200 text-sm font-medium">No collaborations found</p>
+                <p class="text-zinc-500 text-xs mt-1">Collaboration data is being populated</p>
               </div>
             {:else}
               <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -2093,7 +2110,7 @@
               class="w-full px-4 py-3 rounded-2xl font-medium transition-all flex items-center justify-center gap-2 hover:bg-indigo-700 bg-indigo-600 text-white"
              
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
               </svg>
               Explore Full Network
@@ -2117,7 +2134,7 @@
               on:click={() => showReportModal = false}
               class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -2184,7 +2201,7 @@
             class="absolute -top-12 right-0 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             aria-label="Close"
           >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-6 h-6" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -2433,9 +2450,10 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    padding-bottom: 0.5rem;
-    align-self: stretch;
-    justify-content: flex-end;
+    align-self: flex-start;
+    margin-top: 0.5rem;
+    min-width: 0;
+    max-width: 12rem;
   }
 
   .profile__block-group {
@@ -2444,19 +2462,23 @@
 
   .profile__block-split {
     display: flex;
+    width: 100%;
   }
 
   .profile__block-btn {
-    padding: 0.75rem 1.5rem;
+    padding: 0.5rem 1rem;
     border-radius: var(--radius-full) 0 0 var(--radius-full);
     font-weight: 700;
-    font-size: var(--text-lg);
+    font-size: var(--text-sm);
     transition: opacity var(--transition-fast);
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.375rem;
     cursor: pointer;
     border: none;
+    white-space: nowrap;
+    flex: 1;
+    justify-content: center;
   }
   .profile__block-btn:disabled { opacity: 0.5; }
   .profile__block-btn:hover:not(:disabled) { opacity: 0.9; }
@@ -2474,14 +2496,15 @@
   }
 
   .profile__block-dropdown {
-    padding: 0.75rem;
-    border-radius: var(--radius-full);
+    padding: 0.5rem 0.625rem;
+    border-radius: 0 var(--radius-full) var(--radius-full) 0;
     font-weight: 700;
     transition: opacity var(--transition-fast);
     display: flex;
     align-items: center;
     cursor: pointer;
     border: none;
+    flex-shrink: 0;
   }
   .profile__block-dropdown:hover { opacity: 0.9; }
 
@@ -2572,13 +2595,14 @@
   /* ===== Secondary Actions ===== */
   .profile__secondary-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.375rem;
+    width: 100%;
   }
 
   .profile__action-btn {
-    padding: 0.5rem 1rem;
-    border-radius: 1rem;
-    font-size: var(--text-sm);
+    padding: 0.375rem 0.625rem;
+    border-radius: 0.75rem;
+    font-size: var(--text-xs);
     font-weight: 600;
     transition: background-color var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
     display: flex;
@@ -2587,10 +2611,12 @@
     gap: 0.25rem;
     border: none;
     cursor: pointer;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
   }
 
   .profile__action-btn--primary {
-    flex: 1;
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--color-text-primary);
@@ -2613,8 +2639,9 @@
   }
 
   .profile__action-icon {
-    width: 1rem;
-    height: 1rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
   }
 
   /* ===== Tab Navigation ===== */
@@ -2651,12 +2678,19 @@
     }
 
     .profile__actions {
+      flex-direction: row;
+      align-items: center;
       width: 100%;
+      max-width: 100%;
+      gap: 0.75rem;
+    }
+
+    .profile__block-group {
+      flex-shrink: 0;
     }
 
     .profile__secondary-actions {
-      width: 100%;
-      flex-wrap: wrap;
+      flex: 1;
     }
 
     .profile__tab {

@@ -7,6 +7,42 @@
 
 /* color-scheme is set in unified-design-system.css per theme */
 
+/* ===== GLOBAL SVG CONSTRAINTS ===== */
+/*
+ * Safety net: all SVGs default to 1.25rem (20px) with a 2rem max.
+ * Explicit sizing classes (.w-5, .h-5, etc.) override this via specificity.
+ * This prevents unconstrained SVGs from expanding to fill flex containers.
+ */
+svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  max-width: 2rem;
+  max-height: 2rem;
+  flex-shrink: 0;
+}
+
+/* SVGs with explicit size classes get their intended size */
+svg.w-3, svg.h-3 { max-width: none; max-height: none; }
+svg.w-4, svg.h-4 { max-width: none; max-height: none; }
+svg.w-5, svg.h-5 { max-width: none; max-height: none; }
+svg.w-6, svg.h-6 { max-width: none; max-height: none; }
+svg.w-8, svg.h-8 { max-width: none; max-height: none; }
+
+/* SVGs inside image containers or charts should be unconstrained */
+svg.w-full { width: 100% !important; max-width: none !important; height: auto !important; max-height: none !important; }
+figure svg, .chart svg, [data-chart] svg {
+  width: unset;
+  height: unset;
+  max-width: none;
+  max-height: none;
+}
+
+/* Ensure actual <img> tags are never constrained by SVG rules */
+img:not(.icon) {
+  max-width: unset;
+  max-height: unset;
+}
+
 /* ===== Layout ===== */
 .min-h-screen { min-height: 100vh; }
 .h-full { height: 100%; }
@@ -135,6 +171,7 @@
 .h-12 { height: 3rem; }
 .h-16 { height: 4rem; }
 
+.max-w-32 { max-width: 8rem; }
 .max-w-sm { max-width: 24rem; }
 .max-w-md { max-width: 28rem; }
 .max-w-lg { max-width: 32rem; }

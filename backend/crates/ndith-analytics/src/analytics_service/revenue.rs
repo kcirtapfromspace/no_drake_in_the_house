@@ -38,7 +38,7 @@ impl Platform {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_platform(s: &str) -> Option<Self> {
         match s {
             "spotify" => Some(Platform::Spotify),
             "apple_music" => Some(Platform::AppleMusic),
@@ -136,6 +136,17 @@ pub struct UserPlaycount {
     pub period_end: NaiveDate,
 }
 
+/// Parameters for recording a playcount entry
+pub struct RecordPlaycountParams {
+    pub user_id: Uuid,
+    pub artist_id: Uuid,
+    pub platform: Platform,
+    pub play_count: i32,
+    pub listening_time_ms: Option<i64>,
+    pub period_start: NaiveDate,
+    pub period_end: NaiveDate,
+}
+
 /// Revenue service
 pub struct RevenueService {
     pool: PgPool,
@@ -211,17 +222,11 @@ impl RevenueService {
     /// Record playcount data for a user-artist pair
     pub async fn record_playcount(
         &self,
-        user_id: Uuid,
-        artist_id: Uuid,
-        platform: Platform,
-        play_count: i32,
-        listening_time_ms: Option<i64>,
-        period_start: NaiveDate,
-        period_end: NaiveDate,
+        params: RecordPlaycountParams,
     ) -> Result<UserPlaycount> {
         // Get current rate
-        let rate = self.get_payout_rate(platform, None).await?;
-        let estimated_revenue = rate.rate_per_stream * Decimal::from(play_count);
+        let rate = self.get_payout_rate(params.platform, None).await?;
+        let estimated_revenue = rate.rate_per_stream * Decimal::from(params.play_count);
 
         let row = sqlx::query_as::<_, PlaycountRow>(
             r#"
@@ -239,15 +244,15 @@ impl RevenueService {
                 estimated_revenue, period_start, period_end
             "#,
         )
-        .bind(user_id)
-        .bind(artist_id)
-        .bind(platform.as_str())
-        .bind(play_count)
-        .bind(listening_time_ms)
+        .bind(params.user_id)
+        .bind(params.artist_id)
+        .bind(params.platform.as_str())
+        .bind(params.play_count)
+        .bind(params.listening_time_ms)
         .bind(estimated_revenue)
         .bind(rate.rate_per_stream)
-        .bind(period_start)
-        .bind(period_end)
+        .bind(params.period_start)
+        .bind(params.period_end)
         .fetch_one(&self.pool)
         .await
         .context("Failed to record playcount")?;
@@ -255,7 +260,7 @@ impl RevenueService {
         // Get artist name
         let artist_name: String =
             sqlx::query_scalar("SELECT canonical_name FROM artists WHERE id = $1")
-                .bind(artist_id)
+                .bind(params.artist_id)
                 .fetch_one(&self.pool)
                 .await
                 .unwrap_or_else(|_| "Unknown".to_string());
@@ -807,12 +812,12 @@ mod tests {
 
     #[test]
     fn test_platform_from_str() {
-        assert_eq!(Platform::from_str("spotify"), Some(Platform::Spotify));
+        assert_eq!(Platform::parse_platform("spotify"), Some(Platform::Spotify));
         assert_eq!(
-            Platform::from_str("apple_music"),
+            Platform::parse_platform("apple_music"),
             Some(Platform::AppleMusic)
         );
-        assert_eq!(Platform::from_str("invalid"), None);
+        assert_eq!(Platform::parse_platform("invalid"), None);
     }
 
     #[test]

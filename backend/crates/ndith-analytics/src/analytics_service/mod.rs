@@ -29,7 +29,8 @@ pub use enforcement::{
 pub use reporting::{Report, ReportType, ReportingService};
 pub use revenue::{
     ArtistRevenueBreakdown, GlobalArtistRevenue, PayoutRate, Platform as RevenuePlatform,
-    PlatformRevenue, RevenueService, UserPlaycount, UserRevenueDistribution,
+    PlatformRevenue, RecordPlaycountParams, RevenueService, UserPlaycount,
+    UserRevenueDistribution,
 };
 pub use trends::{TrendAnalysisService, TrendData, TrendDirection};
 pub use trouble_score::{

@@ -31,7 +31,7 @@ pub enum OffenseCategory {
 }
 
 impl OffenseCategory {
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s.to_lowercase().replace("-", "_").as_str() {
             "sexual_misconduct" => Self::SexualMisconduct,
             "domestic_violence" => Self::DomesticViolence,
@@ -518,7 +518,7 @@ impl CategoryRevenueService {
         Ok(rows
             .into_iter()
             .map(|r| {
-                let category = OffenseCategory::from_str(&r.category);
+                let category = OffenseCategory::parse(&r.category);
                 let percentage = if total_revenue > Decimal::ZERO {
                     (r.total_revenue / total_revenue * Decimal::from(100))
                         .to_string()
@@ -679,15 +679,15 @@ mod tests {
     #[test]
     fn test_offense_category_from_str() {
         assert_eq!(
-            OffenseCategory::from_str("sexual_misconduct"),
+            OffenseCategory::parse("sexual_misconduct"),
             OffenseCategory::SexualMisconduct
         );
         assert_eq!(
-            OffenseCategory::from_str("DOMESTIC_VIOLENCE"),
+            OffenseCategory::parse("DOMESTIC_VIOLENCE"),
             OffenseCategory::DomesticViolence
         );
         assert_eq!(
-            OffenseCategory::from_str("unknown_category"),
+            OffenseCategory::parse("unknown_category"),
             OffenseCategory::Other
         );
     }

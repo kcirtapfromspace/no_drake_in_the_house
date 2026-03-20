@@ -10,12 +10,12 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, NaiveDate, Utc};
 use duckdb::{params, Connection};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use tokio::sync::Mutex;
 use uuid::Uuid;
 
 /// DuckDB client for analytics queries
 pub struct DuckDbClient {
-    conn: Arc<RwLock<Connection>>,
+    conn: Arc<Mutex<Connection>>,
     #[allow(dead_code)]
     db_path: String,
 }
@@ -26,7 +26,7 @@ impl DuckDbClient {
         let conn = Connection::open(db_path).context("Failed to open DuckDB database")?;
 
         let client = Self {
-            conn: Arc::new(RwLock::new(conn)),
+            conn: Arc::new(Mutex::new(conn)),
             db_path: db_path.to_string(),
         };
 
@@ -38,7 +38,7 @@ impl DuckDbClient {
         let conn = Connection::open_in_memory().context("Failed to open in-memory DuckDB")?;
 
         let client = Self {
-            conn: Arc::new(RwLock::new(conn)),
+            conn: Arc::new(Mutex::new(conn)),
             db_path: ":memory:".to_string(),
         };
 
@@ -47,7 +47,7 @@ impl DuckDbClient {
 
     /// Initialize the analytics schema
     pub async fn initialize_schema(&self) -> Result<()> {
-        let conn = self.conn.write().await;
+        let conn = self.conn.lock().await;
 
         // Sync metrics table - tracks platform sync performance
         conn.execute(
@@ -142,7 +142,7 @@ impl DuckDbClient {
 
     /// Record sync metrics
     pub async fn record_sync_metrics(&self, metrics: SyncMetrics) -> Result<()> {
-        let conn = self.conn.write().await;
+        let conn = self.conn.lock().await;
 
         conn.execute(
             r#"
@@ -168,7 +168,7 @@ impl DuckDbClient {
 
     /// Record news article processing
     pub async fn record_news_volume(&self, record: NewsVolumeRecord) -> Result<()> {
-        let conn = self.conn.write().await;
+        let conn = self.conn.lock().await;
 
         conn.execute(
             r#"
@@ -196,7 +196,7 @@ impl DuckDbClient {
 
     /// Record artist mention
     pub async fn record_artist_mention(&self, record: ArtistMentionRecord) -> Result<()> {
-        let conn = self.conn.write().await;
+        let conn = self.conn.lock().await;
 
         // This uses UPSERT to aggregate mentions per day
         conn.execute(
@@ -230,7 +230,7 @@ impl DuckDbClient {
 
     /// Get daily news summary
     pub async fn get_daily_news_summary(&self, days: i32) -> Result<Vec<DailyNewsSummary>> {
-        let conn = self.conn.read().await;
+        let conn = self.conn.lock().await;
 
         let mut stmt = conn.prepare(
             r#"
@@ -267,7 +267,7 @@ impl DuckDbClient {
 
     /// Get trending artists by mentions
     pub async fn get_trending_artists(&self, days: i32, limit: i32) -> Result<Vec<TrendingArtist>> {
-        let conn = self.conn.read().await;
+        let conn = self.conn.lock().await;
 
         let mut stmt = conn.prepare(
             r#"
@@ -306,7 +306,7 @@ impl DuckDbClient {
 
     /// Get platform sync health
     pub async fn get_platform_health(&self, days: i32) -> Result<Vec<PlatformHealth>> {
-        let conn = self.conn.read().await;
+        let conn = self.conn.lock().await;
 
         let mut stmt = conn.prepare(
             r#"
@@ -353,7 +353,7 @@ impl DuckDbClient {
 
     /// Export data to Parquet for archival
     pub async fn export_to_parquet(&self, table: &str, output_path: &str) -> Result<()> {
-        let conn = self.conn.read().await;
+        let conn = self.conn.lock().await;
 
         conn.execute(
             &format!("COPY {} TO '{}' (FORMAT PARQUET)", table, output_path),
@@ -374,7 +374,7 @@ impl DuckDbClient {
     where
         F: Fn(&duckdb::Row) -> Result<T, duckdb::Error>,
     {
-        let conn = self.conn.read().await;
+        let conn = self.conn.lock().await;
         let mut stmt = conn.prepare(sql)?;
 
         let rows = stmt.query_map(params, mapper)?;

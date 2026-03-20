@@ -1,4 +1,4 @@
-import { anyApi, convexMutation, convexQuery, isConvexEnabled } from './client';
+import { anyApi, convexMutation, convexQuery, hasConvexAuth, isConvexEnabled } from './client';
 
 export interface BridgedApiResponse<T = unknown> {
   success: boolean;
@@ -124,7 +124,7 @@ export async function maybeHandleConvexRoute<T = unknown>(
   endpoint: string,
   data?: any,
 ): Promise<BridgedApiResponse<T> | null> {
-  if (!isConvexEnabled()) {
+  if (!isConvexEnabled() || !hasConvexAuth()) {
     return null;
   }
 

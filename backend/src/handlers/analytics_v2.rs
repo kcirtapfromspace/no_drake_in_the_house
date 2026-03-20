@@ -972,7 +972,7 @@ pub async fn get_user_revenue_distribution_handler(
     let platform = query
         .platform
         .as_ref()
-        .and_then(|p| ndith_analytics::RevenuePlatform::from_str(p));
+        .and_then(|p| ndith_analytics::RevenuePlatform::parse_platform(p));
 
     match service
         .get_user_revenue_distribution(user.id, platform, query.days)
@@ -1223,7 +1223,7 @@ pub async fn get_category_revenue_handler(
     tracing::info!(category = %category, "Get category revenue request");
 
     let service = ndith_analytics::CategoryRevenueService::new(state.db_pool.clone());
-    let offense_category = ndith_analytics::OffenseCategory::from_str(&category);
+    let offense_category = ndith_analytics::OffenseCategory::parse(&category);
 
     match service
         .get_category_revenue(offense_category, query.top_n)

@@ -356,38 +356,36 @@ impl DashboardService {
 
     /// Get system health status
     pub async fn get_system_health(&self) -> Result<SystemHealth> {
-        let mut health = SystemHealth::default();
-
         // Check PostgreSQL
-        health.postgres_healthy = sqlx::query_scalar::<_, i32>("SELECT 1")
+        let postgres_healthy = sqlx::query_scalar::<_, i32>("SELECT 1")
             .fetch_one(&self.pool)
             .await
             .is_ok();
 
         // DuckDB - always healthy if we got here
-        health.duckdb_healthy = true;
+        let duckdb_healthy = true;
 
         // LadybugDB - not wired yet in the current full-platform build
-        health.ladybugdb_healthy = false;
+        let ladybugdb_healthy = false;
 
         // LanceDB - would need actual check
-        health.lancedb_healthy = true;
+        let lancedb_healthy = true;
 
         // Redis - would need actual check
-        health.redis_healthy = true;
+        let redis_healthy = true;
 
         // Calculate overall status
         let healthy_count = [
-            health.postgres_healthy,
-            health.duckdb_healthy,
-            health.ladybugdb_healthy,
-            health.lancedb_healthy,
+            postgres_healthy,
+            duckdb_healthy,
+            ladybugdb_healthy,
+            lancedb_healthy,
         ]
         .iter()
         .filter(|&&h| h)
         .count();
 
-        health.overall_status = if healthy_count == 4 {
+        let overall_status = if healthy_count == 4 {
             "healthy".to_string()
         } else if healthy_count >= 2 {
             "degraded".to_string()
@@ -395,8 +393,16 @@ impl DashboardService {
             "unhealthy".to_string()
         };
 
-        health.api_response_time_ms = 50; // Placeholder
-        health.error_rate = 0.01; // Placeholder
+        let health = SystemHealth {
+            overall_status,
+            postgres_healthy,
+            duckdb_healthy,
+            ladybugdb_healthy,
+            lancedb_healthy,
+            redis_healthy,
+            api_response_time_ms: 50,  // Placeholder
+            error_rate: 0.01,          // Placeholder
+        };
 
         Ok(health)
     }

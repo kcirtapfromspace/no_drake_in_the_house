@@ -3,9 +3,14 @@ import { anyApi } from 'convex/server';
 import config from '../utils/config';
 
 let convexClient: ConvexHttpClient | null = null;
+let convexAuthSet = false;
 
 export function isConvexEnabled(): boolean {
   return Boolean(config.convex.url);
+}
+
+export function hasConvexAuth(): boolean {
+  return convexAuthSet;
 }
 
 export function getConvexClient(): ConvexHttpClient {
@@ -28,8 +33,10 @@ export function setConvexAuthToken(token: string | null | undefined): void {
   const client = getConvexClient();
   if (token) {
     client.setAuth(token);
+    convexAuthSet = true;
   } else {
     client.clearAuth();
+    convexAuthSet = false;
   }
 }
 

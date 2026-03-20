@@ -10,6 +10,7 @@ class DNPFilterManager {
     this.lastUpdateTime = 0;
     this.updateInterval = 5 * 60 * 1000; // 5 minutes
     this.maxCacheAge = 24 * 60 * 60 * 1000; // 24 hours
+    this.signedUpdateManager = null;
     
     this.init();
   }
@@ -267,18 +268,35 @@ class DNPFilterManager {
     }
   }
 
-  async syncWithServer(authToken) {
+  async syncWithServer(authToken, signedUpdateManager) {
     try {
       // Check if we're online
       if (!navigator.onLine) {
         console.log('Offline - skipping server sync');
         return false;
       }
+
+      if (signedUpdateManager) {
+        const signedUpdate = await signedUpdateManager.fetchSignedUpdate(authToken);
+        if (signedUpdate) {
+          const applied = await signedUpdateManager.applySignedUpdate(signedUpdate, this);
+          if (applied) {
+            await chrome.storage.local.set({
+              lastSuccessfulSync: Date.now(),
+              serverSyncStatus: 'success',
+              updateSource: 'convex-signed'
+            });
+            return true;
+          }
+        }
+      }
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const { serverUrl } = await chrome.storage.sync.get(['serverUrl']);
+      const normalizedServerUrl = (serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
       
-      const response = await fetch('http://localhost:3000/api/v1/dnp/list', {
+      const response = await fetch(`${normalizedServerUrl}/api/v1/dnp/list`, {
         headers: {
           'Authorization': `Bearer ${authToken}`,
           'Content-Type': 'application/json'
@@ -290,7 +308,9 @@ class DNPFilterManager {
 
       if (response.ok) {
         const data = await response.json();
-        const serverList = data.artists || [];
+        const serverList = Array.isArray(data)
+          ? data
+          : data.artists || data.entries || [];
         
         // Check if server list is different
         if (JSON.stringify(serverList) !== JSON.stringify(this.fullDNPList)) {
@@ -370,9 +390,7 @@ class DNPFilterManager {
       // Check if we need to sync with server
       if (now - this.lastUpdateTime > this.updateInterval) {
         const authResult = await chrome.storage.sync.get(['authToken']);
-        if (authResult.authToken) {
-          await this.syncWithServer(authResult.authToken);
-        }
+        await this.syncWithServer(authResult.authToken, this.signedUpdateManager);
       }
     }, 60000); // Check every minute
   }

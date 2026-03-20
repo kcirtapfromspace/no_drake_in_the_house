@@ -153,15 +153,15 @@ class SettingsController {
         connectBtn.disabled = true;
 
         try {
-            const response = await fetch(`${serverUrl}/api/health`);
+            const response = await fetch(`${serverUrl.replace(/\/+$/, '')}/extension/signed-update`);
             if (response.ok) {
-                this.showStatus('Connection successful!', 'success');
+                this.showStatus('Convex signed update endpoint is reachable.', 'success');
                 await this.updateSetting('serverUrl', serverUrl);
             } else {
-                this.showStatus('Server responded but may not be healthy', 'error');
+                this.showStatus('Endpoint responded but did not return a healthy update payload.', 'error');
             }
         } catch (error) {
-            this.showStatus('Connection failed. Check server URL.', 'error');
+            this.showStatus('Connection failed. Check the Convex deployment URL.', 'error');
         } finally {
             connectBtn.textContent = 'Connect';
             connectBtn.disabled = false;

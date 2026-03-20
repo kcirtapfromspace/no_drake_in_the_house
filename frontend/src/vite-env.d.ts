@@ -17,6 +17,17 @@ interface ImportMetaEnv {
   readonly VITE_DEFAULT_THEME: string
   readonly VITE_ENABLE_SERVICE_WORKER: string
   readonly VITE_CACHE_DURATION: string
+  readonly VITE_CONVEX_URL: string
+  readonly VITE_AUTH_MODE: string
+  readonly VITE_AUTH0_DOMAIN: string
+  readonly VITE_AUTH0_CLIENT_ID: string
+  readonly VITE_AUTH0_AUDIENCE: string
+  readonly VITE_AUTH0_SCOPE: string
+  readonly VITE_AUTH0_REDIRECT_PATH: string
+  readonly VITE_AUTH0_CONNECTION_GOOGLE: string
+  readonly VITE_AUTH0_CONNECTION_GITHUB: string
+  readonly VITE_AUTH0_CONNECTION_APPLE: string
+  readonly VITE_EXTENSION_SIGNED_UPDATE_URL: string
 }
 
 interface ImportMeta {

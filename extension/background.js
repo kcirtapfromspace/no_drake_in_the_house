@@ -4,11 +4,12 @@
  */
 
 // Import utilities
-importScripts('utils/bloom-filter.js', 'utils/dnp-filter-manager.js');
+importScripts('utils/bloom-filter.js', 'utils/dnp-filter-manager.js', 'utils/signed-updates.js');
 
 class BackgroundService {
   constructor() {
     this.dnpFilterManager = null;
+    this.signedUpdateManager = null;
     this.lastSyncTime = 0;
     this.syncInterval = 5 * 60 * 1000; // 5 minutes
     
@@ -34,15 +35,17 @@ class BackgroundService {
 
   async initializeExtension() {
     try {
+      this.signedUpdateManager = new SignedUpdateManager();
+      await this.signedUpdateManager.init();
+
       // Initialize DNP filter manager
       this.dnpFilterManager = new DNPFilterManager();
+      this.dnpFilterManager.signedUpdateManager = this.signedUpdateManager;
       await this.dnpFilterManager.init();
       
-      // Sync with server if we have auth token
+      // Sync from the Convex-published signed snapshot on startup.
       const result = await chrome.storage.sync.get(['authToken']);
-      if (result.authToken) {
-        await this.dnpFilterManager.syncWithServer(result.authToken);
-      }
+      await this.dnpFilterManager.syncWithServer(result.authToken, this.signedUpdateManager);
       
       console.log('Kiro extension initialized with bloom filter');
     } catch (error) {
@@ -173,7 +176,10 @@ class BackgroundService {
     try {
       if (!this.dnpFilterManager) return false;
       
-      const success = await this.dnpFilterManager.syncWithServer(authToken);
+      const success = await this.dnpFilterManager.syncWithServer(
+        authToken,
+        this.signedUpdateManager
+      );
       if (success) {
         this.lastSyncTime = Date.now();
         console.log('Synced DNP list with server using bloom filter');
@@ -189,8 +195,10 @@ class BackgroundService {
   async syncArtistWithServer(artistInfo, action, authToken) {
     try {
       const endpoint = action === 'add' ? '/api/v1/dnp/add' : '/api/v1/dnp/remove';
+      const { serverUrl } = await chrome.storage.sync.get(['serverUrl']);
+      const normalizedServerUrl = (serverUrl || 'http://localhost:3000').replace(/\/+$/, '');
       
-      await fetch(`http://localhost:3000${endpoint}`, {
+      await fetch(`${normalizedServerUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authToken}`,

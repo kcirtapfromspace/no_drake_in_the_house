@@ -4,6 +4,8 @@
  */
 
 import { config } from './config';
+import { maybeHandleConvexRoute } from '../convex/bridge';
+import { isAuth0Mode, refreshAuthSession } from '../auth/auth0';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -169,6 +171,13 @@ export class ApiClient {
    * GET request
    */
   async get<T>(endpoint: string, includeAuth: boolean = true): Promise<ApiResponse<T>> {
+    if (includeAuth) {
+      const bridged = await maybeHandleConvexRoute<T>('GET', endpoint);
+      if (bridged) {
+        return bridged;
+      }
+    }
+
     const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
@@ -187,6 +196,13 @@ export class ApiClient {
     data?: any, 
     includeAuth: boolean = true
   ): Promise<ApiResponse<T>> {
+    if (includeAuth) {
+      const bridged = await maybeHandleConvexRoute<T>('POST', endpoint, data);
+      if (bridged) {
+        return bridged;
+      }
+    }
+
     const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
@@ -206,6 +222,13 @@ export class ApiClient {
     data?: any, 
     includeAuth: boolean = true
   ): Promise<ApiResponse<T>> {
+    if (includeAuth) {
+      const bridged = await maybeHandleConvexRoute<T>('PUT', endpoint, data);
+      if (bridged) {
+        return bridged;
+      }
+    }
+
     const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
@@ -221,6 +244,13 @@ export class ApiClient {
    * DELETE request
    */
   async delete<T>(endpoint: string, includeAuth: boolean = true): Promise<ApiResponse<T>> {
+    if (includeAuth) {
+      const bridged = await maybeHandleConvexRoute<T>('DELETE', endpoint);
+      if (bridged) {
+        return bridged;
+      }
+    }
+
     const url = this.resolveUrl(endpoint);
     
     return this.withRetry<T>(() =>
@@ -236,6 +266,10 @@ export class ApiClient {
    */
   async handleAuthError(): Promise<boolean> {
     try {
+      if (isAuth0Mode()) {
+        return await refreshAuthSession();
+      }
+
       const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) {
         return false;

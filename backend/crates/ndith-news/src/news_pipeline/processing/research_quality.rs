@@ -104,7 +104,8 @@ impl ResearchQualityScorer {
 
     /// Temporal coverage (0–20): does evidence span the artist's career
     async fn calc_temporal_coverage(&self, artist_id: Uuid) -> Result<f64> {
-        let row: Option<(Option<DateTime<Utc>>, Option<DateTime<Utc>>)> = sqlx::query_as(
+        type DateRange = (Option<DateTime<Utc>>, Option<DateTime<Utc>>);
+        let row: Option<DateRange> = sqlx::query_as(
             r#"
             SELECT MIN(na.published_at), MAX(na.published_at)
             FROM news_offense_classifications noc

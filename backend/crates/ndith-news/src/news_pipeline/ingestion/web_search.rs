@@ -48,6 +48,7 @@ struct BraveWebResult {
     url: String,
     title: String,
     description: Option<String>,
+    #[allow(dead_code)]
     page_age: Option<String>,
 }
 

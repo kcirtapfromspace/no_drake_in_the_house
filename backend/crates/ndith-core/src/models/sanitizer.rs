@@ -130,6 +130,7 @@ impl std::fmt::Display for SanitizationStatus {
 }
 
 impl SanitizationStatus {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Self {
         match s {
             "draft" => SanitizationStatus::Draft,

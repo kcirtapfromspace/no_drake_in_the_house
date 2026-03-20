@@ -13,18 +13,10 @@ use super::offense_classifier::{
 };
 
 /// Hybrid classifier configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct HybridClassifierConfig {
     /// Known artist names (kept for future extensibility)
     pub known_artist_names: Vec<String>,
-}
-
-impl Default for HybridClassifierConfig {
-    fn default() -> Self {
-        Self {
-            known_artist_names: Vec::new(),
-        }
-    }
 }
 
 /// Classification statistics

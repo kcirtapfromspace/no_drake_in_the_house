@@ -16,6 +16,7 @@ use sqlx::PgPool;
 /// Service for grading playlists, suggesting replacements, and publishing sanitized playlists.
 pub struct PlaylistSanitizerService {
     spotify_service: Arc<SpotifyService>,
+    #[allow(dead_code)]
     library_service: Arc<SpotifyLibraryService>,
     db_pool: PgPool,
 }
@@ -416,6 +417,7 @@ impl PlaylistSanitizerService {
 
     /// Load a sanitization plan from the database.
     pub async fn load_plan(&self, plan_id: Uuid, user_id: Uuid) -> Result<SanitizationPlan> {
+        #[allow(clippy::type_complexity)]
         let row: (
             Uuid,
             Uuid,

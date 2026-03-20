@@ -186,7 +186,7 @@ impl WikipediaClient {
 
         let headings: Vec<_> = document.select(&heading_selector).collect();
 
-        for (_i, heading) in headings.iter().enumerate() {
+        for heading in &headings {
             let heading_text = heading.text().collect::<String>().trim().to_string();
             let heading_lower = heading_text.to_lowercase();
 

@@ -7,6 +7,7 @@ pub mod enforcement;
 pub mod login_health;
 pub mod oauth;
 pub mod offense;
+pub mod playlist_sanitizer;
 pub mod registration_health;
 pub mod spotify_connection;
 pub mod spotify_enforcement;

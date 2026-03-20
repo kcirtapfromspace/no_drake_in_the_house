@@ -21,6 +21,7 @@ export type Route =
   | 'overview'
   | 'dnp'
   | 'enforcement'
+  | 'playlist-sanitizer'
   | 'artist-profile';
 
 // Path mappings
@@ -43,6 +44,7 @@ const pathToRoute: Record<string, Route> = {
   '/overview': 'overview',
   '/dnp': 'dnp',
   '/enforcement': 'enforcement',
+  '/playlist-sanitizer': 'playlist-sanitizer',
 };
 
 const routeToPath: Record<Route, string> = {
@@ -65,6 +67,7 @@ const routeToPath: Record<Route, string> = {
   'overview': '/overview',
   'dnp': '/dnp',
   'enforcement': '/enforcement',
+  'playlist-sanitizer': '/playlist-sanitizer',
   'artist-profile': '/artist',
 };
 
@@ -89,6 +92,7 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'overview': { title: 'Overview', description: 'Dashboard overview' },
   'dnp': { title: 'DNP List', description: 'Your Do Not Play list' },
   'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
+  'playlist-sanitizer': { title: 'Playlist Sanitizer', description: 'Grade, replace, and publish clean playlists' },
   'artist-profile': { title: 'Artist Profile', description: 'View artist details and evidence' },
 };
 

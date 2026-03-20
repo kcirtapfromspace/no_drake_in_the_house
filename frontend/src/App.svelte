@@ -16,6 +16,7 @@
 	import CommunityLists from "./lib/components/CommunityLists.svelte";
 	import OffenseDatabase from "./lib/components/OffenseDatabase.svelte";
 	import ServiceHealthDashboard from "./lib/components/ServiceHealthDashboard.svelte";
+	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
 	import Layout from "./lib/components/Layout.svelte";
 	import config from "./lib/utils/config";
 
@@ -269,6 +270,8 @@
 				<OffenseDatabase />
 			{:else if $currentRoute === 'service-health'}
 				<ServiceHealthDashboard />
+			{:else if $currentRoute === 'playlist-sanitizer'}
+				<PlaylistSanitizer />
 			{:else}
 				<Home />
 			{/if}

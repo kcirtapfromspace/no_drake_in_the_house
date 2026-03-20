@@ -428,6 +428,23 @@ pub fn create_router(state: AppState) -> Router {
             "/enforcement/apple-music/capabilities",
             get(handlers::enforcement::get_apple_music_capabilities),
         )
+        // Playlist sanitizer routes
+        .route(
+            "/sanitizer/grade",
+            post(handlers::playlist_sanitizer::grade_playlist),
+        )
+        .route(
+            "/sanitizer/suggest",
+            post(handlers::playlist_sanitizer::suggest_replacements),
+        )
+        .route(
+            "/sanitizer/plan/:plan_id",
+            put(handlers::playlist_sanitizer::confirm_plan),
+        )
+        .route(
+            "/sanitizer/publish/:plan_id",
+            post(handlers::playlist_sanitizer::publish_playlist),
+        )
         // Spotify enforcement routes
         .route(
             "/enforcement/spotify/run",

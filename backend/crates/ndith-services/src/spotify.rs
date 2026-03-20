@@ -761,6 +761,139 @@ impl SpotifyService {
     }
 
     // ===========================================
+    // Recommendations & Playlist Creation Methods
+    // ===========================================
+
+    /// Get track recommendations from Spotify.
+    ///
+    /// Spotify allows up to 5 total seeds across tracks, artists, and genres.
+    /// Returns recommended tracks matching the seed criteria.
+    pub async fn get_recommendations(
+        &self,
+        connection: &Connection,
+        seed_track_ids: &[String],
+        seed_artist_ids: &[String],
+        seed_genres: &[String],
+        target_popularity: Option<u32>,
+        limit: Option<u32>,
+    ) -> Result<Vec<serde_json::Value>> {
+        let total_seeds = seed_track_ids.len() + seed_artist_ids.len() + seed_genres.len();
+        if total_seeds == 0 {
+            return Err(anyhow!("At least one seed is required"));
+        }
+        if total_seeds > 5 {
+            return Err(anyhow!(
+                "Spotify allows a maximum of 5 total seeds, got {}",
+                total_seeds
+            ));
+        }
+
+        let mut params = Vec::new();
+        if !seed_track_ids.is_empty() {
+            params.push(format!("seed_tracks={}", seed_track_ids.join(",")));
+        }
+        if !seed_artist_ids.is_empty() {
+            params.push(format!("seed_artists={}", seed_artist_ids.join(",")));
+        }
+        if !seed_genres.is_empty() {
+            params.push(format!("seed_genres={}", seed_genres.join(",")));
+        }
+        if let Some(pop) = target_popularity {
+            params.push(format!("target_popularity={}", pop));
+        }
+        params.push(format!("limit={}", limit.unwrap_or(20)));
+
+        let url = format!(
+            "https://api.spotify.com/v1/recommendations?{}",
+            params.join("&")
+        );
+
+        let response = self
+            .make_api_request(connection, "GET", &url, None)
+            .await?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await?;
+            let tracks = json
+                .get("tracks")
+                .and_then(|t| t.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            tracing::info!(
+                "Got {} recommendations from Spotify",
+                tracks.len()
+            );
+            Ok(tracks)
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "Failed to get recommendations: {} - {}",
+                status,
+                error_text
+            ))
+        }
+    }
+
+    /// Create a new playlist on the user's Spotify account.
+    ///
+    /// Returns (playlist_id, playlist_url).
+    pub async fn create_playlist(
+        &self,
+        connection: &Connection,
+        spotify_user_id: &str,
+        name: &str,
+        description: &str,
+        public: bool,
+    ) -> Result<(String, String)> {
+        let url = format!(
+            "https://api.spotify.com/v1/users/{}/playlists",
+            spotify_user_id
+        );
+
+        let body = serde_json::json!({
+            "name": name,
+            "description": description,
+            "public": public,
+        });
+
+        let response = self
+            .make_api_request(connection, "POST", &url, Some(body))
+            .await?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await?;
+            let playlist_id = json
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("Missing playlist id in response"))?
+                .to_string();
+            let playlist_url = json
+                .get("external_urls")
+                .and_then(|u| u.get("spotify"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            tracing::info!(
+                "Created playlist '{}' ({})",
+                name,
+                playlist_id
+            );
+            Ok((playlist_id, playlist_url))
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "Failed to create playlist: {} - {}",
+                status,
+                error_text
+            ))
+        }
+    }
+
+    // ===========================================
     // Library Scanning Methods
     // ===========================================
 

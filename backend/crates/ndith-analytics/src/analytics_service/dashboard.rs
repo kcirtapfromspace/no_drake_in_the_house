@@ -400,8 +400,8 @@ impl DashboardService {
             ladybugdb_healthy,
             lancedb_healthy,
             redis_healthy,
-            api_response_time_ms: 50,  // Placeholder
-            error_rate: 0.01,          // Placeholder
+            api_response_time_ms: 50, // Placeholder
+            error_rate: 0.01,         // Placeholder
         };
 
         Ok(health)

@@ -220,10 +220,7 @@ impl RevenueService {
     }
 
     /// Record playcount data for a user-artist pair
-    pub async fn record_playcount(
-        &self,
-        params: RecordPlaycountParams,
-    ) -> Result<UserPlaycount> {
+    pub async fn record_playcount(&self, params: RecordPlaycountParams) -> Result<UserPlaycount> {
         // Get current rate
         let rate = self.get_payout_rate(params.platform, None).await?;
         let estimated_revenue = rate.rate_per_stream * Decimal::from(params.play_count);

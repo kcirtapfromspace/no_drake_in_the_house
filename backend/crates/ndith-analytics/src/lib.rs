@@ -21,11 +21,10 @@ pub use analytics_service::{
     EnforcementAnalyticsService, EnforcementStats, EnforcementTimeSeriesPoint, GlobalArtistRevenue,
     GlobalCategoryRevenue, OffenseCategory, PayoutRate, PlatformRevenue, ProviderStats,
     RecalculationSummary, RecordPlaycountParams, Report, ReportType, ReportingService,
-    RevenuePlatform, RevenueService,
-    ScoreHistoryEntry, ScoreWeights, SimulationParams, TierDistribution, TimeRange,
-    TrendAnalysisService, TrendData, TrendDirection, TroubleLeaderboardEntry,
-    TroubleScoreComponents, TroubleScoreService, TroubleTier, UserPlaycount,
-    UserRevenueDistribution,
+    RevenuePlatform, RevenueService, ScoreHistoryEntry, ScoreWeights, SimulationParams,
+    TierDistribution, TimeRange, TrendAnalysisService, TrendData, TrendDirection,
+    TroubleLeaderboardEntry, TroubleScoreComponents, TroubleScoreService, TroubleTier,
+    UserPlaycount, UserRevenueDistribution,
 };
 
 // Re-export graph service components

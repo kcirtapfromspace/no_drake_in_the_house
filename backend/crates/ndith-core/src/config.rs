@@ -752,11 +752,25 @@ fn sanitize_backend_base_url(candidate: String, frontend_base: &str) -> String {
 pub fn public_backend_base_url() -> String {
     let frontend_base = public_frontend_base_url();
 
+    // Explicit backend base URL always wins.
     if let Some(explicit) = non_empty_env("OAUTH_BACKEND_BASE_URL")
         .or_else(|| non_empty_env("PUBLIC_BACKEND_BASE_URL"))
-        .or_else(|| non_empty_env("RENDER_EXTERNAL_URL"))
     {
         return sanitize_backend_base_url(explicit, &frontend_base);
+    }
+
+    // When the frontend base URL is explicitly configured (custom domain),
+    // derive the backend authority from it instead of using RENDER_EXTERNAL_URL
+    // which points to the internal .onrender.com hostname.
+    if non_empty_env("OAUTH_FRONTEND_BASE_URL").is_some() {
+        if let Some((scheme, authority)) = split_url_base(&frontend_base) {
+            return format!("{}://{}", scheme, derive_backend_authority(authority));
+        }
+    }
+
+    // Fall back to RENDER_EXTERNAL_URL (auto-set by Render).
+    if let Some(render_url) = non_empty_env("RENDER_EXTERNAL_URL") {
+        return sanitize_backend_base_url(render_url, &frontend_base);
     }
 
     if let Some((scheme, authority)) = split_url_base(&frontend_base) {

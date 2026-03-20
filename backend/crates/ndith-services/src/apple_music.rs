@@ -1174,9 +1174,9 @@ mod tests {
     #[tokio::test]
     async fn test_apple_music_config_default() {
         let config = AppleMusicConfig::default();
-        assert!(!config.team_id.is_empty());
-        assert!(!config.key_id.is_empty());
+        // team_id and key_id come from env vars; they will be empty when not set
         assert!(!config.bundle_id.is_empty());
+        assert_eq!(config.bundle_id, "com.nodrakeinthehouse");
         assert_eq!(config.api_base_url, "https://api.music.apple.com");
     }
 

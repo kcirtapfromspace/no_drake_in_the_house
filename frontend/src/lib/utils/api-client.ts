@@ -5,7 +5,6 @@
 
 import { config } from './config';
 import { maybeHandleConvexRoute } from '../convex/bridge';
-import { isAuth0Mode, refreshAuthSession } from '../auth/auth0';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -266,10 +265,6 @@ export class ApiClient {
    */
   async handleAuthError(): Promise<boolean> {
     try {
-      if (isAuth0Mode()) {
-        return await refreshAuthSession();
-      }
-
       const refreshToken = localStorage.getItem('refresh_token');
       if (!refreshToken) {
         return false;

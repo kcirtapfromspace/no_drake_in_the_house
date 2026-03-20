@@ -1,5 +1,4 @@
 import { anyApi, convexMutation, convexQuery, isConvexEnabled } from './client';
-import { initializeAuthSession, isAuth0Mode, syncAuthToken } from '../auth/auth0';
 
 export interface BridgedApiResponse<T = unknown> {
   success: boolean;
@@ -29,11 +28,6 @@ function fail(message: string, errorCode = 'BRIDGE_ERROR'): BridgedApiResponse<n
 async function ensureConvexSession(): Promise<void> {
   if (!isConvexEnabled()) {
     throw new Error('Convex is not configured.');
-  }
-
-  if (isAuth0Mode()) {
-    await initializeAuthSession();
-    await syncAuthToken();
   }
 }
 

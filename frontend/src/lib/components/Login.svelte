@@ -1,12 +1,9 @@
 <script lang="ts">
   import { authActions } from '../stores/auth';
-  import config from '../utils/config';
-
   let mode: 'login' | 'register' = 'login';
   let isLoading = false;
   let error = '';
   let success = '';
-  const isAuth0 = config.auth.mode === 'auth0';
 
   // Form fields
   let email = '';
@@ -25,21 +22,17 @@
           error = ('message' in result ? result.message : undefined) || 'Login failed';
         }
       } else {
-        if (!isAuth0 && password !== confirmPassword) {
+        if (password !== confirmPassword) {
           error = 'Passwords do not match';
           isLoading = false;
           return;
         }
         const result = await authActions.register(email, password, confirmPassword, true);
         if (result.success) {
-          if (isAuth0) {
-            success = 'Redirecting to Auth0...';
-          } else {
-            success = 'Account created! You can now sign in.';
-            mode = 'login';
-            password = '';
-            confirmPassword = '';
-          }
+          success = 'Account created! You can now sign in.';
+          mode = 'login';
+          password = '';
+          confirmPassword = '';
         } else {
           error = ('message' in result ? result.message : undefined) || 'Registration failed';
         }
@@ -131,22 +124,12 @@
         <div class="login__form-copy">
           <p class="login__form-kicker">{mode === 'login' ? 'Welcome back' : 'Create your account'}</p>
           <h2 class="login__form-title">
-            {#if isAuth0}
-              {mode === 'login' ? 'Continue in Auth0 to manage your filters.' : 'Create your account in Auth0.'}
-            {:else}
               {mode === 'login' ? 'Sign in to manage your filters.' : 'Start building a cleaner library.'}
-            {/if}
           </h2>
           <p class="login__form-subtitle">
-            {#if isAuth0}
-              {mode === 'login'
-                ? 'Auth0 handles email, password, passkeys, and social sign-in while Convex syncs your account record after login.'
-                : 'Use the hosted Auth0 flow to create your account, enroll MFA, or choose a social provider.'}
-            {:else}
               {mode === 'login'
                 ? 'Pick up where you left off and keep your blocklists in sync.'
                 : 'Create an account and start shaping what stays out of your rotation.'}
-            {/if}
           </p>
         </div>
 
@@ -182,23 +165,21 @@
             />
           </div>
 
-          {#if !isAuth0}
-            <div class="login__field">
-              <label for="password" class="login__label">Password</label>
-              <input
-                id="password"
-                type="password"
-                bind:value={password}
-                placeholder="Password"
-                autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
-                required
-                minlength="8"
-                class="login__input"
-              />
-            </div>
-          {/if}
+          <div class="login__field">
+            <label for="password" class="login__label">Password</label>
+            <input
+              id="password"
+              type="password"
+              bind:value={password}
+              placeholder="Password"
+              autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
+              required
+              minlength="8"
+              class="login__input"
+            />
+          </div>
 
-          {#if !isAuth0 && mode === 'register'}
+          {#if mode === 'register'}
             <div class="login__field">
               <label for="confirmPassword" class="login__label">Confirm Password</label>
               <input
@@ -222,19 +203,9 @@
             {#if isLoading}
               <div class="login__spinner"></div>
             {/if}
-            {#if isAuth0}
-              {mode === 'login' ? 'Continue with Auth0' : 'Create account with Auth0'}
-            {:else}
-              {mode === 'login' ? 'Sign in' : 'Create account'}
-            {/if}
+            {mode === 'login' ? 'Sign in' : 'Create account'}
           </button>
         </form>
-
-        {#if isAuth0}
-          <p class="login__switch-text">
-            Google, GitHub, Apple, passkeys, and MFA are configured in the hosted Auth0 flow for this environment.
-          </p>
-        {/if}
 
         <div class="login__switch">
           <span class="login__switch-text">{mode === 'login' ? "Don't have an account?" : 'Already have an account?'}</span>

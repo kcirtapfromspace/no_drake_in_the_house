@@ -67,7 +67,6 @@
     "vitest": "^1.0.0"
   },
   "dependencies": {
-    "@auth0/auth0-spa-js": "^2.8.1",
     "@skeletonlabs/skeleton": "^3.2.2",
     "@skeletonlabs/tw-plugin": "^0.4.1",
     "@uswds/uswds": "^3.13.0",

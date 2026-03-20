@@ -31,10 +31,6 @@
 	const MAINTENANCE_POLL_INTERVAL_MS = 5000;
 
 	async function isBackendHealthy(): Promise<boolean> {
-		if (config.auth.mode === 'auth0' && config.convex.url) {
-			return true;
-		}
-
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), BACKEND_HEALTH_TIMEOUT_MS);
 

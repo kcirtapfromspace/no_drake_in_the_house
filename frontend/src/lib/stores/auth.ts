@@ -1,15 +1,5 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
-import config from '../utils/config';
-import {
-  clearAuthSession,
-  initializeAuthSession,
-  isAuth0Mode,
-  loginWithAuth0,
-  logoutFromAuth0,
-  refreshAuthSession,
-  syncAuthToken,
-} from '../auth/auth0';
 
 export interface LinkedAccount {
   provider: string;
@@ -116,25 +106,8 @@ async function setAuthenticatedUser(user: User | null) {
   }));
 }
 
-async function beginAuth0Flow(mode: 'login' | 'register', email?: string, provider?: string) {
-  authStore.update((state) => ({ ...state, isLoading: true }));
-  await loginWithAuth0({
-    mode,
-    email,
-    provider,
-    returnTo: window.location.pathname,
-  });
-  return { success: true };
-}
-
 export const authActions = {
   login: async (email: string, password: string, totpCode?: string) => {
-    if (isAuth0Mode()) {
-      void password;
-      void totpCode;
-      return await beginAuth0Flow('login', email);
-    }
-
     authStore.update((state) => ({ ...state, isLoading: true }));
 
     const result = await apiClient.post<{ access_token: string; refresh_token: string }>(
@@ -175,14 +148,6 @@ export const authActions = {
     confirmPassword: string,
     termsAccepted: boolean,
   ) => {
-    if (isAuth0Mode()) {
-      void password;
-      void confirmPassword;
-      void termsAccepted;
-      authStore.update((state) => ({ ...state, justRegistered: true }));
-      return await beginAuth0Flow('register', email);
-    }
-
     authStore.update((state) => ({ ...state, isLoading: true }));
 
     const result = await apiClient.post<{ access_token?: string; refresh_token?: string; errors?: any }>(
@@ -229,15 +194,7 @@ export const authActions = {
 
   fetchProfile: async () => {
     try {
-      if (isAuth0Mode()) {
-        const authenticated = await initializeAuthSession();
-        if (!authenticated) {
-          resetState();
-          return;
-        }
-
-        await syncAuthToken();
-      } else if (!apiClient.getAuthToken()) {
+      if (!apiClient.getAuthToken()) {
         resetState();
         return;
       }
@@ -246,26 +203,15 @@ export const authActions = {
 
       if (result.success && result.data) {
         await setAuthenticatedUser(result.data);
-      } else if (isAuth0Mode()) {
-        resetState();
       } else {
         console.error('Failed to fetch profile:', result.message);
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error);
-      if (isAuth0Mode()) {
-        resetState();
-      }
     }
   },
 
   logout: async () => {
-    if (isAuth0Mode()) {
-      resetState();
-      await logoutFromAuth0(`${window.location.origin}${config.auth.auth0.redirectPath}`);
-      return;
-    }
-
     const token = apiClient.getAuthToken();
     if (token) {
       try {
@@ -281,18 +227,6 @@ export const authActions = {
   },
 
   refreshToken: async () => {
-    if (isAuth0Mode()) {
-      const refreshed = await refreshAuthSession();
-      if (refreshed) {
-        authStore.update((state) => ({
-          ...state,
-          token: localStorage.getItem('auth_token'),
-          isAuthenticated: true,
-        }));
-      }
-      return refreshed;
-    }
-
     const refreshToken = localStorage.getItem('refresh_token');
     if (!refreshToken) return false;
 
@@ -322,13 +256,6 @@ export const authActions = {
   },
 
   setup2FA: async () => {
-    if (isAuth0Mode()) {
-      return {
-        success: false,
-        message: 'MFA is managed in Auth0 during the Convex migration.',
-      };
-    }
-
     try {
       const result = await apiClient.authenticatedRequest<{ qr_code_url: string; secret: string }>(
         'POST',
@@ -350,14 +277,6 @@ export const authActions = {
   },
 
   verify2FA: async (code: string) => {
-    if (isAuth0Mode()) {
-      void code;
-      return {
-        success: false,
-        message: 'MFA verification is handled by Auth0 during sign-in.',
-      };
-    }
-
     try {
       const result = await apiClient.authenticatedRequest(
         'POST',
@@ -377,14 +296,6 @@ export const authActions = {
   },
 
   disable2FA: async (code: string) => {
-    if (isAuth0Mode()) {
-      void code;
-      return {
-        success: false,
-        message: 'MFA disablement is managed in Auth0 during the Convex migration.',
-      };
-    }
-
     try {
       const result = await apiClient.authenticatedRequest(
         'POST',
@@ -411,25 +322,6 @@ export const authActions = {
   },
 
   initiateOAuthFlow: async (provider: string) => {
-    if (isAuth0Mode()) {
-      authStore.update((state) => ({
-        ...state,
-        oauthFlow: {
-          provider,
-          state: null,
-          isInProgress: true,
-        },
-      }));
-
-      await loginWithAuth0({
-        mode: 'login',
-        provider,
-        returnTo: window.location.pathname,
-      });
-
-      return { success: true };
-    }
-
     authStore.update((state) => ({
       ...state,
       oauthFlow: {
@@ -593,29 +485,16 @@ export const authActions = {
 };
 
 if (typeof window !== 'undefined') {
-  if (isAuth0Mode()) {
-    initializeAuthSession()
-      .then((authenticated) => {
-        if (authenticated) {
-          return authActions.fetchProfile();
-        }
-        return clearAuthSession();
-      })
-      .catch((error) => {
-        console.error('Failed to initialize Auth0 session:', error);
-      });
-  } else {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      apiClient.setAuthToken(token);
-      authStore.update((state) => ({
-        ...state,
-        token,
-        isAuthenticated: true,
-        justRegistered: false,
-      }));
-      void authActions.fetchProfile();
-    }
+  const token = localStorage.getItem('auth_token');
+  if (token) {
+    apiClient.setAuthToken(token);
+    authStore.update((state) => ({
+      ...state,
+      token,
+      isAuthenticated: true,
+      justRegistered: false,
+    }));
+    void authActions.fetchProfile();
   }
 
   window.addEventListener('auth:logout', () => {

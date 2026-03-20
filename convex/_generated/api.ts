@@ -17,6 +17,7 @@ import type * as http from "../http.js";
 import type * as migration from "../migration.js";
 import type * as offenses from "../offenses.js";
 import type * as providerConnections from "../providerConnections.js";
+import type * as signing from "../signing.js";
 import type * as users from "../users.js";
 
 const fullApi: ApiFromModules<{
@@ -30,6 +31,7 @@ const fullApi: ApiFromModules<{
   migration: typeof migration;
   offenses: typeof offenses;
   providerConnections: typeof providerConnections;
+  signing: typeof signing;
   users: typeof users;
 }> = anyApi as any;
 

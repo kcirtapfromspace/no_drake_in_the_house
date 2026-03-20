@@ -645,7 +645,7 @@ jobs:
       ${{
         always() &&
         needs.changes.outputs.e2e == 'true' &&
-        contains(fromJSON('["success","skipped"]'), needs.e2e-backend-binary.result) &&
+        needs.e2e-backend-binary.result == 'success' &&
         contains(fromJSON('["success","skipped"]'), needs.frontend-unit-test.result)
       }}
 

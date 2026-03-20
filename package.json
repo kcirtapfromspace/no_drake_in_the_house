@@ -7,7 +7,7 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "migrate:convex": "tsx scripts/convex/migrate-postgres-to-convex.ts",
-    "migrate:auth0:users": "tsx scripts/convex/export-auth0-users.ts"
+    "lint": "npm run lint --prefix frontend"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",

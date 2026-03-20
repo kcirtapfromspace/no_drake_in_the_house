@@ -1,7 +1,6 @@
-import { createSign } from "node:crypto";
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 
 const http = httpRouter();
 
@@ -15,13 +14,11 @@ http.route({
       payload = await ctx.runQuery(api.extension.getLatestPublicSnapshot, {});
     }
 
-    const privateKey = process.env.EXTENSION_SIGNING_PRIVATE_KEY_PEM;
-    const signature = privateKey
-      ? createSign("RSA-SHA256")
-          .update(JSON.stringify(payload))
-          .end()
-          .sign(privateKey, "base64")
-      : "";
+    const payloadJson = JSON.stringify(payload);
+    const signature: string = await ctx.runAction(
+      internal.signing.signPayload,
+      { payload: payloadJson },
+    );
 
     return new Response(
       JSON.stringify({

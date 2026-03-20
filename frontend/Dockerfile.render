@@ -10,9 +10,13 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked \
 
 COPY . .
 
+# Convex deployment URL – injected at build time via Render env var.
+ARG VITE_CONVEX_URL=""
+
 # Render serves the frontend and proxies backend traffic from the same origin,
 # so the client should emit relative /api and /oauth requests.
 RUN VITE_API_URL=__RELATIVE__ \
+    VITE_CONVEX_URL="${VITE_CONVEX_URL}" \
     VITE_ENVIRONMENT=production \
     VITE_HOT_RELOAD=false \
     VITE_DEBUG_MODE=false \

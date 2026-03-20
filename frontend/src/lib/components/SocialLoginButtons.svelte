@@ -1,8 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { api } from '../utils/api';
-  import config from '../utils/config';
-  import { authActions } from '../stores/auth';
   
   const dispatch = createEventDispatcher();
   
@@ -23,17 +21,6 @@
     dispatch('loading', { provider, loading: true });
     
     try {
-      if (config.auth.mode === 'auth0') {
-        const result = await authActions.initiateOAuthFlow(provider);
-        if (!result.success) {
-          dispatch('error', {
-            provider,
-            message: result.message || `Failed to initiate ${provider} login`,
-          });
-        }
-        return;
-      }
-
       const result = await api.post<OAuthFlowResponse>(`/auth/oauth/${provider}/initiate`);
       
       if (result.success && result.data) {

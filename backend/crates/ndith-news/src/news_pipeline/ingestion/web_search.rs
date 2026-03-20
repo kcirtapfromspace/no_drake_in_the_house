@@ -157,10 +157,7 @@ impl WebSearchClient {
             .await
             .context("Failed to parse Brave Search response")?;
 
-        let results = search_response
-            .web
-            .map(|w| w.results)
-            .unwrap_or_default();
+        let results = search_response.web.map(|w| w.results).unwrap_or_default();
 
         let articles: Vec<FetchedArticle> = results
             .into_iter()

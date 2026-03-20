@@ -451,7 +451,18 @@ pub async fn get_offense_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(offense_id = %offense_id, "Get offense detail request");
 
-    let row: Option<(Uuid, Uuid, Option<Uuid>, String, String, f64, Option<String>, bool, String, String)> = sqlx::query_as(
+    let row: Option<(
+        Uuid,
+        Uuid,
+        Option<Uuid>,
+        String,
+        String,
+        f64,
+        Option<String>,
+        bool,
+        String,
+        String,
+    )> = sqlx::query_as(
         r#"
         SELECT
             noc.id,
@@ -513,10 +524,21 @@ pub async fn verify_offense_handler(
     );
 
     let valid_categories = [
-        "sexual_misconduct", "domestic_violence", "hate_speech", "racism",
-        "antisemitism", "homophobia", "child_abuse", "animal_cruelty",
-        "financial_crimes", "drug_offenses", "violent_crimes", "harassment",
-        "plagiarism", "certified_creeper", "other",
+        "sexual_misconduct",
+        "domestic_violence",
+        "hate_speech",
+        "racism",
+        "antisemitism",
+        "homophobia",
+        "child_abuse",
+        "animal_cruelty",
+        "financial_crimes",
+        "drug_offenses",
+        "violent_crimes",
+        "harassment",
+        "plagiarism",
+        "certified_creeper",
+        "other",
     ];
 
     if let Some(ref category) = request.corrected_category {
@@ -539,7 +561,9 @@ pub async fn verify_offense_handler(
     }
 
     // Update the classification — build query dynamically based on what's provided
-    let mut query = String::from("UPDATE news_offense_classifications SET human_verified = true, updated_at = NOW()");
+    let mut query = String::from(
+        "UPDATE news_offense_classifications SET human_verified = true, updated_at = NOW()",
+    );
 
     if request.corrected_category.is_some() {
         query.push_str(", offense_category = $2::offense_category");
@@ -655,10 +679,7 @@ pub async fn trigger_pipeline_handler(
 
         // Spawn backfill in background
         tokio::spawn(async move {
-            match backfill
-                .backfill_artist_offenses(10, Some(50), 7)
-                .await
-            {
+            match backfill.backfill_artist_offenses(10, Some(50), 7).await {
                 Ok(result) => {
                     tracing::info!(
                         run_id = %run_id,
@@ -892,22 +913,20 @@ pub async fn get_research_status_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Research status request");
 
-    let researched: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM artist_research_quality"
-    )
-    .fetch_one(&state.db_pool)
-    .await
-    .unwrap_or(0);
+    let researched: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM artist_research_quality")
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap_or(0);
 
     let completed: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM artist_research_quality WHERE needs_more_research = false"
+        "SELECT COUNT(*) FROM artist_research_quality WHERE needs_more_research = false",
     )
     .fetch_one(&state.db_pool)
     .await
     .unwrap_or(0);
 
     let avg_quality: f64 = sqlx::query_scalar::<_, f64>(
-        "SELECT COALESCE(AVG(quality_score)::float8, 0) FROM artist_research_quality"
+        "SELECT COALESCE(AVG(quality_score)::float8, 0) FROM artist_research_quality",
     )
     .fetch_one(&state.db_pool)
     .await
@@ -1022,15 +1041,14 @@ pub async fn trigger_artist_research_handler(
     tracing::info!(artist_id = %artist_id, "Trigger artist research request");
 
     // Look up artist name
-    let artist_name: Option<String> = sqlx::query_scalar(
-        "SELECT canonical_name FROM artists WHERE id = $1",
-    )
-    .bind(artist_id)
-    .fetch_optional(&state.db_pool)
-    .await
-    .map_err(|e: sqlx::Error| AppError::Internal {
-        message: Some(format!("Failed to lookup artist: {}", e)),
-    })?;
+    let artist_name: Option<String> =
+        sqlx::query_scalar("SELECT canonical_name FROM artists WHERE id = $1")
+            .bind(artist_id)
+            .fetch_optional(&state.db_pool)
+            .await
+            .map_err(|e: sqlx::Error| AppError::Internal {
+                message: Some(format!("Failed to lookup artist: {}", e)),
+            })?;
 
     let artist_name = match artist_name {
         Some(n) => n,

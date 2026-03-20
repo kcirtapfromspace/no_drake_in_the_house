@@ -69,9 +69,7 @@ impl LlmBudgetConfig {
             .and_then(|v| v.parse().ok())
             .unwrap_or(0.0);
 
-        let usage_file = std::env::var("LLM_USAGE_FILE")
-            .ok()
-            .map(PathBuf::from);
+        let usage_file = std::env::var("LLM_USAGE_FILE").ok().map(PathBuf::from);
 
         Self {
             kill_switch,

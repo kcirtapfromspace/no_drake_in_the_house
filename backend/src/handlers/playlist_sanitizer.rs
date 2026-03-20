@@ -13,11 +13,12 @@ use uuid::Uuid;
 use crate::error::AppError;
 use crate::models::{
     AuthenticatedUser, ConfirmPlanRequest, Connection, ConnectionStatus, GradePlaylistRequest,
-    GradeResponse, PublishResponse, StreamingProvider, SuggestReplacementsRequest,
-    SuggestResponse,
+    GradeResponse, PublishResponse, StreamingProvider, SuggestReplacementsRequest, SuggestResponse,
 };
 use crate::AppState;
-use ndith_services::{PlaylistSanitizerService, SpotifyLibraryService, SpotifyService, TokenVaultService};
+use ndith_services::{
+    PlaylistSanitizerService, SpotifyLibraryService, SpotifyService, TokenVaultService,
+};
 
 /// POST /api/v1/sanitizer/grade
 ///
@@ -179,11 +180,7 @@ fn parse_playlist_id(input: &str) -> String {
     // Handle Spotify URLs like https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=...
     if input.contains("spotify.com/playlist/") {
         if let Some(id_part) = input.split("playlist/").nth(1) {
-            return id_part
-                .split('?')
-                .next()
-                .unwrap_or(id_part)
-                .to_string();
+            return id_part.split('?').next().unwrap_or(id_part).to_string();
         }
     }
     // Handle spotify: URIs
@@ -200,11 +197,11 @@ fn parse_playlist_id(input: &str) -> String {
 fn create_sanitizer_service(state: &AppState) -> Result<PlaylistSanitizerService, AppError> {
     let spotify_config = ndith_services::SpotifyConfig::default();
     let token_vault = Arc::new(TokenVaultService::with_pool(state.db_pool.clone()));
-    let spotify_service = Arc::new(
-        SpotifyService::new(spotify_config, token_vault).map_err(|e| AppError::Internal {
+    let spotify_service = Arc::new(SpotifyService::new(spotify_config, token_vault).map_err(
+        |e| AppError::Internal {
             message: Some(format!("Failed to initialize Spotify service: {}", e)),
-        })?,
-    );
+        },
+    )?);
     let library_service = Arc::new(SpotifyLibraryService::new(spotify_service.clone()));
 
     Ok(PlaylistSanitizerService::new(
@@ -228,9 +225,12 @@ async fn setup_sanitizer(
     let connection = connections
         .into_iter()
         .find(|c| c.provider == StreamingProvider::Spotify && c.status == ConnectionStatus::Active)
-        .ok_or_else(|| AppError::InvalidRequestFormat(
-            "No active Spotify connection. Please connect your Spotify account first.".to_string(),
-        ))?;
+        .ok_or_else(|| {
+            AppError::InvalidRequestFormat(
+                "No active Spotify connection. Please connect your Spotify account first."
+                    .to_string(),
+            )
+        })?;
 
     Ok((sanitizer, connection))
 }

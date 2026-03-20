@@ -808,9 +808,7 @@ impl SpotifyService {
             params.join("&")
         );
 
-        let response = self
-            .make_api_request(connection, "GET", &url, None)
-            .await?;
+        let response = self.make_api_request(connection, "GET", &url, None).await?;
 
         if response.status().is_success() {
             let json: serde_json::Value = response.json().await?;
@@ -820,10 +818,7 @@ impl SpotifyService {
                 .cloned()
                 .unwrap_or_default();
 
-            tracing::info!(
-                "Got {} recommendations from Spotify",
-                tracks.len()
-            );
+            tracing::info!("Got {} recommendations from Spotify", tracks.len());
             Ok(tracks)
         } else {
             let status = response.status();
@@ -876,11 +871,7 @@ impl SpotifyService {
                 .unwrap_or("")
                 .to_string();
 
-            tracing::info!(
-                "Created playlist '{}' ({})",
-                name,
-                playlist_id
-            );
+            tracing::info!("Created playlist '{}' ({})", name, playlist_id);
             Ok((playlist_id, playlist_url))
         } else {
             let status = response.status();

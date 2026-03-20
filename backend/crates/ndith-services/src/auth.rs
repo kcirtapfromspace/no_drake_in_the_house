@@ -6,11 +6,11 @@ use crate::oauth_encryption::OAuthTokenEncryption;
 use crate::oauth_error_recovery::{OAuthErrorRecoveryConfig, OAuthErrorRecoveryService};
 use crate::oauth_github::GitHubOAuthProvider;
 use crate::oauth_google::GoogleOAuthProvider;
-use crate::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::oauth_health_monitor::{
     OAuthHealthConfig, OAuthHealthMonitor, OAuthProviderHealthStatus,
 };
 use crate::oauth_security_logger::OAuthSecurityLogger;
+use crate::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::registration_performance::RegistrationPerformanceService;
 use anyhow::anyhow;
 use bcrypt::{hash, verify};

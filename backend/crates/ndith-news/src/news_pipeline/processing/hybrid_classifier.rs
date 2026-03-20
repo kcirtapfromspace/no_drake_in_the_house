@@ -105,7 +105,10 @@ mod tests {
 
         let article_id = Uuid::new_v4();
         let text = "The artist committed massive fraud and embezzlement.";
-        let results = classifier.classify(article_id, text, None, &[]).await.unwrap();
+        let results = classifier
+            .classify(article_id, text, None, &[])
+            .await
+            .unwrap();
 
         let stats = classifier.get_stats().await;
         assert_eq!(stats.total_articles, 1);

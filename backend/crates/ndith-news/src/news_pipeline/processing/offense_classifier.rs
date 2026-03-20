@@ -529,7 +529,8 @@ impl OffenseClassifier {
                 .map(|s| s.to_string())
                 .collect(),
                 patterns: vec![
-                    Regex::new(r"(?i)(harass|stalk|threaten|bully)\s+(his|her|their|a|the)").unwrap(),
+                    Regex::new(r"(?i)(harass|stalk|threaten|bully)\s+(his|her|their|a|the)")
+                        .unwrap(),
                     Regex::new(r"(?i)accused\s+of\s+(harassment|stalking|threats)").unwrap(),
                 ],
                 severity_modifiers: [
@@ -564,7 +565,10 @@ impl OffenseClassifier {
                 .collect(),
                 patterns: vec![
                     Regex::new(r"(?i)plagiari(sm|zed|sed)").unwrap(),
-                    Regex::new(r"(?i)(stole|copied|ripped off)\s+(the\s+)?(song|beat|melody|lyrics)").unwrap(),
+                    Regex::new(
+                        r"(?i)(stole|copied|ripped off)\s+(the\s+)?(song|beat|melody|lyrics)",
+                    )
+                    .unwrap(),
                     Regex::new(r"(?i)copyright\s+(infringement|lawsuit|violation)").unwrap(),
                 ],
                 severity_modifiers: [
@@ -594,7 +598,10 @@ impl OffenseClassifier {
                 .map(|s| s.to_string())
                 .collect(),
                 patterns: vec![
-                    Regex::new(r"(?i)(dating|relationship with)\s+(a\s+)?(minor|underage|teenager|teen)").unwrap(),
+                    Regex::new(
+                        r"(?i)(dating|relationship with)\s+(a\s+)?(minor|underage|teenager|teen)",
+                    )
+                    .unwrap(),
                     Regex::new(r"(?i)groom(ed|ing)\s+(a\s+)?(minor|underage|young|teen)").unwrap(),
                 ],
                 severity_modifiers: [
@@ -890,7 +897,10 @@ mod tests {
             .iter()
             .find(|c| c.category == OffenseCategory::FinancialCrimes);
         if let Some(fin) = financial {
-            assert!(fin.confidence > 0.3, "Financial crimes confidence should not be reduced by unrelated negation");
+            assert!(
+                fin.confidence > 0.3,
+                "Financial crimes confidence should not be reduced by unrelated negation"
+            );
         }
     }
 

@@ -156,10 +156,7 @@ impl PlaylistSanitizerService {
             // Check each artist against blocklist
             let mut is_blocked = false;
             for artist in &artists {
-                let artist_id = artist
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let artist_id = artist.get("id").and_then(|v| v.as_str()).unwrap_or("");
                 let artist_name = artist
                     .get("name")
                     .and_then(|v| v.as_str())
@@ -222,14 +219,14 @@ impl PlaylistSanitizerService {
 
         let artist_breakdown: Vec<BlockedArtistBreakdown> = artist_counts
             .into_iter()
-            .map(|(artist_id, (artist_name, track_count, block_reason))| {
-                BlockedArtistBreakdown {
+            .map(
+                |(artist_id, (artist_name, track_count, block_reason))| BlockedArtistBreakdown {
                     artist_id,
                     artist_name,
                     track_count,
                     block_reason,
-                }
-            })
+                },
+            )
             .collect();
 
         Ok(PlaylistGrade {
@@ -323,18 +320,14 @@ impl PlaylistSanitizerService {
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string();
-                        let popularity = rec
-                            .get("popularity")
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(0) as u32;
+                        let popularity =
+                            rec.get("popularity").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                         let preview_url = rec
                             .get("preview_url")
                             .and_then(|v| v.as_str())
                             .map(|s| s.to_string());
-                        let duration_ms = rec
-                            .get("duration_ms")
-                            .and_then(|v| v.as_u64())
-                            .unwrap_or(0) as u32;
+                        let duration_ms =
+                            rec.get("duration_ms").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
                         let spotify_uri = rec
                             .get("uri")
                             .and_then(|v| v.as_str())
@@ -531,10 +524,12 @@ impl PlaylistSanitizerService {
         }
 
         // Mark as publishing
-        sqlx::query("UPDATE sanitization_plans SET status = 'publishing', updated_at = NOW() WHERE id = $1")
-            .bind(plan_id)
-            .execute(&self.db_pool)
-            .await?;
+        sqlx::query(
+            "UPDATE sanitization_plans SET status = 'publishing', updated_at = NOW() WHERE id = $1",
+        )
+        .bind(plan_id)
+        .execute(&self.db_pool)
+        .await?;
 
         let selected = plan
             .selected_replacements
@@ -609,14 +604,8 @@ impl PlaylistSanitizerService {
                     Some(t) if !t.is_null() => t,
                     _ => continue,
                 };
-                let track_id = track
-                    .get("id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
-                let track_uri = track
-                    .get("uri")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("");
+                let track_id = track.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                let track_uri = track.get("uri").and_then(|v| v.as_str()).unwrap_or("");
 
                 if blocked_track_ids.contains(track_id) {
                     // This track is blocked — check for replacement
@@ -661,7 +650,13 @@ impl PlaylistSanitizerService {
         // Create the playlist
         let (new_playlist_id, new_playlist_url) = self
             .spotify_service
-            .create_playlist(connection, spotify_user_id, target_name, &description, false)
+            .create_playlist(
+                connection,
+                spotify_user_id,
+                target_name,
+                &description,
+                false,
+            )
             .await?;
 
         // Add tracks in batches of 100

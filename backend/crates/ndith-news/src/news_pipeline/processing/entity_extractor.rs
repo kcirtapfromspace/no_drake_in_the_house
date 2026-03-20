@@ -293,7 +293,11 @@ impl EntityExtractor {
         }
 
         // All-caps names (like DMX, NAS) are often stage names
-        if name.chars().all(|c| c.is_uppercase() || c.is_whitespace() || c == '$') && name.len() >= 2 {
+        if name
+            .chars()
+            .all(|c| c.is_uppercase() || c.is_whitespace() || c == '$')
+            && name.len() >= 2
+        {
             confidence += 0.15;
         }
 

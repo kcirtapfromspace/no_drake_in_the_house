@@ -22,8 +22,8 @@ pub mod repository;
 // Re-export main types
 pub use ingestion::{
     FetchedArticle, NewsApiClient, NewsApiConfig, RedditConfig, RedditMonitor, RssFetcher,
-    RssFetcherConfig, TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig,
-    WebSearchClient, WebSearchConfig, WikipediaClient,
+    RssFetcherConfig, TwitterConfig, TwitterMonitor, WebScraper, WebScraperConfig, WebSearchClient,
+    WebSearchConfig, WikipediaClient,
 };
 
 pub use processing::{
@@ -43,7 +43,11 @@ pub use repository::{ArticleFilters, ArticleSummary, NewsRepository};
 pub use offense_creator::{OffenseCreationResult, OffenseCreator};
 
 pub use autoresearch::{
-    ArtistResearcher, ArtistResearcherConfig, ResearchResult,
+    ArtistResearcher,
+    ArtistResearcherConfig,
     // Backward-compatible aliases
-    AutoresearchAgent, AutoresearchConfig, AutoresearchResult,
+    AutoresearchAgent,
+    AutoresearchConfig,
+    AutoresearchResult,
+    ResearchResult,
 };

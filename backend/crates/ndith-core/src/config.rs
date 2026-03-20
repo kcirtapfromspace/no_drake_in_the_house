@@ -753,8 +753,8 @@ pub fn public_backend_base_url() -> String {
     let frontend_base = public_frontend_base_url();
 
     // Explicit backend base URL always wins.
-    if let Some(explicit) = non_empty_env("OAUTH_BACKEND_BASE_URL")
-        .or_else(|| non_empty_env("PUBLIC_BACKEND_BASE_URL"))
+    if let Some(explicit) =
+        non_empty_env("OAUTH_BACKEND_BASE_URL").or_else(|| non_empty_env("PUBLIC_BACKEND_BASE_URL"))
     {
         return sanitize_backend_base_url(explicit, &frontend_base);
     }

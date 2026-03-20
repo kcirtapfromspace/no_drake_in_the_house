@@ -468,10 +468,10 @@ impl OAuthConfigValidator {
         };
 
         // YouTube Music falls back to Google credentials
-        let client_id = env::var("YOUTUBE_MUSIC_CLIENT_ID")
-            .or_else(|_| env::var("GOOGLE_CLIENT_ID"));
-        let client_secret = env::var("YOUTUBE_MUSIC_CLIENT_SECRET")
-            .or_else(|_| env::var("GOOGLE_CLIENT_SECRET"));
+        let client_id =
+            env::var("YOUTUBE_MUSIC_CLIENT_ID").or_else(|_| env::var("GOOGLE_CLIENT_ID"));
+        let client_secret =
+            env::var("YOUTUBE_MUSIC_CLIENT_SECRET").or_else(|_| env::var("GOOGLE_CLIENT_SECRET"));
 
         if client_id.is_err() {
             validation

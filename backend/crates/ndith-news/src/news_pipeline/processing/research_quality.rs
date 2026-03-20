@@ -209,8 +209,8 @@ impl ResearchQualityScorer {
 
     /// Persist the quality score to database
     pub async fn persist(&self, score: &ResearchQualityScore) -> Result<()> {
-        let sources_json = serde_json::to_value(&score.sources_searched)
-            .unwrap_or(serde_json::json!([]));
+        let sources_json =
+            serde_json::to_value(&score.sources_searched).unwrap_or(serde_json::json!([]));
 
         sqlx::query(
             r#"

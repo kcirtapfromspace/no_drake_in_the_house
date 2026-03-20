@@ -15,8 +15,8 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use super::ingestion::{WebSearchClient, WikipediaClient};
@@ -255,8 +255,7 @@ impl ArtistResearcher {
                         self.free_tier_budget.record_newsapi();
                         if !processed.is_empty() {
                             sources_used.push("newsapi".to_string());
-                            let offenses: usize =
-                                processed.iter().map(|p| p.offenses.len()).sum();
+                            let offenses: usize = processed.iter().map(|p| p.offenses.len()).sum();
                             total_articles += processed.len();
                             total_offenses += offenses;
                         }
@@ -313,11 +312,7 @@ impl ArtistResearcher {
     }
 
     /// Record which sources were searched for this artist
-    async fn record_sources_searched(
-        &self,
-        artist_id: Uuid,
-        sources: &[String],
-    ) -> Result<()> {
+    async fn record_sources_searched(&self, artist_id: Uuid, sources: &[String]) -> Result<()> {
         if sources.is_empty() {
             return Ok(());
         }

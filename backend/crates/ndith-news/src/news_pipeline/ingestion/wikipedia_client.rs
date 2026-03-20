@@ -79,7 +79,10 @@ impl WikipediaClient {
             articles.push(FetchedArticle {
                 id: Uuid::new_v4(),
                 source_id: Uuid::nil(),
-                url: format!("https://en.wikipedia.org/wiki/{}", urlencoding::encode(&title)),
+                url: format!(
+                    "https://en.wikipedia.org/wiki/{}",
+                    urlencoding::encode(&title)
+                ),
                 title: format!("{} - {} (Wikipedia)", artist_name, section_name),
                 content: Some(content),
                 published_at: None,
@@ -124,7 +127,10 @@ impl WikipediaClient {
         // Find the best match — prefer exact match or musician/singer articles
         for result in &results {
             let title = result["title"].as_str().unwrap_or_default();
-            let snippet = result["snippet"].as_str().unwrap_or_default().to_lowercase();
+            let snippet = result["snippet"]
+                .as_str()
+                .unwrap_or_default()
+                .to_lowercase();
 
             if snippet.contains("musician")
                 || snippet.contains("singer")
@@ -176,8 +182,7 @@ impl WikipediaClient {
         let mut sections = Vec::new();
 
         // Try to find section headers (h2, h3) that match our sections of interest
-        let heading_selector =
-            Selector::parse("h2, h3").expect("Invalid heading selector");
+        let heading_selector = Selector::parse("h2, h3").expect("Invalid heading selector");
 
         let headings: Vec<_> = document.select(&heading_selector).collect();
 

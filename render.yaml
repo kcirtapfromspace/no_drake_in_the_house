@@ -35,8 +35,16 @@ services:
       - key: KMS_MOCK_MASTER_KEY
         sync: false
       - key: OAUTH_FRONTEND_BASE_URL
-        sync: false
+        value: https://nodrakeinthe.house
       - key: CORS_ALLOWED_ORIGINS
+        value: https://nodrakeinthe.house
+      - key: TIDAL_CLIENT_ID
+        sync: false
+      - key: TIDAL_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
         sync: false
 
   - type: web

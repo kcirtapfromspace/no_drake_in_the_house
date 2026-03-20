@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { connectionActions, spotifyConnection, appleMusicConnection } from '../stores/connections';
+  import { connectionActions, spotifyConnection, appleMusicConnection, tidalConnection, youtubeConnection } from '../stores/connections';
 
   let isConnecting = false;
   let isConnectingApple = false;
+  let isConnectingTidal = false;
+  let isConnectingYouTube = false;
   let error = '';
 
   onMount(() => {
@@ -94,6 +96,62 @@
     if (!result.healthy) {
       error = result.error || 'Apple Music connection is unhealthy';
     }
+  }
+
+  // Tidal functions
+  async function connectTidal() {
+    isConnectingTidal = true;
+    error = '';
+
+    try {
+      const result = await connectionActions.initiateTidalAuth();
+      if (!result.success && !result.alreadyConnected) {
+        error = result.message || 'Failed to initiate Tidal connection';
+        isConnectingTidal = false;
+      }
+    } catch (err) {
+      error = 'Failed to initiate Tidal connection';
+      isConnectingTidal = false;
+    }
+  }
+
+  async function disconnectTidal() {
+    const result = await connectionActions.disconnectTidal();
+
+    if (!result.success) {
+      error = result.message || 'Failed to disconnect Tidal';
+    }
+  }
+
+  async function checkTidalHealth() {
+    await connectionActions.getTidalStatus();
+    await connectionActions.fetchConnections();
+  }
+
+  // YouTube Music functions
+  async function connectYouTube() {
+    isConnectingYouTube = true;
+    error = '';
+
+    try {
+      await connectionActions.initiateYouTubeAuth();
+    } catch (err) {
+      error = 'Failed to initiate YouTube Music connection';
+      isConnectingYouTube = false;
+    }
+  }
+
+  async function disconnectYouTube() {
+    const result = await connectionActions.disconnectYouTube();
+
+    if (!result.success) {
+      error = result.message || 'Failed to disconnect YouTube Music';
+    }
+  }
+
+  async function checkYouTubeHealth() {
+    await connectionActions.getYouTubeStatus();
+    await connectionActions.fetchConnections();
   }
 
   function getStatusColor(status: string) {
@@ -285,9 +343,87 @@
         </div>
       </li>
 
-      <!-- YouTube Music (Coming Soon) -->
+      <!-- Tidal Connection -->
       <li style="border-top: 1px solid #52525b;">
-        <div class="px-4 py-4 flex items-center justify-between opacity-50">
+        <div class="px-4 py-4 flex items-center justify-between">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <div class="avatar avatar--lg bg-blue-500">
+                <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996l4.004 4.004L8.008 8l4.004 4 4.004-4-4.004-4.004zm0 8.008l-4.004 4.004L12.012 20l4.004-4.004z"/>
+                </svg>
+              </div>
+            </div>
+            <div class="ml-4">
+              <div class="flex items-center">
+                <p class="text-zinc-400 font-medium text-white">Tidal</p>
+                {#if $tidalConnection}
+                  <span class="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getStatusColor($tidalConnection.status)}">
+                    {$tidalConnection.status}
+                  </span>
+                {/if}
+              </div>
+              <div class="mt-1">
+                {#if $tidalConnection}
+                  <p class="text-zinc-300">
+                    Connected {formatDate($tidalConnection.created_at)}
+                    {#if $tidalConnection.provider_user_id}
+                      - User ID: {$tidalConnection.provider_user_id}
+                    {/if}
+                  </p>
+                  {#if $tidalConnection.scopes.length > 0}
+                    <p class="text-zinc-300 mt-1">
+                      Permissions: {$tidalConnection.scopes.join(', ')}
+                    </p>
+                  {/if}
+                {:else}
+                  <p class="text-zinc-300">
+                    Connect your Tidal account to manage your music library
+                  </p>
+                {/if}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center space-x-2">
+            {#if $tidalConnection}
+              <button
+                on:click={checkTidalHealth}
+                class="inline-flex items-center px-3 py-2 shadow-sm text-zinc-400 leading-4 font-medium rounded-uswds-md text-zinc-300 hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" style="border: 1px solid #52525b; background: #3f3f46;"
+              >
+                Check Health
+              </button>
+              <button
+                on:click={disconnectTidal}
+                class="inline-flex items-center px-3 py-2 border border-transparent text-zinc-400 leading-4 font-medium rounded-uswds-md text-zinc-400 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Disconnect
+              </button>
+            {:else}
+              <button
+                on:click={connectTidal}
+                disabled={isConnectingTidal}
+                class="inline-flex items-center px-4 py-2 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background: linear-gradient(135deg, #0d3b66 0%, #1a7f8a 100%);"
+              >
+                {#if isConnectingTidal}
+                  <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Connecting...
+                {:else}
+                  Connect
+                {/if}
+              </button>
+            {/if}
+          </div>
+        </div>
+      </li>
+
+      <!-- YouTube Music Connection -->
+      <li style="border-top: 1px solid #52525b;">
+        <div class="px-4 py-4 flex items-center justify-between">
           <div class="flex items-center">
             <div class="flex-shrink-0">
               <div class="avatar avatar--lg bg-red-500">
@@ -299,22 +435,66 @@
             <div class="ml-4">
               <div class="flex items-center">
                 <p class="text-zinc-400 font-medium text-white">YouTube Music</p>
-                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium text-zinc-300 bg-zinc-700">
-                  Coming Soon
-                </span>
+                {#if $youtubeConnection}
+                  <span class="ml-2 flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getStatusColor($youtubeConnection.status)}">
+                    {$youtubeConnection.status}
+                  </span>
+                {/if}
               </div>
-              <p class="text-zinc-300 mt-1">
-                YouTube Music integration will be available in a future update
-              </p>
+              <div class="mt-1">
+                {#if $youtubeConnection}
+                  <p class="text-zinc-300">
+                    Connected {formatDate($youtubeConnection.created_at)}
+                    {#if $youtubeConnection.provider_user_id}
+                      - User ID: {$youtubeConnection.provider_user_id}
+                    {/if}
+                  </p>
+                  {#if $youtubeConnection.scopes.length > 0}
+                    <p class="text-zinc-300 mt-1">
+                      Permissions: {$youtubeConnection.scopes.join(', ')}
+                    </p>
+                  {/if}
+                {:else}
+                  <p class="text-zinc-300">
+                    Connect your YouTube Music account to manage your music library
+                  </p>
+                {/if}
+              </div>
             </div>
           </div>
 
-          <button
-            disabled
-            class="inline-flex items-center px-4 py-2 text-zinc-400 font-medium rounded-uswds-md text-zinc-400 bg-zinc-700 cursor-not-allowed" style="border: 1px solid #52525b;"
-          >
-            Coming Soon
-          </button>
+          <div class="flex items-center space-x-2">
+            {#if $youtubeConnection}
+              <button
+                on:click={checkYouTubeHealth}
+                class="inline-flex items-center px-3 py-2 shadow-sm text-zinc-400 leading-4 font-medium rounded-uswds-md text-zinc-300 hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" style="border: 1px solid #52525b; background: #3f3f46;"
+              >
+                Check Health
+              </button>
+              <button
+                on:click={disconnectYouTube}
+                class="inline-flex items-center px-3 py-2 border border-transparent text-zinc-400 leading-4 font-medium rounded-uswds-md text-zinc-400 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                Disconnect
+              </button>
+            {:else}
+              <button
+                on:click={connectYouTube}
+                disabled={isConnectingYouTube}
+                class="inline-flex items-center px-4 py-2 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-red-500 hover:bg-rose-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {#if isConnectingYouTube}
+                  <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Connecting...
+                {:else}
+                  Connect
+                {/if}
+              </button>
+            {/if}
+          </div>
         </div>
       </li>
     </ul>
@@ -340,7 +520,8 @@
           <ul class="list-disc list-inside mt-2 space-y-1">
             <li>Spotify: Full library management and playlist modification</li>
             <li>Apple Music: Dislikes songs/albums from blocked artists (influences recommendations)</li>
-            <li>YouTube Music: Browser extension support only (coming soon)</li>
+            <li>Tidal: Library management and collection sync</li>
+            <li>YouTube Music: Full library management and liked videos sync</li>
           </ul>
         </div>
       </div>

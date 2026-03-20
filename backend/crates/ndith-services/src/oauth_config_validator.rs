@@ -37,6 +37,7 @@ impl OAuthConfigValidator {
         self.validate_apple_config();
         self.validate_github_config();
         self.validate_spotify_config();
+        self.validate_youtube_music_config();
 
         // Log summary
         self.log_validation_summary();
@@ -108,10 +109,10 @@ impl OAuthConfigValidator {
             warnings: Vec::new(),
         };
 
-        // Check required environment variables
+        // Check required environment variables (GOOGLE_REDIRECT_URI is optional —
+        // it falls back to provider_callback_uri("google") when not set)
         let client_id = env::var("GOOGLE_CLIENT_ID");
         let client_secret = env::var("GOOGLE_CLIENT_SECRET");
-        let redirect_uri = env::var("GOOGLE_REDIRECT_URI");
 
         // Track missing variables
         if client_id.is_err() {
@@ -124,16 +125,9 @@ impl OAuthConfigValidator {
                 .missing_variables
                 .push("GOOGLE_CLIENT_SECRET".to_string());
         }
-        if redirect_uri.is_err() {
-            validation
-                .missing_variables
-                .push("GOOGLE_REDIRECT_URI".to_string());
-        }
 
-        // If all variables are present, validate their values
-        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) =
-            (client_id, client_secret, redirect_uri)
-        {
+        // If required variables are present, validate their values
+        if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
             validation.is_configured = true;
 
             // Validate client ID format (Google client IDs end with .apps.googleusercontent.com)
@@ -152,11 +146,20 @@ impl OAuthConfigValidator {
                     .push("GOOGLE_CLIENT_SECRET cannot be empty".to_string());
             }
 
-            // Validate redirect URI format
-            if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
-                validation
-                    .validation_errors
-                    .push("GOOGLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string());
+            // Validate explicit redirect URI if provided
+            if let Ok(redirect_uri) = env::var("GOOGLE_REDIRECT_URI") {
+                if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
+                    validation
+                        .validation_errors
+                        .push("GOOGLE_REDIRECT_URI must be a valid HTTP/HTTPS URL".to_string());
+                }
+                if !redirect_uri.contains("/auth/callback")
+                    && !redirect_uri.contains("/oauth/callback")
+                {
+                    validation.warnings.push(
+                        "GOOGLE_REDIRECT_URI should point to OAuth callback endpoint (e.g., /auth/callback/google)".to_string()
+                    );
+                }
             }
 
             // Check for development/demo configuration
@@ -164,14 +167,6 @@ impl OAuthConfigValidator {
                 validation.warnings.push(
                     "Using demo Google OAuth configuration - not suitable for production"
                         .to_string(),
-                );
-            }
-
-            // Validate redirect URI points to callback endpoint
-            if !redirect_uri.contains("/auth/callback") && !redirect_uri.contains("/oauth/callback")
-            {
-                validation.warnings.push(
-                    "GOOGLE_REDIRECT_URI should point to OAuth callback endpoint (e.g., /auth/callback/google)".to_string()
                 );
             }
 
@@ -460,6 +455,58 @@ impl OAuthConfigValidator {
             .insert(OAuthProviderType::Spotify, validation);
     }
 
+    /// Validate YouTube Music OAuth configuration
+    /// Uses Google OAuth credentials (YOUTUBE_MUSIC_CLIENT_ID or GOOGLE_CLIENT_ID)
+    fn validate_youtube_music_config(&mut self) {
+        let mut validation = OAuthProviderValidation {
+            provider: OAuthProviderType::YouTubeMusic,
+            is_configured: false,
+            is_valid: false,
+            missing_variables: Vec::new(),
+            validation_errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        // YouTube Music falls back to Google credentials
+        let client_id = env::var("YOUTUBE_MUSIC_CLIENT_ID")
+            .or_else(|_| env::var("GOOGLE_CLIENT_ID"));
+        let client_secret = env::var("YOUTUBE_MUSIC_CLIENT_SECRET")
+            .or_else(|_| env::var("GOOGLE_CLIENT_SECRET"));
+
+        if client_id.is_err() {
+            validation
+                .missing_variables
+                .push("YOUTUBE_MUSIC_CLIENT_ID or GOOGLE_CLIENT_ID".to_string());
+        }
+        if client_secret.is_err() {
+            validation
+                .missing_variables
+                .push("YOUTUBE_MUSIC_CLIENT_SECRET or GOOGLE_CLIENT_SECRET".to_string());
+        }
+
+        if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
+            validation.is_configured = true;
+
+            if client_secret.trim().is_empty() {
+                validation
+                    .validation_errors
+                    .push("YouTube Music client secret cannot be empty".to_string());
+            }
+
+            if client_id.starts_with("demo-") || client_secret.starts_with("demo-") {
+                validation.warnings.push(
+                    "Using demo YouTube Music OAuth configuration - not suitable for production"
+                        .to_string(),
+                );
+            }
+
+            validation.is_valid = validation.validation_errors.is_empty();
+        }
+
+        self.validation_results
+            .insert(OAuthProviderType::YouTubeMusic, validation);
+    }
+
     /// Log validation summary
     fn log_validation_summary(&self) {
         info!("📋 OAuth Configuration Validation Summary:");
@@ -641,18 +688,14 @@ mod tests {
             .unwrap();
         assert!(!validation.is_configured);
         assert!(!validation.is_valid);
-        assert_eq!(validation.missing_variables.len(), 3);
+        assert_eq!(validation.missing_variables.len(), 2);
     }
 
     #[test]
     fn test_google_config_validation_valid() {
-        // Set valid environment variables
+        // Set valid environment variables (GOOGLE_REDIRECT_URI is optional)
         env::set_var("GOOGLE_CLIENT_ID", "test.apps.googleusercontent.com");
         env::set_var("GOOGLE_CLIENT_SECRET", "test_secret");
-        env::set_var(
-            "GOOGLE_REDIRECT_URI",
-            "https://example.com/auth/callback/google",
-        );
 
         let mut validator = OAuthConfigValidator::new();
         validator.validate_google_config();

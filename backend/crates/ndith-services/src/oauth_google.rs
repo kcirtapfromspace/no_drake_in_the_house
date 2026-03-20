@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::oauth::{BaseOAuthProvider, OAuthProvider};
+use ndith_core::config::provider_callback_uri;
 use ndith_core::error::oauth::{parse_provider_error, OAuthError};
 use ndith_core::error::{AppError, Result};
 use ndith_core::models::oauth::{
@@ -131,10 +132,8 @@ impl GoogleOAuthProvider {
             std::env::var("GOOGLE_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
                 message: "GOOGLE_CLIENT_SECRET environment variable is required".to_string(),
             })?;
-        let redirect_uri =
-            std::env::var("GOOGLE_REDIRECT_URI").map_err(|_| AppError::ConfigurationError {
-                message: "GOOGLE_REDIRECT_URI environment variable is required".to_string(),
-            })?;
+        let redirect_uri = std::env::var("GOOGLE_REDIRECT_URI")
+            .unwrap_or_else(|_| provider_callback_uri("google"));
 
         Self::with_credentials(client_id, client_secret, redirect_uri)
     }

@@ -6,6 +6,7 @@ use crate::oauth_encryption::OAuthTokenEncryption;
 use crate::oauth_error_recovery::{OAuthErrorRecoveryConfig, OAuthErrorRecoveryService};
 use crate::oauth_github::GitHubOAuthProvider;
 use crate::oauth_google::GoogleOAuthProvider;
+use crate::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::oauth_health_monitor::{
     OAuthHealthConfig, OAuthHealthMonitor, OAuthProviderHealthStatus,
 };
@@ -166,30 +167,13 @@ impl AuthService {
 
         // Initialize Google OAuth if configured and valid
         if config_validator.is_provider_available(&OAuthProviderType::Google) {
-            match (
-                std::env::var("GOOGLE_CLIENT_ID"),
-                std::env::var("GOOGLE_CLIENT_SECRET"),
-                std::env::var("GOOGLE_REDIRECT_URI"),
-            ) {
-                (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) => {
-                    match GoogleOAuthProvider::with_credentials(
-                        client_id,
-                        client_secret,
-                        redirect_uri,
-                    ) {
-                        Ok(provider) => {
-                            providers.insert(OAuthProviderType::Google, Box::new(provider));
-                            tracing::info!("✅ Google OAuth provider initialized and ready");
-                        }
-                        Err(e) => {
-                            tracing::error!("❌ Failed to initialize Google OAuth provider: {}", e)
-                        }
-                    }
+            match GoogleOAuthProvider::new() {
+                Ok(provider) => {
+                    providers.insert(OAuthProviderType::Google, Box::new(provider));
+                    tracing::info!("✅ Google OAuth provider initialized and ready");
                 }
-                _ => {
-                    tracing::warn!(
-                        "⚠️  Google OAuth validation passed but environment variables are missing"
-                    );
+                Err(e) => {
+                    tracing::error!("❌ Failed to initialize Google OAuth provider: {}", e);
                 }
             }
         } else if let Some(validation) =
@@ -338,6 +322,37 @@ impl AuthService {
             if !validation.validation_errors.is_empty() {
                 tracing::warn!(
                     "Spotify OAuth configuration errors: {}",
+                    validation.validation_errors.join("; ")
+                );
+            }
+        }
+
+        // Initialize YouTube Music OAuth if configured and valid
+        if config_validator.is_provider_available(&OAuthProviderType::YouTubeMusic) {
+            match YouTubeMusicOAuthProvider::new() {
+                Ok(provider) => {
+                    providers.insert(OAuthProviderType::YouTubeMusic, Box::new(provider));
+                    tracing::info!("✅ YouTube Music OAuth provider initialized and ready");
+                }
+                Err(e) => {
+                    tracing::error!(
+                        "❌ Failed to initialize YouTube Music OAuth provider: {}",
+                        e
+                    );
+                }
+            }
+        } else if let Some(validation) =
+            config_validator.get_provider_validation(&OAuthProviderType::YouTubeMusic)
+        {
+            if !validation.missing_variables.is_empty() {
+                tracing::debug!(
+                    "YouTube Music OAuth not configured - missing: {}",
+                    validation.missing_variables.join(", ")
+                );
+            }
+            if !validation.validation_errors.is_empty() {
+                tracing::warn!(
+                    "YouTube Music OAuth configuration errors: {}",
                     validation.validation_errors.join("; ")
                 );
             }

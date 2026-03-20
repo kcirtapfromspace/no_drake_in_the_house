@@ -39,6 +39,18 @@ const initialState: DnpState = {
   isSearching: false,
 };
 
+function normalizeSearchResults(value: unknown): Artist[] {
+  if (Array.isArray(value)) {
+    return value as Artist[];
+  }
+
+  if (value && typeof value === 'object' && Array.isArray((value as Record<string, unknown>).artists)) {
+    return (value as { artists: Artist[] }).artists;
+  }
+
+  return [];
+}
+
 export const dnpStore = writable<DnpState>(initialState);
 
 export const dnpArtists = derived(
@@ -106,7 +118,7 @@ export const dnpActions = {
     if (response.success && response.data) {
       dnpStore.update(state => ({
         ...state,
-        searchResults: response.data || [],
+        searchResults: normalizeSearchResults(response.data),
         isSearching: false,
       }));
     } else {

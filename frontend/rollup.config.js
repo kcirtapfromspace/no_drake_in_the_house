@@ -95,6 +95,17 @@ export default {
 				'import.meta.env.VITE_DEFAULT_THEME': JSON.stringify(readEnv('VITE_DEFAULT_THEME', 'light')),
 				'import.meta.env.VITE_ENABLE_SERVICE_WORKER': JSON.stringify(readEnv('VITE_ENABLE_SERVICE_WORKER', 'false')),
 				'import.meta.env.VITE_CACHE_DURATION': JSON.stringify(readEnv('VITE_CACHE_DURATION', '300000')),
+				'import.meta.env.VITE_CONVEX_URL': JSON.stringify(readEnv('VITE_CONVEX_URL', '')),
+				'import.meta.env.VITE_AUTH_MODE': JSON.stringify(readEnv('VITE_AUTH_MODE', '')),
+				'import.meta.env.VITE_AUTH0_DOMAIN': JSON.stringify(readEnv('VITE_AUTH0_DOMAIN', '')),
+				'import.meta.env.VITE_AUTH0_CLIENT_ID': JSON.stringify(readEnv('VITE_AUTH0_CLIENT_ID', '')),
+				'import.meta.env.VITE_AUTH0_AUDIENCE': JSON.stringify(readEnv('VITE_AUTH0_AUDIENCE', '')),
+				'import.meta.env.VITE_AUTH0_SCOPE': JSON.stringify(readEnv('VITE_AUTH0_SCOPE', 'openid profile email offline_access')),
+				'import.meta.env.VITE_AUTH0_REDIRECT_PATH': JSON.stringify(readEnv('VITE_AUTH0_REDIRECT_PATH', '/')),
+				'import.meta.env.VITE_AUTH0_CONNECTION_GOOGLE': JSON.stringify(readEnv('VITE_AUTH0_CONNECTION_GOOGLE', '')),
+				'import.meta.env.VITE_AUTH0_CONNECTION_GITHUB': JSON.stringify(readEnv('VITE_AUTH0_CONNECTION_GITHUB', '')),
+				'import.meta.env.VITE_AUTH0_CONNECTION_APPLE': JSON.stringify(readEnv('VITE_AUTH0_CONNECTION_APPLE', '')),
+				'import.meta.env.VITE_EXTENSION_SIGNED_UPDATE_URL': JSON.stringify(readEnv('VITE_EXTENSION_SIGNED_UPDATE_URL', '')),
 			}
 		}),
 		svelte({

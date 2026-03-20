@@ -1,10 +1,5 @@
-import { config } from './config';
-
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data: T;
-  message: string;
-}
+import config from './config';
+import { apiClient, type ApiResponse } from './api-client';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -13,48 +8,53 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiCall<T = any>(
+export async function apiCall<T = unknown>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  const token = localStorage.getItem('auth_token');
-  
-  const requestConfig: RequestInit = {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
+  const normalizedEndpoint =
+    endpoint.startsWith('/api/') || /^https?:\/\//i.test(endpoint)
+      ? endpoint
+      : config.getApiEndpoint(endpoint);
+  const method = (options.method || 'GET').toUpperCase() as
+    | 'GET'
+    | 'POST'
+    | 'PUT'
+    | 'DELETE';
+  const includeAuth = Boolean(localStorage.getItem('auth_token'));
+  const parsedBody =
+    typeof options.body === 'string' && options.body.length > 0
+      ? JSON.parse(options.body)
+      : undefined;
 
-  try {
-    const url = config.getApiEndpoint(endpoint);
-    const response = await fetch(url, requestConfig);
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new ApiError(response.status, result.message || 'Request failed');
-    }
-
-    return result;
-  } catch (error) {
-    if (error instanceof ApiError) {
-      throw error;
-    }
-    throw new ApiError(0, 'Network error occurred');
+  switch (method) {
+    case 'POST':
+      return await apiClient.post<T>(normalizedEndpoint, parsedBody, includeAuth);
+    case 'PUT':
+      return await apiClient.put<T>(normalizedEndpoint, parsedBody, includeAuth);
+    case 'DELETE':
+      return await apiClient.delete<T>(normalizedEndpoint, includeAuth);
+    case 'GET':
+    default:
+      return await apiClient.get<T>(normalizedEndpoint, includeAuth);
   }
 }
 
 export const api = {
-  get: <T = any>(endpoint: string) => apiCall<T>(endpoint),
-  post: <T = any>(endpoint: string, data?: any) => 
-    apiCall<T>(endpoint, { method: 'POST', body: JSON.stringify(data) }),
-  put: <T = any>(endpoint: string, data?: any) => 
-    apiCall<T>(endpoint, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: <T = any>(endpoint: string, data?: any) => 
-    apiCall<T>(endpoint, { 
-      method: 'DELETE', 
-      body: data ? JSON.stringify(data) : undefined 
+  get: <T = unknown>(endpoint: string) => apiCall<T>(endpoint),
+  post: <T = unknown>(endpoint: string, data?: unknown) =>
+    apiCall<T>(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  put: <T = unknown>(endpoint: string, data?: unknown) =>
+    apiCall<T>(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+  delete: <T = unknown>(endpoint: string, data?: unknown) =>
+    apiCall<T>(endpoint, {
+      method: 'DELETE',
+      body: data ? JSON.stringify(data) : undefined,
     }),
 };

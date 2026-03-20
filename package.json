@@ -1,0 +1,21 @@
+{
+  "name": "no-drake-in-the-house-platform",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "convex:codegen": "convex codegen --init --typecheck disable",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy",
+    "migrate:convex": "tsx scripts/convex/migrate-postgres-to-convex.ts",
+    "migrate:auth0:users": "tsx scripts/convex/export-auth0-users.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.15.5",
+    "convex": "^1.34.0",
+    "dotenv": "^16.5.0",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}

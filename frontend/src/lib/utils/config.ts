@@ -8,6 +8,20 @@ const resolveApiUrl = (value: string) => {
   return normalized === RELATIVE_API_SENTINEL ? '' : normalizeBaseUrl(normalized);
 };
 
+const resolveOptionalBaseUrl = (value: string) => {
+  const normalized = normalizeEnvValue(value || '');
+  return normalized ? normalizeBaseUrl(normalized) : '';
+};
+
+const convexUrl = resolveOptionalBaseUrl(import.meta.env.VITE_CONVEX_URL || '');
+const authMode =
+  normalizeEnvValue(import.meta.env.VITE_AUTH_MODE || '') ||
+  (convexUrl &&
+  import.meta.env.VITE_AUTH0_DOMAIN &&
+  import.meta.env.VITE_AUTH0_CLIENT_ID
+    ? 'auth0'
+    : 'legacy');
+
 export const config = {
   // API Configuration - defaults to empty string for relative URLs (nginx proxy)
   apiUrl: resolveApiUrl(import.meta.env.VITE_API_URL || ''),
@@ -34,6 +48,29 @@ export const config = {
   external: {
     spotifyClientId: import.meta.env.VITE_SPOTIFY_CLIENT_ID,
     appleMusicToken: import.meta.env.VITE_APPLE_MUSIC_DEVELOPER_TOKEN,
+  },
+
+  auth: {
+    mode: authMode as 'auth0' | 'legacy',
+    auth0: {
+      domain: normalizeEnvValue(import.meta.env.VITE_AUTH0_DOMAIN || ''),
+      clientId: normalizeEnvValue(import.meta.env.VITE_AUTH0_CLIENT_ID || ''),
+      audience: normalizeEnvValue(import.meta.env.VITE_AUTH0_AUDIENCE || ''),
+      scope: normalizeEnvValue(
+        import.meta.env.VITE_AUTH0_SCOPE || 'openid profile email offline_access'
+      ),
+      redirectPath: normalizeEnvValue(import.meta.env.VITE_AUTH0_REDIRECT_PATH || '/'),
+      connections: {
+        google: normalizeEnvValue(import.meta.env.VITE_AUTH0_CONNECTION_GOOGLE || ''),
+        github: normalizeEnvValue(import.meta.env.VITE_AUTH0_CONNECTION_GITHUB || ''),
+        apple: normalizeEnvValue(import.meta.env.VITE_AUTH0_CONNECTION_APPLE || ''),
+      },
+    },
+  },
+
+  convex: {
+    url: convexUrl,
+    signedUpdateUrl: normalizeEnvValue(import.meta.env.VITE_EXTENSION_SIGNED_UPDATE_URL || ''),
   },
   
   // UI Configuration

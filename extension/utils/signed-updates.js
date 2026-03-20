@@ -6,7 +6,7 @@
 class SignedUpdateManager {
   constructor() {
     this.publicKey = null;
-    this.updateEndpoint = 'http://localhost:3000/api/v1/dnp/signed-update';
+    this.updateEndpoint = 'http://localhost:3210/extension/signed-update';
     this.maxUpdateAge = 24 * 60 * 60 * 1000; // 24 hours
   }
 
@@ -106,14 +106,21 @@ class SignedUpdateManager {
         return null;
       }
 
+      const endpoint = await this.resolveUpdateEndpoint();
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const response = await fetch(this.updateEndpoint, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      if (authToken) {
+        headers.Authorization = `Bearer ${authToken}`;
+      }
+
+      const response = await fetch(endpoint, {
+        headers,
         signal: controller.signal
       });
 
@@ -151,6 +158,27 @@ class SignedUpdateManager {
       console.error('Failed to fetch signed update:', error);
       return null;
     }
+  }
+
+  async resolveUpdateEndpoint() {
+    try {
+      const settings = await chrome.storage.sync.get([
+        'signedUpdateUrl',
+        'serverUrl'
+      ]);
+
+      if (settings.signedUpdateUrl) {
+        return settings.signedUpdateUrl.replace(/\/+$/, '');
+      }
+
+      if (settings.serverUrl) {
+        return `${settings.serverUrl.replace(/\/+$/, '')}/extension/signed-update`;
+      }
+    } catch (error) {
+      console.warn('Failed to resolve signed update endpoint from storage:', error);
+    }
+
+    return this.updateEndpoint;
   }
 
   validateUpdateStructure(signedUpdate) {

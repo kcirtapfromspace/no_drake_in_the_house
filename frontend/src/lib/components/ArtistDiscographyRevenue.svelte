@@ -338,93 +338,93 @@
 
 <div class="artist-discography-revenue surface-panel" data-testid="artist-discography-revenue">
   {#if error}
-    <div class="bg-red-900/20 border border-red-800 rounded-lg p-4 text-red-400" data-testid="error-message">
+    <div class="rev-error surface-panel-thin" data-testid="error-message">
       {error}
-      <button on:click={loadData} class="ml-2 text-red-300 underline hover:no-underline">Retry</button>
+      <button on:click={loadData} class="rev-error__retry">Retry</button>
     </div>
   {:else if isLoading}
-    <div class="flex items-center justify-center py-8" data-testid="loading-spinner">
-      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-400"></div>
+    <div class="rev-loading" data-testid="loading-spinner">
+      <div class="rev-spinner"></div>
     </div>
   {:else}
     {@const maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue))}
 
-    <!-- Hero Revenue Stat -->
-    <div class="mb-8 text-center" data-testid="revenue-summary">
-      <div class="text-sm text-zinc-400 mb-1">Estimated Yearly Revenue</div>
-      <div class="text-4xl font-bold text-emerald-400" data-testid="yearly-revenue">{formatCurrency(monthlyRevenue * 12)}</div>
-      <div class="text-sm text-zinc-400 mt-1">Streaming + Writing + Production</div>
-
-      <div class="grid grid-cols-3 gap-4 mt-6 max-w-lg mx-auto">
-        <div>
-          <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-revenue">{formatCurrency(monthlyRevenue)}</div>
-          <div class="text-xs text-zinc-400">Monthly</div>
-        </div>
-        <div>
-          <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-streams">{formatNumber(monthlyStreams)}</div>
-          <div class="text-xs text-zinc-400">Monthly streams</div>
-        </div>
-        <div>
-          <div class="text-lg font-semibold text-zinc-100" data-testid="discography-count">{totalTracks}</div>
-          <div class="text-xs text-zinc-400">{drakeDiscography.length} albums</div>
-        </div>
+    <!-- Revenue Stat Bar — 4 cells inline -->
+    <div class="rev-stats" data-testid="revenue-summary">
+      <div class="rev-stats__cell rev-stats__cell--hero">
+        <span class="rev-stats__label">Yearly Revenue</span>
+        <span class="rev-stats__value rev-stats__value--green" data-testid="yearly-revenue">{formatCurrency(monthlyRevenue * 12)}</span>
+      </div>
+      <div class="rev-stats__cell">
+        <span class="rev-stats__label">Monthly Revenue</span>
+        <span class="rev-stats__value" data-testid="monthly-revenue">{formatCurrency(monthlyRevenue)}</span>
+      </div>
+      <div class="rev-stats__cell">
+        <span class="rev-stats__label">Monthly Streams</span>
+        <span class="rev-stats__value" data-testid="monthly-streams">{formatNumber(monthlyStreams)}</span>
+      </div>
+      <div class="rev-stats__cell">
+        <span class="rev-stats__label">Catalog Size</span>
+        <span class="rev-stats__value" data-testid="discography-count">{totalTracks}</span>
+        <span class="rev-stats__sub">{drakeDiscography.length} albums</span>
       </div>
     </div>
 
-    <!-- Album Revenue Breakdown -->
-    <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold text-zinc-100">Album Revenue</h3>
-      <span class="text-xs text-zinc-400">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
+    <!-- Album Revenue Table -->
+    <div class="rev-section-head">
+      <h3 class="rev-section-head__title">Album Revenue</h3>
+      <span class="rev-section-head__rate">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
     </div>
 
-    <div class="space-y-3" data-testid="albums-section">
+    <div class="rev-col-headers">
+      <span class="rev-col rev-col--album">Album</span>
+      <span class="rev-col rev-col--year">Year</span>
+      <span class="rev-col rev-col--tracks">Tracks</span>
+      <span class="rev-col rev-col--streams">Streams</span>
+      <span class="rev-col rev-col--revenue">Revenue</span>
+      <span class="rev-col rev-col--action"></span>
+    </div>
+
+    <div data-testid="albums-section">
       {#each drakeDiscography as album}
         {@const barWidth = maxRevenue > 0 ? (album.total_revenue / maxRevenue * 100) : 0}
-        <div class="rounded-xl overflow-hidden surface-panel-thin">
-          <button
-            class="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.04]"
-            on:click={() => toggleAlbum(album.id)}
-          >
-            <!-- Album Art -->
-            <div class="w-12 h-12 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 relative">
-              {#if album.cover_url}
-                <img src={album.cover_url} alt="" class="w-12 h-12 object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
-              {/if}
-              <div class="w-12 h-12 flex items-center justify-center">
-                <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
-              </div>
-            </div>
-
-            <!-- Album Info + Proportional Bar -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-baseline gap-2 mb-1">
-                <span class="text-white font-semibold truncate flex-1 min-w-0">{album.title}</span>
-                <span class="text-xs text-zinc-400 flex-shrink-0">{album.year} · {album.tracks.length}t · {formatNumber(album.total_streams)} streams</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="h-2 flex-1 max-w-[60%] rounded-full overflow-hidden" style="background: var(--color-bg-inset);">
-                  <div class="h-full rounded-full transition-all" style="width: {barWidth}%; background: linear-gradient(90deg, var(--color-success), #34d399);"></div>
+        <div class="rev-album">
+          <button class="rev-album__btn" on:click={() => toggleAlbum(album.id)}>
+            <div class="rev-col rev-col--album">
+              <div class="rev-album__art">
+                {#if album.cover_url}
+                  <img src={album.cover_url} alt="" class="rev-album__art-img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                {/if}
+                <div class="rev-album__art-ph">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
                 </div>
-                <span class="text-sm font-medium text-emerald-400 flex-shrink-0 w-24 text-right">{formatCurrency(album.total_revenue)}</span>
               </div>
+              <span class="rev-album__title">{album.title}</span>
             </div>
-
-            <!-- Expand -->
-            <svg class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform {expandedAlbums.has(album.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-            </svg>
+            <span class="rev-col rev-col--year rev-tabnum">{album.year}</span>
+            <span class="rev-col rev-col--tracks rev-tabnum">{album.tracks.length}</span>
+            <span class="rev-col rev-col--streams rev-tabnum">{formatNumber(album.total_streams)}</span>
+            <div class="rev-col rev-col--revenue">
+              <div class="rev-bar">
+                <div class="rev-bar__fill" style="width: {barWidth}%;"></div>
+              </div>
+              <span class="rev-bar__amount rev-tabnum">{formatCurrency(album.total_revenue)}</span>
+            </div>
+            <div class="rev-col rev-col--action">
+              <svg class="rev-chevron {expandedAlbums.has(album.id) ? 'rev-chevron--open' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </button>
 
           {#if expandedAlbums.has(album.id)}
-            <div class="border-t border-white/[0.06]" transition:slide={{ duration: slideDuration }}>
+            <div class="rev-tracks" transition:slide={{ duration: slideDuration }}>
               {#each album.tracks as track, idx}
-                <div class="flex items-center gap-3 px-4 py-2 border-t border-white/[0.04] first:border-t-0 hover:bg-white/[0.02]">
-                  <span class="text-xs text-zinc-400 w-5 text-right">{idx + 1}</span>
-                  <span class="flex-1 text-sm text-zinc-300 truncate">{track.title}</span>
-                  <span class="text-xs text-zinc-400 flex-shrink-0">{formatNumber(track.streams)}</span>
-                  <span class="text-xs text-emerald-400 font-medium flex-shrink-0 w-16 text-right">{formatCurrency(track.revenue)}</span>
+                <div class="rev-track">
+                  <span class="rev-track__num rev-tabnum">{idx + 1}</span>
+                  <span class="rev-track__title">{track.title}</span>
+                  <span class="rev-track__streams rev-tabnum">{formatNumber(track.streams)}</span>
+                  <span class="rev-track__revenue rev-tabnum">{formatCurrency(track.revenue)}</span>
                 </div>
               {/each}
             </div>
@@ -434,81 +434,67 @@
     </div>
 
     <!-- Totals -->
-    <div class="mt-4 p-4 rounded-xl flex items-center justify-between surface-panel">
+    <div class="rev-totals surface-panel">
       <div>
-        <div class="text-sm font-semibold text-zinc-100">Total Catalog Revenue</div>
-        <div class="text-xs text-zinc-400">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
+        <div class="rev-totals__title">Total Catalog Revenue</div>
+        <div class="rev-totals__meta">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
       </div>
-      <div class="text-xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</div>
+      <div class="rev-totals__amount rev-tabnum">{formatCurrency(totalRevenue)}</div>
     </div>
 
-    <!-- Credits Revenue -->
-    <div class="mt-8 rounded-xl p-5 surface-panel">
-    <h3 class="text-lg font-semibold text-zinc-100 mb-4">Revenue Beyond Streaming</h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="p-4 rounded-xl surface-panel-thin">
-        <div class="flex items-center gap-2 mb-3">
-          <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-          <span class="text-zinc-100 font-medium text-sm">Songwriting</span>
+    <!-- Revenue Beyond Streaming -->
+    <div class="rev-beyond surface-panel">
+      <h3 class="rev-beyond__heading">Revenue Beyond Streaming</h3>
+      <div class="rev-beyond__grid">
+        <div class="rev-beyond__card surface-panel-thin">
+          <div class="rev-beyond__card-head">
+            <svg class="rev-beyond__icon rev-beyond__icon--blue" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            <span class="rev-beyond__card-label">Songwriting</span>
+          </div>
+          <div class="rev-beyond__rows">
+            <div class="rev-beyond__row"><span>Own catalog</span><span>{totalTracks} songs</span></div>
+            <div class="rev-beyond__row"><span>Other artists</span><span>~85 songs</span></div>
+            <div class="rev-beyond__row"><span>Publishing share</span><span>~50%</span></div>
+            <div class="rev-beyond__row rev-beyond__row--total"><span>Est. Annual</span><span class="rev-beyond__val--blue">{formatCurrency(Math.round(totalRevenue * 0.15))}</span></div>
+          </div>
         </div>
-        <div class="space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-zinc-400">Own catalog</span><span class="text-zinc-300">{totalTracks} songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Other artists</span><span class="text-zinc-300">~85 songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Publishing share</span><span class="text-zinc-300">~50%</span></div>
-          <div class="border-t border-white/[0.06] pt-2 mt-2 flex justify-between">
-            <span class="text-zinc-300 font-medium">Est. Annual</span>
-            <span class="text-blue-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.15))}</span>
+        <div class="rev-beyond__card surface-panel-thin">
+          <div class="rev-beyond__card-head">
+            <svg class="rev-beyond__icon rev-beyond__icon--purple" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+            <span class="rev-beyond__card-label">Production</span>
+          </div>
+          <div class="rev-beyond__rows">
+            <div class="rev-beyond__row"><span>Co-production</span><span>~45 songs</span></div>
+            <div class="rev-beyond__row"><span>Executive producer</span><span>13 albums</span></div>
+            <div class="rev-beyond__row"><span>Points (avg)</span><span>~3%</span></div>
+            <div class="rev-beyond__row rev-beyond__row--total"><span>Est. Annual</span><span class="rev-beyond__val--purple">{formatCurrency(Math.round(totalRevenue * 0.08))}</span></div>
           </div>
         </div>
       </div>
 
-      <div class="p-4 rounded-xl surface-panel-thin">
-        <div class="flex items-center gap-2 mb-3">
-          <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-          </svg>
-          <span class="text-zinc-100 font-medium text-sm">Production</span>
-        </div>
-        <div class="space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-zinc-400">Co-production</span><span class="text-zinc-300">~45 songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Executive producer</span><span class="text-zinc-300">13 albums</span></div>
-          <div class="flex justify-between"><span class="text-zinc-400">Points (avg)</span><span class="text-zinc-300">~3%</span></div>
-          <div class="border-t border-white/[0.06] pt-2 mt-2 flex justify-between">
-            <span class="text-zinc-300 font-medium">Est. Annual</span>
-            <span class="text-purple-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.08))}</span>
-          </div>
-        </div>
+      <div class="rev-grand surface-panel-thin">
+        <span class="rev-grand__label">All-Time Estimated Revenue (Streaming + Writing + Production)</span>
+        <span class="rev-grand__value rev-tabnum">{formatCurrency(Math.round(totalRevenue * 1.23))}</span>
       </div>
-    </div>
-
-    <!-- Grand Total -->
-    <div class="mt-4 p-4 rounded-xl text-center surface-panel-thin">
-      <div class="text-xs text-zinc-400 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
-      <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
-    </div>
     </div>
 
     <!-- Revenue Context -->
-    <div class="mt-6 p-4 rounded-xl surface-panel-thin" data-testid="revenue-context">
-      <div class="flex items-start gap-3">
-        <svg class="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <div>
-          <div class="text-zinc-300 font-medium text-sm mb-1">Revenue Methodology</div>
-          <div class="text-sm text-zinc-400">
-            Estimates based on average streaming platform payouts (~$0.003-0.005 per stream).
-            Actual revenue varies by platform, region, and artist contract terms.
-            Top-tier artists may negotiate higher rates.
-          </div>
+    <div class="rev-context surface-panel-thin" data-testid="revenue-context">
+      <svg class="rev-context__icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <div>
+        <div class="rev-context__title">Revenue Methodology</div>
+        <div class="rev-context__text">
+          Estimates based on average streaming platform payouts (~$0.003-0.005 per stream).
+          Actual revenue varies by platform, region, and artist contract terms.
+          Top-tier artists may negotiate higher rates.
         </div>
       </div>
     </div>
 
     <!-- Simulation Note -->
-    <div class="mt-4 text-xs text-zinc-400 text-center" data-testid="simulation-note">
+    <div class="rev-note" data-testid="simulation-note">
       Data is simulated for demonstration purposes. Connect streaming accounts for real analytics.
     </div>
   {/if}
@@ -518,5 +504,450 @@
   .artist-discography-revenue {
     border-radius: 1rem;
     padding: 1.5rem;
+  }
+
+  /* === Stats Bar === */
+  .rev-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  .rev-stats__cell {
+    padding: 0.875rem 1rem;
+    background: var(--color-bg-elevated, rgba(24, 24, 27, 0.95));
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .rev-stats__cell--hero {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02));
+  }
+
+  .rev-stats__label {
+    font-size: 0.6875rem;
+    color: var(--color-text-tertiary, #71717a);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+  }
+
+  .rev-stats__value {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #fafafa);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rev-stats__value--green {
+    color: #34d399;
+    font-size: 1.375rem;
+  }
+
+  .rev-stats__sub {
+    font-size: 0.6875rem;
+    color: var(--color-text-tertiary, #71717a);
+  }
+
+  /* === Section Header === */
+  .rev-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+
+  .rev-section-head__title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #fafafa);
+    margin: 0;
+  }
+
+  .rev-section-head__rate {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary, #71717a);
+  }
+
+  /* === Column Headers === */
+  .rev-col-headers {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 1.25rem;
+    margin-bottom: 0.375rem;
+  }
+
+  .rev-col-headers .rev-col {
+    font-size: 0.6875rem;
+    color: var(--color-text-muted, #52525b);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+  }
+
+  /* === Column Widths === */
+  .rev-col--album { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.75rem; }
+  .rev-col--year { width: 3.5rem; text-align: right; flex-shrink: 0; }
+  .rev-col--tracks { width: 3.5rem; text-align: right; flex-shrink: 0; }
+  .rev-col--streams { width: 5rem; text-align: right; flex-shrink: 0; }
+  .rev-col--revenue { width: 9rem; flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
+  .rev-col--action { width: 1.5rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+
+  /* === Album Rows === */
+  .rev-album {
+    margin-bottom: 0.25rem;
+  }
+
+  .rev-album__btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 0.75rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s;
+    color: inherit;
+    font: inherit;
+  }
+
+  .rev-album__btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .rev-album__art {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #27272a;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .rev-album__art-img {
+    width: 2.5rem;
+    height: 2.5rem;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+
+  .rev-album__art-ph {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rev-album__art-ph svg {
+    width: 1rem;
+    height: 1rem;
+    color: #52525b;
+  }
+
+  .rev-album__title {
+    font-weight: 600;
+    color: #fafafa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.875rem;
+  }
+
+  .rev-tabnum {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rev-album__btn .rev-col--year,
+  .rev-album__btn .rev-col--tracks,
+  .rev-album__btn .rev-col--streams {
+    font-size: 0.8125rem;
+    color: #a1a1aa;
+  }
+
+  /* === Revenue Bar === */
+  .rev-bar {
+    height: 0.375rem;
+    flex: 1;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .rev-bar__fill {
+    height: 100%;
+    border-radius: 0.25rem;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    transition: width 0.3s ease;
+  }
+
+  .rev-bar__amount {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #34d399;
+    white-space: nowrap;
+    min-width: 4.5rem;
+    text-align: right;
+  }
+
+  /* === Chevron === */
+  .rev-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: #52525b;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .rev-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* === Expanded Tracks === */
+  .rev-tracks {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 0.75rem 0.75rem;
+    overflow: hidden;
+  }
+
+  .rev-track {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1.25rem 0.5rem 5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background-color 0.1s;
+  }
+
+  .rev-track:first-child { border-top: none; }
+  .rev-track:hover { background: rgba(255, 255, 255, 0.02); }
+
+  .rev-track__num {
+    width: 1.5rem;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #52525b;
+    flex-shrink: 0;
+  }
+
+  .rev-track__title {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8125rem;
+    color: #d4d4d8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rev-track__streams {
+    font-size: 0.75rem;
+    color: #71717a;
+    width: 4rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .rev-track__revenue {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #34d399;
+    width: 4.5rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* === Totals === */
+  .rev-totals {
+    margin-top: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rev-totals__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fafafa;
+  }
+
+  .rev-totals__meta {
+    font-size: 0.75rem;
+    color: #71717a;
+    margin-top: 0.125rem;
+  }
+
+  .rev-totals__amount {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #34d399;
+  }
+
+  /* === Beyond Streaming === */
+  .rev-beyond {
+    margin-top: 1.5rem;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .rev-beyond__heading {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #fafafa;
+    margin: 0 0 1rem;
+  }
+
+  .rev-beyond__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .rev-beyond__card {
+    padding: 1rem;
+    border-radius: 0.75rem;
+  }
+
+  .rev-beyond__card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .rev-beyond__icon { width: 1rem; height: 1rem; }
+  .rev-beyond__icon--blue { color: #60a5fa; }
+  .rev-beyond__icon--purple { color: #c084fc; }
+
+  .rev-beyond__card-label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fafafa;
+  }
+
+  .rev-beyond__rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .rev-beyond__row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8125rem;
+  }
+
+  .rev-beyond__row span:first-child { color: #71717a; }
+  .rev-beyond__row span:last-child { color: #d4d4d8; }
+
+  .rev-beyond__row--total {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 0.5rem;
+    margin-top: 0.375rem;
+  }
+
+  .rev-beyond__row--total span:first-child { color: #d4d4d8; font-weight: 500; }
+  .rev-beyond__val--blue { color: #60a5fa !important; font-weight: 700 !important; }
+  .rev-beyond__val--purple { color: #c084fc !important; font-weight: 700 !important; }
+
+  /* === Grand Total === */
+  .rev-grand {
+    margin-top: 0.75rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .rev-grand__label { font-size: 0.75rem; color: #71717a; }
+  .rev-grand__value { font-size: 1.5rem; font-weight: 700; color: #34d399; }
+
+  /* === Context & Note === */
+  .rev-context {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .rev-context__icon { width: 1rem; height: 1rem; color: #52525b; flex-shrink: 0; margin-top: 0.125rem; }
+  .rev-context__title { font-size: 0.875rem; font-weight: 500; color: #d4d4d8; margin-bottom: 0.25rem; }
+  .rev-context__text { font-size: 0.8125rem; color: #71717a; line-height: 1.5; }
+
+  .rev-note {
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #71717a;
+  }
+
+  /* === Error & Loading === */
+  .rev-error {
+    padding: 1rem;
+    border-radius: 0.75rem;
+    color: #f87171;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .rev-error__retry {
+    color: #fca5a5;
+    text-decoration: underline;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: inherit;
+  }
+
+  .rev-error__retry:hover { text-decoration: none; }
+
+  .rev-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 0;
+  }
+
+  .rev-spinner {
+    width: 2rem;
+    height: 2rem;
+    border: 2px solid transparent;
+    border-bottom-color: #a1a1aa;
+    border-radius: 50%;
+    animation: rev-spin 1s linear infinite;
+  }
+
+  @keyframes rev-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 640px) {
+    .rev-stats { grid-template-columns: repeat(2, 1fr); }
+    .rev-col-headers .rev-col--year,
+    .rev-col-headers .rev-col--tracks { display: none; }
+    .rev-album__btn .rev-col--year,
+    .rev-album__btn .rev-col--tracks { display: none; }
+    .rev-beyond__grid { grid-template-columns: 1fr; }
+    .rev-track { padding-left: 2rem; }
   }
 </style>

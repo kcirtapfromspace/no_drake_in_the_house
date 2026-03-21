@@ -1189,137 +1189,118 @@
     <!-- Main Content -->
     <main class="profile__main" role="tabpanel">
       {#if activeTab === 'evidence'}
-        <div class="grid lg:grid-cols-3 gap-6">
-          <div class="lg:col-span-2">
-            <h2 class="text-lg font-semibold text-white mb-4">
-              Documented Incidents
-              {#if profile.offenses.length > 0}
-                <span class="text-zinc-500 font-normal ml-1">({profile.offenses.length})</span>
-              {/if}
-            </h2>
+        <!-- Evidence Timeline — Full-width feed -->
+        <div class="ev-header">
+          <h2 class="ev-title">
+            Evidence Timeline
+            {#if profile.offenses.length > 0}
+              <span class="ev-count">({profile.offenses.length})</span>
+            {/if}
+          </h2>
+        </div>
 
-            {#if profile.offenses.length === 0}
-              <div class="rounded-xl p-8 text-center surface-panel-thin">
-                <p class="text-zinc-400 text-sm">No documented incidents found for this artist.</p>
-              </div>
-            {:else}
-              <div class="rounded-xl overflow-hidden surface-panel-thin">
-                {#each profile.offenses.sort((a, b) => new Date(b.incident_date || b.created_at).getTime() - new Date(a.incident_date || a.created_at).getTime()) as offense, index}
-                  {@const catColor = getCategoryColor(offense.category.id)}
-                  {@const evidenceStrength = getEvidenceStrengthLabel(offense.evidence_strength)}
-                  {@const isExpanded = expandedOffenseId === offense.id}
+        {#if profile.offenses.length === 0}
+          <div class="ev-empty surface-panel-thin">
+            <p class="text-zinc-400 text-sm">No documented incidents found for this artist.</p>
+          </div>
+        {:else}
+          <div class="ev-feed surface-panel-thin">
+            {#each profile.offenses.sort((a, b) => new Date(b.incident_date || b.created_at).getTime() - new Date(a.incident_date || a.created_at).getTime()) as offense, index}
+              {@const catColor = getCategoryColor(offense.category.id)}
+              {@const evidenceStrength = getEvidenceStrengthLabel(offense.evidence_strength)}
+              {@const isExpanded = expandedOffenseId === offense.id}
 
-                  <div class="{index > 0 ? 'border-t border-white/[0.06]' : ''}">
-                    <button
-                      type="button"
-                      on:click={() => expandedOffenseId = isExpanded ? null : offense.id}
-                      class="w-full px-5 py-4 text-left flex items-start gap-3 hover:bg-white/[0.04] transition-colors"
-                    >
-                      <div class="w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0" style="background: {catColor.icon};"></div>
-
-                      <div class="flex-1 min-w-0">
-                        <div class="flex flex-wrap gap-1.5 mb-2">
-                          <span class="px-2 py-0.5 text-[11px] font-medium rounded-full" style="background: {hexToRgba(catColor.icon, 0.18)}; color: {catColor.icon};">{offense.category.name}</span>
-                          <span class="px-2 py-0.5 text-[11px] font-medium rounded-full bg-white/[0.08]" style="color: var(--color-text-secondary);">{getProceduralStateLabel(offense.procedural_state)}</span>
-                          <span class="px-2 py-0.5 text-[11px] font-medium rounded-full" style="background: {hexToRgba(evidenceStrength.color, 0.22)}; color: {evidenceStrength.color};">{evidenceStrength.label} Evidence</span>
-                        </div>
-
-                        <h3 class="text-[15px] font-semibold text-white mb-1" style="font-weight: 600;">{offense.title}</h3>
-                        <p class="text-sm text-zinc-400 line-clamp-2">{offense.description}</p>
-
-                        {#if offense.incident_date}
-                          <p class="text-xs text-zinc-500 mt-2">{formatDate(offense.incident_date)}</p>
-                        {/if}
-                      </div>
-
-                      <svg class="w-4 h-4 text-zinc-500 flex-shrink-0 mt-1 transition-transform {isExpanded ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
-
-                    {#if isExpanded}
-                      <div class="px-5 pb-4 border-t border-white/[0.06]" transition:slide={{ duration: slideDuration }}>
-                        <h4 class="text-xs font-medium text-zinc-500 uppercase tracking-wider pt-4 mb-3">Sources ({offense.evidence.length})</h4>
-                        {#if offense.evidence.length === 0}
-                          <p class="text-zinc-500 text-sm">No sources available</p>
-                        {:else}
-                          <div class="space-y-1">
-                            {#each offense.evidence as evidence}
-                              {@const tierInfo = getSourceTierLabel(evidence.source.tier)}
-                              <a href={evidence.source.url} target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 p-3 rounded-lg hover:bg-white/[0.04] transition-colors">
-                                <div class="flex-shrink-0 w-7 h-7 rounded flex items-center justify-center text-[10px] font-bold" style="background: {hexToRgba(tierInfo.color, 0.2)}; color: {tierInfo.color};">
-                                  {tierInfo.label.replace('Tier ', '')}
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                  <p class="text-sm font-medium text-zinc-200 truncate">{evidence.source.title || evidence.source.source_name}</p>
-                                  <p class="text-xs text-zinc-500 mt-0.5">
-                                    {evidence.source.source_name}{#if evidence.source.published_date} · {formatDate(evidence.source.published_date)}{/if}
-                                  </p>
-                                  {#if evidence.source.excerpt}
-                                    <p class="text-xs text-zinc-500 mt-1 line-clamp-1 italic">"{evidence.source.excerpt}"</p>
-                                  {/if}
-                                </div>
-                              </a>
-                            {/each}
-                          </div>
-                        {/if}
-                      </div>
+              <div class="ev-card {index > 0 ? 'ev-card--bordered' : ''}">
+                <button
+                  type="button"
+                  on:click={() => expandedOffenseId = isExpanded ? null : offense.id}
+                  class="ev-card__btn"
+                >
+                  <div class="ev-card__badges">
+                    <span class="ev-pill" style="background: {hexToRgba(catColor.icon, 0.18)}; color: {catColor.icon};">{offense.category.name}</span>
+                    <span class="ev-pill ev-pill--muted">{getProceduralStateLabel(offense.procedural_state)}</span>
+                    <span class="ev-pill" style="background: {hexToRgba(evidenceStrength.color, 0.22)}; color: {evidenceStrength.color};">{evidenceStrength.label} Evidence</span>
+                    {#if offense.incident_date}
+                      <span class="ev-card__date">{formatDate(offense.incident_date)}</span>
                     {/if}
                   </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
 
-          <div class="lg:col-span-1 space-y-4">
-            <div class="rounded-xl p-5 surface-panel-thin">
-              <h3 class="text-sm font-semibold text-zinc-300 mb-4">Source Reliability</h3>
-              <div class="space-y-3">
-                {#each ['tier_a', 'tier_b', 'tier_c', 'tier_d'] as tier}
-                  {@const tierInfo = getSourceTierLabel(tier)}
-                  <div class="flex items-start gap-3">
-                    <div class="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold flex-shrink-0" style="background: {hexToRgba(tierInfo.color, 0.2)}; color: {tierInfo.color};">
-                      {tierInfo.label.replace('Tier ', '')}
-                    </div>
-                    <div>
-                      <p class="text-sm text-zinc-200">{tierInfo.label}</p>
-                      <p class="text-xs text-zinc-500">{tierInfo.description}</p>
-                    </div>
+                  <h3 class="ev-card__title">{offense.title}</h3>
+                  <p class="ev-card__desc">{offense.description}</p>
+
+                  <div class="ev-card__footer">
+                    <span class="ev-card__sources">{offense.evidence.length} source{offense.evidence.length !== 1 ? 's' : ''}</span>
+                    <svg class="ev-card__chevron {isExpanded ? 'ev-card__chevron--open' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                   </div>
-                {/each}
-              </div>
-            </div>
+                </button>
 
-            <div class="rounded-xl p-5 surface-panel-thin">
-              <h3 class="text-sm font-semibold text-zinc-300 mb-4">Profile Summary</h3>
-              <div class="space-y-3 text-sm">
-                <div class="flex justify-between"><span class="text-zinc-400">Total Incidents</span><span class="text-white">{profile.offenses.length}</span></div>
-                <div class="flex justify-between"><span class="text-zinc-400">Primary Sources</span><span class="text-white">{profile.offenses.reduce((count, o) => count + o.evidence.filter(e => e.source.tier === 'tier_a').length, 0)}</span></div>
-                <div class="flex justify-between"><span class="text-zinc-400">Status</span><span class="px-2 py-0.5 rounded text-xs font-medium" style="background: {statusColor?.bg}; color: {statusColor?.text};">{statusLabel}</span></div>
-                <div class="flex justify-between"><span class="text-zinc-400">Confidence</span><span class="text-white">{confidenceLabel}</span></div>
+                {#if isExpanded}
+                  <div class="ev-sources" transition:slide={{ duration: slideDuration }}>
+                    <h4 class="ev-sources__heading">Sources ({offense.evidence.length})</h4>
+                    {#if offense.evidence.length === 0}
+                      <p class="ev-sources__empty">No sources available</p>
+                    {:else}
+                      {#each offense.evidence as evidence}
+                        {@const tierInfo = getSourceTierLabel(evidence.source.tier)}
+                        <a href={evidence.source.url} target="_blank" rel="noopener noreferrer" class="ev-source">
+                          <div class="ev-source__tier" style="background: {hexToRgba(tierInfo.color, 0.2)}; color: {tierInfo.color};">
+                            {tierInfo.label.replace('Tier ', '')}
+                          </div>
+                          <div class="ev-source__info">
+                            <p class="ev-source__title">{evidence.source.title || evidence.source.source_name}</p>
+                            <p class="ev-source__meta">
+                              {evidence.source.source_name}{#if evidence.source.published_date} · {formatDate(evidence.source.published_date)}{/if}
+                            </p>
+                            {#if evidence.source.excerpt}
+                              <p class="ev-source__excerpt">"{evidence.source.excerpt}"</p>
+                            {/if}
+                          </div>
+                        </a>
+                      {/each}
+                    {/if}
+                  </div>
+                {/if}
               </div>
+            {/each}
+          </div>
+
+          <!-- Summary Strip -->
+          <div class="ev-summary">
+            <div class="ev-summary__cell">
+              <span class="ev-summary__value">{profile.offenses.length}</span>
+              <span class="ev-summary__label">Total Incidents</span>
+            </div>
+            <div class="ev-summary__cell">
+              <span class="ev-summary__value">{profile.offenses.reduce((count, o) => count + o.evidence.filter(e => e.source.tier === 'tier_a').length, 0)}</span>
+              <span class="ev-summary__label">Primary Sources (Tier A)</span>
+            </div>
+            <div class="ev-summary__cell">
+              <span class="ev-summary__value" style="color: {statusColor?.text};">{confidenceLabel}</span>
+              <span class="ev-summary__label">Confidence Level</span>
             </div>
           </div>
-        </div>
+        {/if}
 
       {:else if activeTab === 'catalog'}
         <div>
           <!-- Filter + Stats -->
-          <div class="flex items-center justify-between mb-5">
+          <div class="cat-header">
             <div class="brand-segmented">
               <button type="button" on:click={() => catalogFilter = 'all'} class="brand-segmented__item" class:brand-segmented__item--active={catalogFilter === 'all'}>All</button>
               <button type="button" on:click={() => catalogFilter = 'blocked'} class="brand-segmented__item" class:brand-segmented__item--active={catalogFilter === 'blocked'}>Blocked</button>
               <button type="button" on:click={() => catalogFilter = 'unblocked'} class="brand-segmented__item" class:brand-segmented__item--active={catalogFilter === 'unblocked'}>Allowed</button>
             </div>
-            <div class="flex items-center gap-3">
-              <div class="h-1.5 w-28 rounded-full overflow-hidden bg-white/[0.04]">
-                <div class="h-full rounded-full" style="width: {catalog.length > 0 ? (catalog.filter(t => t.isBlocked).length / catalog.length * 100) : 0}%; background: var(--color-brand-primary);"></div>
+            <div class="cat-indicator">
+              <div class="cat-indicator__bar">
+                <div class="cat-indicator__fill" style="width: {catalog.length > 0 ? (catalog.filter(t => t.isBlocked).length / catalog.length * 100) : 0}%;"></div>
               </div>
-              <span class="text-xs text-zinc-400" aria-live="polite"><span class="text-rose-400 font-medium">{catalog.filter(t => t.isBlocked).length}</span> / {catalog.length}</span>
+              <span class="cat-indicator__text" aria-live="polite"><span class="cat-indicator__count">{catalog.filter(t => t.isBlocked).length}</span> / {catalog.length} blocked</span>
             </div>
           </div>
 
-          <!-- Sub-tabs as underline tabs -->
+          <!-- Sub-tabs -->
           <div class="flex border-b border-white/[0.06] mb-5">
             <button type="button" on:click={() => catalogSubTab = 'main'} class="catalog-subtab" class:catalog-subtab--active={catalogSubTab === 'main'}>
               Main Artist <span class="text-zinc-400 ml-1">{catalogMainCount}</span>
@@ -1335,61 +1316,53 @@
           <!-- Main Artist Albums -->
           {#if catalogSubTab === 'main'}
             {#if catalogAlbums.length > 0}
-              <div class="rounded-xl overflow-hidden surface-panel-thin">
+              <div class="cat-albums surface-panel-thin">
                 {#each catalogAlbums as album, albumIdx}
-                  <div class="{albumIdx > 0 ? 'border-t border-white/[0.06]' : ''}">
+                  <div class="cat-album {albumIdx > 0 ? 'cat-album--bordered' : ''}">
                     <button
                       type="button"
-                      class="w-full px-5 py-3.5 flex items-center gap-4 text-left hover:bg-white/[0.04] transition-colors"
+                      class="cat-album__header"
                       on:click={() => toggleCatalogAlbum(album.name)}
                     >
-                      <div class="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-zinc-800 relative">
+                      <div class="cat-album__art">
                         {#if album.cover && !album.cover.includes('data:image')}
-                          <img src={album.cover} alt="" class="w-full h-full object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          <img src={album.cover} alt="" class="cat-album__art-img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
                         {/if}
-                        <div class="w-full h-full flex items-center justify-center">
-                          <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                        <div class="cat-album__art-ph">
+                          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
                         </div>
                       </div>
-                      <div class="flex-1 min-w-0">
-                        <div class="text-base font-semibold text-white truncate">{album.name}</div>
-                        <div class="text-xs text-zinc-400">{album.year} · {album.totalCount} tracks</div>
+                      <div class="cat-album__info">
+                        <div class="cat-album__title">{album.name}</div>
+                        <div class="cat-album__meta">{album.year} · {album.totalCount} tracks</div>
                       </div>
                       {#if album.blockedCount === album.totalCount && album.totalCount > 0}
-                        <span class="text-[11px] text-rose-400 flex-shrink-0">All blocked</span>
+                        <span class="cat-album__status cat-album__status--all">All blocked</span>
                       {:else if album.blockedCount > 0}
-                        <span class="text-[11px] text-zinc-500 flex-shrink-0">{album.blockedCount}/{album.totalCount}</span>
+                        <span class="cat-album__status">{album.blockedCount}/{album.totalCount}</span>
                       {/if}
-                      <svg class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform {expandedCatalogAlbums.has(album.name) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                      <svg class="cat-chevron {expandedCatalogAlbums.has(album.name) ? 'cat-chevron--open' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
 
                     {#if expandedCatalogAlbums.has(album.name)}
-                      <div class="border-t border-white/[0.06]" transition:slide={{ duration: slideDuration }}>
-                        <div class="px-5 py-2 flex items-center justify-between bg-black/20">
-                          <span class="text-xs text-zinc-500">{album.blockedCount} of {album.totalCount} blocked</span>
-                          <button type="button" on:click|stopPropagation={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)} class="text-xs font-medium px-2.5 py-1 rounded-full transition-colors {album.blockedCount === album.totalCount ? 'text-zinc-400 hover:text-white' : 'text-rose-400 bg-rose-500/10 hover:bg-rose-500/15'}">
+                      <div class="cat-tracks" transition:slide={{ duration: slideDuration }}>
+                        <div class="cat-batch">
+                          <span class="cat-batch__count">{album.blockedCount} of {album.totalCount} blocked</span>
+                          <button type="button" on:click|stopPropagation={() => toggleAlbumBlocking(album.name, album.blockedCount < album.totalCount)} class="cat-batch__btn {album.blockedCount === album.totalCount ? '' : 'cat-batch__btn--danger'}">
                             {album.blockedCount === album.totalCount ? 'Allow all' : 'Block all'}
                           </button>
                         </div>
                         {#each album.tracks as track, idx}
-                          <div class="flex items-center gap-3 px-5 py-2 border-t border-white/[0.04] hover:bg-white/[0.04] transition-colors">
-                            <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="flex-shrink-0 group" title={track.isBlocked ? 'Allow this track' : 'Block this track'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
-                              {#if track.isBlocked}
-                                <div class="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500 flex items-center justify-center">
-                                  <svg class="w-2.5 h-2.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg>
-                                </div>
-                              {:else}
-                                <div class="w-5 h-5 rounded-full flex items-center justify-center" style="border: 1px solid var(--color-border-default);">
-                                  <svg class="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" style="color: var(--color-brand-primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg>
-                                </div>
-                              {/if}
+                          <div class="cat-track">
+                            <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="cat-toggle {track.isBlocked ? 'cat-toggle--active' : ''}" title={track.isBlocked ? 'Allow this track' : 'Block this track'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
+                              <span class="cat-toggle__thumb"></span>
                             </button>
-                            <span class="text-[11px] text-zinc-400 w-5 text-right">{idx + 1}</span>
-                            <div class="flex-1 min-w-0">
-                              <span class="text-sm {track.isBlocked ? 'line-through text-rose-300/60' : 'text-zinc-200'}">{track.title}</span>
-                              {#if track.collaborators}<span class="text-xs text-zinc-400 ml-1.5">feat. {track.collaborators.join(', ')}</span>{/if}
+                            <span class="cat-track__num">{idx + 1}</span>
+                            <div class="cat-track__info">
+                              <span class="cat-track__title {track.isBlocked ? 'cat-track__title--blocked' : ''}">{track.title}</span>
+                              {#if track.collaborators}<span class="cat-track__feat">feat. {track.collaborators.join(', ')}</span>{/if}
                             </div>
-                            <span class="text-[11px] text-zinc-400">{track.duration || ''}</span>
+                            <span class="cat-track__duration">{track.duration || ''}</span>
                           </div>
                         {/each}
                       </div>
@@ -1398,27 +1371,23 @@
                 {/each}
               </div>
             {:else}
-              <div class="text-center py-12 text-zinc-500 text-sm">No main artist tracks found.</div>
+              <div class="cat-empty">No main artist tracks found.</div>
             {/if}
 
           {:else if catalogSubTab === 'featured'}
             {@const featuredTracks = filteredCatalog.filter(t => t.role === 'featured')}
             {#if featuredTracks.length > 0}
-              <div class="rounded-xl overflow-hidden surface-panel-thin">
+              <div class="cat-list surface-panel-thin">
                 {#each featuredTracks.slice(0, featuredShowCount) as track, fi}
-                  <div class="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.04] transition-colors {fi > 0 ? 'border-t border-white/[0.06]' : ''}">
-                    <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="flex-shrink-0 group" title={track.isBlocked ? 'Allow' : 'Block'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
-                      {#if track.isBlocked}
-                        <div class="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500 flex items-center justify-center"><svg class="w-2.5 h-2.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg></div>
-                      {:else}
-                        <div class="w-5 h-5 rounded-full flex items-center justify-center" style="border: 1px solid var(--color-border-default);"><svg class="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" style="color: var(--color-brand-primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg></div>
-                      {/if}
+                  <div class="cat-list-row {fi > 0 ? 'cat-list-row--bordered' : ''}">
+                    <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="cat-toggle {track.isBlocked ? 'cat-toggle--active' : ''}" title={track.isBlocked ? 'Allow' : 'Block'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
+                      <span class="cat-toggle__thumb"></span>
                     </button>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm {track.isBlocked ? 'line-through text-rose-300/60' : 'text-zinc-200'} truncate">{track.title}</div>
-                      <div class="text-xs text-zinc-400 truncate">{track.collaborators?.join(', ') || '—'}{#if track.album} · {track.album}{/if}</div>
+                    <div class="cat-list-row__info">
+                      <div class="cat-list-row__title {track.isBlocked ? 'cat-track__title--blocked' : ''}">{track.title}</div>
+                      <div class="cat-list-row__meta">{track.collaborators?.join(', ') || '—'}{#if track.album} · {track.album}{/if}</div>
                     </div>
-                    <span class="text-[11px] text-zinc-400 flex-shrink-0">{track.year || ''}</span>
+                    <span class="cat-list-row__year">{track.year || ''}</span>
                   </div>
                 {/each}
               </div>
@@ -1428,28 +1397,24 @@
                 </button>
               {/if}
             {:else}
-              <div class="rounded-xl p-8 text-center surface-panel-thin"><p class="text-zinc-500 text-sm">No featured appearances found.</p></div>
+              <div class="cat-empty surface-panel-thin"><p class="text-zinc-500 text-sm">No featured appearances found.</p></div>
             {/if}
 
           {:else if catalogSubTab === 'behind'}
             {@const behindTracks = filteredCatalog.filter(t => t.role === 'producer' || t.role === 'writer')}
             {#if behindTracks.length > 0}
-              <div class="rounded-xl overflow-hidden surface-panel-thin">
+              <div class="cat-list surface-panel-thin">
                 {#each behindTracks.slice(0, behindShowCount) as track, bi}
-                  <div class="flex items-center gap-3 px-5 py-2.5 hover:bg-white/[0.04] transition-colors {bi > 0 ? 'border-t border-white/[0.06]' : ''}">
-                    <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="flex-shrink-0 group" title={track.isBlocked ? 'Allow' : 'Block'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
-                      {#if track.isBlocked}
-                        <div class="w-5 h-5 rounded-full bg-rose-500/20 border border-rose-500 flex items-center justify-center"><svg class="w-2.5 h-2.5 text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg></div>
-                      {:else}
-                        <div class="w-5 h-5 rounded-full flex items-center justify-center" style="border: 1px solid var(--color-border-default);"><svg class="w-2.5 h-2.5 opacity-0 group-hover:opacity-100" style="color: var(--color-brand-primary);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" /></svg></div>
-                      {/if}
+                  <div class="cat-list-row {bi > 0 ? 'cat-list-row--bordered' : ''}">
+                    <button type="button" on:click|stopPropagation={() => toggleTrackBlock(track.id)} class="cat-toggle {track.isBlocked ? 'cat-toggle--active' : ''}" title={track.isBlocked ? 'Allow' : 'Block'} aria-label={track.isBlocked ? `Allow ${track.title}` : `Block ${track.title}`}>
+                      <span class="cat-toggle__thumb"></span>
                     </button>
-                    <div class="flex-1 min-w-0">
-                      <div class="text-sm {track.isBlocked ? 'line-through text-rose-300/60' : 'text-zinc-200'} truncate">{track.title}</div>
-                      <div class="text-xs text-zinc-400 truncate">{track.collaborators?.join(', ') || '—'}</div>
+                    <div class="cat-list-row__info">
+                      <div class="cat-list-row__title {track.isBlocked ? 'cat-track__title--blocked' : ''}">{track.title}</div>
+                      <div class="cat-list-row__meta">{track.collaborators?.join(', ') || '—'}</div>
                     </div>
-                    <span class="text-[11px] text-zinc-400 flex-shrink-0 capitalize">{track.role}</span>
-                    <span class="text-[11px] text-zinc-400 flex-shrink-0">{track.year || ''}</span>
+                    <span class="cat-list-row__role">{track.role}</span>
+                    <span class="cat-list-row__year">{track.year || ''}</span>
                   </div>
                 {/each}
               </div>
@@ -1459,20 +1424,18 @@
                 </button>
               {/if}
             {:else}
-              <div class="rounded-xl p-8 text-center surface-panel-thin"><p class="text-zinc-500 text-sm">No writing or production credits found.</p></div>
+              <div class="cat-empty surface-panel-thin"><p class="text-zinc-500 text-sm">No writing or production credits found.</p></div>
             {/if}
           {/if}
 
-          <!-- Catalog Info -->
-          <p class="text-xs text-zinc-500 text-center pt-2">
+          <p class="cat-disclaimer">
             Catalog data aggregated from Spotify, Apple Music, and MusicBrainz. Some entries may be incomplete.
           </p>
         </div>
 
       {:else if activeTab === 'discography'}
-        <!-- Discography Impact Panel - Simplified Layout -->
+        <!-- Discography Impact Panel -->
         <div class="space-y-8">
-          <!-- Primary: Discography Revenue (always shown, uses simulated data) -->
           <div data-testid="discography-revenue-section">
             <ArtistDiscographyRevenue
               artistId={artistId}
@@ -1480,7 +1443,6 @@
             />
           </div>
 
-          <!-- Secondary: Platform-specific data (only if available and non-zero) -->
           {#if profile.streaming_metrics?.platform_breakdown?.length > 0}
             <div class="rounded-xl p-5 surface-panel-thin">
               <h3 class="text-lg font-semibold text-zinc-100 mb-6">Platform Distribution</h3>
@@ -1508,7 +1470,6 @@
             </div>
           {/if}
 
-          <!-- Tertiary: Top Tracks (only if available) -->
           {#if profile.streaming_metrics?.top_tracks?.length > 0}
             <div class="rounded-xl p-5 surface-panel-thin">
               <h3 class="text-lg font-semibold text-zinc-100 mb-6">Top Tracks</h3>
@@ -1529,7 +1490,6 @@
             </div>
           {/if}
 
-          <!-- Data Disclaimer -->
           <div class="text-center py-4">
             <p class="text-xs text-zinc-500 max-w-xl mx-auto leading-relaxed">
               Revenue figures are <strong class="text-zinc-400">simulated</strong> based on average streaming payouts.
@@ -1542,143 +1502,150 @@
         </div>
 
       {:else if activeTab === 'credits'}
-        <div class="rounded-xl overflow-hidden surface-panel-thin">
-          <div class="grid lg:grid-cols-2">
-            <div class="p-5">
-              <h3 class="text-lg font-semibold text-white mb-3">Songwriters {#if profile.credits?.writers?.length}<span class="text-zinc-400 font-normal text-sm">({profile.credits.writers.length})</span>{/if}</h3>
-              {#if !profile.credits?.writers?.length}
-                <p class="text-zinc-500 text-sm py-4">No writing credits found</p>
-              {:else}
-                {#each profile.credits.writers as writer}
-                  <div class="flex items-center gap-3 py-2.5">
-                    <div class="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden relative">
-                      {#if writer.image_url}<img src={writer.image_url} alt="" class="w-7 h-7 rounded-full object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
-                      <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-zinc-800 text-zinc-400">{writer.name.charAt(0)}</div>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <span class="text-sm text-zinc-200 truncate">{writer.name}</span>
-                      {#if writer.is_flagged}<span class="text-[10px] text-rose-400 ml-1.5">flagged</span>{/if}
-                      {#if writer.note}<p class="text-xs text-amber-400/80 truncate">{writer.note}</p>{/if}
-                    </div>
-                    <span class="text-xs text-zinc-500 flex-shrink-0">{writer.track_count} tracks</span>
+        <!-- Songwriters Section -->
+        <div class="cred-section">
+          <h3 class="cred-heading">
+            Songwriters
+            {#if profile.credits?.writers?.length}<span class="cred-heading__count">({profile.credits.writers.length})</span>{/if}
+          </h3>
+          {#if !profile.credits?.writers?.length}
+            <div class="cred-empty surface-panel-thin">No writing credits found</div>
+          {:else}
+            {@const maxWriterTracks = Math.max(...profile.credits.writers.map(w => w.track_count))}
+            <div class="cred-list surface-panel-thin">
+              {#each profile.credits.writers as writer}
+                <div class="cred-row">
+                  <div class="cred-avatar">
+                    {#if writer.image_url}<img src={writer.image_url} alt="" class="cred-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
+                    <div class="cred-avatar__ph">{writer.name.charAt(0)}</div>
                   </div>
-                {/each}
-              {/if}
-            </div>
-
-            <div class="p-5 lg:border-l border-white/[0.06]">
-              <h3 class="text-lg font-semibold text-white mb-3">Producers {#if profile.credits?.producers?.length}<span class="text-zinc-400 font-normal text-sm">({profile.credits.producers.length})</span>{/if}</h3>
-              {#if !profile.credits?.producers?.length}
-                <p class="text-zinc-500 text-sm py-4">No production credits found</p>
-              {:else}
-                {#each profile.credits.producers as producer}
-                  <div class="flex items-center gap-3 py-2.5">
-                    <div class="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden relative">
-                      {#if producer.image_url}<img src={producer.image_url} alt="" class="w-7 h-7 rounded-full object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
-                      <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-zinc-800 text-zinc-400">{producer.name.charAt(0)}</div>
+                  <div class="cred-info">
+                    <div class="cred-name">
+                      {writer.name}
+                      {#if writer.is_flagged}<span class="cred-flag">flagged</span>{/if}
                     </div>
-                    <div class="flex-1 min-w-0">
-                      <span class="text-sm text-zinc-200 truncate">{producer.name}</span>
-                      {#if producer.is_flagged}<span class="text-[10px] text-rose-400 ml-1.5">flagged</span>{/if}
-                    </div>
-                    <span class="text-xs text-zinc-500 flex-shrink-0">{producer.track_count} tracks</span>
+                    {#if writer.note}<p class="cred-note">{writer.note}</p>{/if}
                   </div>
-                {/each}
-              {/if}
+                  <div class="cred-bar-wrap">
+                    <div class="cred-bar" style="width: {maxWriterTracks > 0 ? (writer.track_count / maxWriterTracks * 100) : 0}%;"></div>
+                  </div>
+                  <span class="cred-tracks">{writer.track_count} tracks</span>
+                </div>
+              {/each}
             </div>
-          </div>
+          {/if}
         </div>
 
-        <p class="text-xs text-zinc-400 text-center mt-4">
-          <strong class="text-zinc-300">Flagged collaborators</strong> have documented offenses in our database.
+        <!-- Producers Section -->
+        <div class="cred-section">
+          <h3 class="cred-heading">
+            Producers
+            {#if profile.credits?.producers?.length}<span class="cred-heading__count">({profile.credits.producers.length})</span>{/if}
+          </h3>
+          {#if !profile.credits?.producers?.length}
+            <div class="cred-empty surface-panel-thin">No production credits found</div>
+          {:else}
+            {@const maxProducerTracks = Math.max(...profile.credits.producers.map(p => p.track_count))}
+            <div class="cred-list surface-panel-thin">
+              {#each profile.credits.producers as producer}
+                <div class="cred-row">
+                  <div class="cred-avatar">
+                    {#if producer.image_url}<img src={producer.image_url} alt="" class="cred-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
+                    <div class="cred-avatar__ph">{producer.name.charAt(0)}</div>
+                  </div>
+                  <div class="cred-info">
+                    <div class="cred-name">
+                      {producer.name}
+                      {#if producer.is_flagged}<span class="cred-flag">flagged</span>{/if}
+                    </div>
+                  </div>
+                  <div class="cred-bar-wrap">
+                    <div class="cred-bar" style="width: {maxProducerTracks > 0 ? (producer.track_count / maxProducerTracks * 100) : 0}%;"></div>
+                  </div>
+                  <span class="cred-tracks">{producer.track_count} tracks</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
+
+        <p class="cred-disclaimer">
+          <strong>Flagged collaborators</strong> have documented offenses in our database.
         </p>
 
       {:else if activeTab === 'connections'}
-        <!-- Connections / Collaborators -->
-        <div class="grid lg:grid-cols-3 gap-8">
-          <div class="lg:col-span-2">
-            <h2 class="text-2xl font-bold text-white mb-6">
-              Collaborators & Connections
-              {#if profile.collaborators.length > 0}
-                <span class="text-zinc-400 font-normal ml-2">({profile.collaborators.length})</span>
-              {/if}
-            </h2>
-
-            {#if profile.collaborators.length === 0}
-              <div class="text-center py-12 rounded-xl surface-panel-thin">
-                <div class="w-10 h-10 mx-auto mb-3 rounded-full flex items-center justify-center" style="background: rgba(99, 102, 241, 0.12);">
-                  <svg class="w-5 h-5 text-indigo-400" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <p class="text-zinc-200 text-sm font-medium">No collaborations found</p>
-                <p class="text-zinc-500 text-xs mt-1">Collaboration data is being populated</p>
-              </div>
-            {:else}
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {#each profile.collaborators as collab}
-                  {@const collabStatus = getStatusColor(collab.status)}
-                  <button
-                    type="button"
-                    class="group p-4 rounded-2xl text-left transition-all hover:scale-[1.02] surface-panel-thin"
-                    class:border-red-500={collab.is_flagged}
-                    on:click={() => navigateToArtist(collab.id)}
-                  >
-                    <div class="relative aspect-square mb-3 rounded-xl overflow-hidden" style="background: var(--color-bg-interactive);">
-                      {#if collab.image_url}
-                        <img
-                          src={collab.image_url}
-                          alt=""
-                          class="w-full h-full object-cover absolute inset-0"
-                          on:error={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                      {/if}
-                      <div class="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-400">
-                        {collab.name.charAt(0)}
-                      </div>
-
-                      {#if collab.is_flagged}
-                        <div class="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-rose-500">
-                          <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                        </div>
-                      {/if}
-                    </div>
-
-                    <h4 class="font-medium text-white truncate">{collab.name}</h4>
-                    <p class="text-xs text-zinc-400 capitalize">{collab.collaboration_type}</p>
-                    <p class="text-xs text-zinc-400">{collab.collaboration_count} collaboration{collab.collaboration_count !== 1 ? 's' : ''}</p>
-                  </button>
-                {/each}
-              </div>
+        <!-- Connections — Dense list -->
+        <div class="conn-header">
+          <h2 class="conn-title">
+            Connections
+            {#if profile.collaborators.length > 0}
+              <span class="conn-count">({profile.collaborators.length})</span>
             {/if}
-          </div>
-
-          <!-- Sidebar -->
-          <div class="lg:col-span-1 space-y-4">
-            <div class="rounded-xl p-6 surface-panel-thin">
-              <h3 class="text-lg font-semibold mb-4 text-white">Connection Warning</h3>
-              <p class="text-sm leading-relaxed text-zinc-300">
-                Connections shown represent professional collaborations only.
-                <strong class="text-white">Guilt is never transferred</strong> across connections.
-                A collaboration with a flagged artist does not imply involvement in their misconduct.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              on:click={() => navigateTo('graph')}
-              class="w-full px-4 py-3 rounded-2xl font-medium transition-all flex items-center justify-center gap-2 hover:bg-indigo-700 bg-indigo-600 text-white"
-             
-            >
-              <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              Explore Full Network
-            </button>
-          </div>
+          </h2>
         </div>
+
+        {#if profile.collaborators.length === 0}
+          <div class="conn-empty surface-panel-thin">
+            <div class="conn-empty__icon">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <p class="conn-empty__title">No collaborations found</p>
+            <p class="conn-empty__sub">Collaboration data is being populated</p>
+          </div>
+        {:else}
+          <div class="conn-list surface-panel-thin">
+            {#each profile.collaborators as collab}
+              <button
+                type="button"
+                class="conn-row {collab.is_flagged ? 'conn-row--flagged' : ''}"
+                on:click={() => navigateToArtist(collab.id)}
+              >
+                <div class="conn-avatar">
+                  {#if collab.image_url}
+                    <img src={collab.image_url} alt="" class="conn-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  {/if}
+                  <div class="conn-avatar__ph">{collab.name.charAt(0)}</div>
+                </div>
+                <div class="conn-info">
+                  <span class="conn-name">{collab.name}</span>
+                  {#if collab.is_flagged}
+                    <span class="conn-dot conn-dot--flagged"></span>
+                  {:else}
+                    <span class="conn-dot conn-dot--clean"></span>
+                  {/if}
+                </div>
+                <span class="conn-collabs">{collab.collaboration_count} collab{collab.collaboration_count !== 1 ? 's' : ''}</span>
+                <span class="conn-type">{collab.collaboration_type}</span>
+                <svg class="conn-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Warning Card -->
+        <div class="conn-warning surface-panel-thin">
+          <p>
+            Connections shown represent professional collaborations only.
+            <strong>Guilt is never transferred</strong> across connections.
+            A collaboration with a flagged artist does not imply involvement in their misconduct.
+          </p>
+        </div>
+
+        <!-- Explore Network Button -->
+        <button
+          type="button"
+          on:click={() => navigateTo('graph')}
+          class="conn-explore"
+        >
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+          </svg>
+          Explore Full Network
+        </button>
       {/if}
     </main>
     </div><!-- end profile__content-card -->
@@ -2369,4 +2336,725 @@
   @keyframes profile-spin {
     to { transform: rotate(360deg); }
   }
+
+  /* ===== Evidence Tab — News Feed ===== */
+  .ev-header { margin-bottom: 1rem; }
+
+  .ev-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .ev-count {
+    color: var(--color-text-muted);
+    font-weight: 400;
+    margin-left: 0.25rem;
+  }
+
+  .ev-empty {
+    padding: 2rem;
+    border-radius: 0.75rem;
+    text-align: center;
+  }
+
+  .ev-feed {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .ev-card--bordered {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .ev-card__btn {
+    width: 100%;
+    padding: 1.25rem;
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    transition: background-color 0.15s;
+    display: block;
+  }
+
+  .ev-card__btn:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .ev-card__badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+  }
+
+  .ev-pill {
+    padding: 0.1875rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    white-space: nowrap;
+  }
+
+  .ev-pill--muted {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text-secondary);
+  }
+
+  .ev-card__date {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+
+  .ev-card__title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0 0 0.375rem;
+    line-height: 1.4;
+  }
+
+  .ev-card__desc {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+  }
+
+  .ev-card__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75rem;
+  }
+
+  .ev-card__sources {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .ev-card__chevron {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-text-muted);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+
+  .ev-card__chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* Evidence expanded sources */
+  .ev-sources {
+    padding: 0 1.25rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .ev-sources__heading {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 1rem;
+    margin: 0 0 0.75rem;
+  }
+
+  .ev-sources__empty {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .ev-source {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.15s;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .ev-source:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .ev-source__tier {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.625rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .ev-source__info { flex: 1; min-width: 0; }
+  .ev-source__title { font-size: 0.8125rem; font-weight: 500; color: #d4d4d8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev-source__meta { font-size: 0.6875rem; color: #52525b; margin: 0.125rem 0 0; }
+  .ev-source__excerpt { font-size: 0.6875rem; color: #52525b; margin: 0.25rem 0 0; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Evidence summary strip */
+  .ev-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    margin-top: 1rem;
+  }
+
+  .ev-summary__cell {
+    padding: 0.875rem 1rem;
+    background: var(--color-bg-elevated, rgba(24, 24, 27, 0.95));
+    text-align: center;
+  }
+
+  .ev-summary__value {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ev-summary__label {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--color-text-tertiary);
+    margin-top: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* ===== Catalog Tab ===== */
+  .cat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+  }
+
+  .cat-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .cat-indicator__bar {
+    height: 0.375rem;
+    width: 7rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .cat-indicator__fill {
+    height: 100%;
+    border-radius: 9999px;
+    background: var(--color-brand-primary);
+    transition: width 0.3s;
+  }
+
+  .cat-indicator__text {
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+  }
+
+  .cat-indicator__count {
+    color: #fb7185;
+    font-weight: 500;
+  }
+
+  /* Album list */
+  .cat-albums { border-radius: 0.75rem; overflow: hidden; }
+  .cat-album--bordered { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+  .cat-album__header {
+    width: 100%;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    transition: background-color 0.15s;
+  }
+
+  .cat-album__header:hover { background: rgba(255, 255, 255, 0.04); }
+
+  .cat-album__art {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background: #27272a;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .cat-album__art-img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .cat-album__art-ph { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+  .cat-album__art-ph svg { width: 1rem; height: 1rem; color: #52525b; }
+
+  .cat-album__info { flex: 1; min-width: 0; }
+  .cat-album__title { font-size: 0.9375rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-album__meta { font-size: 0.75rem; color: #71717a; margin-top: 0.125rem; }
+
+  .cat-album__status { font-size: 0.6875rem; color: #52525b; flex-shrink: 0; }
+  .cat-album__status--all { color: #fb7185; }
+
+  .cat-chevron { width: 1rem; height: 1rem; color: #52525b; flex-shrink: 0; transition: transform 0.2s; }
+  .cat-chevron--open { transform: rotate(180deg); }
+
+  /* Expanded track table */
+  .cat-tracks { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+  .cat-batch {
+    padding: 0.5rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .cat-batch__count { font-size: 0.75rem; color: #52525b; }
+
+  .cat-batch__btn {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #71717a;
+    transition: all 0.15s;
+  }
+
+  .cat-batch__btn:hover { color: #fff; }
+  .cat-batch__btn--danger { color: #fb7185; background: rgba(244, 63, 94, 0.1); }
+  .cat-batch__btn--danger:hover { background: rgba(244, 63, 94, 0.15); }
+
+  /* Toggle switch */
+  .cat-toggle {
+    position: relative;
+    width: 2rem;
+    height: 1.125rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background-color 0.2s, border-color 0.2s;
+  }
+
+  .cat-toggle--active {
+    background: rgba(244, 63, 94, 0.25);
+    border-color: #fb7185;
+  }
+
+  .cat-toggle__thumb {
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: #71717a;
+    transition: transform 0.2s, background-color 0.2s;
+  }
+
+  .cat-toggle--active .cat-toggle__thumb {
+    transform: translateX(0.875rem);
+    background: #fb7185;
+  }
+
+  /* Track rows */
+  .cat-track {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background-color 0.1s;
+  }
+
+  .cat-track:hover { background: rgba(255, 255, 255, 0.03); }
+
+  .cat-track__num {
+    width: 1.5rem;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #52525b;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  .cat-track__info { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 0.375rem; }
+  .cat-track__title { font-size: 0.8125rem; color: #d4d4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-track__title--blocked { text-decoration: line-through; color: rgba(251, 113, 133, 0.6); }
+  .cat-track__feat { font-size: 0.6875rem; color: #52525b; white-space: nowrap; flex-shrink: 0; }
+
+  .cat-track__duration {
+    font-size: 0.75rem;
+    color: #52525b;
+    width: 3rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+  }
+
+  /* Featured / Behind list rows */
+  .cat-list { border-radius: 0.75rem; overflow: hidden; }
+  .cat-list-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1.25rem; transition: background-color 0.1s; }
+  .cat-list-row:hover { background: rgba(255, 255, 255, 0.03); }
+  .cat-list-row--bordered { border-top: 1px solid rgba(255, 255, 255, 0.06); }
+
+  .cat-list-row__info { flex: 1; min-width: 0; }
+  .cat-list-row__title { font-size: 0.8125rem; color: #d4d4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cat-list-row__meta { font-size: 0.6875rem; color: #52525b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.125rem; }
+  .cat-list-row__role { font-size: 0.6875rem; color: #52525b; flex-shrink: 0; text-transform: capitalize; }
+  .cat-list-row__year { font-size: 0.6875rem; color: #52525b; flex-shrink: 0; }
+
+  .cat-empty { text-align: center; padding: 3rem 0; font-size: 0.8125rem; color: #52525b; }
+
+  .cat-disclaimer {
+    font-size: 0.75rem;
+    color: #52525b;
+    text-align: center;
+    padding-top: 0.5rem;
+    margin: 0;
+  }
+
+  /* ===== Credits Tab ===== */
+  .cred-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .cred-heading {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0 0 0.75rem;
+  }
+
+  .cred-heading__count {
+    color: #71717a;
+    font-weight: 400;
+    font-size: 0.875rem;
+  }
+
+  .cred-empty {
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
+    color: #52525b;
+  }
+
+  .cred-list {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .cred-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    transition: background-color 0.1s;
+  }
+
+  .cred-row:first-child { border-top: none; }
+  .cred-row:hover { background: rgba(255, 255, 255, 0.02); }
+
+  .cred-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .cred-avatar__img {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+
+  .cred-avatar__ph {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: #27272a;
+    color: #71717a;
+  }
+
+  .cred-info { flex: 1; min-width: 0; }
+  .cred-name { font-size: 0.8125rem; color: #d4d4d8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cred-flag {
+    display: inline-block;
+    margin-left: 0.375rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 9999px;
+    background: rgba(244, 63, 94, 0.15);
+    color: #fb7185;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .cred-note {
+    font-size: 0.6875rem;
+    color: #d97706;
+    margin: 0.125rem 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .cred-bar-wrap {
+    width: 5rem;
+    height: 0.375rem;
+    border-radius: 0.25rem;
+    background: rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .cred-bar {
+    height: 100%;
+    border-radius: 0.25rem;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    transition: width 0.3s;
+  }
+
+  .cred-tracks {
+    font-size: 0.75rem;
+    color: #52525b;
+    flex-shrink: 0;
+    min-width: 4rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cred-disclaimer {
+    font-size: 0.75rem;
+    color: #71717a;
+    text-align: center;
+    margin: 0;
+  }
+
+  .cred-disclaimer strong { color: #d4d4d8; }
+
+  /* ===== Connections Tab ===== */
+  .conn-header { margin-bottom: 1rem; }
+
+  .conn-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+  }
+
+  .conn-count {
+    color: #71717a;
+    font-weight: 400;
+  }
+
+  .conn-empty {
+    padding: 3rem;
+    border-radius: 0.75rem;
+    text-align: center;
+  }
+
+  .conn-empty__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin: 0 auto 0.75rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(99, 102, 241, 0.12);
+    color: #818cf8;
+  }
+
+  .conn-empty__title { font-size: 0.875rem; font-weight: 500; color: #d4d4d8; margin: 0; }
+  .conn-empty__sub { font-size: 0.75rem; color: #52525b; margin: 0.25rem 0 0; }
+
+  .conn-list {
+    border-radius: 0.75rem;
+    overflow: hidden;
+  }
+
+  .conn-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    background: transparent;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    transition: background-color 0.15s;
+  }
+
+  .conn-row:first-child { border-top: none; }
+  .conn-row:hover { background: rgba(255, 255, 255, 0.04); }
+  .conn-row--flagged { background: rgba(244, 63, 94, 0.04); }
+  .conn-row--flagged:hover { background: rgba(244, 63, 94, 0.07); }
+
+  .conn-avatar {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+    background: #27272a;
+  }
+
+  .conn-avatar__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    inset: 0;
+  }
+
+  .conn-avatar__ph {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #52525b;
+  }
+
+  .conn-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .conn-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fafafa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .conn-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .conn-dot--clean { background: #22c55e; }
+  .conn-dot--flagged { background: #fb7185; }
+
+  .conn-collabs {
+    font-size: 0.75rem;
+    color: #71717a;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .conn-type {
+    font-size: 0.6875rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #a1a1aa;
+    text-transform: capitalize;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .conn-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: #52525b;
+    flex-shrink: 0;
+  }
+
+  .conn-warning {
+    margin-top: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+  }
+
+  .conn-warning p {
+    font-size: 0.8125rem;
+    color: #a1a1aa;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .conn-warning strong { color: #fafafa; }
+
+  .conn-explore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background: #4f46e5;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+
+  .conn-explore:hover { background: #4338ca; }
+  .conn-explore svg { width: 1.25rem; height: 1.25rem; }
 </style>

@@ -88,8 +88,8 @@ test.describe('Enforcement', () => {
       // Click category to expand
       await authenticatedPage.getByText('Domestic Violence').first().click();
 
-      // Look for Block All button
-      await expect(authenticatedPage.getByRole('button', { name: /Block All/i })).toBeVisible();
+      // Look for Block All button in the expanded panel
+      await expect(authenticatedPage.locator('.category-panel__action-btn', { hasText: 'Block All' })).toBeVisible();
     });
 
     test('should show unsubscribe button for subscribed category', async ({

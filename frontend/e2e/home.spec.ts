@@ -14,7 +14,7 @@ test.describe('Home Page', () => {
         authenticatedPage.getByRole('heading', { name: 'Clean Your Feed' })
       ).toBeVisible();
       await expect(
-        authenticatedPage.getByText('Search and block artists with documented misconduct')
+        authenticatedPage.getByText('Search artists, block by category')
       ).toBeVisible();
       await expect(
         authenticatedPage.getByPlaceholder('Search any artist...')
@@ -86,9 +86,7 @@ test.describe('Home Page', () => {
       ).toBeVisible();
 
       // Close button
-      const closeButton = authenticatedPage.getByRole('button').filter({
-        has: authenticatedPage.locator('svg path[d*="18L18 6"]'),
-      });
+      const closeButton = authenticatedPage.locator('.category-panel__close');
       await closeButton.click();
 
       // Panel should close (heading in the expanded view specifically)
@@ -174,9 +172,10 @@ test.describe('Home Page', () => {
 
     test('should show blocked artists count', async ({ authenticatedPage }) => {
       // Should show count in section header
-      await expect(authenticatedPage.getByText(/Your Blocked Artists.*\(2\)/)).toBeVisible({
+      await expect(authenticatedPage.getByText('Your Blocked Artists')).toBeVisible({
         timeout: 5000,
       });
+      await expect(authenticatedPage.locator('.section__count')).toHaveText('2');
     });
 
     test('should allow unblocking an artist', async ({ authenticatedPage }) => {
@@ -232,7 +231,7 @@ test.describe('Home Page', () => {
 
       // Should show empty state message
       await expect(page.getByText('No artists blocked yet')).toBeVisible({ timeout: 5000 });
-      await expect(page.getByText('Toggle categories above to start blocking')).toBeVisible();
+      await expect(page.getByText('Toggle categories above to start blocking')).toBeVisible({ timeout: 5000 });
     });
   });
 

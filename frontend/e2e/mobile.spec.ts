@@ -43,7 +43,7 @@ test.describe('Mobile Responsiveness', () => {
       await mockApi(page);
       await page.goto('/');
 
-      await expect(page.getByText('Evidence-based artist blocklists')).toBeVisible();
+      await expect(page.getByText('Evidence-led artist blocklists')).toBeVisible();
     });
   });
 
@@ -100,7 +100,7 @@ test.describe('Mobile Responsiveness', () => {
       await authenticatedPage.setViewportSize({ width: 375, height: 667 });
 
       const toggleButton = authenticatedPage.locator('button').first();
-      await toggleButton.tap();
+      await toggleButton.click();
     });
 
     test('should handle tap on search result', async ({ authenticatedPage }) => {
@@ -112,7 +112,7 @@ test.describe('Mobile Responsiveness', () => {
 
       const result = authenticatedPage.getByText('Drake', { exact: true }).first();
       if (await result.isVisible()) {
-        await result.tap();
+        await result.click();
         await expect(authenticatedPage).toHaveURL(/.*artist.*/);
       }
     });

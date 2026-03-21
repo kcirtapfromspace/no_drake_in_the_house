@@ -150,6 +150,17 @@ async function mockApiRoutes(page: Page) {
     }
   });
 
+  // Users profile endpoint (called after login)
+  await page.route('**/api/v1/users/profile', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockUser),
+      });
+    }
+  });
+
   // Login endpoint
   await page.route('**/api/v1/auth/login', async (route) => {
     const body = route.request().postDataJSON();
@@ -166,7 +177,7 @@ async function mockApiRoutes(page: Page) {
       await route.fulfill({
         status: 401,
         contentType: 'application/json',
-        body: JSON.stringify({ error: 'Invalid credentials' }),
+        body: JSON.stringify({ message: 'Invalid credentials' }),
       });
     }
   });
@@ -179,7 +190,7 @@ async function mockApiRoutes(page: Page) {
         await route.fulfill({
           status: 409,
           contentType: 'application/json',
-          body: JSON.stringify({ error: 'Email already exists' }),
+          body: JSON.stringify({ message: 'Email already exists' }),
         });
       } else {
         await route.fulfill({

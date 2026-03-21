@@ -50,7 +50,7 @@ test.describe('Navigation', () => {
   test.describe('OAuth Callback Routes', () => {
     test('should show OAuth callback page', async ({ page, mockApi }) => {
       await mockApi(page);
-      await page.goto('/oauth/callback?code=test-code&state=test-state');
+      await page.goto('/auth/callback?code=test-code&state=test-state');
       await page.waitForLoadState('networkidle');
 
       // OAuth callback component should be rendered
@@ -59,20 +59,20 @@ test.describe('Navigation', () => {
 
     test('should show OAuth error page', async ({ page, mockApi }) => {
       await mockApi(page);
-      await page.goto('/oauth/error');
+      await page.goto('/auth/error');
       await page.waitForLoadState('networkidle');
 
       // Should show error UI
-      await expect(page.getByText('Connection Failed')).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Go Back' })).toBeVisible();
+      await expect(page.getByText('Connection failed')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Go back' })).toBeVisible();
     });
 
     test('should navigate from OAuth error to home', async ({ page, mockApi }) => {
       await mockApi(page);
-      await page.goto('/oauth/error');
+      await page.goto('/auth/error');
       await page.waitForLoadState('networkidle');
 
-      await page.getByRole('button', { name: 'Go Back' }).click();
+      await page.getByRole('button', { name: 'Go back' }).click();
 
       // Should redirect to home/login
       await expect(page).toHaveURL('/');

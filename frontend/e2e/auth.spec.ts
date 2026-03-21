@@ -14,7 +14,7 @@ test.describe('Authentication', () => {
 
       // Check for login form elements
       await expect(page.getByRole('heading', { name: 'No Drake in the House' })).toBeVisible();
-      await expect(page.getByText('Take control of your music')).toBeVisible();
+      await expect(page.getByText('Clean your feed')).toBeVisible();
       await expect(page.getByLabel('Email')).toBeVisible();
       await expect(page.getByLabel('Password')).toBeVisible();
       await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
@@ -98,7 +98,7 @@ test.describe('Authentication', () => {
 
       // Enter mismatched passwords
       await page.getByLabel('Email').fill('new@example.com');
-      await page.getByPlaceholder('Password').fill('password123');
+      await page.getByLabel('Password', { exact: true }).fill('password123');
       await page.getByLabel('Confirm Password').fill('different123');
       await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -115,7 +115,7 @@ test.describe('Authentication', () => {
 
       // Fill registration form
       await page.getByLabel('Email').fill('new@example.com');
-      await page.getByPlaceholder('Password').fill('password123');
+      await page.getByLabel('Password', { exact: true }).fill('password123');
       await page.getByLabel('Confirm Password').fill('password123');
       await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -135,7 +135,7 @@ test.describe('Authentication', () => {
 
       // Try to register with existing email
       await page.getByLabel('Email').fill('existing@example.com');
-      await page.getByPlaceholder('Password').fill('password123');
+      await page.getByLabel('Password', { exact: true }).fill('password123');
       await page.getByLabel('Confirm Password').fill('password123');
       await page.getByRole('button', { name: 'Create account' }).click();
 
@@ -168,9 +168,9 @@ test.describe('Authentication', () => {
       await page.goto('/');
 
       // Check for feature highlights
-      await expect(page.getByText('Evidence-based artist blocklists')).toBeVisible();
-      await expect(page.getByText('Works with Spotify and Apple Music')).toBeVisible();
-      await expect(page.getByText('Blocks features and collaborations')).toBeVisible();
+      await expect(page.getByText('Evidence-led artist blocklists')).toBeVisible();
+      await expect(page.getByText('Spotify + Apple Music')).toBeVisible();
+      await expect(page.getByText('Features and collaborations included')).toBeVisible();
     });
   });
 

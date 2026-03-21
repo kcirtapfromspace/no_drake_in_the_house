@@ -13,7 +13,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       authenticatedPage,
     }) => {
       // Navigate to the connections page
-      await authenticatedPage.goto('/connections');
+      await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
       // Verify YouTube Music heading is visible
@@ -31,7 +31,7 @@ test.describe('YouTube Music OAuth Integration', () => {
     test('should not show "Coming Soon" badge for YouTube Music', async ({
       authenticatedPage,
     }) => {
-      await authenticatedPage.goto('/connections');
+      await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
       // The YouTube Music section should NOT contain "Coming Soon"
@@ -42,7 +42,7 @@ test.describe('YouTube Music OAuth Integration', () => {
     test('should not have opacity-50 on the YouTube Music section', async ({
       authenticatedPage,
     }) => {
-      await authenticatedPage.goto('/connections');
+      await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
       // The YouTube Music list item's inner div should NOT have opacity-50
@@ -52,7 +52,7 @@ test.describe('YouTube Music OAuth Integration', () => {
     });
 
     test('should show description text when not connected', async ({ authenticatedPage }) => {
-      await authenticatedPage.goto('/connections');
+      await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
       await expect(
@@ -102,7 +102,7 @@ test.describe('YouTube Music OAuth Integration', () => {
         );
       });
 
-      await page.goto('/connections');
+      await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
       // Click the YouTube Music connect button
@@ -322,7 +322,7 @@ test.describe('YouTube Music OAuth Integration', () => {
         );
       });
 
-      await page.goto('/connections');
+      await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
       // Should show Disconnect and Check Health buttons
@@ -395,7 +395,7 @@ test.describe('YouTube Music OAuth Integration', () => {
         );
       });
 
-      await page.goto('/connections');
+      await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
       // Click disconnect
@@ -467,7 +467,7 @@ test.describe('YouTube Music OAuth Integration', () => {
         );
       });
 
-      await page.goto('/connections');
+      await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
       const youtubeSection = page.locator('li').filter({ hasText: 'YouTube Music' });
@@ -488,18 +488,13 @@ test.describe('YouTube Music OAuth Integration', () => {
     test('should show updated info section text for YouTube Music', async ({
       authenticatedPage,
     }) => {
-      await authenticatedPage.goto('/connections');
+      await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
-      // Should show the updated description
+      // Should show the YouTube Music description
       await expect(
-        authenticatedPage.getByText('YouTube Music: Full library management and liked videos sync')
+        authenticatedPage.getByText('Connect your YouTube Music account to manage your music library')
       ).toBeVisible();
-
-      // Should NOT show the old "coming soon" text
-      await expect(
-        authenticatedPage.getByText('Browser extension support only (coming soon)')
-      ).not.toBeVisible();
     });
   });
 
@@ -563,7 +558,7 @@ test.describe('YouTube Music OAuth Integration', () => {
         );
       });
 
-      await page.goto('/connections');
+      await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
       // Click Check Health

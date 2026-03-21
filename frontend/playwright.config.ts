@@ -29,7 +29,7 @@ export default defineConfig({
   /* Shared settings for all the projects below */
   use: {
     /* Base URL for frontend */
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5000',
+    baseURL: process.env.E2E_BASE_URL || 'http://localhost:8080',
 
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -67,9 +67,9 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: process.env.E2E_SKIP_SERVER ? undefined : {
-    command: 'npm run dev',
-    url: 'http://localhost:5000',
+  webServer: (process.env.E2E_SKIP_SERVER === 'true' || process.env.E2E_SKIP_SERVER === '1') ? undefined : {
+    command: 'npm run test:e2e:serve',
+    url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

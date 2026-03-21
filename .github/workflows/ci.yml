@@ -569,123 +569,20 @@ jobs:
         working-directory: frontend
         run: npm test -- --run
 
-  e2e-backend-binary:
-    name: E2E Backend Binary
-    runs-on: ubuntu-latest
-    needs:
-      [
-        changes,
-        render-backend-image-smoke,
-        backend-rust-quality,
-        backend-component-build,
-        backend-component-test,
-      ]
-    if: >-
-      ${{
-        always() &&
-        needs.changes.outputs.e2e == 'true' &&
-        contains(fromJSON('["success","skipped"]'), needs.render-backend-image-smoke.result) &&
-        contains(fromJSON('["success","skipped"]'), needs.backend-rust-quality.result) &&
-        contains(fromJSON('["success","skipped"]'), needs.backend-component-build.result) &&
-        contains(fromJSON('["success","skipped"]'), needs.backend-component-test.result)
-      }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install protobuf compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
-
-      - name: Cache Cargo dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            backend/target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Build backend release binary
-        working-directory: backend
-        run: cargo build --release -p music-streaming-blocklist-backend
-
-      - name: Stage backend artifact
-        run: |
-          mkdir -p ci-artifacts/backend
-          cp backend/target/release/music-streaming-blocklist-backend ci-artifacts/backend/
-
-      - name: Upload backend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-backend-binary
-          path: ci-artifacts/backend/music-streaming-blocklist-backend
-          compression-level: 0
-          retention-days: 1
-
   e2e-test:
     name: E2E Browser Tests
     runs-on: ubuntu-latest
-    needs:
-      [
-        changes,
-        e2e-backend-binary,
-        frontend-unit-test,
-      ]
+    needs: [changes, frontend-unit-test]
     if: >-
       ${{
         always() &&
         needs.changes.outputs.e2e == 'true' &&
-        needs.e2e-backend-binary.result == 'success' &&
         contains(fromJSON('["success","skipped"]'), needs.frontend-unit-test.result)
       }}
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: e2e-backend-binary
-          path: backend/ci-artifacts
-
-      - name: Make backend artifact executable
-        run: chmod +x backend/ci-artifacts/music-streaming-blocklist-backend
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -706,24 +603,8 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Start backend
-        working-directory: backend
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret-key-for-ci
-          RUST_LOG: warn
-          PORT: 3000
-        run: |
-          ./ci-artifacts/music-streaming-blocklist-backend &
-          sleep 10
-          curl --retry 5 --retry-delay 2 --retry-connrefused http://localhost:3000/health
-
       - name: Run E2E tests
         working-directory: frontend
-        env:
-          E2E_BASE_URL: http://localhost:5000
-          E2E_SKIP_SERVER: false
         run: npx playwright test --project=chromium --reporter=html
 
       - name: Upload Playwright report
@@ -745,40 +626,14 @@ jobs:
   e2e-cross-browser:
     name: Cross-Browser E2E Tests
     runs-on: ubuntu-latest
-    needs: [changes, e2e-backend-binary, e2e-test]
+    needs: [changes, e2e-test]
     if: >-
       ${{
         always() &&
         github.ref == 'refs/heads/main' &&
         needs.changes.outputs.e2e == 'true' &&
-        needs.e2e-backend-binary.result == 'success' &&
         needs.e2e-test.result == 'success'
       }}
-
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-      redis:
-        image: redis:7
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
 
     strategy:
       fail-fast: false
@@ -788,15 +643,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Download backend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: e2e-backend-binary
-          path: backend/ci-artifacts
-
-      - name: Make backend artifact executable
-        run: chmod +x backend/ci-artifacts/music-streaming-blocklist-backend
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -817,24 +663,8 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Start backend
-        working-directory: backend
-        env:
-          DATABASE_URL: postgres://test:test@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379
-          JWT_SECRET: test-secret-key-for-ci
-          RUST_LOG: warn
-          PORT: 3000
-        run: |
-          ./ci-artifacts/music-streaming-blocklist-backend &
-          sleep 10
-          curl --retry 5 --retry-delay 2 --retry-connrefused http://localhost:3000/health
-
       - name: Run E2E tests (${{ matrix.browser }})
         working-directory: frontend
-        env:
-          E2E_BASE_URL: http://localhost:5000
-          E2E_SKIP_SERVER: false
         run: npx playwright test --project=${{ matrix.browser }} --reporter=html
 
       - name: Upload Playwright report
@@ -930,7 +760,6 @@ jobs:
         backend-component-build,
         backend-component-test,
         frontend-unit-test,
-        e2e-backend-binary,
         e2e-test,
         e2e-cross-browser,
         apple-music-sandbox,
@@ -951,7 +780,6 @@ jobs:
             "${{ needs.backend-component-build.result }}"
             "${{ needs.backend-component-test.result }}"
             "${{ needs.frontend-unit-test.result }}"
-            "${{ needs.e2e-backend-binary.result }}"
             "${{ needs.e2e-test.result }}"
             "${{ needs.e2e-cross-browser.result }}"
             "${{ needs.apple-music-sandbox.result }}"

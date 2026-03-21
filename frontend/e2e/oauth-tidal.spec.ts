@@ -43,8 +43,18 @@ const mockTidalConnection = {
   last_used_at: '2026-03-20T00:00:00Z',
 };
 
+/** Block external CDN requests that can hang tests */
+async function blockExternalCdn(page: import('@playwright/test').Page) {
+  await page.route('https://js-cdn.music.apple.com/**', async (route) => {
+    await route.abort();
+  });
+}
+
 /** Set up Tidal-specific API route mocks on a page. */
 async function mockTidalApiRoutes(page: import('@playwright/test').Page) {
+  // Block Apple Music JS SDK CDN to prevent hangs
+  await blockExternalCdn(page);
+
   // Tidal authorize endpoint
   await page.route('**/api/v1/connections/tidal/authorize', async (route) => {
     await route.fulfill({

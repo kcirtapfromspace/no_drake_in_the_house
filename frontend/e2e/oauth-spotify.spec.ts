@@ -199,6 +199,11 @@ async function mockSpotifyApiRoutes(page: Page, options: {
       body: JSON.stringify({ success: false, message: 'Not configured in test' }),
     });
   });
+
+  // Block Apple Music JS SDK CDN to prevent hangs
+  await page.route('https://js-cdn.music.apple.com/**', async (route) => {
+    await route.abort();
+  });
 }
 
 /**

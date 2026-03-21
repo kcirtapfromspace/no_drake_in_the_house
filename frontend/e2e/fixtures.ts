@@ -305,6 +305,19 @@ async function mockApiRoutes(page: Page) {
     });
   });
 
+  // Block Apple Music SDK CDN and mock MusicKit token (prevents hangs in Settings)
+  await page.route('https://js-cdn.music.apple.com/**', async (route) => {
+    await route.abort();
+  });
+
+  await page.route('**/api/v1/connections/apple-music/musickit-token', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: false, message: 'Not configured in test' }),
+    });
+  });
+
   // Enforcement endpoints
   await page.route('**/api/v1/enforcement/apple-music/preview', async (route) => {
     await route.fulfill({

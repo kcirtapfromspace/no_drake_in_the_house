@@ -169,7 +169,7 @@ test.describe('Authentication', () => {
 
       // Check for feature highlights (may be scrollable on smaller viewports)
       await expect(page.getByText('Evidence-led artist blocklists')).toBeAttached();
-      await expect(page.getByText('Spotify + Apple Music')).toBeAttached();
+      await expect(page.getByText('Spotify + Apple Music').first()).toBeAttached();
       await expect(page.getByText('Features and collaborations included')).toBeAttached();
     });
   });

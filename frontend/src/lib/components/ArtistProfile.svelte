@@ -1206,11 +1206,9 @@
                   {@const isExpanded = expandedOffenseId === offense.id}
 
                   <div
-                    class="rounded-2xl overflow-hidden transition-all relative group/card"
-                    style="background: {catColor.cardBg}; border: 2px solid {catColor.icon}; box-shadow: 0 0 12px {catColor.bg};"
+                    class="rounded-2xl overflow-hidden transition-all relative group/card surface-panel-thin"
+                    style="border-left: 3px solid {catColor.icon};"
                   >
-                    <!-- Category accent stripe with glow -->
-                    <div class="absolute left-0 top-0 bottom-0 w-2 rounded-l-2xl" style="background: {catColor.icon};"></div>
                     <!-- Offense Header -->
                     <button
                       type="button"
@@ -1417,17 +1415,17 @@
                 <button
                   type="button"
                   on:click={() => catalogFilter = 'all'}
-                  class="px-2.5 py-1 text-xs rounded-md transition-all {catalogFilter === 'all' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800'}"
+                  class="px-3 py-1 text-xs rounded-full transition-all {catalogFilter === 'all' ? 'bg-white/[0.1] text-white' : 'text-zinc-400 hover:text-zinc-300'}"
                 >All</button>
                 <button
                   type="button"
                   on:click={() => catalogFilter = 'blocked'}
-                  class="px-2.5 py-1 text-xs rounded-md transition-all {catalogFilter === 'blocked' ? 'bg-rose-500/20 text-rose-400' : 'text-zinc-400 hover:bg-zinc-800'}"
+                  class="px-3 py-1 text-xs rounded-full transition-all {catalogFilter === 'blocked' ? 'bg-rose-500/15 text-rose-400' : 'text-zinc-400 hover:text-zinc-300'}"
                 >Blocked</button>
                 <button
                   type="button"
                   on:click={() => catalogFilter = 'unblocked'}
-                  class="px-2.5 py-1 text-xs rounded-md transition-all {catalogFilter === 'unblocked' ? 'bg-zinc-600/30 text-zinc-300' : 'text-zinc-400 hover:bg-zinc-800'}"
+                  class="px-3 py-1 text-xs rounded-full transition-all {catalogFilter === 'unblocked' ? 'bg-white/[0.08] text-zinc-300' : 'text-zinc-400 hover:text-zinc-300'}"
                 >Allowed</button>
               </div>
               <div class="h-2 flex-1 max-w-48 rounded-full overflow-hidden bg-zinc-800/50">
@@ -1443,7 +1441,7 @@
           </div>
 
           <!-- Sub-tabs -->
-          <div class="flex gap-1 p-1 rounded-xl surface-panel-thin">
+          <div class="flex gap-1 p-1 rounded-xl bg-white/[0.04]">
             <button
               type="button"
               on:click={() => catalogSubTab = 'main'}
@@ -1470,9 +1468,9 @@
           <!-- Main Artist Albums -->
           {#if catalogSubTab === 'main'}
             {#if catalogAlbums.length > 0}
-              <div class="space-y-3">
-                {#each catalogAlbums as album}
-                  <div class="rounded-xl overflow-hidden surface-panel-thin">
+              <div class="rounded-xl overflow-hidden surface-panel-thin">
+                {#each catalogAlbums as album, albumIdx}
+                  <div class="{albumIdx > 0 ? 'border-t border-white/[0.06]' : ''}">
                     <!-- Album Card -->
                     <button
                       type="button"
@@ -1517,7 +1515,7 @@
 
                     <!-- Expanded Track List -->
                     {#if expandedCatalogAlbums.has(album.name)}
-                      <div class="border-t border-zinc-800">
+                      <div class="border-t border-white/[0.06]">
                         <!-- Block All toggle for this album -->
                         <div class="px-4 py-2 flex items-center justify-between" style="background: rgba(0,0,0,0.2);">
                           <span class="text-xs text-zinc-500">{album.blockedCount} of {album.totalCount} tracks blocked</span>
@@ -1751,9 +1749,10 @@
 
       {:else if activeTab === 'credits'}
         <!-- Writer & Producer Credits -->
-        <div class="grid lg:grid-cols-2 gap-6">
+        <div class="rounded-xl overflow-hidden surface-panel">
+        <div class="grid lg:grid-cols-2">
           <!-- Writers Column -->
-          <div class="rounded-xl p-5 surface-panel">
+          <div class="p-5">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1797,7 +1796,7 @@
           </div>
 
           <!-- Producers Column -->
-          <div class="rounded-xl p-5 surface-panel">
+          <div class="p-5 lg:border-l border-white/[0.06]">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -1836,6 +1835,7 @@
               </div>
             {/if}
           </div>
+        </div>
         </div>
 
         <!-- Credits Info -->

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { slide } from 'svelte/transition';
   import {
     analyticsStore,
     analyticsActions,
@@ -14,6 +15,8 @@
   let isLoading = false;
   let error: string | null = null;
   let expandedAlbums: Set<string> = new Set();
+  let prefersReducedMotion = false;
+  $: slideDuration = prefersReducedMotion ? 0 : 200;
 
   // Reactive data from store
   $: discography = $analyticsStore.artistDiscographyRevenue;
@@ -322,6 +325,7 @@
   }
 
   onMount(() => {
+    prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     loadData();
   });
 
@@ -347,22 +351,22 @@
 
     <!-- Hero Revenue Stat -->
     <div class="mb-8 text-center" data-testid="revenue-summary">
-      <div class="text-sm text-zinc-500 mb-1">Estimated Yearly Revenue</div>
+      <div class="text-sm text-zinc-400 mb-1">Estimated Yearly Revenue</div>
       <div class="text-4xl font-bold text-emerald-400" data-testid="yearly-revenue">{formatCurrency(monthlyRevenue * 12)}</div>
-      <div class="text-sm text-zinc-500 mt-1">Streaming + Writing + Production</div>
+      <div class="text-sm text-zinc-400 mt-1">Streaming + Writing + Production</div>
 
       <div class="grid grid-cols-3 gap-4 mt-6 max-w-lg mx-auto">
         <div>
           <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-revenue">{formatCurrency(monthlyRevenue)}</div>
-          <div class="text-xs text-zinc-500">Monthly</div>
+          <div class="text-xs text-zinc-400">Monthly</div>
         </div>
         <div>
           <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-streams">{formatNumber(monthlyStreams)}</div>
-          <div class="text-xs text-zinc-500">Monthly streams</div>
+          <div class="text-xs text-zinc-400">Monthly streams</div>
         </div>
         <div>
           <div class="text-lg font-semibold text-zinc-100" data-testid="discography-count">{totalTracks}</div>
-          <div class="text-xs text-zinc-500">{drakeDiscography.length} albums</div>
+          <div class="text-xs text-zinc-400">{drakeDiscography.length} albums</div>
         </div>
       </div>
     </div>
@@ -370,7 +374,7 @@
     <!-- Album Revenue Breakdown -->
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold text-zinc-100">Album Revenue</h3>
-      <span class="text-xs text-zinc-500">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
+      <span class="text-xs text-zinc-400">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
     </div>
 
     <div class="space-y-3" data-testid="albums-section">
@@ -378,7 +382,7 @@
         {@const barWidth = maxRevenue > 0 ? (album.total_revenue / maxRevenue * 100) : 0}
         <div class="rounded-xl overflow-hidden surface-panel-thin">
           <button
-            class="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.02]"
+            class="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.04]"
             on:click={() => toggleAlbum(album.id)}
           >
             <!-- Album Art -->
@@ -387,7 +391,7 @@
                 <img src={album.cover_url} alt="" class="w-12 h-12 object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
               {/if}
               <div class="w-12 h-12 flex items-center justify-center">
-                <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                 </svg>
               </div>
@@ -397,29 +401,29 @@
             <div class="flex-1 min-w-0">
               <div class="flex items-baseline gap-2 mb-1">
                 <span class="text-white font-semibold truncate flex-1 min-w-0">{album.title}</span>
-                <span class="text-xs text-zinc-500 flex-shrink-0">{album.year} · {album.tracks.length}t · {formatNumber(album.total_streams)} streams</span>
+                <span class="text-xs text-zinc-400 flex-shrink-0">{album.year} · {album.tracks.length}t · {formatNumber(album.total_streams)} streams</span>
               </div>
               <div class="flex items-center gap-3">
-                <div class="h-2 flex-1 max-w-[60%] rounded-full overflow-hidden" style="background: #1c1c22;">
-                  <div class="h-full rounded-full transition-all" style="width: {barWidth}%; background: linear-gradient(90deg, #059669, #10b981);"></div>
+                <div class="h-2 flex-1 max-w-[60%] rounded-full overflow-hidden" style="background: var(--color-bg-inset);">
+                  <div class="h-full rounded-full transition-all" style="width: {barWidth}%; background: linear-gradient(90deg, var(--color-success), #34d399);"></div>
                 </div>
                 <span class="text-sm font-medium text-emerald-400 flex-shrink-0 w-24 text-right">{formatCurrency(album.total_revenue)}</span>
               </div>
             </div>
 
             <!-- Expand -->
-            <svg class="w-4 h-4 text-zinc-500 flex-shrink-0 transition-transform {expandedAlbums.has(album.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-zinc-400 flex-shrink-0 transition-transform {expandedAlbums.has(album.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
 
           {#if expandedAlbums.has(album.id)}
-            <div class="border-t border-zinc-800">
+            <div class="border-t border-white/[0.06]" transition:slide={{ duration: slideDuration }}>
               {#each album.tracks as track, idx}
-                <div class="flex items-center gap-3 px-4 py-2 border-t border-zinc-800/50 first:border-t-0 hover:bg-white/[0.02]">
-                  <span class="text-xs text-zinc-600 w-5 text-right">{idx + 1}</span>
+                <div class="flex items-center gap-3 px-4 py-2 border-t border-white/[0.04] first:border-t-0 hover:bg-white/[0.02]">
+                  <span class="text-xs text-zinc-400 w-5 text-right">{idx + 1}</span>
                   <span class="flex-1 text-sm text-zinc-300 truncate">{track.title}</span>
-                  <span class="text-xs text-zinc-500 flex-shrink-0">{formatNumber(track.streams)}</span>
+                  <span class="text-xs text-zinc-400 flex-shrink-0">{formatNumber(track.streams)}</span>
                   <span class="text-xs text-emerald-400 font-medium flex-shrink-0 w-16 text-right">{formatCurrency(track.revenue)}</span>
                 </div>
               {/each}
@@ -433,13 +437,14 @@
     <div class="mt-4 p-4 rounded-xl flex items-center justify-between surface-panel">
       <div>
         <div class="text-sm font-semibold text-zinc-100">Total Catalog Revenue</div>
-        <div class="text-xs text-zinc-500">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
+        <div class="text-xs text-zinc-400">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
       </div>
       <div class="text-xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</div>
     </div>
 
     <!-- Credits Revenue -->
     <div class="mt-8 rounded-xl p-5 surface-panel">
+    <h3 class="text-lg font-semibold text-zinc-100 mb-4">Revenue Beyond Streaming</h3>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="p-4 rounded-xl surface-panel-thin">
         <div class="flex items-center gap-2 mb-3">
@@ -449,10 +454,10 @@
           <span class="text-zinc-100 font-medium text-sm">Songwriting</span>
         </div>
         <div class="space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-zinc-500">Own catalog</span><span class="text-zinc-300">{totalTracks} songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-500">Other artists</span><span class="text-zinc-300">~85 songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-500">Publishing share</span><span class="text-zinc-300">~50%</span></div>
-          <div class="border-t border-zinc-800 pt-2 mt-2 flex justify-between">
+          <div class="flex justify-between"><span class="text-zinc-400">Own catalog</span><span class="text-zinc-300">{totalTracks} songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-400">Other artists</span><span class="text-zinc-300">~85 songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-400">Publishing share</span><span class="text-zinc-300">~50%</span></div>
+          <div class="border-t border-white/[0.06] pt-2 mt-2 flex justify-between">
             <span class="text-zinc-300 font-medium">Est. Annual</span>
             <span class="text-blue-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.15))}</span>
           </div>
@@ -467,10 +472,10 @@
           <span class="text-zinc-100 font-medium text-sm">Production</span>
         </div>
         <div class="space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-zinc-500">Co-production</span><span class="text-zinc-300">~45 songs</span></div>
-          <div class="flex justify-between"><span class="text-zinc-500">Executive producer</span><span class="text-zinc-300">13 albums</span></div>
-          <div class="flex justify-between"><span class="text-zinc-500">Points (avg)</span><span class="text-zinc-300">~3%</span></div>
-          <div class="border-t border-zinc-800 pt-2 mt-2 flex justify-between">
+          <div class="flex justify-between"><span class="text-zinc-400">Co-production</span><span class="text-zinc-300">~45 songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-400">Executive producer</span><span class="text-zinc-300">13 albums</span></div>
+          <div class="flex justify-between"><span class="text-zinc-400">Points (avg)</span><span class="text-zinc-300">~3%</span></div>
+          <div class="border-t border-white/[0.06] pt-2 mt-2 flex justify-between">
             <span class="text-zinc-300 font-medium">Est. Annual</span>
             <span class="text-purple-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.08))}</span>
           </div>
@@ -480,7 +485,7 @@
 
     <!-- Grand Total -->
     <div class="mt-4 p-4 rounded-xl text-center surface-panel-thin">
-      <div class="text-xs text-zinc-500 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
+      <div class="text-xs text-zinc-400 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
       <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
     </div>
     </div>
@@ -488,7 +493,7 @@
     <!-- Revenue Context -->
     <div class="mt-6 p-4 rounded-xl surface-panel-thin" data-testid="revenue-context">
       <div class="flex items-start gap-3">
-        <svg class="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 text-zinc-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div>
@@ -503,7 +508,7 @@
     </div>
 
     <!-- Simulation Note -->
-    <div class="mt-4 text-xs text-zinc-500 text-center" data-testid="simulation-note">
+    <div class="mt-4 text-xs text-zinc-400 text-center" data-testid="simulation-note">
       Data is simulated for demonstration purposes. Connect streaming accounts for real analytics.
     </div>
   {/if}

@@ -933,6 +933,10 @@ textarea:focus-visible {
   background: linear-gradient(135deg, rgba(251, 113, 133, 0.3), rgba(190, 24, 93, 0.42));
 }
 
+.brand-segmented__item:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
 .brand-text-action {
   display: inline-flex;
   align-items: center;

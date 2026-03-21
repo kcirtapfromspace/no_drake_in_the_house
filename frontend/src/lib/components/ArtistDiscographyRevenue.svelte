@@ -373,10 +373,10 @@
       <span class="text-xs text-zinc-500">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
     </div>
 
-    <div class="space-y-2" data-testid="albums-section">
+    <div class="space-y-3" data-testid="albums-section">
       {#each drakeDiscography as album}
         {@const barWidth = maxRevenue > 0 ? (album.total_revenue / maxRevenue * 100) : 0}
-        <div class="rounded-xl overflow-hidden" style="background: #111113; border: 1px solid #27272a;">
+        <div class="rounded-xl overflow-hidden surface-panel-thin">
           <button
             class="w-full p-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.02]"
             on:click={() => toggleAlbum(album.id)}
@@ -431,7 +431,7 @@
     </div>
 
     <!-- Totals -->
-    <div class="mt-4 p-4 rounded-xl flex items-center justify-between" style="background: #111113; border: 1px solid #3f3f46;">
+    <div class="mt-4 p-4 rounded-xl flex items-center justify-between surface-panel">
       <div>
         <div class="text-sm font-semibold text-zinc-100">Total Catalog Revenue</div>
         <div class="text-xs text-zinc-500">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
@@ -441,7 +441,7 @@
 
     <!-- Credits Revenue -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-      <div class="p-4 rounded-xl" style="background: #111113; border: 1px solid #27272a;">
+      <div class="p-4 rounded-xl surface-panel-thin">
         <div class="flex items-center gap-2 mb-3">
           <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -459,7 +459,7 @@
         </div>
       </div>
 
-      <div class="p-4 rounded-xl" style="background: #111113; border: 1px solid #27272a;">
+      <div class="p-4 rounded-xl surface-panel-thin">
         <div class="flex items-center gap-2 mb-3">
           <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -479,13 +479,13 @@
     </div>
 
     <!-- Grand Total -->
-    <div class="mt-4 p-4 rounded-xl text-center" style="background: #111113; border: 1px solid #3f3f46;">
+    <div class="mt-4 p-4 rounded-xl text-center surface-panel">
       <div class="text-xs text-zinc-500 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
       <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
     </div>
 
     <!-- Revenue Context -->
-    <div class="mt-6 p-4 rounded-xl" style="background: rgba(24, 24, 27, 0.5); border: 1px solid #27272a;" data-testid="revenue-context">
+    <div class="mt-6 p-4 rounded-xl surface-panel-thin" data-testid="revenue-context">
       <div class="flex items-start gap-3">
         <svg class="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -510,7 +510,6 @@
 
 <style>
   .artist-discography-revenue {
-    background-color: #18181b;
     border-radius: 1rem;
     padding: 1.5rem;
   }

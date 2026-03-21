@@ -1413,7 +1413,7 @@
         <!-- Full Artist Catalog -->
         <div class="space-y-6">
           <!-- Blocking Summary Bar -->
-          <div class="flex items-center gap-4 p-4 rounded-xl" style="background: var(--color-bg-inset); border: 1px solid var(--color-border-default);">
+          <div class="flex items-center gap-4 p-4 rounded-xl surface-panel-thin">
             <div class="flex items-center gap-3 flex-1 min-w-0">
               <div class="flex gap-1">
                 <button
@@ -1445,7 +1445,7 @@
           </div>
 
           <!-- Sub-tabs -->
-          <div class="flex gap-1 p-1 rounded-xl" style="background: var(--color-bg-inset);">
+          <div class="flex gap-1 p-1 rounded-xl surface-panel-thin">
             <button
               type="button"
               on:click={() => catalogSubTab = 'main'}
@@ -1472,9 +1472,9 @@
           <!-- Main Artist Albums -->
           {#if catalogSubTab === 'main'}
             {#if catalogAlbums.length > 0}
-              <div class="space-y-2">
+              <div class="space-y-3">
                 {#each catalogAlbums as album}
-                  <div class="rounded-xl overflow-hidden" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+                  <div class="rounded-xl overflow-hidden surface-panel-thin">
                     <!-- Album Card -->
                     <button
                       type="button"
@@ -1521,7 +1521,7 @@
                     {#if expandedCatalogAlbums.has(album.name)}
                       <div class="border-t border-zinc-800">
                         <!-- Block All toggle for this album -->
-                        <div class="px-4 py-2 flex items-center justify-between" style="background: var(--color-bg-inset);">
+                        <div class="px-4 py-2 flex items-center justify-between" style="background: rgba(0,0,0,0.2);">
                           <span class="text-xs text-zinc-500">{album.blockedCount} of {album.totalCount} tracks blocked</span>
                           <button
                             type="button"
@@ -1578,7 +1578,7 @@
             {#if featuredTracks.length > 0}
               <div class="space-y-1">
                 {#each featuredTracks.slice(0, featuredShowCount) as track}
-                  <div class="flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-white/[0.02]" style="background: var(--color-bg-elevated);">
+                  <div class="flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-white/[0.02] surface-panel-thin">
                     <button
                       type="button"
                       on:click|stopPropagation={() => toggleTrackBlock(track.id)}
@@ -1629,7 +1629,7 @@
             {#if behindTracks.length > 0}
               <div class="space-y-1">
                 {#each behindTracks.slice(0, behindShowCount) as track}
-                  <div class="flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-white/[0.02]" style="background: var(--color-bg-elevated);">
+                  <div class="flex items-center gap-3 p-3 rounded-lg transition-colors hover:bg-white/[0.02] surface-panel-thin">
                     <button
                       type="button"
                       on:click|stopPropagation={() => toggleTrackBlock(track.id)}
@@ -1755,7 +1755,7 @@
         <!-- Writer & Producer Credits -->
         <div class="grid lg:grid-cols-2 gap-6">
           <!-- Writers Column -->
-          <div class="rounded-xl p-5" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+          <div class="rounded-xl p-5 surface-panel">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1799,7 +1799,7 @@
           </div>
 
           <!-- Producers Column -->
-          <div class="rounded-xl p-5" style="background: var(--color-bg-elevated); border: 1px solid var(--color-border-default);">
+          <div class="rounded-xl p-5 surface-panel">
             <h2 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />

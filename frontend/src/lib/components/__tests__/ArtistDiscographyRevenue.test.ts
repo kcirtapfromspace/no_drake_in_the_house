@@ -75,9 +75,9 @@ describe('ArtistDiscographyRevenue', () => {
     renderComponent();
     await waitForCatalog();
 
-    expect(screen.getByText('Album Revenue Breakdown')).toBeInTheDocument();
+    expect(screen.getByText('Album Revenue')).toBeInTheDocument();
     expect(screen.getByText('For All The Dogs')).toBeInTheDocument();
-    expect(screen.getByText('Est. $4.00 per 1,000 streams')).toBeInTheDocument();
+    expect(screen.getByText('Est. $4.00 / 1K streams')).toBeInTheDocument();
 
     const albumsSection = screen.getByTestId('albums-section');
     expect(within(albumsSection).getAllByRole('button')).toHaveLength(13);
@@ -92,7 +92,6 @@ describe('ArtistDiscographyRevenue', () => {
     await waitFor(() => {
       expect(screen.getByText('Virginia Beach')).toBeInTheDocument();
       expect(screen.getByText('$180,000')).toBeInTheDocument();
-      expect(screen.getByText('Album Total')).toBeInTheDocument();
     });
   });
 

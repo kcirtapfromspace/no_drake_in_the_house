@@ -333,6 +333,15 @@ async function mockApiRoutes(page: Page) {
     });
   });
 
+  // Mock Apple Music developer token endpoint (called by getDeveloperToken)
+  await page.route('**/api/v1/apple-music/auth/developer-token', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: false, message: 'Not configured in test' }),
+    });
+  });
+
   // Enforcement endpoints
   await page.route('**/api/v1/enforcement/apple-music/preview', async (route) => {
     await route.fulfill({

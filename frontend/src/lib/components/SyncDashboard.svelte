@@ -2399,13 +2399,25 @@
                         <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{group.count.toLocaleString()}</td>
                         <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{formatDate(group.last_synced)}</td>
                         <td class="py-2 pr-0">
-                          <button
-                            type="button"
-                            class="px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
-                            on:click={() => applyLibraryGroupFilter(group)}
-                          >
-                            View items
-                          </button>
+                          <div class="flex items-center gap-2">
+                            <button
+                              type="button"
+                              class="px-3 py-1.5 rounded-lg text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+                              on:click={() => applyLibraryGroupFilter(group)}
+                            >
+                              View items
+                            </button>
+                            {#if libraryGroupBy === 'playlist'}
+                              <button
+                                type="button"
+                                class="px-3 py-1.5 rounded-lg text-sm font-medium text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors"
+                                on:click={() => navigateTo('playlist-sanitizer')}
+                                title="Sanitize this playlist"
+                              >
+                                Sanitize
+                              </button>
+                            {/if}
+                          </div>
                         </td>
                       </tr>
                     {/each}

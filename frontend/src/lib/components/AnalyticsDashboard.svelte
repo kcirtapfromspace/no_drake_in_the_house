@@ -312,6 +312,14 @@
               <span class="brand-stat__label">Your blocked artists</span>
             </div>
             <div class="brand-stat">
+              <span class="brand-stat__value">{formatNumber(userStats?.subscriptions)}</span>
+              <span class="brand-stat__label">Subscriptions</span>
+            </div>
+            <div class="brand-stat">
+              <span class="brand-stat__value">{formatNumber(userStats?.manual_blocks)}</span>
+              <span class="brand-stat__label">Manual blocks</span>
+            </div>
+            <div class="brand-stat">
               <span class="brand-stat__value">{$isAnySyncRunning ? 'Live' : 'Idle'}</span>
               <span class="brand-stat__label">Sync status</span>
             </div>
@@ -438,8 +446,8 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-blue-900/50">
-                <svg class="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+              <div class="w-10 h-10 rounded-full flex items-center justify-center bg-blue-900/50">
+                <svg class="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.total_users)}</div>
@@ -450,8 +458,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-green-900/50">
-                <svg class="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <div class="w-10 h-10 rounded-full flex items-center justify-center bg-green-900/50">
+                <svg class="w-5 h-5 text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.active_users_today)}</div>
@@ -462,8 +470,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-red-900/50">
-                <svg class="w-6 h-6 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              <div class="w-10 h-10 rounded-full flex items-center justify-center bg-red-900/50">
+                <svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.total_blocked_artists)}</div>
@@ -474,8 +482,8 @@
 
           <div class="rounded-xl p-5 bg-zinc-800 border border-zinc-600">
             <div class="flex items-center gap-3">
-              <div class="w-12 h-12 rounded-full flex items-center justify-center bg-purple-900/50">
-                <svg class="w-6 h-6 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+              <div class="w-10 h-10 rounded-full flex items-center justify-center bg-purple-900/50">
+                <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
               </div>
               <div>
                 <div class="text-2xl font-bold text-white">{formatNumber(dashboard?.offense_detections_today)}</div>
@@ -485,30 +493,6 @@
           </div>
         </div>
 
-        <!-- User Quick Stats -->
-        {#if userStats}
-          <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm mb-8">
-            <h2 class="text-lg font-semibold text-white mb-4">Your Quick Stats</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div class="text-center">
-                <div class="text-2xl font-bold text-indigo-400">{formatNumber(userStats.blocked_artists)}</div>
-                <div class="text-sm text-zinc-400">Blocked Artists</div>
-              </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold text-indigo-400">{formatNumber(userStats.subscriptions)}</div>
-                <div class="text-sm text-zinc-400">Subscriptions</div>
-              </div>
-              <div class="text-center">
-                <div class="text-2xl font-bold text-indigo-400">{formatNumber(userStats.manual_blocks)}</div>
-                <div class="text-sm text-zinc-400">Manual Blocks</div>
-              </div>
-              <div class="text-center">
-                <div class="text-sm font-medium text-zinc-300">{formatLastSync(userStats.last_sync)}</div>
-                <div class="text-sm text-zinc-400">Last Sync</div>
-              </div>
-            </div>
-          </div>
-        {/if}
 
         <!-- System Health - Hidden from users (admin-only feature) -->
         <!-- TODO: Move to admin dashboard when implemented -->

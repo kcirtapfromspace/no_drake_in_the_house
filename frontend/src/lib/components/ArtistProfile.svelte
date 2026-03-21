@@ -1202,7 +1202,7 @@
 
                   <div
                     class="rounded-2xl overflow-hidden transition-all relative group/card"
-                    style="background: {catColor.cardBg}; border: 2px solid {catColor.icon}; box-shadow: 0 0 40px {catColor.bg};"
+                    style="background: {catColor.cardBg}; border: 2px solid {catColor.icon}; box-shadow: 0 0 12px {catColor.bg};"
                   >
                     <!-- Category accent stripe with glow -->
                     <div class="absolute left-0 top-0 bottom-0 w-2 rounded-l-2xl" style="background: {catColor.icon};"></div>
@@ -1216,10 +1216,10 @@
                         <!-- Timeline Indicator with glow -->
                         <div class="flex-shrink-0 flex flex-col items-center">
                           <div
-                            class="w-12 h-12 rounded-xl flex items-center justify-center relative"
-                            style="background: {catColor.bg}; box-shadow: 0 0 20px {catColor.icon}40, 0 0 40px {catColor.icon}20;"
+                            class="w-10 h-10 rounded-lg flex items-center justify-center relative"
+                            style="background: {catColor.bg}; box-shadow: 0 0 8px {catColor.icon}40;"
                           >
-                            <svg class="w-6 h-6" width="24" height="24" style="color: {catColor.icon};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5" width="20" height="20" style="color: {catColor.icon};" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                           </div>
@@ -1234,7 +1234,7 @@
                             <!-- Category Badge with glow -->
                             <span
                               class="px-3 py-1 text-xs font-semibold rounded-full border"
-                              style="background: {catColor.bg}; color: {catColor.icon}; border-color: {catColor.icon}50; box-shadow: 0 0 12px {catColor.icon}30;"
+                              style="background: {catColor.bg}; color: {catColor.icon}; border-color: {catColor.icon}50; box-shadow: 0 0 6px {catColor.icon}30;"
                             >
                               {offense.category.name}
                             </span>
@@ -1247,7 +1247,7 @@
                             <!-- Evidence Strength with glow -->
                             <span
                               class="px-3 py-1 text-xs font-semibold rounded-full border"
-                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.15); color: {evidenceStrength.color}; border-color: {evidenceStrength.color}50; box-shadow: 0 0 12px {evidenceStrength.color}30;"
+                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.15); color: {evidenceStrength.color}; border-color: {evidenceStrength.color}50; box-shadow: 0 0 6px {evidenceStrength.color}30;"
                             >
                               {evidenceStrength.label} Evidence
                             </span>

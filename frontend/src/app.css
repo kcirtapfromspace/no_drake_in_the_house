@@ -45,6 +45,7 @@ img:not(.icon) {
 
 /* ===== Layout ===== */
 .min-h-screen { min-height: 100vh; }
+.min-h-\[20px\] { min-height: 20px; }
 .h-full { height: 100%; }
 .w-full { width: 100%; }
 .w-0 { width: 0; }
@@ -87,6 +88,7 @@ img:not(.icon) {
 .z-50 { z-index: var(--z-sticky); }
 
 .overflow-hidden { overflow: hidden; }
+.overflow-x-auto { overflow-x: auto; }
 
 /* ===== Spacing ===== */
 .p-0 { padding: 0; }
@@ -1256,6 +1258,7 @@ textarea:focus-visible {
 }
 
 @media (min-width: 1024px) {
+  .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lg\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .lg\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .lg\:grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -1264,14 +1267,7 @@ textarea:focus-visible {
   .lg\:col-span-2 { grid-column: span 2 / span 2; }
 }
 
-/* SVG constraints to avoid oversized icons */
-svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
-  max-width: var(--icon-xl);
-  max-height: var(--icon-xl);
-  width: var(--icon-md);
-  height: var(--icon-md);
-  flex-shrink: 0;
-}
+/* (removed duplicate SVG constraint — base svg rule at top + explicit-size overrides are sufficient) */
 
 /* ===== Additional Compatibility Utilities ===== */
 
@@ -1681,6 +1677,21 @@ svg:not(.icon):not([class*="avatar"]):not([class*="logo"]) {
 /* Group hover utilities */
 .group:hover .group-hover\:opacity-100 { opacity: 1; }
 .group:hover .group-hover\:text-white { color: var(--color-text-primary); }
+.group:hover .group-hover\:bg-rose-500\/10 { background-color: rgba(244, 63, 94, 0.1); }
+.group:hover .group-hover\:bg-rose-500\/20 { background-color: rgba(244, 63, 94, 0.2); }
+.group:hover .group-hover\:bg-rose-500\/30 { background-color: rgba(244, 63, 94, 0.3); }
+.group:hover .group-hover\:border-zinc-400 { border-color: #a1a1aa; }
+.group:hover .group-hover\:border-zinc-600\/50 { border-color: rgba(82, 82, 91, 0.5); }
+.group:hover .group-hover\:border-rose-400\/50 { border-color: rgba(251, 113, 133, 0.5); }
+.group:hover .group-hover\:text-zinc-400 { color: #a1a1aa; }
+.group:hover .group-hover\:text-rose-400 { color: #fb7185; }
+
+/* Hover utilities */
+.hover\:bg-white\/\[0\.02\]:hover { background-color: rgba(255, 255, 255, 0.02); }
+.hover\:bg-white\/5:hover { background-color: rgba(255, 255, 255, 0.05); }
+.hover\:bg-zinc-800\/30:hover { background-color: rgba(39, 39, 42, 0.3); }
+.hover\:bg-zinc-800:hover { background-color: #27272a; }
+.hover\:bg-rose-500\/20:hover { background-color: rgba(244, 63, 94, 0.2); }
 
 /* ===== Semantic Color Aliases ===== */
 /* Use these instead of misleading .bg-blue-*, .text-indigo-* which map to brand rose */

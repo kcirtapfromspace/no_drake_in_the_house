@@ -332,7 +332,7 @@
   $: perStreamRate = 0.004;
 </script>
 
-<div class="artist-discography-revenue" data-testid="artist-discography-revenue">
+<div class="artist-discography-revenue surface-panel" data-testid="artist-discography-revenue">
   {#if error}
     <div class="bg-red-900/20 border border-red-800 rounded-lg p-4 text-red-400" data-testid="error-message">
       {error}
@@ -378,7 +378,7 @@
         {@const barWidth = maxRevenue > 0 ? (album.total_revenue / maxRevenue * 100) : 0}
         <div class="rounded-xl overflow-hidden surface-panel-thin">
           <button
-            class="w-full p-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.02]"
+            class="w-full px-5 py-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.02]"
             on:click={() => toggleAlbum(album.id)}
           >
             <!-- Album Art -->
@@ -396,16 +396,15 @@
             <!-- Album Info + Proportional Bar -->
             <div class="flex-1 min-w-0">
               <div class="flex items-baseline gap-2 mb-1">
-                <span class="text-zinc-100 font-medium truncate">{album.title}</span>
-                <span class="text-xs text-zinc-600 flex-shrink-0">{album.year} · {album.tracks.length}t</span>
+                <span class="text-white font-semibold truncate flex-1 min-w-0">{album.title}</span>
+                <span class="text-xs text-zinc-500 flex-shrink-0">{album.year} · {album.tracks.length}t · {formatNumber(album.total_streams)} streams</span>
               </div>
               <div class="flex items-center gap-3">
-                <div class="h-2 flex-1 rounded-full overflow-hidden" style="background: #1c1c22;">
+                <div class="h-2 flex-1 max-w-[60%] rounded-full overflow-hidden" style="background: #1c1c22;">
                   <div class="h-full rounded-full transition-all" style="width: {barWidth}%; background: linear-gradient(90deg, #059669, #10b981);"></div>
                 </div>
                 <span class="text-sm font-medium text-emerald-400 flex-shrink-0 w-24 text-right">{formatCurrency(album.total_revenue)}</span>
               </div>
-              <div class="text-xs text-zinc-600 mt-0.5">{formatNumber(album.total_streams)} streams</div>
             </div>
 
             <!-- Expand -->
@@ -440,7 +439,8 @@
     </div>
 
     <!-- Credits Revenue -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+    <div class="mt-8 rounded-xl p-5 surface-panel">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div class="p-4 rounded-xl surface-panel-thin">
         <div class="flex items-center gap-2 mb-3">
           <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,9 +479,10 @@
     </div>
 
     <!-- Grand Total -->
-    <div class="mt-4 p-4 rounded-xl text-center surface-panel">
+    <div class="mt-4 p-4 rounded-xl text-center surface-panel-thin">
       <div class="text-xs text-zinc-500 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
       <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
+    </div>
     </div>
 
     <!-- Revenue Context -->

@@ -1150,30 +1150,28 @@
       </div>
     </section>
 
+    <div class="profile__content-card">
     <!-- Tab Navigation -->
-    <div class="profile__tab-bar">
-      <div class="profile__container profile__tab-bar-inner">
-        <div class="brand-segmented profile__tab-group" role="tablist" aria-label="Artist profile sections">
-          {#each [
-            { key: 'evidence', label: 'Evidence' },
-            { key: 'catalog', label: 'Full Catalog' },
-            { key: 'discography', label: 'Revenue' },
-            { key: 'credits', label: 'Credits' },
-            { key: 'connections', label: 'Connections' },
-          ] as tab}
-            <button
-              type="button"
-              on:click={() => activeTab = tab.key}
-              class="brand-segmented__item profile__tab"
-              class:brand-segmented__item--active={activeTab === tab.key}
-              aria-pressed={activeTab === tab.key}
-            >
-              {tab.label}
-            </button>
-          {/each}
-        </div>
-      </div>
-    </div>
+    <nav class="profile__tab-bar" aria-label="Artist profile sections">
+      {#each [
+        { key: 'evidence', label: 'Evidence' },
+        { key: 'catalog', label: 'Full Catalog' },
+        { key: 'discography', label: 'Revenue' },
+        { key: 'credits', label: 'Credits' },
+        { key: 'connections', label: 'Connections' },
+      ] as tab}
+        <button
+          type="button"
+          on:click={() => activeTab = tab.key}
+          class="profile__tab"
+          class:profile__tab--active={activeTab === tab.key}
+          role="tab"
+          aria-selected={activeTab === tab.key}
+        >
+          {tab.label}
+        </button>
+      {/each}
+    </nav>
 
     <!-- Main Content -->
     <main class="profile__main">
@@ -1238,23 +1236,23 @@
                         <!-- Offense Content -->
                         <div class="flex-1 min-w-0">
                           <div class="flex items-center flex-wrap gap-2 mb-2">
-                            <!-- Category Badge with glow -->
+                            <!-- Category Badge -->
                             <span
-                              class="px-3 py-1 text-xs font-semibold rounded-full border"
-                              style="background: {catColor.bg}; color: {catColor.icon}; border-color: {catColor.icon}50; box-shadow: 0 0 6px {catColor.icon}30;"
+                              class="inline-flex px-3 py-1 text-xs font-semibold rounded-full"
+                              style="background: {catColor.icon}22; color: {catColor.icon}; border: 1px solid {catColor.icon}44;"
                             >
                               {offense.category.name}
                             </span>
 
                             <!-- Procedural State Badge -->
-                            <span class="px-3 py-1 text-xs font-medium rounded-full text-zinc-200 bg-zinc-800" >
+                            <span class="inline-flex px-3 py-1 text-xs font-medium rounded-full text-zinc-300 border border-zinc-600 bg-zinc-700/50">
                               {getProceduralStateLabel(offense.procedural_state)}
                             </span>
 
-                            <!-- Evidence Strength with glow -->
+                            <!-- Evidence Strength -->
                             <span
-                              class="px-3 py-1 text-xs font-semibold rounded-full border"
-                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.15); color: {evidenceStrength.color}; border-color: {evidenceStrength.color}50; box-shadow: 0 0 6px {evidenceStrength.color}30;"
+                              class="inline-flex px-3 py-1 text-xs font-semibold rounded-full"
+                              style="background: rgba({evidenceStrength.color === '#10B981' ? '16, 185, 129' : evidenceStrength.color === '#F59E0B' ? '245, 158, 11' : '239, 68, 68'}, 0.2); color: {evidenceStrength.color}; border: 1px solid {evidenceStrength.color}44;"
                             >
                               {evidenceStrength.label} Evidence
                             </span>
@@ -1449,21 +1447,21 @@
             <button
               type="button"
               on:click={() => catalogSubTab = 'main'}
-              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'main' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-300'}"
+              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'main' ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-white/[0.03]'}"
             >
               Main Artist <span class="text-zinc-500 ml-1">{catalogMainCount}</span>
             </button>
             <button
               type="button"
               on:click={() => catalogSubTab = 'featured'}
-              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'featured' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-300'}"
+              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'featured' ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-white/[0.03]'}"
             >
               Featured <span class="text-zinc-500 ml-1">{catalogFeaturedCount}</span>
             </button>
             <button
               type="button"
               on:click={() => catalogSubTab = 'behind'}
-              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'behind' ? 'bg-zinc-800 text-white shadow-sm' : 'text-zinc-400 hover:text-zinc-300'}"
+              class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all {catalogSubTab === 'behind' ? 'bg-white/[0.08] text-white' : 'text-zinc-400 hover:text-zinc-300 hover:bg-white/[0.03]'}"
             >
               Writing & Production <span class="text-zinc-500 ml-1">{catalogBehindCount}</span>
             </button>
@@ -1873,8 +1871,8 @@
                   {@const collabStatus = getStatusColor(collab.status)}
                   <button
                     type="button"
-                    class="group p-4 rounded-2xl text-left transition-all hover:scale-[1.02]"
-                    style="background: #0a0a0c; border: 1px solid {collab.is_flagged ? '#ef4444' : '#3f3f46'};"
+                    class="group p-4 rounded-2xl text-left transition-all hover:scale-[1.02] surface-panel-thin"
+                    class:border-red-500={collab.is_flagged}
                     on:click={() => navigateToArtist(collab.id)}
                   >
                     <div class="relative aspect-square mb-3 rounded-xl overflow-hidden" style="background: var(--color-bg-interactive);">
@@ -1934,6 +1932,7 @@
         </div>
       {/if}
     </main>
+    </div><!-- end profile__content-card -->
 
     <!-- Report Error Modal -->
     {#if showReportModal}
@@ -2460,30 +2459,61 @@
     flex-shrink: 0;
   }
 
+  /* ===== Content Card (wraps tabs + main) ===== */
+  .profile__content-card {
+    max-width: 72rem;
+    margin: 0.75rem auto 0;
+    border-radius: 1.75rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.008)),
+      rgba(17, 17, 19, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
   /* ===== Tab Navigation ===== */
   .profile__tab-bar {
-    max-width: 72rem;
-    margin: 0 auto;
-  }
-
-  .profile__tab-bar-inner {
-    padding-top: 0.75rem;
-    padding-bottom: 0;
-  }
-
-  .profile__tab-group {
-    width: 100%;
+    display: flex;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   .profile__tab {
     flex: 1 1 0;
+    padding: 0.875rem 1rem;
+    text-align: center;
+    color: rgba(161, 161, 170, 1);
+    background: transparent;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    position: relative;
     white-space: nowrap;
+    transition: color 0.15s;
+  }
+
+  .profile__tab:hover {
+    color: rgba(228, 228, 231, 1);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .profile__tab--active {
+    color: #fff;
+  }
+
+  .profile__tab--active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 2px;
+    background: #f43f5e;
+    border-radius: 1px 1px 0 0;
   }
 
   /* ===== Main Content ===== */
   .profile__main {
-    max-width: 72rem;
-    margin: 0 auto;
     padding: 1.5rem;
   }
 

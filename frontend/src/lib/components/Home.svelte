@@ -739,7 +739,7 @@
   }
 
   .hero__stats {
-    align-self: stretch;
+    align-self: end;
   }
 
   /* ===== SEARCH ===== */

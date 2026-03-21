@@ -153,7 +153,7 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       // Tidal should be listed as a service
-      await expect(authenticatedPage.getByText('Tidal')).toBeVisible({ timeout: 5000 });
+      await expect(authenticatedPage.getByRole('heading', { name: 'Tidal' })).toBeVisible({ timeout: 5000 });
     });
 
     test('should show Connect Account button when Tidal is not connected', async ({
@@ -166,11 +166,11 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       // Find the Tidal service card
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       await expect(tidalCard).toBeVisible({ timeout: 5000 });
 
       // Should show a Connect Account button
-      const connectButton = tidalCard.getByRole('button', { name: /^Connect$/i });
+      const connectButton = tidalCard.getByRole('button', { name: /Connect Account/i });
       await expect(connectButton).toBeVisible();
     });
   });
@@ -201,8 +201,8 @@ test.describe('Tidal OAuth Integration', () => {
         await route.abort();
       });
 
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
-      const connectButton = tidalCard.getByRole('button', { name: /^Connect$/i });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
+      const connectButton = tidalCard.getByRole('button', { name: /Connect Account/i });
       await connectButton.click();
 
       // Wait for the authorize request to be made
@@ -390,7 +390,7 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       await expect(tidalCard).toBeVisible({ timeout: 5000 });
 
       // Should show Disconnect button
@@ -421,7 +421,7 @@ test.describe('Tidal OAuth Integration', () => {
         }
       });
 
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       const disconnectButton = tidalCard.getByRole('button', { name: /Disconnect/i });
       await disconnectButton.click();
 
@@ -447,11 +447,11 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       await expect(tidalCard).toBeVisible({ timeout: 5000 });
 
       // Should show "Connected" status pill
-      await expect(tidalCard.getByText('active')).toBeVisible();
+      await expect(tidalCard.getByText('Connected')).toBeVisible();
     });
 
     test('should show Tidal service name in settings', async ({ authenticatedPage }) => {
@@ -522,11 +522,11 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       // Tidal should be visible in settings since it's connected
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       await expect(tidalCard).toBeVisible({ timeout: 5000 });
 
       // Should show Connected status since it's already connected
-      await expect(tidalCard.getByText('active')).toBeVisible();
+      await expect(tidalCard.getByText('Connected')).toBeVisible();
     });
 
     test('should show success banner after reconnecting Tidal', async ({
@@ -596,12 +596,12 @@ test.describe('Tidal OAuth Integration', () => {
       await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
-      const tidalCard = authenticatedPage.locator('li').filter({ hasText: 'Tidal' });
+      const tidalCard = authenticatedPage.locator('article').filter({ hasText: 'Tidal' });
       await expect(tidalCard).toBeVisible({ timeout: 5000 });
 
       // Click Connect Account - this triggers the already_connected flow
       // which auto-disconnects then re-authorizes
-      const connectButton = tidalCard.getByRole('button', { name: /^Connect$/i });
+      const connectButton = tidalCard.getByRole('button', { name: /Connect Account/i });
       if (await connectButton.isVisible({ timeout: 2000 }).catch(() => false)) {
         await connectButton.click();
         // Wait for the reconnect flow

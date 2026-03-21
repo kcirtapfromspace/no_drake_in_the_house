@@ -17,13 +17,13 @@ test.describe('YouTube Music OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       // Verify YouTube Music heading is visible
-      await expect(authenticatedPage.getByText('YouTube Music')).toBeVisible();
+      await expect(authenticatedPage.getByRole('heading', { name: 'YouTube Music' })).toBeVisible();
 
       // The connect button should be visible and NOT disabled
       const connectButton = authenticatedPage
-        .locator('li')
+        .locator('article')
         .filter({ hasText: 'YouTube Music' })
-        .getByRole('button', { name: 'Connect' });
+        .getByRole('button', { name: 'Connect Account' });
       await expect(connectButton).toBeVisible();
       await expect(connectButton).toBeEnabled();
     });
@@ -35,7 +35,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       // The YouTube Music section should NOT contain "Coming Soon"
-      const youtubeSection = authenticatedPage.locator('li').filter({ hasText: 'YouTube Music' });
+      const youtubeSection = authenticatedPage.locator('article').filter({ hasText: 'YouTube Music' });
       await expect(youtubeSection.getByText('Coming Soon')).not.toBeVisible();
     });
 
@@ -45,10 +45,9 @@ test.describe('YouTube Music OAuth Integration', () => {
       await authenticatedPage.goto('/settings');
       await authenticatedPage.waitForLoadState('networkidle');
 
-      // The YouTube Music list item's inner div should NOT have opacity-50
-      const youtubeSection = authenticatedPage.locator('li').filter({ hasText: 'YouTube Music' });
-      const innerDiv = youtubeSection.locator('div.px-4.py-4').first();
-      await expect(innerDiv).not.toHaveClass(/opacity-50/);
+      // The YouTube Music article should NOT have opacity-50
+      const youtubeSection = authenticatedPage.locator('article').filter({ hasText: 'YouTube Music' });
+      await expect(youtubeSection).not.toHaveClass(/opacity-50/);
     });
 
     test('should show description text when not connected', async ({ authenticatedPage }) => {
@@ -56,7 +55,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await authenticatedPage.waitForLoadState('networkidle');
 
       await expect(
-        authenticatedPage.getByText('Connect your YouTube Music account to manage your music library')
+        authenticatedPage.getByText('Connect YouTube Music to sync playlists, likes, and subscriptions')
       ).toBeVisible();
     });
   });
@@ -107,9 +106,9 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Click the YouTube Music connect button
       const connectButton = page
-        .locator('li')
+        .locator('article')
         .filter({ hasText: 'YouTube Music' })
-        .getByRole('button', { name: 'Connect' });
+        .getByRole('button', { name: 'Connect Account' });
 
       // Intercept navigation to prevent actual redirect
       await page.route('https://accounts.google.com/**', async (route) => {
@@ -326,7 +325,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await page.waitForLoadState('networkidle');
 
       // Should show Disconnect and Check Health buttons
-      const youtubeSection = page.locator('li').filter({ hasText: 'YouTube Music' });
+      const youtubeSection = page.locator('article').filter({ hasText: 'YouTube Music' });
       await expect(youtubeSection.getByRole('button', { name: 'Disconnect' })).toBeVisible({
         timeout: 5000,
       });
@@ -399,7 +398,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await page.waitForLoadState('networkidle');
 
       // Click disconnect
-      const youtubeSection = page.locator('li').filter({ hasText: 'YouTube Music' });
+      const youtubeSection = page.locator('article').filter({ hasText: 'YouTube Music' });
       const disconnectButton = youtubeSection.getByRole('button', { name: 'Disconnect' });
       await expect(disconnectButton).toBeVisible({ timeout: 5000 });
       await disconnectButton.click();
@@ -470,7 +469,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await page.goto('/settings');
       await page.waitForLoadState('networkidle');
 
-      const youtubeSection = page.locator('li').filter({ hasText: 'YouTube Music' });
+      const youtubeSection = page.locator('article').filter({ hasText: 'YouTube Music' });
 
       // Should show active status badge
       await expect(youtubeSection.getByText('active')).toBeVisible({ timeout: 5000 });
@@ -493,7 +492,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Should show the YouTube Music description
       await expect(
-        authenticatedPage.getByText('Connect your YouTube Music account to manage your music library')
+        authenticatedPage.getByText('Connect YouTube Music to sync playlists, likes, and subscriptions')
       ).toBeVisible();
     });
   });
@@ -562,7 +561,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await page.waitForLoadState('networkidle');
 
       // Click Check Health
-      const youtubeSection = page.locator('li').filter({ hasText: 'YouTube Music' });
+      const youtubeSection = page.locator('article').filter({ hasText: 'YouTube Music' });
       const healthButton = youtubeSection.getByRole('button', { name: 'Check Health' });
       await expect(healthButton).toBeVisible({ timeout: 5000 });
       await healthButton.click();

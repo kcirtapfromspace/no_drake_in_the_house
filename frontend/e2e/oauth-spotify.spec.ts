@@ -233,34 +233,34 @@ test.describe('Spotify OAuth Integration', () => {
       await setupSettingsPage(page, { connected: false });
 
       // The Settings page shows "Music Services" section with a card per service
-      await expect(page.getByText('Spotify')).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole('heading', { name: 'Spotify' })).toBeVisible({ timeout: 10_000 });
 
-      // When not connected there should be no status badge, just the Connect button
-      const spotifyCard = page.locator('li').filter({ hasText: 'Spotify' }).first();
-      await expect(spotifyCard.getByText('Connect your Spotify account')).toBeVisible();
+      // When not connected the status pill should read "Not Connected"
+      const spotifyCard = page.locator('article').filter({ hasText: 'Spotify' }).first();
+      await expect(spotifyCard.getByText('Not Connected')).toBeVisible();
 
-      // The "Connect" button should be visible
-      await expect(spotifyCard.getByRole('button', { name: 'Connect' })).toBeVisible();
+      // The "Connect Account" button should be visible
+      await expect(spotifyCard.getByRole('button', { name: 'Connect Account' })).toBeVisible();
     });
 
     test('connection status is displayed correctly when Spotify is connected', async ({ page, mockApi }) => {
       await mockApi(page);
       await setupSettingsPage(page, { connected: true });
 
-      const spotifyCard = page.locator('li').filter({ hasText: 'Spotify' }).first();
+      const spotifyCard = page.locator('article').filter({ hasText: 'Spotify' }).first();
       await expect(spotifyCard).toBeVisible({ timeout: 10_000 });
 
-      // When connected the status pill should show the status value
-      await expect(spotifyCard.getByText('active')).toBeVisible();
+      // When connected the status pill should read "Connected"
+      await expect(spotifyCard.getByText('Connected')).toBeVisible();
 
-      // The description shows connection date
-      await expect(spotifyCard.getByText(/Connected/)).toBeVisible();
+      // The description changes to the connectedDescription
+      await expect(spotifyCard.getByText(/Spotify is connected/)).toBeVisible();
 
       // "Disconnect" button should be available
       await expect(spotifyCard.getByRole('button', { name: 'Disconnect' })).toBeVisible();
 
-      // "Check Health" button should also be visible
-      await expect(spotifyCard.getByRole('button', { name: 'Check Health' })).toBeVisible();
+      // "Open Library" button should also be visible
+      await expect(spotifyCard.getByRole('button', { name: 'Open Library' })).toBeVisible();
     });
   });
 
@@ -296,8 +296,8 @@ test.describe('Spotify OAuth Integration', () => {
 
       await setupSettingsPage(page, { connected: false });
 
-      const spotifyCard = page.locator('li').filter({ hasText: 'Spotify' }).first();
-      const connectButton = spotifyCard.getByRole('button', { name: 'Connect' });
+      const spotifyCard = page.locator('article').filter({ hasText: 'Spotify' }).first();
+      const connectButton = spotifyCard.getByRole('button', { name: 'Connect Account' });
       await expect(connectButton).toBeVisible({ timeout: 10_000 });
 
       // Click connect — the store calls GET /authorize, stores the state in
@@ -448,7 +448,7 @@ test.describe('Spotify OAuth Integration', () => {
 
       await setupSettingsPage(page, { connected: true });
 
-      const spotifyCard = page.locator('li').filter({ hasText: 'Spotify' }).first();
+      const spotifyCard = page.locator('article').filter({ hasText: 'Spotify' }).first();
       await expect(spotifyCard).toBeVisible({ timeout: 10_000 });
 
       // Click Disconnect — Settings shows a confirmation strip
@@ -476,8 +476,8 @@ test.describe('Spotify OAuth Integration', () => {
       await mockApi(page);
       await setupSettingsPage(page, { connected: false, authorizeError: true });
 
-      const spotifyCard = page.locator('li').filter({ hasText: 'Spotify' }).first();
-      const connectButton = spotifyCard.getByRole('button', { name: 'Connect' });
+      const spotifyCard = page.locator('article').filter({ hasText: 'Spotify' }).first();
+      const connectButton = spotifyCard.getByRole('button', { name: 'Connect Account' });
       await expect(connectButton).toBeVisible({ timeout: 10_000 });
 
       await connectButton.click();

@@ -203,7 +203,9 @@ test.describe('Home Page', () => {
 
   test.describe('Empty States', () => {
     test('should show empty state when no artists blocked', async ({ page, mockApi }) => {
-      // Override the blocked artists to return empty
+      await mockApi(page);
+
+      // Override the blocked artists to return empty (LIFO: last route wins)
       await page.route('**/api/v1/categories/blocked-artists', async (route) => {
         await route.fulfill({
           status: 200,
@@ -211,8 +213,6 @@ test.describe('Home Page', () => {
           body: JSON.stringify([]),
         });
       });
-
-      await mockApi(page);
 
       // Set auth
       await page.addInitScript(() => {

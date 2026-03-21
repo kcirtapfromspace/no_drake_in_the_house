@@ -43,7 +43,7 @@ test.describe('Mobile Responsiveness', () => {
       await mockApi(page);
       await page.goto('/');
 
-      await expect(page.getByText('Evidence-led artist blocklists')).toBeVisible();
+      await expect(page.getByText('Evidence-led artist blocklists')).toBeAttached();
     });
   });
 

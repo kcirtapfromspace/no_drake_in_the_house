@@ -186,6 +186,7 @@ img:not(.icon) {
 
 /* ===== Typography ===== */
 .text-xs { font-size: var(--text-xs); }
+.text-\[10px\] { font-size: 10px; }
 .text-sm { font-size: var(--text-sm); }
 .text-base { font-size: var(--text-base); }
 .text-lg { font-size: var(--text-lg); }
@@ -1522,6 +1523,7 @@ textarea:focus-visible {
 
 /* Transforms */
 .-rotate-90 { transform: rotate(-90deg); }
+.rotate-180 { transform: rotate(180deg); }
 .-translate-y-1\/2 { transform: translateY(-50%); }
 
 /* Misc */

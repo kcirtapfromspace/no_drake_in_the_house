@@ -336,266 +336,162 @@
   {#if error}
     <div class="bg-red-900/20 border border-red-800 rounded-lg p-4 text-red-400" data-testid="error-message">
       {error}
-      <button on:click={loadData} class="ml-2 text-red-300 underline hover:no-underline">
-        Retry
-      </button>
+      <button on:click={loadData} class="ml-2 text-red-300 underline hover:no-underline">Retry</button>
     </div>
   {:else if isLoading}
     <div class="flex items-center justify-center py-8" data-testid="loading-spinner">
       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-400"></div>
     </div>
   {:else}
-    <!-- Revenue Summary Cards -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8" data-testid="revenue-summary">
-      <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-700">
-        <div class="text-sm text-zinc-400 mb-1">Monthly Revenue</div>
-        <div class="text-2xl font-bold text-emerald-400" data-testid="monthly-revenue">
-          {formatCurrency(monthlyRevenue)}
-        </div>
-        <div class="text-xs text-zinc-500 mt-2">From streaming platforms</div>
-      </div>
+    {@const maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue))}
 
-      <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-700">
-        <div class="text-sm text-zinc-400 mb-1">Yearly Revenue</div>
-        <div class="text-2xl font-bold text-emerald-400" data-testid="yearly-revenue">
-          {formatCurrency(monthlyRevenue * 12)}
-        </div>
-        <div class="text-xs text-zinc-500 mt-2">Projected annually</div>
-      </div>
+    <!-- Hero Revenue Stat -->
+    <div class="mb-8 text-center" data-testid="revenue-summary">
+      <div class="text-sm text-zinc-500 mb-1">Estimated Yearly Revenue</div>
+      <div class="text-4xl font-bold text-emerald-400" data-testid="yearly-revenue">{formatCurrency(monthlyRevenue * 12)}</div>
+      <div class="text-sm text-zinc-500 mt-1">Streaming + Writing + Production</div>
 
-      <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-700">
-        <div class="text-sm text-zinc-400 mb-1">Monthly Streams</div>
-        <div class="text-2xl font-bold text-zinc-100" data-testid="monthly-streams">
-          {formatNumber(monthlyStreams)}
+      <div class="grid grid-cols-3 gap-4 mt-6 max-w-lg mx-auto">
+        <div>
+          <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-revenue">{formatCurrency(monthlyRevenue)}</div>
+          <div class="text-xs text-zinc-500">Monthly</div>
         </div>
-        <div class="text-xs text-zinc-500 mt-2">{formatFullNumber(monthlyStreams)} plays</div>
-      </div>
-
-      <div class="bg-zinc-800 rounded-xl p-5 border border-zinc-700">
-        <div class="text-sm text-zinc-400 mb-1">Catalog Size</div>
-        <div class="text-2xl font-bold text-zinc-100" data-testid="discography-count">
-          {totalTracks}
+        <div>
+          <div class="text-lg font-semibold text-zinc-100" data-testid="monthly-streams">{formatNumber(monthlyStreams)}</div>
+          <div class="text-xs text-zinc-500">Monthly streams</div>
         </div>
-        <div class="text-xs text-zinc-500 mt-2">{drakeDiscography.length} albums</div>
+        <div>
+          <div class="text-lg font-semibold text-zinc-100" data-testid="discography-count">{totalTracks}</div>
+          <div class="text-xs text-zinc-500">{drakeDiscography.length} albums</div>
+        </div>
       </div>
     </div>
 
-    <!-- Revenue Breakdown Header -->
+    <!-- Album Revenue Breakdown -->
     <div class="flex items-center justify-between mb-4">
-      <h3 class="text-lg font-semibold text-zinc-100">Album Revenue Breakdown</h3>
-      <div class="text-sm text-zinc-500">
-        Est. ${(perStreamRate * 1000).toFixed(2)} per 1,000 streams
-      </div>
+      <h3 class="text-lg font-semibold text-zinc-100">Album Revenue</h3>
+      <span class="text-xs text-zinc-500">Est. ${(perStreamRate * 1000).toFixed(2)} / 1K streams</span>
     </div>
 
-    <!-- Albums with expandable tracks -->
     <div class="space-y-2" data-testid="albums-section">
       {#each drakeDiscography as album}
-        <div class="bg-zinc-800 rounded-xl border border-zinc-700 overflow-hidden">
-          <!-- Album Header (clickable) -->
+        {@const barWidth = maxRevenue > 0 ? (album.total_revenue / maxRevenue * 100) : 0}
+        <div class="rounded-xl overflow-hidden" style="background: #111113; border: 1px solid #27272a;">
           <button
-            class="w-full px-4 py-3 flex items-center gap-4 hover:bg-zinc-700/50 transition-colors text-left"
+            class="w-full p-4 flex items-center gap-4 text-left transition-colors hover:bg-white/[0.02]"
             on:click={() => toggleAlbum(album.id)}
           >
             <!-- Album Art -->
-            <div class="w-8 h-8 bg-zinc-700 rounded overflow-hidden flex-shrink-0 relative">
+            <div class="w-12 h-12 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0 relative">
               {#if album.cover_url}
-                <img
-                  src={album.cover_url}
-                  alt=""
-                  class="w-8 h-8 object-cover absolute inset-0"
-                  on:error={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
+                <img src={album.cover_url} alt="" class="w-12 h-12 object-cover absolute inset-0" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
               {/if}
-              <div class="w-8 h-8 flex items-center justify-center">
-                <svg class="w-4 h-4 text-zinc-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-12 h-12 flex items-center justify-center">
+                <svg class="w-5 h-5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
                 </svg>
               </div>
             </div>
 
-            <!-- Album Info -->
-            <div class="flex-grow min-w-0">
-              <div class="text-zinc-100 font-medium truncate">{album.title}</div>
-              <div class="text-sm text-zinc-400">{album.year} · {album.tracks.length} tracks</div>
+            <!-- Album Info + Proportional Bar -->
+            <div class="flex-1 min-w-0">
+              <div class="flex items-baseline gap-2 mb-1">
+                <span class="text-zinc-100 font-medium truncate">{album.title}</span>
+                <span class="text-xs text-zinc-600 flex-shrink-0">{album.year} · {album.tracks.length}t</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <div class="h-2 flex-1 rounded-full overflow-hidden" style="background: #1c1c22;">
+                  <div class="h-full rounded-full transition-all" style="width: {barWidth}%; background: linear-gradient(90deg, #059669, #10b981);"></div>
+                </div>
+                <span class="text-sm font-medium text-emerald-400 flex-shrink-0 w-24 text-right">{formatCurrency(album.total_revenue)}</span>
+              </div>
+              <div class="text-xs text-zinc-600 mt-0.5">{formatNumber(album.total_streams)} streams</div>
             </div>
 
-            <!-- Stats -->
-            <div class="text-right flex-shrink-0 hidden sm:block">
-              <div class="text-zinc-300">{formatNumber(album.total_streams)} streams</div>
-              <div class="text-emerald-400 font-medium">{formatCurrency(album.total_revenue)}</div>
-            </div>
-
-            <!-- Expand Icon (plus/minus) -->
-            <div class="w-6 h-6 rounded-full border border-zinc-600 flex items-center justify-center flex-shrink-0">
-              {#if expandedAlbums.has(album.id)}
-                <svg class="w-3.5 h-3.5 text-zinc-400" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                </svg>
-              {:else}
-                <svg class="w-3.5 h-3.5 text-zinc-400" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-              {/if}
-            </div>
+            <!-- Expand -->
+            <svg class="w-4 h-4 text-zinc-500 flex-shrink-0 transition-transform {expandedAlbums.has(album.id) ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
 
-          <!-- Mobile Stats -->
-          <div class="px-4 pb-3 flex justify-between sm:hidden border-t border-zinc-700/50">
-            <div class="text-sm text-zinc-400">{formatNumber(album.total_streams)} streams</div>
-            <div class="text-sm text-emerald-400 font-medium">{formatCurrency(album.total_revenue)}</div>
-          </div>
-
-          <!-- Expanded Track List -->
           {#if expandedAlbums.has(album.id)}
-            <div class="border-t border-zinc-700">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-left text-zinc-500 bg-zinc-900/50">
-                    <th class="py-2 px-4 font-medium">#</th>
-                    <th class="py-2 px-4 font-medium">Track</th>
-                    <th class="py-2 px-4 font-medium text-right">Streams</th>
-                    <th class="py-2 px-4 font-medium text-right">Revenue</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each album.tracks as track, idx}
-                    <tr class="border-t border-zinc-700/30 hover:bg-zinc-700/20">
-                      <td class="py-2 px-4 text-zinc-500">{idx + 1}</td>
-                      <td class="py-2 px-4 text-zinc-200">{track.title}</td>
-                      <td class="py-2 px-4 text-right text-zinc-400">{formatNumber(track.streams)}</td>
-                      <td class="py-2 px-4 text-right text-emerald-400">{formatCurrency(track.revenue)}</td>
-                    </tr>
-                  {/each}
-                </tbody>
-                <tfoot>
-                  <tr class="border-t border-zinc-600 bg-zinc-900/30 font-medium">
-                    <td class="py-2 px-4" colspan="2">Album Total</td>
-                    <td class="py-2 px-4 text-right text-zinc-300">{formatNumber(album.total_streams)}</td>
-                    <td class="py-2 px-4 text-right text-emerald-400">{formatCurrency(album.total_revenue)}</td>
-                  </tr>
-                </tfoot>
-              </table>
+            <div class="border-t border-zinc-800">
+              {#each album.tracks as track, idx}
+                <div class="flex items-center gap-3 px-4 py-2 border-t border-zinc-800/50 first:border-t-0 hover:bg-white/[0.02]">
+                  <span class="text-xs text-zinc-600 w-5 text-right">{idx + 1}</span>
+                  <span class="flex-1 text-sm text-zinc-300 truncate">{track.title}</span>
+                  <span class="text-xs text-zinc-500 flex-shrink-0">{formatNumber(track.streams)}</span>
+                  <span class="text-xs text-emerald-400 font-medium flex-shrink-0 w-16 text-right">{formatCurrency(track.revenue)}</span>
+                </div>
+              {/each}
             </div>
           {/if}
         </div>
       {/each}
+    </div>
 
-      <!-- Total Summary -->
-      <div class="bg-zinc-800 rounded-xl border border-zinc-600 p-4 mt-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-lg font-semibold text-zinc-100">Total Catalog Revenue</div>
-            <div class="text-sm text-zinc-400">{drakeDiscography.length} albums · {totalTracks} tracks</div>
+    <!-- Totals -->
+    <div class="mt-4 p-4 rounded-xl flex items-center justify-between" style="background: #111113; border: 1px solid #3f3f46;">
+      <div>
+        <div class="text-sm font-semibold text-zinc-100">Total Catalog Revenue</div>
+        <div class="text-xs text-zinc-500">{drakeDiscography.length} albums · {totalTracks} tracks · {formatNumber(totalStreams)} streams</div>
+      </div>
+      <div class="text-xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</div>
+    </div>
+
+    <!-- Credits Revenue -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+      <div class="p-4 rounded-xl" style="background: #111113; border: 1px solid #27272a;">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+          <span class="text-zinc-100 font-medium text-sm">Songwriting</span>
+        </div>
+        <div class="space-y-1.5 text-sm">
+          <div class="flex justify-between"><span class="text-zinc-500">Own catalog</span><span class="text-zinc-300">{totalTracks} songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">Other artists</span><span class="text-zinc-300">~85 songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">Publishing share</span><span class="text-zinc-300">~50%</span></div>
+          <div class="border-t border-zinc-800 pt-2 mt-2 flex justify-between">
+            <span class="text-zinc-300 font-medium">Est. Annual</span>
+            <span class="text-blue-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.15))}</span>
           </div>
-          <div class="text-right">
-            <div class="text-zinc-300">{formatNumber(totalStreams)} all-time streams</div>
-            <div class="text-2xl font-bold text-emerald-400">{formatCurrency(totalRevenue)}</div>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-xl" style="background: #111113; border: 1px solid #27272a;">
+        <div class="flex items-center gap-2 mb-3">
+          <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+          </svg>
+          <span class="text-zinc-100 font-medium text-sm">Production</span>
+        </div>
+        <div class="space-y-1.5 text-sm">
+          <div class="flex justify-between"><span class="text-zinc-500">Co-production</span><span class="text-zinc-300">~45 songs</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">Executive producer</span><span class="text-zinc-300">13 albums</span></div>
+          <div class="flex justify-between"><span class="text-zinc-500">Points (avg)</span><span class="text-zinc-300">~3%</span></div>
+          <div class="border-t border-zinc-800 pt-2 mt-2 flex justify-between">
+            <span class="text-zinc-300 font-medium">Est. Annual</span>
+            <span class="text-purple-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.08))}</span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Credits Revenue Section -->
-    <div class="mt-8">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-4">Credits Revenue (Writing & Production)</h3>
-      <p class="text-sm text-zinc-400 mb-4">
-        Additional revenue from songwriting and production credits on his own and other artists' work.
-      </p>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Writing Credits -->
-        <div class="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-8 h-8 rounded-full bg-blue-900/30 flex items-center justify-center">
-              <svg class="w-4 h-4 text-blue-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </div>
-            <div>
-              <div class="text-zinc-100 font-medium">Songwriting</div>
-              <div class="text-xs text-zinc-500">Publishing royalties</div>
-            </div>
-          </div>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Own catalog credits</span>
-              <span class="text-zinc-200">{totalTracks} songs</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Other artist credits</span>
-              <span class="text-zinc-200">~85 songs</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Publishing share</span>
-              <span class="text-zinc-200">~50%</span>
-            </div>
-            <div class="border-t border-zinc-700 pt-2 mt-2 flex justify-between">
-              <span class="text-zinc-300 font-medium">Est. Annual</span>
-              <span class="text-blue-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.15))}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Production Credits -->
-        <div class="bg-zinc-800 rounded-xl border border-zinc-700 p-4">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-8 h-8 rounded-full bg-purple-900/30 flex items-center justify-center">
-              <svg class="w-4 h-4 text-purple-400" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-            </div>
-            <div>
-              <div class="text-zinc-100 font-medium">Production</div>
-              <div class="text-xs text-zinc-500">Producer points & royalties</div>
-            </div>
-          </div>
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Co-production credits</span>
-              <span class="text-zinc-200">~45 songs</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Executive producer</span>
-              <span class="text-zinc-200">13 albums</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-zinc-400">Points (avg)</span>
-              <span class="text-zinc-200">~3%</span>
-            </div>
-            <div class="border-t border-zinc-700 pt-2 mt-2 flex justify-between">
-              <span class="text-zinc-300 font-medium">Est. Annual</span>
-              <span class="text-purple-400 font-bold">{formatCurrency(Math.round(totalRevenue * 0.08))}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Combined Total -->
-      <div class="bg-zinc-800 rounded-xl border border-zinc-600 p-4 mt-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="text-lg font-semibold text-zinc-100">Total Estimated Revenue</div>
-            <div class="text-sm text-zinc-400">Streaming + Writing + Production</div>
-          </div>
-          <div class="text-right">
-            <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
-            <div class="text-xs text-zinc-500">all-time estimate</div>
-          </div>
-        </div>
-      </div>
+    <!-- Grand Total -->
+    <div class="mt-4 p-4 rounded-xl text-center" style="background: #111113; border: 1px solid #3f3f46;">
+      <div class="text-xs text-zinc-500 mb-1">All-Time Estimated Revenue (Streaming + Writing + Production)</div>
+      <div class="text-2xl font-bold text-emerald-400">{formatCurrency(Math.round(totalRevenue * 1.23))}</div>
     </div>
 
     <!-- Revenue Context -->
-    <div class="mt-6 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700" data-testid="revenue-context">
+    <div class="mt-6 p-4 rounded-xl" style="background: rgba(24, 24, 27, 0.5); border: 1px solid #27272a;" data-testid="revenue-context">
       <div class="flex items-start gap-3">
-        <div class="w-8 h-8 rounded-full bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
+        <svg class="w-4 h-4 text-zinc-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
         <div>
-          <div class="text-zinc-200 font-medium mb-1">Revenue Methodology</div>
+          <div class="text-zinc-300 font-medium text-sm mb-1">Revenue Methodology</div>
           <div class="text-sm text-zinc-400">
             Estimates based on average streaming platform payouts (~$0.003-0.005 per stream).
             Actual revenue varies by platform, region, and artist contract terms.

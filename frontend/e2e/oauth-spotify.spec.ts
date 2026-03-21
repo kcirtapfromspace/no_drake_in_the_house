@@ -212,6 +212,18 @@ async function mockSpotifyApiRoutes(page: Page, options: {
 async function setupSettingsPage(page: Page, options: Parameters<typeof mockSpotifyApiRoutes>[1] = {}) {
   await mockSpotifyApiRoutes(page, options);
 
+  // Stub MusicKit to prevent CDN script loading
+  await page.addInitScript(() => {
+    (window as any).MusicKit = {
+      configure: async () => ({
+        isAuthorized: false,
+        musicUserToken: null,
+        authorize: async () => '',
+        unauthorize: async () => {},
+      }),
+    };
+  });
+
   // Set auth token so the app considers the user logged in
   await page.addInitScript(() => {
     localStorage.setItem('auth_token', 'mock-jwt-token-12345');

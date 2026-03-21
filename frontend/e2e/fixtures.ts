@@ -13,6 +13,7 @@ export const test = base.extend<{
 }>({
   // Provide an authenticated page
   authenticatedPage: async ({ page }, use) => {
+    await stubMusicKit(page);
     await mockApiRoutes(page);
     await mockAuthentication(page);
     await page.goto('/');
@@ -134,6 +135,20 @@ async function mockAuthentication(page: Page) {
       email: 'test@example.com',
       display_name: 'Test User',
     }));
+  });
+}
+
+// Stub Apple MusicKit to prevent CDN script loading
+async function stubMusicKit(page: Page) {
+  await page.addInitScript(() => {
+    (window as any).MusicKit = {
+      configure: async () => ({
+        isAuthorized: false,
+        musicUserToken: null,
+        authorize: async () => '',
+        unauthorize: async () => {},
+      }),
+    };
   });
 }
 

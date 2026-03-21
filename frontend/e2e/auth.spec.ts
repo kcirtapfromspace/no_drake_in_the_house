@@ -62,6 +62,17 @@ test.describe('Authentication', () => {
 
     test('should show loading state while logging in', async ({ page, mockApi }) => {
       await mockApi(page);
+
+      // Slow down the login response so we can observe the loading state
+      await page.route('**/api/v1/auth/login', async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ user: { id: 'test', email: 'test@example.com' }, token: 'tok' }),
+        });
+      });
+
       await page.goto('/');
 
       await page.getByLabel('Email').fill('test@example.com');

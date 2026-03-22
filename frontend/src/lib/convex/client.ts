@@ -48,4 +48,8 @@ export async function convexMutation<T>(funcRef: any, args?: Record<string, unkn
   return await getConvexClient().mutation(funcRef, args ?? {});
 }
 
+export async function convexAction<T>(funcRef: any, args?: Record<string, unknown>): Promise<T> {
+  return await getConvexClient().action(funcRef, args ?? {});
+}
+
 export { anyApi };

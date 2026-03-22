@@ -401,60 +401,60 @@
           </div>
         </div>
       </div>
+    </section>
 
-      <div class="search home__search">
-        <div class="search__icon">
-          {#if isSearching}
-            <div class="search__spinner"></div>
-          {:else}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          {/if}
-        </div>
-        <input
-          type="text"
-          bind:value={searchQuery}
-          on:input={handleSearchInput}
-          placeholder="Search any artist..."
-          aria-label="Search artists"
-          class="search__input"
-        />
-        {#if searchQuery}
-          <button type="button" class="search__clear" on:click={clearSearch} aria-label="Clear search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        {/if}
-
-        {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
-          <div class="search__dropdown">
-            {#if searchResults.length > 0}
-              <div class="search__results">
-                {#each searchResults as artist, i}
-                  <button
-                    type="button"
-                    class="search__result"
-                    on:click={() => goToArtist(artist.id, artist.canonical_name)}
-                  >
-                    <div class="search__result-info">
-                      <span class="search__result-name">{artist.canonical_name}</span>
-                      {#if artist.has_offenses}
-                        <span class="search__result-badge">{artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}</span>
-                      {/if}
-                    </div>
-                    {#if artist.genres && artist.genres.length > 0}
-                      <p class="search__result-genres">{artist.genres.slice(0, 2).join(', ')}</p>
-                    {/if}
-                  </button>
-                {/each}
-              </div>
-            {:else}
-              <div class="search__empty">
-                No artists found for "<strong>{searchQuery}</strong>"
-              </div>
-            {/if}
-          </div>
+    <div class="search home__search">
+      <div class="search__icon">
+        {#if isSearching}
+          <div class="search__spinner"></div>
+        {:else}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         {/if}
       </div>
-    </section>
+      <input
+        type="text"
+        bind:value={searchQuery}
+        on:input={handleSearchInput}
+        placeholder="Search any artist..."
+        aria-label="Search artists"
+        class="search__input"
+      />
+      {#if searchQuery}
+        <button type="button" class="search__clear" on:click={clearSearch} aria-label="Clear search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      {/if}
+
+      {#if searchResults.length > 0 || (searchQuery.length > 1 && !isSearching)}
+        <div class="search__dropdown">
+          {#if searchResults.length > 0}
+            <div class="search__results">
+              {#each searchResults as artist, i}
+                <button
+                  type="button"
+                  class="search__result"
+                  on:click={() => goToArtist(artist.id, artist.canonical_name)}
+                >
+                  <div class="search__result-info">
+                    <span class="search__result-name">{artist.canonical_name}</span>
+                    {#if artist.has_offenses}
+                      <span class="search__result-badge">{artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''}</span>
+                    {/if}
+                  </div>
+                  {#if artist.genres && artist.genres.length > 0}
+                    <p class="search__result-genres">{artist.genres.slice(0, 2).join(', ')}</p>
+                  {/if}
+                </button>
+              {/each}
+            </div>
+          {:else}
+            <div class="search__empty">
+              No artists found for "<strong>{searchQuery}</strong>"
+            </div>
+          {/if}
+        </div>
+      {/if}
+    </div>
 
     <div class="content brand-page__stack">
       <!-- Categories -->
@@ -750,7 +750,8 @@
   }
 
   .home__search {
-    margin-top: 1.35rem;
+    margin-top: -0.5rem;
+    z-index: var(--z-dropdown, 100);
   }
 
   .search__icon {

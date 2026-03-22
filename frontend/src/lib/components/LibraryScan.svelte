@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { slide } from 'svelte/transition';
   import { navigateTo } from '../utils/simple-router';
   import {
     libraryStore,
@@ -21,12 +22,28 @@
   $: scannedAt = $libraryStore.scanResult?.scanned_at || null;
   $: error = $libraryStore.error;
 
+  // Expandable rows state
+  let expandedArtists = new Set<string>();
+  let slideDuration = 200;
+
   // Auto-load cached scan results on mount
   onMount(() => {
     if (!$libraryStore.scanResult && !$libraryStore.isScanning) {
       libraryActions.fetchCachedScan();
     }
+
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (mql.matches) slideDuration = 0;
   });
+
+  function toggleArtist(id: string) {
+    if (expandedArtists.has(id)) {
+      expandedArtists.delete(id);
+    } else {
+      expandedArtists.add(id);
+    }
+    expandedArtists = expandedArtists; // trigger reactivity
+  }
 
   function formatRelativeTime(dateStr: string): string {
     const date = new Date(dateStr);
@@ -281,6 +298,32 @@
           {/if}
         </div>
 
+        <!-- Sanitizer card -->
+        <div class="scan__sanitizer-card surface-panel-thin">
+          <div class="scan__sanitizer-icon">
+            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+          </div>
+          <div class="scan__sanitizer-body">
+            <h3 class="scan__sanitizer-title">Playlist Sanitizer</h3>
+            <p class="scan__sanitizer-desc">Grade, clean, and republish your playlists without flagged artists</p>
+            {#if $scanStats && $scanStats.flaggedTracks > 0}
+              <p class="scan__sanitizer-preview">{$scanStats.flaggedTracks} flagged track{$scanStats.flaggedTracks !== 1 ? 's' : ''} found across your library</p>
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="scan__sanitizer-cta"
+            on:click={() => navigateTo('playlist-sanitizer')}
+          >
+            Open Sanitizer
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+
         <!-- Flagged artists list -->
         {#if $flaggedArtists.length > 0}
           <div class="scan__flagged-header">
@@ -294,80 +337,79 @@
             </button>
           </div>
 
-          <div class="scan__artist-list">
-            {#each $flaggedArtists as artist}
-              <div class="scan__artist-card">
-                <div class="scan__artist-top">
-                  <div class="scan__artist-info">
-                    <div class="scan__artist-avatar">
-                      <svg class="scan__artist-avatar-icon" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 class="scan__artist-name">{artist.name}</h4>
-                      <p class="scan__artist-meta">
-                        {artist.track_count} tracks in your library
-                      </p>
-                    </div>
-                  </div>
-                  <span class="scan__severity-badge {severityModifiers[artist.severity] || ''}">
-                    {severityConfig[artist.severity].label}
-                  </span>
+          <div class="scan__list surface-panel-thin">
+            {#each $flaggedArtists as artist (artist.id)}
+              <button
+                type="button"
+                class="scan__row"
+                on:click={() => toggleArtist(artist.id)}
+              >
+                <div class="scan__row-avatar">
+                  <svg fill="currentColor" viewBox="0 0 20 20" width="16" height="16">
+                    <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                  </svg>
                 </div>
+                <div class="scan__row-info">
+                  <span class="scan__row-name">{artist.name}</span>
+                  <span class="scan__row-meta">{artist.track_count} track{artist.track_count !== 1 ? 's' : ''}</span>
+                </div>
+                <span class="scan__severity-badge {severityModifiers[artist.severity] || ''}">
+                  {severityConfig[artist.severity].label}
+                </span>
+                <span class="scan__row-count">{artist.offenses.length}</span>
+                <svg
+                  class="scan__row-chevron {expandedArtists.has(artist.id) ? 'scan__row-chevron--open' : ''}"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                  width="18" height="18"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
 
-                <!-- Offenses -->
-                <div class="scan__offenses">
-                  {#each artist.offenses as offense}
-                    <div class="scan__offense">
-                      <div class="scan__offense-top">
-                        <div>
-                          <span class="scan__offense-category">
-                            {categoryLabels[offense.category]}
-                          </span>
-                          <h5 class="scan__offense-title">{offense.title}</h5>
-                          <p class="scan__offense-meta">
-                            {offense.date} - {offense.evidence_count} evidence sources
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          on:click={() => navigateTo('offense-database')}
-                          class="scan__evidence-link"
-                        >
-                          View Evidence
-                        </button>
+              {#if expandedArtists.has(artist.id)}
+                <div class="scan__row-detail" transition:slide={{ duration: slideDuration }}>
+                  <div class="scan__row-offenses">
+                    {#each artist.offenses as offense}
+                      <div class="scan__row-offense">
+                        <span class="scan__row-offense-cat">{categoryLabels[offense.category]}</span>
+                        <h5 class="scan__row-offense-title">{offense.title}</h5>
+                        <p class="scan__row-offense-meta">{offense.date} &middot; {offense.evidence_count} source{offense.evidence_count !== 1 ? 's' : ''}</p>
                       </div>
-                    </div>
-                  {/each}
+                    {/each}
+                  </div>
+                  <div class="scan__row-actions">
+                    <button
+                      type="button"
+                      class="scan__row-action scan__row-action--block"
+                      on:click|stopPropagation={() => blockArtist(artist)}
+                    >
+                      Block Artist
+                    </button>
+                    <button
+                      type="button"
+                      class="scan__row-action scan__row-action--ignore"
+                      on:click|stopPropagation={() => {
+                        libraryStore.update(s => ({
+                          ...s,
+                          scanResult: s.scanResult ? {
+                            ...s.scanResult,
+                            flagged_artists: s.scanResult.flagged_artists.filter(a => a.id !== artist.id)
+                          } : null
+                        }));
+                      }}
+                    >
+                      Ignore
+                    </button>
+                    <button
+                      type="button"
+                      class="scan__row-action scan__row-action--evidence"
+                      on:click|stopPropagation={() => navigateTo('offense-database')}
+                    >
+                      View Evidence
+                    </button>
+                  </div>
                 </div>
-
-                <!-- Actions -->
-                <div class="scan__artist-actions">
-                  <button
-                    type="button"
-                    on:click={() => blockArtist(artist)}
-                    class="scan__block-btn"
-                  >
-                    Block Artist
-                  </button>
-                  <button
-                    type="button"
-                    on:click={() => {
-                      libraryStore.update(s => ({
-                        ...s,
-                        scanResult: s.scanResult ? {
-                          ...s.scanResult,
-                          flagged_artists: s.scanResult.flagged_artists.filter(a => a.id !== artist.id)
-                        } : null
-                      }));
-                    }}
-                    class="scan__ignore-btn"
-                  >
-                    Ignore
-                  </button>
-                </div>
-              </div>
+              {/if}
             {/each}
           </div>
         {:else}
@@ -781,11 +823,87 @@
     font-weight: 500;
     border-radius: var(--radius-full);
     background-color: var(--color-text-muted);
+    flex-shrink: 0;
   }
   .scan__severity-badge.scan-severity--critical { background-color: #dc2626; }
   .scan__severity-badge.scan-severity--high { background-color: #ea580c; }
   .scan__severity-badge.scan-severity--medium { background-color: #d97706; }
   .scan__severity-badge.scan-severity--low { background-color: #65a30d; }
+
+  /* ===== Sanitizer Card ===== */
+  .scan__sanitizer-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--radius-2xl);
+  }
+
+  .scan__sanitizer-icon {
+    width: 3rem;
+    height: 3rem;
+    background-color: rgba(139, 92, 246, 0.15);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #a78bfa;
+  }
+
+  .scan__sanitizer-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .scan__sanitizer-title {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+    font-size: var(--text-base);
+  }
+
+  .scan__sanitizer-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    margin: 0.125rem 0 0;
+  }
+
+  .scan__sanitizer-preview {
+    font-size: var(--text-xs);
+    color: #a78bfa;
+    margin: 0.25rem 0 0;
+  }
+
+  .scan__sanitizer-cta {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    background-color: #4f46e5;
+    color: white;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border-radius: var(--radius-lg);
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background-color var(--transition-fast);
+  }
+  .scan__sanitizer-cta:hover {
+    background-color: #4338ca;
+  }
+
+  @media (max-width: 639px) {
+    .scan__sanitizer-card {
+      flex-wrap: wrap;
+    }
+    .scan__sanitizer-cta {
+      width: 100%;
+      justify-content: center;
+    }
+  }
 
   /* ===== Flagged Header ===== */
   .scan__flagged-header {
@@ -814,148 +932,178 @@
   }
   .scan__block-all-btn:hover { opacity: 0.9; }
 
-  /* ===== Artist List ===== */
-  .scan__artist-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .scan__artist-card {
-    background-color: var(--color-bg-elevated);
-    border: 1px solid var(--color-border-default);
+  /* ===== Dense Row List ===== */
+  .scan__list {
     border-radius: var(--radius-2xl);
-    box-shadow: var(--shadow-sm);
     overflow: hidden;
-    padding: 1.25rem;
   }
 
-  .scan__artist-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-  }
-
-  .scan__artist-info {
+  .scan__row {
     display: flex;
     align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 1.25rem;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition: background-color var(--transition-fast);
+  }
+  .scan__row:first-child {
+    border-top: none;
+  }
+  .scan__row:hover {
+    background: rgba(255, 255, 255, 0.04);
   }
 
-  .scan__artist-avatar {
-    width: 3rem;
-    height: 3rem;
+  .scan__row-avatar {
+    width: 2.5rem;
+    height: 2.5rem;
     border-radius: var(--radius-full);
-    background-color: var(--color-bg-interactive);
+    background-color: rgba(63, 63, 70, 1);
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-right: 1rem;
-  }
-
-  .scan__artist-avatar-icon {
-    width: 1.5rem;
-    height: 1.5rem;
+    flex-shrink: 0;
     color: var(--color-text-tertiary);
   }
 
-  .scan__artist-name {
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
-  .scan__artist-meta {
-    font-size: var(--text-sm);
-    color: var(--color-text-tertiary);
-    margin: 0;
-  }
-
-  /* ===== Offenses ===== */
-  .scan__offenses {
+  .scan__row-info {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
   }
 
-  .scan__offense {
-    background-color: rgba(239, 68, 68, 0.1);
-    border-radius: var(--radius-xl);
-    padding: 1rem;
-  }
-
-  .scan__offense-top {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-  }
-
-  .scan__offense-category {
-    font-size: var(--text-xs);
-    font-weight: 500;
-    color: var(--color-error);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .scan__offense-title {
-    font-weight: 500;
+  .scan__row-name {
+    font-weight: 600;
     color: var(--color-text-primary);
-    margin: 0.25rem 0 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .scan__offense-meta {
+  .scan__row-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .scan__row-count {
     font-size: var(--text-sm);
     color: var(--color-text-tertiary);
-    margin: 0.25rem 0 0;
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
+    min-width: 1.5rem;
+    text-align: right;
   }
 
-  .scan__evidence-link {
-    font-size: var(--text-sm);
-    color: var(--color-brand-primary);
+  .scan__row-chevron {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+  }
+  .scan__row-chevron--open {
+    transform: rotate(180deg);
+  }
+
+  /* ===== Expanded Detail ===== */
+  .scan__row-detail {
+    padding: 0.75rem 1.25rem 1rem;
+    padding-left: 4.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .scan__row-offenses {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .scan__row-offense {
+    padding: 0.625rem 0.75rem;
+    background: rgba(239, 68, 68, 0.06);
+    border-radius: var(--radius-lg);
+  }
+
+  .scan__row-offense-cat {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #f472b6;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .scan__row-offense-title {
     font-weight: 500;
-    background: none;
+    color: var(--color-text-primary);
+    margin: 0.125rem 0 0;
+    font-size: var(--text-sm);
+  }
+
+  .scan__row-offense-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    margin: 0.125rem 0 0;
+  }
+
+  .scan__row-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .scan__row-action {
+    padding: 0.375rem 0.75rem;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border-radius: var(--radius-lg);
     border: none;
     cursor: pointer;
-    white-space: nowrap;
-    padding: 0;
-  }
-  .scan__evidence-link:hover {
-    color: var(--color-brand-primary-hover);
+    transition: opacity var(--transition-fast), background-color var(--transition-fast);
   }
 
-  /* ===== Artist Actions ===== */
-  .scan__artist-actions {
-    display: flex;
-    gap: 0.75rem;
-  }
-
-  .scan__block-btn {
-    flex: 1;
-    padding: 0.625rem 1rem;
+  .scan__row-action--block {
     background-color: var(--color-error);
     color: white;
-    font-weight: 500;
-    border-radius: var(--radius-xl);
-    border: none;
-    cursor: pointer;
-    transition: opacity var(--transition-fast);
   }
-  .scan__block-btn:hover { opacity: 0.9; }
+  .scan__row-action--block:hover { opacity: 0.9; }
 
-  .scan__ignore-btn {
-    padding: 0.625rem 1rem;
+  .scan__row-action--ignore {
     background-color: var(--color-bg-interactive);
     border: 1px solid var(--color-border-default);
     color: var(--color-text-secondary);
-    font-weight: 500;
-    border-radius: var(--radius-xl);
-    cursor: pointer;
-    transition: background-color var(--transition-fast);
   }
-  .scan__ignore-btn:hover {
+  .scan__row-action--ignore:hover {
     background-color: var(--color-bg-hover);
+  }
+
+  .scan__row-action--evidence {
+    background: none;
+    color: #818cf8;
+    padding: 0.375rem 0.5rem;
+  }
+  .scan__row-action--evidence:hover {
+    color: #a5b4fc;
+  }
+
+  @media (max-width: 639px) {
+    .scan__row-count {
+      display: none;
+    }
+    .scan__row {
+      padding: 0.5rem 1rem;
+    }
+    .scan__row-detail {
+      padding-left: 1rem;
+    }
+    .scan__row-actions {
+      flex-wrap: wrap;
+    }
   }
 
   /* ===== Clean Library ===== */

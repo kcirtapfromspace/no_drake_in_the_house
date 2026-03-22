@@ -39,6 +39,7 @@ export interface LibraryScanResult {
   total_artists: number;
   flagged_artists: FlaggedArtist[];
   flagged_tracks: number;
+  scanned_at?: string;
 }
 
 export interface ImportTrack {
@@ -70,18 +71,22 @@ interface LibraryState {
   tracks: LibraryTrack[];
   scanResult: LibraryScanResult | null;
   isScanning: boolean;
+  isLoadingCached: boolean;
   isImporting: boolean;
   scanProgress: number;
   error: string | null;
+  lastFetchedAt: number | null;
 }
 
 const initialState: LibraryState = {
   tracks: [],
   scanResult: null,
   isScanning: false,
+  isLoadingCached: false,
   isImporting: false,
   scanProgress: 0,
   error: null,
+  lastFetchedAt: null,
 };
 
 export const libraryStore = writable<LibraryState>(initialState);
@@ -155,6 +160,7 @@ export const libraryActions = {
           scanResult: result.data!,
           isScanning: false,
           scanProgress: 100,
+          lastFetchedAt: Date.now(),
         }));
         return result.data;
       } else {
@@ -230,6 +236,50 @@ export const libraryActions = {
       console.error('Failed to fetch library:', e);
       return [];
     }
+  },
+
+  /**
+   * Fetch cached scan results (skip if data is fresh)
+   */
+  fetchCachedScan: async (): Promise<LibraryScanResult | null> => {
+    // Read current state
+    let current: LibraryState = initialState;
+    const unsub = libraryStore.subscribe((s) => (current = s));
+    unsub();
+
+    const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+    if (current.scanResult && current.lastFetchedAt && Date.now() - current.lastFetchedAt < CACHE_TTL) {
+      return current.scanResult;
+    }
+
+    libraryStore.update((s) => ({ ...s, isLoadingCached: true }));
+
+    try {
+      const result = await apiClient.get<LibraryScanResult>('/api/v1/library/scan/cached');
+
+      if (result.success && result.data) {
+        libraryStore.update((s) => ({
+          ...s,
+          scanResult: result.data!,
+          isLoadingCached: false,
+          lastFetchedAt: Date.now(),
+        }));
+        return result.data;
+      } else {
+        libraryStore.update((s) => ({ ...s, isLoadingCached: false }));
+        return null;
+      }
+    } catch {
+      libraryStore.update((s) => ({ ...s, isLoadingCached: false }));
+      return null;
+    }
+  },
+
+  /**
+   * Invalidate cache so next fetchCachedScan hits the API
+   */
+  invalidateCache: () => {
+    libraryStore.update((s) => ({ ...s, lastFetchedAt: null }));
   },
 
   /**

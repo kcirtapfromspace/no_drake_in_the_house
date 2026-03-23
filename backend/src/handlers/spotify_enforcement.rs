@@ -1,19 +1,25 @@
 //! Spotify Enforcement API Handlers
 //!
 //! Endpoints for running, monitoring, and rolling back Spotify enforcement operations.
+//! All enforcement and rollback actions call the Spotify Web API through `SpotifyService`.
 
 use axum::{
     extract::{Path, State},
     Json,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::error::AppError;
 use crate::models::{
-    AggressivenessLevel, AuthenticatedUser, BatchProgress, BatchSummary, EnforcementOptions,
+    AggressivenessLevel, AuthenticatedUser, BatchError, BatchProgress, BatchSummary,
+    EnforcementOptions,
 };
 use crate::AppState;
+use ndith_core::models::token_vault::{Connection, ConnectionStatus, StreamingProvider};
+use ndith_services::{SpotifyConfig, SpotifyService, TokenVaultService};
 
 /// Request to run Spotify enforcement
 #[derive(Debug, Serialize, Deserialize)]
@@ -212,6 +218,109 @@ pub struct SpotifyCapabilitiesResponse {
     pub limitations: Vec<String>,
 }
 
+/// Create a `SpotifyService` from app state.
+fn create_spotify_service(state: &AppState) -> Result<(SpotifyService, TokenVaultService), AppError> {
+    let spotify_config = SpotifyConfig::default();
+    let token_vault = TokenVaultService::with_pool(state.db_pool.clone());
+    let spotify_service =
+        SpotifyService::new(spotify_config, Arc::new(TokenVaultService::with_pool(state.db_pool.clone())))
+            .map_err(|e| AppError::Internal {
+                message: Some(format!("Failed to initialize Spotify service: {}", e)),
+            })?;
+    Ok((spotify_service, token_vault))
+}
+
+/// Fetch the user's active Spotify connection from TokenVault.
+async fn get_spotify_connection(
+    token_vault: &TokenVaultService,
+    user_id: Uuid,
+) -> Result<Connection, AppError> {
+    let connections = token_vault.get_user_connections(user_id).await;
+    connections
+        .into_iter()
+        .find(|c| c.provider == StreamingProvider::Spotify && c.status == ConnectionStatus::Active)
+        .ok_or_else(|| {
+            AppError::InvalidRequestFormat(
+                "No active Spotify connection. Please connect your Spotify account first."
+                    .to_string(),
+            )
+        })
+}
+
+/// Get Spotify artist IDs on the user's blocklist from the `external_ids` JSONB column.
+async fn get_blocked_spotify_ids(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<HashSet<String>, AppError> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT a.external_ids->>'spotify' AS spotify_id
+        FROM user_artist_blocks uab
+        JOIN artists a ON uab.artist_id = a.id
+        WHERE uab.user_id = $1
+          AND a.external_ids->>'spotify' IS NOT NULL
+
+        UNION
+
+        SELECT DISTINCT a.external_ids->>'spotify' AS spotify_id
+        FROM category_subscriptions cs
+        JOIN artist_offenses ao ON ao.category = cs.category
+        JOIN artists a ON ao.artist_id = a.id
+        WHERE cs.user_id = $1
+          AND a.external_ids->>'spotify' IS NOT NULL
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    Ok(rows.into_iter().map(|r| r.0).collect())
+}
+
+/// Get the canonical name set for blocked artists (used for matching by name).
+async fn get_blocked_artist_names(
+    state: &AppState,
+    user_id: Uuid,
+) -> Result<HashSet<String>, AppError> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT LOWER(a.canonical_name)
+        FROM user_artist_blocks uab
+        JOIN artists a ON uab.artist_id = a.id
+        WHERE uab.user_id = $1
+
+        UNION
+
+        SELECT DISTINCT LOWER(a.canonical_name)
+        FROM category_subscriptions cs
+        JOIN artist_offenses ao ON ao.category = cs.category
+        JOIN artists a ON ao.artist_id = a.id
+        WHERE cs.user_id = $1
+        "#,
+    )
+    .bind(user_id)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    Ok(rows.into_iter().map(|r| r.0).collect())
+}
+
+/// Check if a track is by a blocked artist (by Spotify ID or canonical name).
+fn is_blocked_artist(
+    artist_id: &str,
+    artist_name: &str,
+    blocked_ids: &HashSet<String>,
+    blocked_names: &HashSet<String>,
+) -> bool {
+    blocked_ids.contains(artist_id) || blocked_names.contains(&artist_name.to_lowercase())
+}
+
 /// Run Spotify enforcement
 ///
 /// POST /api/v1/enforcement/spotify/run
@@ -240,39 +349,460 @@ pub async fn run_spotify_enforcement(
     }
 
     let is_dry_run = request.dry_run;
-    let _options: EnforcementOptions = request.into();
+    let preserve_user_playlists = request.preserve_user_playlists;
+    let options: EnforcementOptions = request.into();
 
-    // Get blocked artist details for the response
-    let blocked_artist_details = get_blocked_artists_with_details(&state, user_id).await?;
-    let artists_count = blocked_artist_details.len();
+    // Get the user's Spotify connection and create the service
+    let (spotify_service, token_vault) = create_spotify_service(&state)?;
+    let connection = get_spotify_connection(&token_vault, user_id).await?;
 
+    // Get blocked Spotify artist IDs and names for matching
+    let blocked_spotify_ids = get_blocked_spotify_ids(&state, user_id).await?;
+    let blocked_artist_names = get_blocked_artist_names(&state, user_id).await?;
+
+    // Create action batch in database
     let batch_id = Uuid::new_v4();
+    let idempotency_key = options
+        .dry_run
+        .then(|| format!("dryrun_{}_{}", user_id, chrono::Utc::now().timestamp_millis()))
+        .unwrap_or_else(|| format!("enforce_{}_{}", user_id, chrono::Utc::now().timestamp_millis()));
 
-    let message = if is_dry_run {
-        format!(
-            "Dry run complete. Found {} blocked artists that would be affected. No changes were made.",
-            artists_count
+    let options_json = serde_json::to_value(&options).unwrap_or_default();
+
+    sqlx::query(
+        r#"
+        INSERT INTO action_batches (id, user_id, provider, idempotency_key, dry_run, status, options, summary, created_at)
+        VALUES ($1, $2, 'spotify', $3, $4, 'in_progress', $5, '{}', NOW())
+        "#,
+    )
+    .bind(batch_id)
+    .bind(user_id)
+    .bind(&idempotency_key)
+    .bind(is_dry_run)
+    .bind(&options_json)
+    .execute(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
+
+    // Scan the library
+    let scan_result = spotify_service
+        .scan_library(&connection)
+        .await
+        .map_err(|e| AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e)))?;
+
+    let library = &scan_result.library;
+
+    // ---- Collect items to remove ----
+    let mut songs_to_remove: Vec<String> = Vec::new(); // track IDs
+    let mut albums_to_remove: Vec<String> = Vec::new(); // album IDs
+    let mut artists_to_unfollow: Vec<String> = Vec::new(); // artist IDs
+    // playlist_id -> Vec<(track_uri, track_id, track_name, artist_name)>
+    let mut playlist_tracks_to_remove: std::collections::HashMap<String, Vec<(String, String, String, String)>> =
+        std::collections::HashMap::new();
+
+    // Liked songs
+    for saved_track in &library.liked_songs {
+        let track = &saved_track.track;
+        for artist in &track.artists {
+            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                songs_to_remove.push(track.id.clone());
+                break;
+            }
+        }
+    }
+
+    // Saved albums
+    for album in &library.saved_albums {
+        for artist in &album.artists {
+            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                albums_to_remove.push(album.id.clone());
+                break;
+            }
+        }
+    }
+
+    // Followed artists
+    for followed in &library.followed_artists {
+        let artist = &followed.artist;
+        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            artists_to_unfollow.push(artist.id.clone());
+        }
+    }
+
+    // Playlist tracks (skip user-owned playlists if preserve_user_playlists is set)
+    for playlist in &library.playlists {
+        if preserve_user_playlists && playlist.owner.id == library.spotify_user_id {
+            continue;
+        }
+        if let Some(ref items) = playlist.tracks.items {
+            for playlist_track in items {
+                if let Some(ref track) = playlist_track.track {
+                    for artist in &track.artists {
+                        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                            let uri = format!("spotify:track:{}", track.id);
+                            let primary_artist = track.artists.first().map(|a| a.name.clone()).unwrap_or_default();
+                            playlist_tracks_to_remove
+                                .entry(playlist.id.clone())
+                                .or_default()
+                                .push((uri, track.id.clone(), track.name.clone(), primary_artist));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let total_songs = songs_to_remove.len();
+    let total_albums = albums_to_remove.len();
+    let total_artists = artists_to_unfollow.len();
+    let total_playlist_tracks: usize = playlist_tracks_to_remove.values().map(|v| v.len()).sum();
+    let total_actions = total_songs + total_albums + total_artists + total_playlist_tracks;
+    let mut completed_actions: u32 = 0;
+    let mut failed_actions: u32 = 0;
+    let mut errors: Vec<BatchError> = Vec::new();
+
+    if is_dry_run {
+        // Dry run -- record but don't execute
+        let summary = serde_json::json!({
+            "total_actions": total_actions,
+            "completed_actions": 0,
+            "failed_actions": 0,
+            "skipped_actions": 0,
+            "execution_time_ms": 0,
+            "api_calls_made": 0,
+            "rate_limit_delays_ms": 0,
+            "errors": []
+        });
+        sqlx::query(
+            "UPDATE action_batches SET status = 'completed', summary = $1, completed_at = NOW() WHERE id = $2",
         )
+        .bind(&summary)
+        .bind(batch_id)
+        .execute(&state.db_pool)
+        .await
+        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+        return Ok(Json(SpotifyEnforcementRunResponse {
+            batch_id,
+            status: "dry_run".to_string(),
+            summary: BatchSummary {
+                total_actions: total_actions as u32,
+                completed_actions: 0,
+                failed_actions: 0,
+                skipped_actions: 0,
+                execution_time_ms: 0,
+                api_calls_made: 0,
+                rate_limit_delays_ms: 0,
+                errors: Vec::new(),
+            },
+            songs_removed: total_songs,
+            albums_removed: total_albums,
+            artists_unfollowed: total_artists,
+            playlist_tracks_removed: total_playlist_tracks,
+            errors_count: 0,
+            message: format!(
+                "Dry run complete. Would remove {} liked songs, {} albums, unfollow {} artists, remove {} playlist tracks.",
+                total_songs, total_albums, total_artists, total_playlist_tracks
+            ),
+        }));
+    }
+
+    // ---- Execute enforcement (non-dry-run) ----
+
+    // 1. Remove liked songs in batches of 50
+    for chunk in songs_to_remove.chunks(50) {
+        let chunk_vec: Vec<String> = chunk.to_vec();
+        // Record action items
+        for track_id in &chunk_vec {
+            let action_id = Uuid::new_v4();
+            let before_state = serde_json::json!({ "track_id": track_id, "was_liked": true });
+            let idempotency = format!("{}_{}_remove_liked_{}", batch_id, user_id, track_id);
+            let _ = sqlx::query(
+                r#"INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
+                   VALUES ($1, $2, 'track', $3, 'remove_liked_song', $4, $5, 'pending', NOW())"#,
+            )
+            .bind(action_id)
+            .bind(batch_id)
+            .bind(track_id)
+            .bind(&idempotency)
+            .bind(&before_state)
+            .execute(&state.db_pool)
+            .await;
+        }
+
+        match spotify_service.remove_liked_songs_batch(&connection, &chunk_vec).await {
+            Ok(()) => {
+                completed_actions += chunk_vec.len() as u32;
+                // Mark actions completed
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'completed', after_state = '{\"removed\": true}' WHERE batch_id = $1 AND action = 'remove_liked_song' AND status = 'pending' AND entity_id = ANY($2)",
+                )
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                tracing::error!("Failed to remove liked songs batch: {}", err_msg);
+                failed_actions += chunk_vec.len() as u32;
+                errors.push(BatchError {
+                    action_id: batch_id,
+                    entity_type: "track".to_string(),
+                    entity_id: chunk_vec.first().cloned().unwrap_or_default(),
+                    error_code: "REMOVE_LIKED_SONGS_FAILED".to_string(),
+                    error_message: err_msg.clone(),
+                    retry_count: 0,
+                    is_recoverable: true,
+                });
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'failed', error_message = $1 WHERE batch_id = $2 AND action = 'remove_liked_song' AND status = 'pending' AND entity_id = ANY($3)",
+                )
+                .bind(&err_msg)
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+        }
+    }
+
+    // 2. Remove saved albums in batches of 50
+    for chunk in albums_to_remove.chunks(50) {
+        let chunk_vec: Vec<String> = chunk.to_vec();
+        for album_id in &chunk_vec {
+            let action_id = Uuid::new_v4();
+            let before_state = serde_json::json!({ "album_id": album_id, "was_saved": true });
+            let idempotency = format!("{}_{}_remove_album_{}", batch_id, user_id, album_id);
+            let _ = sqlx::query(
+                r#"INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
+                   VALUES ($1, $2, 'album', $3, 'remove_saved_album', $4, $5, 'pending', NOW())"#,
+            )
+            .bind(action_id)
+            .bind(batch_id)
+            .bind(album_id)
+            .bind(&idempotency)
+            .bind(&before_state)
+            .execute(&state.db_pool)
+            .await;
+        }
+
+        match spotify_service.remove_saved_albums_batch(&connection, &chunk_vec).await {
+            Ok(()) => {
+                completed_actions += chunk_vec.len() as u32;
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'completed', after_state = '{\"removed\": true}' WHERE batch_id = $1 AND action = 'remove_saved_album' AND status = 'pending' AND entity_id = ANY($2)",
+                )
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                tracing::error!("Failed to remove saved albums batch: {}", err_msg);
+                failed_actions += chunk_vec.len() as u32;
+                errors.push(BatchError {
+                    action_id: batch_id,
+                    entity_type: "album".to_string(),
+                    entity_id: chunk_vec.first().cloned().unwrap_or_default(),
+                    error_code: "REMOVE_SAVED_ALBUMS_FAILED".to_string(),
+                    error_message: err_msg.clone(),
+                    retry_count: 0,
+                    is_recoverable: true,
+                });
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'failed', error_message = $1 WHERE batch_id = $2 AND action = 'remove_saved_album' AND status = 'pending' AND entity_id = ANY($3)",
+                )
+                .bind(&err_msg)
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+        }
+    }
+
+    // 3. Unfollow blocked artists in batches of 50
+    for chunk in artists_to_unfollow.chunks(50) {
+        let chunk_vec: Vec<String> = chunk.to_vec();
+        for artist_id in &chunk_vec {
+            let action_id = Uuid::new_v4();
+            let before_state = serde_json::json!({ "artist_id": artist_id, "was_followed": true });
+            let idempotency = format!("{}_{}_unfollow_{}", batch_id, user_id, artist_id);
+            let _ = sqlx::query(
+                r#"INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
+                   VALUES ($1, $2, 'artist', $3, 'unfollow_artist', $4, $5, 'pending', NOW())"#,
+            )
+            .bind(action_id)
+            .bind(batch_id)
+            .bind(artist_id)
+            .bind(&idempotency)
+            .bind(&before_state)
+            .execute(&state.db_pool)
+            .await;
+        }
+
+        match spotify_service.unfollow_artists_batch(&connection, &chunk_vec).await {
+            Ok(()) => {
+                completed_actions += chunk_vec.len() as u32;
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'completed', after_state = '{\"unfollowed\": true}' WHERE batch_id = $1 AND action = 'unfollow_artist' AND status = 'pending' AND entity_id = ANY($2)",
+                )
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+            Err(e) => {
+                let err_msg = e.to_string();
+                tracing::error!("Failed to unfollow artists batch: {}", err_msg);
+                failed_actions += chunk_vec.len() as u32;
+                errors.push(BatchError {
+                    action_id: batch_id,
+                    entity_type: "artist".to_string(),
+                    entity_id: chunk_vec.first().cloned().unwrap_or_default(),
+                    error_code: "UNFOLLOW_ARTISTS_FAILED".to_string(),
+                    error_message: err_msg.clone(),
+                    retry_count: 0,
+                    is_recoverable: true,
+                });
+                let _ = sqlx::query(
+                    "UPDATE action_items SET status = 'failed', error_message = $1 WHERE batch_id = $2 AND action = 'unfollow_artist' AND status = 'pending' AND entity_id = ANY($3)",
+                )
+                .bind(&err_msg)
+                .bind(batch_id)
+                .bind(&chunk_vec)
+                .execute(&state.db_pool)
+                .await;
+            }
+        }
+    }
+
+    // 4. Remove playlist tracks (batches of 100 per playlist)
+    for (playlist_id, tracks) in &playlist_tracks_to_remove {
+        // Build Spotify API track objects: [{"uri": "spotify:track:..."}]
+        let track_objects: Vec<serde_json::Value> = tracks
+            .iter()
+            .map(|(uri, _id, _name, _artist)| serde_json::json!({ "uri": uri }))
+            .collect();
+
+        for (uri, track_id, track_name, artist_name) in tracks {
+            let action_id = Uuid::new_v4();
+            let before_state = serde_json::json!({
+                "playlist_id": playlist_id,
+                "track_id": track_id,
+                "track_uri": uri,
+                "track_name": track_name,
+                "artist_name": artist_name,
+            });
+            let idempotency = format!("{}_{}_{}_remove_playlist_track_{}", batch_id, user_id, playlist_id, track_id);
+            let _ = sqlx::query(
+                r#"INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
+                   VALUES ($1, $2, 'track', $3, 'remove_playlist_track', $4, $5, 'pending', NOW())"#,
+            )
+            .bind(action_id)
+            .bind(batch_id)
+            .bind(track_id)
+            .bind(&idempotency)
+            .bind(&before_state)
+            .execute(&state.db_pool)
+            .await;
+        }
+
+        // Spotify allows up to 100 tracks per playlist modification request
+        for chunk in track_objects.chunks(100) {
+            let chunk_vec: Vec<serde_json::Value> = chunk.to_vec();
+            match spotify_service.remove_playlist_tracks_batch(&connection, playlist_id, &chunk_vec).await {
+                Ok(_snapshot_id) => {
+                    completed_actions += chunk_vec.len() as u32;
+                }
+                Err(e) => {
+                    let err_msg = e.to_string();
+                    tracing::error!("Failed to remove playlist tracks from {}: {}", playlist_id, err_msg);
+                    failed_actions += chunk_vec.len() as u32;
+                    errors.push(BatchError {
+                        action_id: batch_id,
+                        entity_type: "playlist_track".to_string(),
+                        entity_id: playlist_id.to_string(),
+                        error_code: "REMOVE_PLAYLIST_TRACKS_FAILED".to_string(),
+                        error_message: err_msg.clone(),
+                        retry_count: 0,
+                        is_recoverable: true,
+                    });
+                }
+            }
+        }
+
+        // Mark all action items for this playlist
+        let track_ids: Vec<String> = tracks.iter().map(|(_, id, _, _)| id.clone()).collect();
+        if failed_actions == 0 {
+            let _ = sqlx::query(
+                "UPDATE action_items SET status = 'completed', after_state = '{\"removed\": true}' WHERE batch_id = $1 AND action = 'remove_playlist_track' AND status = 'pending' AND entity_id = ANY($2)",
+            )
+            .bind(batch_id)
+            .bind(&track_ids)
+            .execute(&state.db_pool)
+            .await;
+        }
+    }
+
+    // Update batch with final summary
+    let batch_status = if failed_actions == 0 {
+        "completed"
+    } else if completed_actions > 0 {
+        "partially_completed"
     } else {
-        format!(
-            "Spotify enforcement requires OAuth connection. Connect your Spotify account first, then enforcement will remove content from {} blocked artists.",
-            artists_count
-        )
+        "failed"
     };
+
+    let summary_json = serde_json::json!({
+        "total_actions": total_actions,
+        "completed_actions": completed_actions,
+        "failed_actions": failed_actions,
+        "skipped_actions": 0,
+        "execution_time_ms": 0,
+        "api_calls_made": 0,
+        "rate_limit_delays_ms": 0,
+        "errors": errors
+    });
+
+    sqlx::query(
+        "UPDATE action_batches SET status = $1, summary = $2, completed_at = NOW() WHERE id = $3",
+    )
+    .bind(batch_status)
+    .bind(&summary_json)
+    .bind(batch_id)
+    .execute(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    let message = format!(
+        "Spotify enforcement {}: removed {} liked songs, {} albums, unfollowed {} artists, removed {} playlist tracks. {} errors.",
+        batch_status, total_songs, total_albums, total_artists, total_playlist_tracks, errors.len()
+    );
 
     Ok(Json(SpotifyEnforcementRunResponse {
         batch_id,
-        status: if is_dry_run {
-            "dry_run".to_string()
-        } else {
-            "pending_connection".to_string()
+        status: batch_status.to_string(),
+        summary: BatchSummary {
+            total_actions: total_actions as u32,
+            completed_actions,
+            failed_actions,
+            skipped_actions: 0,
+            execution_time_ms: 0,
+            api_calls_made: 0,
+            rate_limit_delays_ms: 0,
+            errors,
         },
-        summary: BatchSummary::default(),
-        songs_removed: 0,
-        albums_removed: 0,
-        artists_unfollowed: artists_count,
-        playlist_tracks_removed: 0,
-        errors_count: 0,
+        songs_removed: total_songs,
+        albums_removed: total_albums,
+        artists_unfollowed: total_artists,
+        playlist_tracks_removed: total_playlist_tracks,
+        errors_count: failed_actions as usize,
         message,
     }))
 }
@@ -309,35 +839,118 @@ pub async fn preview_spotify_enforcement(
         }));
     }
 
-    // Convert blocked artists to preview format
-    let blocked_artist_previews: Vec<BlockedArtistPreview> = blocked_artist_details
-        .iter()
-        .map(|a| BlockedArtistPreview {
-            artist_id: a.id.to_string(),
-            name: a.name.clone(),
-            blocked_reason: a.reason.clone(),
-        })
-        .collect();
+    // Get the user's Spotify connection and scan the library
+    let (spotify_service, token_vault) = create_spotify_service(&state)?;
+    let connection = get_spotify_connection(&token_vault, user_id).await?;
 
-    let artists_count = blocked_artist_previews.len();
+    let blocked_spotify_ids = get_blocked_spotify_ids(&state, user_id).await?;
+    let blocked_artist_names = get_blocked_artist_names(&state, user_id).await?;
 
-    // Note: Without Spotify library access, we show blocked artists but can't scan actual library
-    // Estimated counts are placeholders until Spotify OAuth is connected
+    let scan_result = spotify_service
+        .scan_library(&connection)
+        .await
+        .map_err(|e| AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e)))?;
+
+    let library = &scan_result.library;
+
+    // Match blocked content against actual library
+    let mut blocked_songs: Vec<BlockedSongPreview> = Vec::new();
+    let mut blocked_albums: Vec<BlockedAlbumPreview> = Vec::new();
+    let mut blocked_artists_preview: Vec<BlockedArtistPreview> = Vec::new();
+    let mut blocked_playlist_tracks: Vec<BlockedPlaylistTrackPreview> = Vec::new();
+
+    // Scan liked songs
+    for saved_track in &library.liked_songs {
+        let track = &saved_track.track;
+        for artist in &track.artists {
+            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                blocked_songs.push(BlockedSongPreview {
+                    track_id: track.id.clone(),
+                    name: track.name.clone(),
+                    artist_name: artist.name.clone(),
+                    album_name: track.album.name.clone(),
+                    blocked_reason: format!("Artist '{}' is on your DNP list", artist.name),
+                });
+                break;
+            }
+        }
+    }
+
+    // Scan saved albums
+    for album in &library.saved_albums {
+        for artist in &album.artists {
+            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                blocked_albums.push(BlockedAlbumPreview {
+                    album_id: album.id.clone(),
+                    name: album.name.clone(),
+                    artist_name: artist.name.clone(),
+                    blocked_reason: format!("Artist '{}' is on your DNP list", artist.name),
+                });
+                break;
+            }
+        }
+    }
+
+    // Scan followed artists
+    for followed in &library.followed_artists {
+        let artist = &followed.artist;
+        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            // Find the reason from blocked_artist_details
+            let reason = blocked_artist_details
+                .iter()
+                .find(|a| a.name.to_lowercase() == artist.name.to_lowercase())
+                .map(|a| a.reason.clone())
+                .unwrap_or_else(|| "On your DNP list".to_string());
+            blocked_artists_preview.push(BlockedArtistPreview {
+                artist_id: artist.id.clone(),
+                name: artist.name.clone(),
+                blocked_reason: reason,
+            });
+        }
+    }
+
+    // Scan playlist tracks
+    for playlist in &library.playlists {
+        if let Some(ref items) = playlist.tracks.items {
+            for playlist_track in items {
+                if let Some(ref track) = playlist_track.track {
+                    for artist in &track.artists {
+                        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                            blocked_playlist_tracks.push(BlockedPlaylistTrackPreview {
+                                playlist_id: playlist.id.clone(),
+                                playlist_name: playlist.name.clone(),
+                                track_id: track.id.clone(),
+                                track_name: track.name.clone(),
+                                artist_name: artist.name.clone(),
+                                blocked_reason: format!("Artist '{}' is on your DNP list", artist.name),
+                            });
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let total_items = blocked_songs.len() + blocked_albums.len() + blocked_artists_preview.len() + blocked_playlist_tracks.len();
+    // Estimate ~0.75 seconds per item for API calls
+    let estimated_duration = (total_items as u64 * 750) / 1000 + 1;
+
     Ok(Json(SpotifyEnforcementPreviewResponse {
-        songs_to_remove: 0,  // Requires Spotify library scan
-        albums_to_remove: 0, // Requires Spotify library scan
-        artists_to_unfollow: artists_count,
-        playlist_tracks_to_remove: 0, // Requires Spotify library scan
-        total_library_songs: 0,
-        total_library_albums: 0,
-        total_followed_artists: 0,
-        total_playlists: 0,
-        estimated_duration_seconds: (artists_count as u64) * 2, // ~2 seconds per artist
+        songs_to_remove: blocked_songs.len(),
+        albums_to_remove: blocked_albums.len(),
+        artists_to_unfollow: blocked_artists_preview.len(),
+        playlist_tracks_to_remove: blocked_playlist_tracks.len(),
+        total_library_songs: scan_result.counts.liked_songs_count as usize,
+        total_library_albums: scan_result.counts.saved_albums_count as usize,
+        total_followed_artists: scan_result.counts.followed_artists_count as usize,
+        total_playlists: scan_result.counts.playlists_count as usize,
+        estimated_duration_seconds: estimated_duration,
         blocked_content: SpotifyBlockedContentPreview {
-            songs: Vec::new(), // Populated when Spotify library is scanned
-            albums: Vec::new(),
-            artists: blocked_artist_previews,
-            playlist_tracks: Vec::new(),
+            songs: blocked_songs,
+            albums: blocked_albums,
+            artists: blocked_artists_preview,
+            playlist_tracks: blocked_playlist_tracks,
         },
     }))
 }
@@ -409,6 +1022,10 @@ pub async fn rollback_spotify_enforcement(
         });
     }
 
+    // Get the user's Spotify connection for API calls
+    let (spotify_service, token_vault) = create_spotify_service(&state)?;
+    let connection = get_spotify_connection(&token_vault, user_id).await?;
+
     // Get actions that can be rolled back
     let rollback_result = execute_batch_rollback(
         &state.db_pool,
@@ -416,6 +1033,8 @@ pub async fn rollback_spotify_enforcement(
         user_id,
         request.action_ids.as_deref(),
         &request.reason,
+        &spotify_service,
+        &connection,
     )
     .await?;
 
@@ -439,6 +1058,8 @@ async fn execute_batch_rollback(
     user_id: Uuid,
     action_ids: Option<&[Uuid]>,
     reason: &str,
+    spotify_service: &SpotifyService,
+    connection: &Connection,
 ) -> Result<RollbackResponse, AppError> {
     // Get actions to rollback
     let actions_to_rollback: Vec<RollbackableAction> = if let Some(ids) = action_ids {
@@ -557,10 +1178,10 @@ async fn execute_batch_rollback(
                 message: Some(e.to_string()),
             })?;
 
-            // Simulate rollback execution
-            // In production, this would call Spotify API to re-add tracks/follow artists
-            // For now, we mark as completed and update the original action as rolled back
+            // Execute rollback via Spotify API
             let rollback_success = execute_single_rollback_action(
+                spotify_service,
+                connection,
                 &action.entity_type,
                 &action.entity_id,
                 &rollback_type,
@@ -714,16 +1335,18 @@ fn get_rollback_action_type(original_action: &str) -> Option<String> {
     }
 }
 
-/// Execute a single rollback action
-/// In production, this would call the actual Spotify API
-/// For now, it simulates the rollback
+/// Execute a single rollback action by calling the Spotify API.
+///
+/// The `SpotifyService` and `Connection` are passed from the outer rollback loop
+/// so we create them once and reuse them.
 async fn execute_single_rollback_action(
+    spotify_service: &SpotifyService,
+    connection: &Connection,
     entity_type: &str,
     entity_id: &str,
     rollback_action: &str,
     before_state: &Option<serde_json::Value>,
 ) -> bool {
-    // Log the rollback action
     tracing::info!(
         "Executing rollback: {} on {} {} with before_state: {:?}",
         rollback_action,
@@ -732,14 +1355,116 @@ async fn execute_single_rollback_action(
         before_state
     );
 
-    // In production, this would:
-    // - For "add_liked_song": Call PUT /v1/me/tracks with the track IDs
-    // - For "follow_artist": Call PUT /v1/me/following?type=artist with artist IDs
-    // - For "add_playlist_track": Call POST /v1/playlists/{playlist_id}/tracks
-    // - For "add_saved_album": Call PUT /v1/me/albums with album IDs
+    let result = match rollback_action {
+        "add_liked_song" => {
+            // Re-add a liked song: PUT /v1/me/tracks
+            let track_id = before_state
+                .as_ref()
+                .and_then(|s| s.get("track_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(entity_id);
+            spotify_service
+                .add_liked_songs_batch(connection, &[track_id.to_string()])
+                .await
+        }
+        "follow_artist" => {
+            // Re-follow an artist: PUT /v1/me/following?type=artist
+            let artist_id = before_state
+                .as_ref()
+                .and_then(|s| s.get("artist_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(entity_id);
+            spotify_service
+                .follow_artists_batch(connection, &[artist_id.to_string()])
+                .await
+        }
+        "add_playlist_track" => {
+            // Re-add a playlist track: POST /v1/playlists/{id}/tracks
+            let playlist_id = before_state
+                .as_ref()
+                .and_then(|s| s.get("playlist_id"))
+                .and_then(|v| v.as_str());
+            let track_uri = before_state
+                .as_ref()
+                .and_then(|s| s.get("track_uri"))
+                .and_then(|v| v.as_str())
+                .or_else(|| {
+                    before_state
+                        .as_ref()
+                        .and_then(|s| s.get("track_id"))
+                        .and_then(|v| v.as_str())
+                        .map(|id| {
+                            // Will be formatted below
+                            id
+                        })
+                });
 
-    // For now, simulate success (in a real implementation, we'd check the API response)
-    true
+            match (playlist_id, track_uri) {
+                (Some(pid), Some(uri)) => {
+                    let full_uri = if uri.starts_with("spotify:track:") {
+                        uri.to_string()
+                    } else {
+                        format!("spotify:track:{}", uri)
+                    };
+                    spotify_service
+                        .add_playlist_tracks_batch(connection, pid, &[full_uri], None)
+                        .await
+                        .map(|_| ())
+                }
+                _ => {
+                    tracing::error!(
+                        "Missing playlist_id or track_uri for add_playlist_track rollback on entity {}",
+                        entity_id
+                    );
+                    Err(anyhow::anyhow!(
+                        "Missing playlist_id or track_uri in before_state"
+                    ))
+                }
+            }
+        }
+        "add_saved_album" => {
+            // Re-add a saved album: PUT /v1/me/albums
+            let album_id = before_state
+                .as_ref()
+                .and_then(|s| s.get("album_id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(entity_id);
+            spotify_service
+                .add_saved_albums_batch(connection, &[album_id.to_string()])
+                .await
+        }
+        _ => {
+            tracing::warn!(
+                "Unknown rollback action type: {} for entity {} {}",
+                rollback_action,
+                entity_type,
+                entity_id
+            );
+            Err(anyhow::anyhow!("Unknown rollback action: {}", rollback_action))
+        }
+    };
+
+    match result {
+        Ok(()) => {
+            tracing::info!(
+                "Rollback {} on {} {} succeeded",
+                rollback_action,
+                entity_type,
+                entity_id
+            );
+            true
+        }
+        Err(e) => {
+            tracing::error!(
+                "Rollback {} on {} {} failed: {}",
+                rollback_action,
+                entity_type,
+                entity_id,
+                e
+            );
+            false
+        }
+    }
 }
 
 /// Get Spotify enforcement history
@@ -898,6 +1623,10 @@ pub async fn rollback_enforcement_batch(
         });
     }
 
+    // Get the user's Spotify connection for API calls
+    let (spotify_service, token_vault) = create_spotify_service(&state)?;
+    let connection = get_spotify_connection(&token_vault, user_id).await?;
+
     // Execute the rollback based on provider
     // Currently we support spotify, but the structure allows for other providers
     let rollback_result = execute_batch_rollback(
@@ -906,6 +1635,8 @@ pub async fn rollback_enforcement_batch(
         user_id,
         request.action_ids.as_deref(),
         &request.reason,
+        &spotify_service,
+        &connection,
     )
     .await?;
 

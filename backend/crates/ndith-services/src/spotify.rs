@@ -406,6 +406,12 @@ impl SpotifyService {
         );
     }
 
+    /// Get a snapshot of the current rate limit state
+    pub async fn get_rate_limit_snapshot(&self) -> Option<RateLimit> {
+        let rate_limits = self.rate_limits.read().await;
+        rate_limits.get("global").cloned()
+    }
+
     /// Get current connection for a user
     pub async fn get_user_connection(&self, user_id: Uuid) -> Result<Option<Connection>> {
         let connections = self.token_vault.get_user_connections(user_id).await;

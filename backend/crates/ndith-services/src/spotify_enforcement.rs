@@ -649,15 +649,36 @@ impl SpotifyEnforcementService {
         Ok(())
     }
 
-    /// Get current rate limit status
+    /// Get current rate limit status from the Spotify service
     async fn get_rate_limit_status(&self) -> Result<RateLimitStatus> {
-        // This would integrate with the rate limiting service
-        // For now, return a mock status
-        Ok(RateLimitStatus {
-            requests_remaining: 100,
-            reset_time: Utc::now() + chrono::Duration::seconds(3600),
-            current_delay_ms: 0,
-        })
+        match self.spotify_service.get_rate_limit_snapshot().await {
+            Some(rate_limit) => {
+                let current_delay_ms = if rate_limit.remaining == 0 {
+                    let wait = rate_limit.reset_at.signed_duration_since(Utc::now());
+                    if wait.num_milliseconds() > 0 {
+                        wait.num_milliseconds() as u64
+                    } else {
+                        0
+                    }
+                } else {
+                    0
+                };
+
+                Ok(RateLimitStatus {
+                    requests_remaining: rate_limit.remaining,
+                    reset_time: rate_limit.reset_at,
+                    current_delay_ms,
+                })
+            }
+            None => {
+                // No rate limit info recorded yet — no API calls have been made
+                Ok(RateLimitStatus {
+                    requests_remaining: 100,
+                    reset_time: Utc::now() + chrono::Duration::seconds(60),
+                    current_delay_ms: 0,
+                })
+            }
+        }
     }
 
     // Database operations

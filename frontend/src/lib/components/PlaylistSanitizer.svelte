@@ -119,8 +119,8 @@
         </p>
       {:else}
         <div class="browser__grid">
-          {#each $filteredPlaylists as playlist (playlist.provider + '::' + playlist.playlist_name)}
-            <PlaylistCard {playlist} on:select={handleSelectPlaylist} />
+          {#each $filteredPlaylists as playlist, i (playlist.provider + '::' + playlist.playlist_name)}
+            <PlaylistCard {playlist} index={i} on:select={handleSelectPlaylist} />
           {/each}
         </div>
       {/if}
@@ -393,26 +393,27 @@
 
 <style>
   .sanitizer {
-    max-width: 56rem;
+    max-width: 68rem;
     margin: 0 auto;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
   }
 
   .sanitizer__header {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
   }
 
   .sanitizer__title {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: var(--color-text-primary, #fff);
     margin: 0 0 0.25rem;
+    letter-spacing: -0.02em;
   }
 
   .sanitizer__subtitle {
-    color: var(--color-text-secondary, #999);
+    color: var(--color-text-tertiary, #71717a);
     margin: 0;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
   }
 
   .sanitizer__error {
@@ -474,21 +475,21 @@
   }
 
   .browser__pill--active {
-    background: var(--color-brand-primary, #8b5cf6);
-    border-color: var(--color-brand-primary, #8b5cf6);
+    background: var(--color-brand-primary, #f43f5e);
+    border-color: var(--color-brand-primary, #f43f5e);
     color: #fff;
   }
 
   .browser__pill--active:hover {
-    background: var(--color-brand-primary, #8b5cf6);
-    border-color: var(--color-brand-primary, #8b5cf6);
+    background: var(--color-brand-primary-hover, #e11d48);
+    border-color: var(--color-brand-primary-hover, #e11d48);
     color: #fff;
   }
 
   .browser__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 0.875rem;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
   }
 
   .browser__loading {
@@ -573,23 +574,24 @@
 
   .sanitizer__input {
     flex: 1;
-    padding: 0.625rem 0.875rem;
-    border: 1px solid var(--color-border-subtle, #333);
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--color-border-default, #27272a);
     border-radius: 0.5rem;
-    background: var(--color-surface-secondary, #1a1a2e);
+    background: var(--input-bg, #1c1c22);
     color: var(--color-text-primary, #fff);
-    font-size: 0.9375rem;
+    font-size: 0.8125rem;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
 
   .sanitizer__input:focus {
-    border-color: var(--color-brand-primary, #8b5cf6);
+    border-color: var(--color-brand-primary, #f43f5e);
+    box-shadow: 0 0 0 2px var(--color-brand-primary-subtle, rgba(244,63,94,0.08));
   }
 
   .sanitizer__input::placeholder {
-    color: var(--color-text-tertiary, #666);
+    color: var(--color-text-muted, #52525b);
   }
 
   .sanitizer__actions {

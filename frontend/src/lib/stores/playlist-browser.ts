@@ -13,6 +13,7 @@ export interface PlaylistSummary {
   unique_artists: number;
   flagged_artists: string[];
   last_synced: string;
+  cover_images: string[];
 }
 
 export type TrackStatus = 'clean' | 'flagged' | 'blocked';
@@ -25,6 +26,7 @@ export interface PlaylistTrack {
   album_name?: string;
   artist_id?: string;
   artist_name: string;
+  artist_image_url?: string;
   added_at?: string;
   status: TrackStatus;
 }

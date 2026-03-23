@@ -1203,6 +1203,7 @@ pub struct PlaylistSummary {
     pub unique_artists: i64,
     pub flagged_artists: Vec<String>,
     pub last_synced: Option<DateTime<Utc>>,
+    pub cover_images: Vec<String>,
 }
 
 fn grade_from_ratio(clean_ratio: f64) -> String {
@@ -1354,6 +1355,27 @@ pub async fn list_playlists(
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
+        // Grab up to 4 unique artist images for a mosaic cover
+        let cover_images: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT a.metadata->>'image_url'
+            FROM user_library_tracks ult
+            JOIN artists a ON a.id = ult.artist_id
+            WHERE ult.user_id = $1
+              AND ult.provider = $2
+              AND ult.playlist_name = $3
+              AND a.metadata->>'image_url' IS NOT NULL
+              AND a.metadata->>'image_url' <> ''
+            LIMIT 4
+            "#,
+        )
+        .bind(user.id)
+        .bind(&p.provider)
+        .bind(&p.playlist_name)
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
         let clean_ratio = if p.total_tracks > 0 {
             (p.total_tracks - flagged.flagged_count) as f64 / p.total_tracks as f64
         } else {
@@ -1370,6 +1392,7 @@ pub async fn list_playlists(
             unique_artists: p.unique_artists,
             flagged_artists,
             last_synced: p.last_synced,
+            cover_images,
         });
     }
 
@@ -1415,6 +1438,7 @@ pub struct PlaylistTrackRow {
     pub album_name: Option<String>,
     pub artist_id: Option<Uuid>,
     pub artist_name: String,
+    pub artist_image_url: Option<String>,
     pub added_at: Option<DateTime<Utc>>,
     pub status: String,
 }
@@ -1433,6 +1457,7 @@ pub async fn get_playlist_tracks(
         album_name: Option<String>,
         artist_id: Option<Uuid>,
         artist_name: Option<String>,
+        artist_image_url: Option<String>,
         added_at: Option<DateTime<Utc>>,
         is_offending: bool,
         is_blocked: bool,
@@ -1447,6 +1472,7 @@ pub async fn get_playlist_tracks(
             ult.album_name,
             ult.artist_id,
             ult.artist_name,
+            a_img.metadata->>'image_url' AS artist_image_url,
             ult.added_at,
             EXISTS (
                 SELECT 1 FROM artists a
@@ -1459,6 +1485,7 @@ pub async fn get_playlist_tracks(
                 WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
             ) AS is_blocked
         FROM user_library_tracks ult
+        LEFT JOIN artists a_img ON a_img.id = ult.artist_id
         WHERE ult.user_id = $1
           AND ult.provider = $2
           AND ult.playlist_name = $3
@@ -1487,6 +1514,7 @@ pub async fn get_playlist_tracks(
                 id: r.id,
                 position: (i + 1) as i64,
                 provider_track_id: r.provider_track_id,
+                artist_image_url: r.artist_image_url,
                 track_name: r.track_name.unwrap_or_else(|| "Unknown".to_string()),
                 album_name: r.album_name,
                 artist_id: r.artist_id,

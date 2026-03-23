@@ -209,7 +209,7 @@ export const listOffenders = query({
         const artist = await ctx.db.get(artistId as any);
         offenders.push({
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           offense_count: offenses.length,
           track_count: artistTracks.length,
           severity_total: offenses.reduce(

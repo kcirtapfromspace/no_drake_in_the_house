@@ -235,7 +235,7 @@ export const risingArtists = query({
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
         };
       }),
@@ -270,7 +270,7 @@ export const fallingArtists = query({
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
         };
       }),
@@ -357,7 +357,7 @@ export const troubleLeaderboard = query({
         return {
           rank: rank + 1,
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
         };
       }),
@@ -492,7 +492,7 @@ export const topArtistsByRevenue = query({
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           estimated_revenue: Number(rev.toFixed(4)),
         };
       }),
@@ -524,7 +524,7 @@ export const problematicRevenue = query({
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
-          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_name: (artist as any)?.canonicalName ?? "Unknown",
           estimated_revenue: Number(rev.toFixed(4)),
         };
       }),
@@ -663,7 +663,7 @@ export const categoryRevenue = query({
           const artist = await ctx.db.get(artistId as any);
           return {
             artist_id: artistId,
-            artist_name: artist?.canonicalName ?? "Unknown",
+            artist_name: (artist as any)?.canonicalName ?? "Unknown",
             estimated_revenue: Number(rev.toFixed(4)),
           };
         }),

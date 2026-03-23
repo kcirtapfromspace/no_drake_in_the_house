@@ -73,7 +73,6 @@ export const callback = action({
   },
   handler: async (ctx, args) => {
     const connectionId = await ctx.runMutation(
-      // @ts-expect-error -- internal reference via string
       "providerOAuth:_upsertConnection" as any,
       {
         provider: args.provider,

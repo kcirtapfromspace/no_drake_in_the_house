@@ -106,7 +106,6 @@ export const planEnforcement = action({
   },
   handler: async (ctx, args) => {
     const batchId = await ctx.runMutation(
-      // @ts-expect-error -- internal reference
       "enforcement:_createBatch" as any,
       {
         provider: args.providers[0] ?? "spotify",
@@ -133,7 +132,6 @@ export const executePlan = action({
   },
   handler: async (ctx, args) => {
     await ctx.runMutation(
-      // @ts-expect-error -- internal reference
       "enforcement:_updateBatchStatus" as any,
       { batchId: args.planId, status: "running" },
     );
@@ -152,7 +150,6 @@ export const rollback = action({
   },
   handler: async (ctx, args) => {
     await ctx.runMutation(
-      // @ts-expect-error -- internal reference
       "enforcement:_updateBatchStatus" as any,
       { batchId: args.batchId, status: "rolled_back" },
     );

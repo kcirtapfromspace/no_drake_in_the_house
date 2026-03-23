@@ -56,7 +56,6 @@ export const gradePlaylist = action({
   },
   handler: async (ctx, args) => {
     const grade = await ctx.runQuery(
-      // @ts-expect-error -- internal reference via string
       "sanitizer:computeGrade" as any,
       { provider: args.provider, playlistId: args.playlistId },
     );

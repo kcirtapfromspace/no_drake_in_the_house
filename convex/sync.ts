@@ -157,7 +157,6 @@ export const triggerSync = action({
   },
   handler: async (ctx, args) => {
     const runId = await ctx.runMutation(
-      // @ts-expect-error -- internal reference
       "sync:_createRun" as any,
       { platform: args.platform },
     );
@@ -177,7 +176,6 @@ export const triggerProviderSync = action({
   },
   handler: async (ctx, args) => {
     const runId = await ctx.runMutation(
-      // @ts-expect-error -- internal reference
       "sync:_createRun" as any,
       { platform: args.provider },
     );

@@ -1184,3 +1184,322 @@ pub async fn get_category_artists(
         }
     })))
 }
+
+// ── Playlist browser ────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct ListPlaylistsQuery {
+    pub provider: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlaylistSummary {
+    pub provider: String,
+    pub playlist_name: String,
+    pub total_tracks: i64,
+    pub flagged_tracks: i64,
+    pub clean_ratio: f64,
+    pub grade: String,
+    pub unique_artists: i64,
+    pub flagged_artists: Vec<String>,
+    pub last_synced: Option<DateTime<Utc>>,
+}
+
+fn grade_from_ratio(clean_ratio: f64) -> String {
+    if clean_ratio < 0.5 {
+        "F"
+    } else if clean_ratio < 0.6 {
+        "D"
+    } else if clean_ratio < 0.7 {
+        "C"
+    } else if clean_ratio < 0.8 {
+        "B"
+    } else if clean_ratio < 0.95 {
+        "A"
+    } else {
+        "A+"
+    }
+    .to_string()
+}
+
+/// List all playlists for the authenticated user, grouped from library tracks.
+pub async fn list_playlists(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<ListPlaylistsQuery>,
+) -> Result<Json<serde_json::Value>> {
+    #[derive(sqlx::FromRow)]
+    struct PlaylistRow {
+        provider: String,
+        playlist_name: String,
+        total_tracks: i64,
+        unique_artists: i64,
+        last_synced: Option<DateTime<Utc>>,
+    }
+
+    let provider = normalize_optional(query.provider);
+
+    let playlists = if let Some(ref prov) = provider {
+        sqlx::query_as::<_, PlaylistRow>(
+            r#"
+            SELECT
+                provider,
+                playlist_name,
+                COUNT(*)::bigint AS total_tracks,
+                COUNT(DISTINCT LOWER(artist_name)) FILTER (
+                    WHERE artist_name IS NOT NULL AND TRIM(artist_name) <> ''
+                )::bigint AS unique_artists,
+                MAX(last_synced) AS last_synced
+            FROM user_library_tracks
+            WHERE user_id = $1
+              AND provider = $2
+              AND playlist_name IS NOT NULL
+              AND TRIM(playlist_name) <> ''
+            GROUP BY provider, playlist_name
+            "#,
+        )
+        .bind(user.id)
+        .bind(prov)
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?
+    } else {
+        sqlx::query_as::<_, PlaylistRow>(
+            r#"
+            SELECT
+                provider,
+                playlist_name,
+                COUNT(*)::bigint AS total_tracks,
+                COUNT(DISTINCT LOWER(artist_name)) FILTER (
+                    WHERE artist_name IS NOT NULL AND TRIM(artist_name) <> ''
+                )::bigint AS unique_artists,
+                MAX(last_synced) AS last_synced
+            FROM user_library_tracks
+            WHERE user_id = $1
+              AND playlist_name IS NOT NULL
+              AND TRIM(playlist_name) <> ''
+            GROUP BY provider, playlist_name
+            "#,
+        )
+        .bind(user.id)
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?
+    };
+
+    // Build flagged info per playlist
+    let mut summaries: Vec<PlaylistSummary> = Vec::with_capacity(playlists.len());
+
+    for p in playlists {
+        #[derive(sqlx::FromRow)]
+        struct FlaggedInfo {
+            flagged_count: i64,
+        }
+
+        let flagged: FlaggedInfo = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)::bigint AS flagged_count
+            FROM user_library_tracks ult
+            WHERE ult.user_id = $1
+              AND ult.provider = $2
+              AND ult.playlist_name = $3
+              AND (
+                  EXISTS (
+                      SELECT 1 FROM artists a
+                      JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+                      WHERE a.id = ult.artist_id
+                         OR (ult.artist_name IS NOT NULL AND LOWER(ult.artist_name) = LOWER(a.canonical_name))
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM user_artist_blocks uab
+                      WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
+                  )
+              )
+            "#,
+        )
+        .bind(user.id)
+        .bind(&p.provider)
+        .bind(&p.playlist_name)
+        .fetch_one(&state.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
+        let flagged_artists: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT ult.artist_name
+            FROM user_library_tracks ult
+            WHERE ult.user_id = $1
+              AND ult.provider = $2
+              AND ult.playlist_name = $3
+              AND ult.artist_name IS NOT NULL
+              AND TRIM(ult.artist_name) <> ''
+              AND (
+                  EXISTS (
+                      SELECT 1 FROM artists a
+                      JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+                      WHERE a.id = ult.artist_id
+                         OR LOWER(ult.artist_name) = LOWER(a.canonical_name)
+                  )
+                  OR EXISTS (
+                      SELECT 1 FROM user_artist_blocks uab
+                      WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
+                  )
+              )
+            "#,
+        )
+        .bind(user.id)
+        .bind(&p.provider)
+        .bind(&p.playlist_name)
+        .fetch_all(&state.db_pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
+        let clean_ratio = if p.total_tracks > 0 {
+            (p.total_tracks - flagged.flagged_count) as f64 / p.total_tracks as f64
+        } else {
+            1.0
+        };
+
+        summaries.push(PlaylistSummary {
+            provider: p.provider,
+            playlist_name: p.playlist_name,
+            total_tracks: p.total_tracks,
+            flagged_tracks: flagged.flagged_count,
+            clean_ratio,
+            grade: grade_from_ratio(clean_ratio),
+            unique_artists: p.unique_artists,
+            flagged_artists,
+            last_synced: p.last_synced,
+        });
+    }
+
+    // Sort: worst grade first, then alphabetically
+    let grade_order = |g: &str| -> u8 {
+        match g {
+            "F" => 0,
+            "D" => 1,
+            "C" => 2,
+            "B" => 3,
+            "A" => 4,
+            "A+" => 5,
+            _ => 5,
+        }
+    };
+    summaries.sort_by(|a, b| {
+        grade_order(&a.grade)
+            .cmp(&grade_order(&b.grade))
+            .then(a.playlist_name.cmp(&b.playlist_name))
+    });
+
+    let total = summaries.len();
+    Ok(Json(serde_json::json!({
+        "playlists": summaries,
+        "total": total
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PlaylistTracksQuery {
+    pub provider: String,
+    #[serde(alias = "playlist_name")]
+    #[serde(rename = "playlistName")]
+    pub playlist_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PlaylistTrackRow {
+    pub id: Uuid,
+    pub position: i64,
+    pub provider_track_id: String,
+    pub track_name: String,
+    pub album_name: Option<String>,
+    pub artist_id: Option<Uuid>,
+    pub artist_name: String,
+    pub added_at: Option<DateTime<Utc>>,
+    pub status: String,
+}
+
+/// Get all tracks in a specific playlist with per-track flagging status.
+pub async fn get_playlist_tracks(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Query(query): Query<PlaylistTracksQuery>,
+) -> Result<Json<serde_json::Value>> {
+    #[derive(sqlx::FromRow)]
+    struct RawTrack {
+        id: Uuid,
+        provider_track_id: String,
+        track_name: Option<String>,
+        album_name: Option<String>,
+        artist_id: Option<Uuid>,
+        artist_name: Option<String>,
+        added_at: Option<DateTime<Utc>>,
+        is_offending: bool,
+        is_blocked: bool,
+    }
+
+    let rows = sqlx::query_as::<_, RawTrack>(
+        r#"
+        SELECT
+            ult.id,
+            ult.provider_track_id,
+            ult.track_name,
+            ult.album_name,
+            ult.artist_id,
+            ult.artist_name,
+            ult.added_at,
+            EXISTS (
+                SELECT 1 FROM artists a
+                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+                WHERE a.id = ult.artist_id
+                   OR (ult.artist_name IS NOT NULL AND LOWER(ult.artist_name) = LOWER(a.canonical_name))
+            ) AS is_offending,
+            EXISTS (
+                SELECT 1 FROM user_artist_blocks uab
+                WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
+            ) AS is_blocked
+        FROM user_library_tracks ult
+        WHERE ult.user_id = $1
+          AND ult.provider = $2
+          AND ult.playlist_name = $3
+        ORDER BY ult.added_at ASC NULLS LAST, ult.id
+        "#,
+    )
+    .bind(user.id)
+    .bind(&query.provider)
+    .bind(&query.playlist_name)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(AppError::DatabaseQueryFailed)?;
+
+    let tracks: Vec<PlaylistTrackRow> = rows
+        .into_iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let status = if r.is_blocked {
+                "blocked"
+            } else if r.is_offending {
+                "flagged"
+            } else {
+                "clean"
+            };
+            PlaylistTrackRow {
+                id: r.id,
+                position: (i + 1) as i64,
+                provider_track_id: r.provider_track_id,
+                track_name: r.track_name.unwrap_or_else(|| "Unknown".to_string()),
+                album_name: r.album_name,
+                artist_id: r.artist_id,
+                artist_name: r.artist_name.unwrap_or_else(|| "Unknown".to_string()),
+                added_at: r.added_at,
+                status: status.to_string(),
+            }
+        })
+        .collect();
+
+    let total = tracks.len();
+    Ok(Json(serde_json::json!({
+        "tracks": tracks,
+        "total": total
+    })))
+}

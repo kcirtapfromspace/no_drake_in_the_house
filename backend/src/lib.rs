@@ -313,6 +313,14 @@ pub fn create_router(state: AppState) -> Router {
             "/library/taste-grade",
             get(handlers::offense::get_taste_grade),
         )
+        .route(
+            "/library/playlists/tracks",
+            get(handlers::offense::get_playlist_tracks),
+        )
+        .route(
+            "/library/playlists",
+            get(handlers::offense::list_playlists),
+        )
         // Offense submission routes
         .route("/offenses/submit", post(handlers::offense::create_offense))
         .route(

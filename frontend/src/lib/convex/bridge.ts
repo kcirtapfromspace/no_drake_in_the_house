@@ -576,6 +576,19 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    if (method === 'GET' && pathname === '/api/v1/library/playlists/tracks') {
+      const provider = url.searchParams.get('provider') ?? 'spotify';
+      const playlistName = url.searchParams.get('playlistName') ?? url.searchParams.get('playlist_name') ?? '';
+      const result = await convexQuery<any>(anyApi.library.getPlaylistTracks, { provider, playlistName });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/library/playlists') {
+      const provider = url.searchParams.get('provider') ?? undefined;
+      const result = await convexQuery<any>(anyApi.library.listPlaylists, { provider });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     if (method === 'POST' && pathname === '/api/v1/library/import') {
       const result = await convexMutation<any>(anyApi.library.importTracks, {
         provider: data?.provider,

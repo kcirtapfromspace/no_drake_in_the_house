@@ -62,6 +62,64 @@ export const getOne = query({
   },
 });
 
+export const listPaginated = query({
+  args: {
+    category: v.optional(v.string()),
+    status: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    let offensesQuery = args.category
+      ? ctx.db
+          .query("artistOffenses")
+          .withIndex("by_category", (q) => q.eq("category", args.category!))
+      : args.status
+        ? ctx.db
+            .query("artistOffenses")
+            .withIndex("by_status", (q) => q.eq("status", args.status!))
+        : ctx.db.query("artistOffenses");
+
+    const allOffenses = await offensesQuery.collect();
+    const offset = args.offset ?? 0;
+    const limit = args.limit ?? 20;
+    const paginated = allOffenses.slice(offset, offset + limit);
+
+    const withArtists = await Promise.all(
+      paginated.map(async (offense) => {
+        const artist = await ctx.db.get(offense.artistId);
+        const evidence = await ctx.db
+          .query("offenseEvidence")
+          .withIndex("by_offenseId", (q) => q.eq("offenseId", offense._id))
+          .collect();
+
+        return {
+          id: offense._id,
+          artist_id: offense.artistId,
+          artist_name: artist?.canonicalName ?? "Unknown",
+          category: offense.category,
+          severity: offense.severity,
+          title: offense.title,
+          description: offense.description,
+          incident_date: offense.incidentDate,
+          procedural_state: offense.proceduralState,
+          status: offense.status,
+          evidence_count: evidence.length,
+          created_at: offense.createdAt,
+          updated_at: offense.updatedAt,
+        };
+      }),
+    );
+
+    return {
+      offenses: withArtists,
+      total: allOffenses.length,
+      offset,
+      limit,
+    };
+  },
+});
+
 export const submit = mutation({
   args: {
     artistId: v.id("artists"),

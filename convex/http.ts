@@ -36,4 +36,23 @@ http.route({
   }),
 });
 
+http.route({
+  path: "/api/v1/apple-music/auth/developer-token",
+  method: "GET",
+  handler: httpAction(async (ctx) => {
+    const result = await ctx.runAction(
+      internal.signing.getDeveloperToken,
+      {},
+    );
+
+    return new Response(JSON.stringify({ success: true, data: result }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "public, max-age=1800",
+      },
+    });
+  }),
+});
+
 export default http;

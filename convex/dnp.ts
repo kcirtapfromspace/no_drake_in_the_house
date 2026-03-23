@@ -199,6 +199,87 @@ export const updateArtistBlock = mutation({
   },
 });
 
+export const importBlocklist = mutation({
+  args: {
+    entries: v.array(
+      v.object({
+        artistName: v.string(),
+        tags: v.optional(v.array(v.string())),
+        note: v.optional(v.string()),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    let imported = 0;
+    let skipped = 0;
+
+    for (const entry of args.entries) {
+      const artist = await resolveArtistByQuery(ctx, entry.artistName);
+      if (!artist) {
+        skipped++;
+        continue;
+      }
+
+      const existing = await ctx.db
+        .query("userArtistBlocks")
+        .withIndex("by_user_artist", (q) =>
+          q.eq("userId", user._id).eq("artistId", artist._id),
+        )
+        .unique();
+
+      if (!existing) {
+        await ctx.db.insert("userArtistBlocks", {
+          legacyKey: `runtime:block:${user._id}:${artist._id}`,
+          userId: user._id,
+          artistId: artist._id,
+          tags: entry.tags ?? [],
+          note: entry.note,
+          source: "import",
+          createdAt: nowIso(),
+          updatedAt: nowIso(),
+        });
+        imported++;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { imported, skipped, total: args.entries.length };
+  },
+});
+
+export const exportBlocklist = query({
+  args: {},
+  handler: async (ctx) => {
+    const { user } = await requireCurrentUser(ctx);
+    const blocks = await ctx.db
+      .query("userArtistBlocks")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect();
+
+    const entries = await Promise.all(
+      blocks.map(async (block) => {
+        const artist = await ctx.db.get(block.artistId);
+        return {
+          artist_name: artist?.canonicalName ?? "Unknown",
+          artist_id: block.artistId,
+          tags: block.tags ?? [],
+          note: block.note,
+          source: block.source,
+          created_at: block.createdAt,
+        };
+      }),
+    );
+
+    return {
+      entries,
+      total: entries.length,
+      exported_at: nowIso(),
+    };
+  },
+});
+
 export const removeArtistBlock = mutation({
   args: {
     artistId: v.id("artists"),

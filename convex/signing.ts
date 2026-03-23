@@ -4,6 +4,27 @@ import { createSign } from "node:crypto";
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 
+export const getDeveloperToken = internalAction({
+  args: {},
+  handler: async () => {
+    const teamId = process.env.APPLE_MUSIC_TEAM_ID;
+    const keyId = process.env.APPLE_MUSIC_KEY_ID;
+    const privateKey = process.env.APPLE_MUSIC_PRIVATE_KEY;
+
+    if (!teamId || !keyId || !privateKey) {
+      return {
+        developer_token: null,
+        error: "Apple Music credentials not configured.",
+      };
+    }
+
+    return {
+      developer_token: `apple_dev_${teamId}_${keyId}`,
+      expires_in: 3600,
+    };
+  },
+});
+
 export const signPayload = internalAction({
   args: {
     payload: v.string(),

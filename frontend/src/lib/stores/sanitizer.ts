@@ -117,7 +117,7 @@ export const allReplacementsSelected = derived(
 
 export const sanitizerActions = {
   /** Grade a playlist by ID or URL */
-  gradePlaylist: async (playlistId: string) => {
+  gradePlaylist: async (playlistId: string, provider: string = 'spotify') => {
     sanitizerStore.update((s) => ({
       ...s,
       isGrading: true,
@@ -129,7 +129,7 @@ export const sanitizerActions = {
     try {
       const response = await apiClient.post<{ grade: PlaylistGrade }>(
         '/api/v1/sanitizer/grade',
-        { playlist_id: playlistId }
+        { playlist_id: playlistId, provider }
       );
 
       if (response.success && response.data) {
@@ -161,7 +161,7 @@ export const sanitizerActions = {
   },
 
   /** Grade + suggest replacements, creating a draft plan */
-  suggestReplacements: async (playlistId: string) => {
+  suggestReplacements: async (playlistId: string, provider: string = 'spotify') => {
     sanitizerStore.update((s) => ({
       ...s,
       isSuggesting: true,
@@ -175,7 +175,7 @@ export const sanitizerActions = {
         grade: PlaylistGrade;
         replacements: ReplacementSuggestion[];
         message?: string;
-      }>('/api/v1/sanitizer/suggest', { playlist_id: playlistId });
+      }>('/api/v1/sanitizer/suggest', { playlist_id: playlistId, provider });
 
       if (response.success && response.data) {
         const { plan_id, grade, replacements } = response.data;

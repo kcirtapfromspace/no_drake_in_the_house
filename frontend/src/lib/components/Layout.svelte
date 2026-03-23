@@ -55,6 +55,7 @@
   const navItems: { route: Route; label: string; icon: string }[] = [
     { route: 'home', label: 'Home', icon: 'home' },
     { route: 'sync', label: 'Library', icon: 'library' },
+    { route: 'playlist-sanitizer', label: 'Playlists', icon: 'playlist' },
     { route: 'analytics', label: 'Analytics', icon: 'chart' },
     { route: 'graph', label: 'Network', icon: 'network' },
   ];

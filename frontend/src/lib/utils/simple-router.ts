@@ -92,7 +92,7 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'overview': { title: 'Overview', description: 'Dashboard overview' },
   'dnp': { title: 'DNP List', description: 'Your Do Not Play list' },
   'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
-  'playlist-sanitizer': { title: 'Playlist Sanitizer', description: 'Grade, replace, and publish clean playlists' },
+  'playlist-sanitizer': { title: 'Playlists', description: 'Browse, grade, and sanitize your playlists' },
   'artist-profile': { title: 'Artist Profile', description: 'View artist details and evidence' },
 };
 

@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store';
+import { apiClient } from '../utils/api-client';
 
 export interface EnforcementOptions {
   aggressiveness: 'conservative' | 'moderate' | 'aggressive';
@@ -100,10 +101,10 @@ export const executionProgress = derived(
   enforcementStore,
   ($enforcement) => {
     if (!$enforcement.currentBatch) return null;
-    
+
     const { totalItems, completedItems, failedItems, skippedItems } = $enforcement.currentBatch.summary;
     const processedItems = completedItems + failedItems + skippedItems;
-    
+
     return {
       total: totalItems,
       processed: processedItems,
@@ -117,7 +118,7 @@ export const executionProgress = derived(
 
 export const canRollback = derived(
   enforcementStore,
-  ($enforcement) => $enforcement.actionHistory.some(batch => 
+  ($enforcement) => $enforcement.actionHistory.some(batch =>
     batch.status === 'completed' && batch.items.some(item => item.status === 'completed')
   )
 );
@@ -137,35 +138,25 @@ export const enforcementActions = {
       currentOptions = state.options;
       return { ...state, isPlanning: true, error: null };
     });
-    
+
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/spotify/library/plan', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          providers,
-          options: currentOptions,
-          dryRun,
-        }),
+      const result = await apiClient.post<EnforcementPlan>('/api/v1/spotify/library/plan', {
+        providers,
+        options: currentOptions,
+        dryRun,
       });
 
-      const result = await response.json();
-      
       if (result.success) {
         enforcementStore.update(state => ({
           ...state,
-          currentPlan: result.data,
+          currentPlan: result.data ?? null,
           isPlanning: false,
         }));
         return { success: true, data: result.data };
       } else {
         enforcementStore.update(state => ({
           ...state,
-          error: result.message,
+          error: result.message ?? 'Failed to create enforcement plan',
           isPlanning: false,
         }));
         return { success: false, message: result.message };
@@ -182,38 +173,27 @@ export const enforcementActions = {
 
   executePlan: async (planId: string) => {
     enforcementStore.update(state => ({ ...state, isExecuting: true, error: null }));
-    
+
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/spotify/enforcement/execute', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId,
-          dryRun: false,
-        }),
+      const result = await apiClient.post<ActionBatch>('/api/v1/spotify/enforcement/execute', {
+        planId,
+        dryRun: false,
       });
 
-      const result = await response.json();
-      
-      if (result.success) {
+      if (result.success && result.data) {
         const batch = result.data;
         enforcementStore.update(state => ({
           ...state,
           currentBatch: batch,
           isExecuting: false,
         }));
-        
-        // Start polling for progress
+
         enforcementActions.pollProgress(batch.id);
         return { success: true, data: batch };
       } else {
         enforcementStore.update(state => ({
           ...state,
-          error: result.message,
+          error: result.message ?? 'Failed to execute enforcement plan',
           isExecuting: false,
         }));
         return { success: false, message: result.message };
@@ -231,62 +211,39 @@ export const enforcementActions = {
   pollProgress: async (batchId: string) => {
     let consecutiveErrors = 0;
     const maxConsecutiveErrors = 5;
-    const baseInterval = 2000; // 2 seconds
-    const maxInterval = 30000; // 30 seconds max backoff
+    const baseInterval = 2000;
+    const maxInterval = 30000;
     let currentInterval = baseInterval;
-    let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+        const result = await apiClient.get<ActionBatch>(`/api/v1/spotify/enforcement/progress/${batchId}`);
 
-        const response = await fetch(`http://localhost:3000/api/v1/spotify/enforcement/progress/${batchId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-
-        if (result.success) {
+        if (result.success && result.data) {
           const batch = result.data;
-
-          // Reset error state on success
           consecutiveErrors = 0;
           currentInterval = baseInterval;
 
           enforcementStore.update(state => ({
             ...state,
             currentBatch: batch,
-            error: null, // Clear any previous polling errors
+            error: null,
           }));
 
-          // Stop polling if batch is complete
           if (batch.status === 'completed' || batch.status === 'failed' || batch.status === 'cancelled') {
-            // Move to history
             enforcementStore.update(state => ({
               ...state,
               actionHistory: [batch, ...state.actionHistory],
               currentBatch: null,
               currentPlan: null,
             }));
-            return; // Stop polling
+            return;
           }
         } else {
           throw new Error(result.message || 'Failed to get progress');
         }
 
-        // Schedule next poll
-        pollTimeoutId = setTimeout(poll, currentInterval);
+        setTimeout(poll, currentInterval);
       } catch (error) {
         consecutiveErrors++;
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -294,49 +251,33 @@ export const enforcementActions = {
         console.error(`Failed to poll progress (attempt ${consecutiveErrors}/${maxConsecutiveErrors}):`, errorMessage);
 
         if (consecutiveErrors >= maxConsecutiveErrors) {
-          // Max retries exceeded - stop polling and show error to user
           enforcementStore.update(state => ({
             ...state,
             error: `Connection lost: Unable to get enforcement progress after ${maxConsecutiveErrors} attempts. Please check your connection and refresh.`,
             isExecuting: false,
           }));
-          return; // Stop polling
+          return;
         }
 
-        // Exponential backoff: 2s -> 4s -> 8s -> 16s -> 30s (capped)
         currentInterval = Math.min(currentInterval * 2, maxInterval);
 
-        // Update store with recoverable error (not blocking)
         enforcementStore.update(state => ({
           ...state,
           error: `Retrying in ${currentInterval / 1000}s... (${consecutiveErrors}/${maxConsecutiveErrors} attempts)`,
         }));
 
-        // Schedule retry with backoff
-        pollTimeoutId = setTimeout(poll, currentInterval);
+        setTimeout(poll, currentInterval);
       }
     };
 
-    // Start polling
     poll();
   },
 
   rollbackBatch: async (batchId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/spotify/enforcement/rollback', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ batchId }),
-      });
+      const result = await apiClient.post('/api/v1/spotify/enforcement/rollback', { batchId });
 
-      const result = await response.json();
-      
       if (result.success) {
-        // Refresh action history
         await enforcementActions.fetchActionHistory();
         return { success: true };
       } else {
@@ -349,19 +290,12 @@ export const enforcementActions = {
 
   fetchActionHistory: async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/spotify/enforcement/history', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const result = await apiClient.get<ActionBatch[]>('/api/v1/spotify/enforcement/history');
 
-      const result = await response.json();
-      
       if (result.success) {
         enforcementStore.update(state => ({
           ...state,
-          actionHistory: result.data,
+          actionHistory: result.data ?? [],
         }));
       }
     } catch (error) {

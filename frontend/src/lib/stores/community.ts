@@ -1,4 +1,5 @@
 import { writable, derived } from 'svelte/store';
+import { apiClient } from '../utils/api-client';
 
 export interface CommunityList {
   id: string;
@@ -82,36 +83,36 @@ export const filteredLists = derived(
   communityStore,
   ($community) => {
     let filtered = $community.lists;
-    
+
     // Apply search filter
     if ($community.searchQuery.trim()) {
       const query = $community.searchQuery.toLowerCase();
-      filtered = filtered.filter(list => 
+      filtered = filtered.filter(list =>
         list.name.toLowerCase().includes(query) ||
         list.description.toLowerCase().includes(query) ||
         list.criteria.toLowerCase().includes(query)
       );
     }
-    
+
     // Apply sorting
     filtered.sort((a, b) => {
       let aValue: any = a[$community.sortBy];
       let bValue: any = b[$community.sortBy];
-      
+
       if ($community.sortBy === 'created_at' || $community.sortBy === 'updated_at') {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
       }
-      
+
       if (typeof aValue === 'string') {
         aValue = aValue.toLowerCase();
         bValue = bValue.toLowerCase();
       }
-      
+
       const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
       return $community.sortOrder === 'asc' ? comparison : -comparison;
     });
-    
+
     return filtered;
   }
 );
@@ -130,27 +131,20 @@ export const isSubscribed = derived(
 export const communityActions = {
   fetchLists: async () => {
     communityStore.update(state => ({ ...state, isLoading: true, error: null }));
-    
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/community/lists', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
 
-      const result = await response.json();
-      
+    try {
+      const result = await apiClient.get<CommunityList[]>('/api/v1/community/lists');
+
       if (result.success) {
         communityStore.update(state => ({
           ...state,
-          lists: result.data,
+          lists: result.data ?? [],
           isLoading: false,
         }));
       } else {
         communityStore.update(state => ({
           ...state,
-          error: result.message,
+          error: result.message ?? 'Failed to fetch community lists',
           isLoading: false,
         }));
       }
@@ -165,27 +159,20 @@ export const communityActions = {
 
   fetchListDetails: async (listId: string) => {
     communityStore.update(state => ({ ...state, isLoadingList: true, error: null }));
-    
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/community/lists/${listId}/artists`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
 
-      const result = await response.json();
-      
+    try {
+      const result = await apiClient.get<CommunityListWithArtists>(`/api/v1/community/lists/${listId}/artists`);
+
       if (result.success) {
         communityStore.update(state => ({
           ...state,
-          currentList: result.data,
+          currentList: result.data ?? null,
           isLoadingList: false,
         }));
       } else {
         communityStore.update(state => ({
           ...state,
-          error: result.message,
+          error: result.message ?? 'Failed to fetch list details',
           isLoadingList: false,
         }));
       }
@@ -200,42 +187,12 @@ export const communityActions = {
 
   fetchSubscriptions: async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/community/subscriptions', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const result = await apiClient.get<Subscription[]>('/api/v1/community/subscriptions');
 
-      // Check if response is ok and has content
-      if (!response.ok) {
-        if (response.status === 404) {
-          // Endpoint doesn't exist yet, set empty subscriptions
-          communityStore.update(state => ({
-            ...state,
-            subscriptions: [],
-          }));
-          return;
-        }
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        // Not JSON response, set empty subscriptions
-        communityStore.update(state => ({
-          ...state,
-          subscriptions: [],
-        }));
-        return;
-      }
-
-      const result = await response.json();
-      
       if (result.success) {
         communityStore.update(state => ({
           ...state,
-          subscriptions: result.data || [],
+          subscriptions: result.data ?? [],
         }));
       } else {
         communityStore.update(state => ({
@@ -245,7 +202,6 @@ export const communityActions = {
       }
     } catch (error) {
       console.error('Failed to fetch subscriptions:', error);
-      // Set empty subscriptions on error
       communityStore.update(state => ({
         ...state,
         subscriptions: [],
@@ -255,28 +211,21 @@ export const communityActions = {
 
   getSubscriptionImpact: async (listId: string) => {
     communityStore.update(state => ({ ...state, isLoadingImpact: true, error: null }));
-    
-    try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/community/lists/${listId}/impact`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
 
-      const result = await response.json();
-      
+    try {
+      const result = await apiClient.get<SubscriptionImpact>(`/api/v1/community/lists/${listId}/impact`);
+
       if (result.success) {
         communityStore.update(state => ({
           ...state,
-          subscriptionImpact: result.data,
+          subscriptionImpact: result.data ?? null,
           isLoadingImpact: false,
         }));
         return { success: true, data: result.data };
       } else {
         communityStore.update(state => ({
           ...state,
-          error: result.message,
+          error: result.message ?? 'Failed to get subscription impact',
           isLoadingImpact: false,
         }));
         return { success: false, message: result.message };
@@ -293,23 +242,12 @@ export const communityActions = {
 
   subscribe: async (listId: string, versionPinned?: number, autoUpdate = true) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/community/lists/${listId}/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version_pinned: versionPinned,
-          auto_update: autoUpdate,
-        }),
+      const result = await apiClient.post(`/api/v1/community/lists/${listId}/subscribe`, {
+        version_pinned: versionPinned,
+        auto_update: autoUpdate,
       });
 
-      const result = await response.json();
-      
       if (result.success) {
-        // Refresh subscriptions
         await communityActions.fetchSubscriptions();
         return { success: true };
       } else {
@@ -322,18 +260,9 @@ export const communityActions = {
 
   unsubscribe: async (listId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/community/lists/${listId}/unsubscribe`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const result = await apiClient.post(`/api/v1/community/lists/${listId}/unsubscribe`);
 
-      const result = await response.json();
-      
       if (result.success) {
-        // Refresh subscriptions
         await communityActions.fetchSubscriptions();
         return { success: true };
       } else {
@@ -346,23 +275,12 @@ export const communityActions = {
 
   updateSubscription: async (listId: string, versionPinned?: number, autoUpdate?: boolean) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch(`http://localhost:3000/api/v1/community/lists/${listId}/subscription`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          version_pinned: versionPinned,
-          auto_update: autoUpdate,
-        }),
+      const result = await apiClient.put(`/api/v1/community/lists/${listId}/subscription`, {
+        version_pinned: versionPinned,
+        auto_update: autoUpdate,
       });
 
-      const result = await response.json();
-      
       if (result.success) {
-        // Refresh subscriptions
         await communityActions.fetchSubscriptions();
         return { success: true };
       } else {
@@ -382,20 +300,9 @@ export const communityActions = {
     visibility: 'public' | 'private';
   }) => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const response = await fetch('http://localhost:3000/api/v1/community/lists', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(listData),
-      });
+      const result = await apiClient.post('/api/v1/community/lists', listData);
 
-      const result = await response.json();
-      
       if (result.success) {
-        // Refresh lists
         await communityActions.fetchLists();
         return { success: true, data: result.data };
       } else {

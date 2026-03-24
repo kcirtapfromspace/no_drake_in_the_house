@@ -157,11 +157,10 @@ services:
 
   - type: web
     name: ndith-frontend
-    runtime: docker
+    runtime: image
+    image:
+      url: ghcr.io/kcirtapfromspace/ndith-frontend:latest
     plan: starter
-    rootDir: frontend
-    dockerfilePath: ./Dockerfile.render
-    dockerContext: .
     healthCheckPath: /render-health
     domains:
       - nodrakeinthe.house

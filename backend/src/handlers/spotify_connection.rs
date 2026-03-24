@@ -758,26 +758,63 @@ async fn spotify_get_json<T: serde::de::DeserializeOwned>(
     access_token: &str,
     url: &str,
 ) -> Result<T> {
-    let response = client
-        .get(url)
-        .bearer_auth(access_token)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| AppError::ExternalServiceError(format!("Spotify request failed: {}", e)))?;
+    const MAX_RETRIES: u32 = 5;
 
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(AppError::ExternalServiceError(format!(
-            "Spotify request failed ({}): {}",
-            status, body
-        )));
+    for attempt in 0..=MAX_RETRIES {
+        let response = client
+            .get(url)
+            .bearer_auth(access_token)
+            .header("Accept", "application/json")
+            .send()
+            .await
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!("Spotify request failed: {}", e))
+            })?;
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            if attempt == MAX_RETRIES {
+                let body = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Spotify rate limited after {} retries: {}",
+                    MAX_RETRIES, body
+                )));
+            }
+
+            // Respect Retry-After header, fall back to exponential backoff
+            let retry_after_secs = response
+                .headers()
+                .get("retry-after")
+                .and_then(|h| h.to_str().ok())
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or_else(|| 2_u64.pow(attempt + 1));
+
+            tracing::warn!(
+                url = url,
+                attempt = attempt,
+                retry_after_secs = retry_after_secs,
+                "Spotify rate limited, waiting before retry"
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(retry_after_secs)).await;
+            continue;
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(AppError::ExternalServiceError(format!(
+                "Spotify request failed ({}): {}",
+                status, body
+            )));
+        }
+
+        return response.json::<T>().await.map_err(|e| {
+            AppError::ExternalServiceError(format!("Failed to parse Spotify response: {}", e))
+        });
     }
 
-    response.json::<T>().await.map_err(|e| {
-        AppError::ExternalServiceError(format!("Failed to parse Spotify response: {}", e))
-    })
+    Err(AppError::ExternalServiceError(
+        "Spotify request failed: max retries exceeded".to_string(),
+    ))
 }
 
 async fn sync_spotify_library_to_user_library(

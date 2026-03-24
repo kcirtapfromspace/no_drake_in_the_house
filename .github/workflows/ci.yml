@@ -749,6 +749,62 @@ jobs:
         if: always()
         run: rm -f /tmp/apple_music_key.p8
 
+  deploy-frontend:
+    name: Deploy Frontend to Render
+    runs-on: ubuntu-latest
+    needs: [changes, frontend-unit-test, e2e-test]
+    if: >-
+      ${{
+        github.ref == 'refs/heads/main' &&
+        github.event_name == 'push' &&
+        needs.changes.outputs.frontend == 'true' &&
+        needs.frontend-unit-test.result == 'success' &&
+        needs.e2e-test.result == 'success'
+      }}
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
+    steps:
+      - name: Resolve Render frontend service id
+        id: resolve
+        if: ${{ env.RENDER_API_KEY != '' }}
+        run: |
+          response="$(
+            curl --fail --silent --show-error \
+              --url "https://api.render.com/v1/services" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}"
+          )"
+
+          service_id="$(
+            jq -r '
+              (if type == "array" then .
+               elif type == "object" then (.services // .items // .results // [.])
+               else []
+               end)
+              | map(if (.service | type) == "object" then .service else . end)
+              | map(select(.name == "ndith-frontend") | .id)
+              | .[0] // empty
+            ' <<<"${response}"
+          )"
+
+          if [ -n "${service_id}" ]; then
+            echo "service_id=${service_id}" >> "$GITHUB_OUTPUT"
+            echo "Resolved Render frontend service id: ${service_id}"
+          else
+            echo "::warning::Render frontend service not found"
+          fi
+
+      - name: Trigger Render frontend deploy
+        if: ${{ steps.resolve.outputs.service_id != '' }}
+        run: |
+          curl --fail --silent --show-error \
+            --request POST \
+            --url "https://api.render.com/v1/services/${{ steps.resolve.outputs.service_id }}/deploys" \
+            --header "Authorization: Bearer ${RENDER_API_KEY}" \
+            --header "Content-Type: application/json" \
+            --data '{}'
+          echo "Triggered Render frontend deploy"
+
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
@@ -763,6 +819,7 @@ jobs:
         e2e-test,
         e2e-cross-browser,
         apple-music-sandbox,
+        deploy-frontend,
       ]
     if: always()
 
@@ -783,6 +840,7 @@ jobs:
             "${{ needs.e2e-test.result }}"
             "${{ needs.e2e-cross-browser.result }}"
             "${{ needs.apple-music-sandbox.result }}"
+            "${{ needs.deploy-frontend.result }}"
           )
 
           for result in "${results[@]}"; do

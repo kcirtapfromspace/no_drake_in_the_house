@@ -10,6 +10,7 @@
   $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
   $: providerLabel = playlist.provider === 'spotify' ? 'Spotify' : 'Apple';
   $: gradeColor = getGradeColor(playlist.grade);
+  $: gradeGlow = getGradeGlow(playlist.grade);
   $: images = playlist.cover_images || [];
   $: cleanPct = Math.round(playlist.clean_ratio * 100);
 
@@ -27,11 +28,22 @@
 
   function getGradeColor(g: string): string {
     switch (g) {
-      case 'A+': case 'A': return 'var(--color-success)';
-      case 'B': return 'var(--color-info)';
-      case 'C': return 'var(--color-warning)';
+      case 'A+': return '#4ade80';
+      case 'A': return '#22c55e';
+      case 'B': return '#3b82f6';
+      case 'C': return '#eab308';
       case 'D': return '#f97316';
-      default: return 'var(--color-error)';
+      default: return '#ef4444';
+    }
+  }
+
+  function getGradeGlow(g: string): string {
+    switch (g) {
+      case 'A+': case 'A': return '0 0 12px rgba(34,197,94,0.4)';
+      case 'B': return '0 0 12px rgba(59,130,246,0.35)';
+      case 'C': return '0 0 12px rgba(234,179,8,0.3)';
+      case 'D': return '0 0 12px rgba(249,115,22,0.3)';
+      default: return '0 0 12px rgba(239,68,68,0.35)';
     }
   }
 
@@ -42,7 +54,7 @@
 <button
   type="button"
   class="pc"
-  style="--stagger: {index * 50}ms"
+  style="--stagger: {index * 60}ms; --grade-color: {gradeColor}; --grade-glow: {gradeGlow};"
   on:click={() => dispatch('select', playlist)}
 >
   <!-- Cover art area -->
@@ -56,16 +68,24 @@
     {:else if images.length >= 1}
       <img class="pc__hero-img" src={images[0]} alt="" loading="lazy" />
     {:else}
-      <div class="pc__gradient" style="background: linear-gradient(135deg, hsl({gradientHue}, 60%, 25%) 0%, hsl({gradientHue2}, 45%, 15%) 100%);"></div>
+      <div class="pc__gradient" style="background: linear-gradient(135deg, hsl({gradientHue}, 60%, 25%) 0%, hsl({gradientHue2}, 45%, 12%) 100%);"></div>
     {/if}
+
+    <!-- Film grain noise overlay -->
+    <div class="pc__grain"></div>
 
     <!-- Overlay with grade -->
     <div class="pc__cover-overlay">
-      <span class="pc__grade" style="--gc: {gradeColor};">{playlist.grade}</span>
+      <span class="pc__grade">{playlist.grade}</span>
     </div>
 
     <!-- Provider pill -->
     <span class="pc__provider" style="--pc: {providerColor};">{providerLabel}</span>
+
+    <!-- Hover vinyl peek -->
+    <div class="pc__vinyl-peek">
+      <div class="pc__vinyl-disc"></div>
+    </div>
   </div>
 
   <!-- Info area -->
@@ -81,12 +101,16 @@
     </div>
 
     <!-- Clean ratio bar -->
-    <div class="pc__bar-track">
-      <div class="pc__bar-fill" style="width: {cleanPct}%; background: {gradeColor};"></div>
+    <div class="pc__bar-wrap">
+      <div class="pc__bar-track">
+        <div class="pc__bar-fill" style="width: {cleanPct}%;"></div>
+      </div>
+      <span class="pc__bar-pct">{cleanPct}%</span>
     </div>
 
     {#if flaggedPreview.length > 0}
       <p class="pc__flagged-names">
+        <span class="pc__flagged-dot"></span>
         {flaggedPreview.join(', ')}{#if flaggedMore > 0}<span class="pc__more"> +{flaggedMore}</span>{/if}
       </p>
     {/if}
@@ -98,35 +122,37 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--color-border-subtle);
-    border-radius: 0.625rem;
+    border-radius: 0.75rem;
     background: var(--color-bg-elevated);
     cursor: pointer;
     text-align: left;
     font-family: inherit;
     color: inherit;
     overflow: hidden;
-    transition: transform 0.22s cubic-bezier(.4,0,.2,1),
-                border-color 0.22s,
-                box-shadow 0.22s;
+    transition: transform 0.28s cubic-bezier(.4,0,.2,1),
+                border-color 0.28s,
+                box-shadow 0.28s;
     width: 100%;
     padding: 0;
-    animation: cardIn 0.4s cubic-bezier(.4,0,.2,1) both;
+    animation: cardIn 0.45s cubic-bezier(.22,1,.36,1) both;
     animation-delay: var(--stagger, 0ms);
+    position: relative;
   }
 
   @keyframes cardIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    from { opacity: 0; transform: translateY(16px) scale(0.96); }
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
 
   .pc:hover {
-    transform: translateY(-3px) scale(1.01);
-    border-color: var(--color-border-hover);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px) scale(1.015);
+    border-color: color-mix(in srgb, var(--grade-color) 30%, var(--color-border-hover));
+    box-shadow: var(--shadow-lg), 0 8px 32px -8px color-mix(in srgb, var(--grade-color) 20%, transparent);
   }
 
   .pc:active {
-    transform: translateY(0) scale(0.99);
+    transform: translateY(-1px) scale(1.005);
+    transition-duration: 0.1s;
   }
 
   /* ---- Cover ---- */
@@ -152,6 +178,11 @@
     object-fit: cover;
     max-width: none;
     max-height: none;
+    transition: transform 0.4s cubic-bezier(.4,0,.2,1);
+  }
+
+  .pc:hover .pc__mosaic-img {
+    transform: scale(1.06);
   }
 
   .pc__hero-img {
@@ -160,17 +191,38 @@
     object-fit: cover;
     max-width: none;
     max-height: none;
+    transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+  }
+
+  .pc:hover .pc__hero-img {
+    transform: scale(1.08);
   }
 
   .pc__gradient {
     width: 100%;
     height: 100%;
+    transition: transform 0.5s cubic-bezier(.4,0,.2,1);
+  }
+
+  .pc:hover .pc__gradient {
+    transform: scale(1.08);
+  }
+
+  /* Film grain noise */
+  .pc__grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.06;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px 128px;
   }
 
   .pc__cover-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%);
+    background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 40%, transparent 60%);
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
@@ -181,17 +233,24 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 2rem;
+    min-width: 2.125rem;
     padding: 0.2rem 0.5rem;
     border-radius: 0.375rem;
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 800;
     letter-spacing: 0.02em;
-    color: var(--gc);
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--grade-color);
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: var(--grade-glow);
+    transition: box-shadow 0.3s, transform 0.3s;
+  }
+
+  .pc:hover .pc__grade {
+    transform: scale(1.08);
+    box-shadow: var(--grade-glow), 0 0 20px color-mix(in srgb, var(--grade-color) 30%, transparent);
   }
 
   .pc__provider {
@@ -206,12 +265,54 @@
     letter-spacing: 0.06em;
     color: #fff;
     background: var(--pc);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  }
+
+  /* Vinyl disc peek on hover */
+  .pc__vinyl-peek {
+    position: absolute;
+    top: 50%;
+    right: -30%;
+    transform: translateY(-50%);
+    width: 65%;
+    aspect-ratio: 1;
+    transition: right 0.45s cubic-bezier(.34,1.56,.64,1);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .pc:hover .pc__vinyl-peek {
+    right: -22%;
+    opacity: 1;
+    transition: right 0.45s cubic-bezier(.34,1.56,.64,1), opacity 0.2s ease;
+  }
+
+  .pc__vinyl-disc {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, #1a1a1a 18%, transparent 19%),
+      radial-gradient(circle at center, #111 20%, transparent 21%),
+      radial-gradient(circle at center, transparent 44%, rgba(40,40,40,0.5) 45%, rgba(40,40,40,0.5) 46%, transparent 47%),
+      radial-gradient(circle at center, transparent 58%, rgba(40,40,40,0.3) 59%, rgba(40,40,40,0.3) 60%, transparent 61%),
+      conic-gradient(from 0deg, #1a1a1a, #252525, #1a1a1a, #222, #1a1a1a, #252525, #1a1a1a, #222, #1a1a1a);
+    box-shadow: -2px 0 12px rgba(0,0,0,0.6);
+    animation: vinylSpin 4s linear infinite;
+    animation-play-state: paused;
+  }
+
+  .pc:hover .pc__vinyl-disc {
+    animation-play-state: running;
+  }
+
+  @keyframes vinylSpin {
+    to { transform: rotate(360deg); }
   }
 
   /* ---- Body ---- */
   .pc__body {
-    padding: 0.75rem 0.75rem 0.875rem;
+    padding: 0.75rem 0.875rem 0.875rem;
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
@@ -227,6 +328,11 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
     line-height: 1.3;
+    transition: color 0.2s;
+  }
+
+  .pc:hover .pc__name {
+    color: var(--grade-color);
   }
 
   .pc__meta {
@@ -243,7 +349,14 @@
     color: var(--color-error);
   }
 
+  .pc__bar-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
   .pc__bar-track {
+    flex: 1;
     height: 3px;
     border-radius: 2px;
     background: var(--color-border-subtle);
@@ -253,10 +366,25 @@
   .pc__bar-fill {
     height: 100%;
     border-radius: 2px;
-    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+    background: linear-gradient(90deg, var(--grade-color), color-mix(in srgb, var(--grade-color) 70%, white));
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--grade-color) 30%, transparent);
+  }
+
+  .pc__bar-pct {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--grade-color);
+    font-variant-numeric: tabular-nums;
+    min-width: 2rem;
+    text-align: right;
+    opacity: 0.8;
   }
 
   .pc__flagged-names {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
     font-size: 0.6875rem;
     color: var(--color-text-muted);
     margin: 0;
@@ -264,6 +392,15 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.4;
+  }
+
+  .pc__flagged-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--color-error);
+    flex-shrink: 0;
+    box-shadow: 0 0 6px rgba(239,68,68,0.4);
   }
 
   .pc__more {

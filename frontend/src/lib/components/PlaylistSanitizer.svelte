@@ -8,6 +8,7 @@
   import ReplacementPicker from './ReplacementPicker.svelte';
 
   let topView: 'browse' | 'sanitize' = 'browse';
+  let showConfetti = false;
 
   onMount(() => {
     playlistBrowserActions.fetchPlaylists();
@@ -34,6 +35,9 @@
 
   async function handlePublish() {
     await sanitizerActions.confirmAndPublish();
+    // Trigger celebration
+    showConfetti = true;
+    setTimeout(() => { showConfetti = false; }, 3000);
   }
 
   function handleReset() {
@@ -53,6 +57,8 @@
       $playlistBrowserStore.providerFilter === provider ? '' : provider
     );
   }
+
+  $: stepIndex = $sanitizerStore.step === 'grade' ? 0 : $sanitizerStore.step === 'replace' ? 1 : 2;
 </script>
 
 <div class="sanitizer">
@@ -68,6 +74,7 @@
 
       {#if $playlistBrowserStore.error}
         <div class="sanitizer__error">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           <span>{$playlistBrowserStore.error}</span>
           <button type="button" on:click={playlistBrowserActions.clearError} class="sanitizer__error-dismiss">&times;</button>
         </div>
@@ -75,13 +82,16 @@
 
       <!-- Filter bar -->
       <div class="browser__filters">
-        <input
-          type="text"
-          class="sanitizer__input browser__search"
-          placeholder="Search playlists..."
-          value={$playlistBrowserStore.searchQuery}
-          on:input={(e) => playlistBrowserActions.setSearchQuery(e.currentTarget.value)}
-        />
+        <div class="browser__search-wrap">
+          <svg class="browser__search-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/><path d="M11 11l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          <input
+            type="text"
+            class="browser__search"
+            placeholder="Search playlists..."
+            value={$playlistBrowserStore.searchQuery}
+            on:input={(e) => playlistBrowserActions.setSearchQuery(e.currentTarget.value)}
+          />
+        </div>
         <div class="browser__pills">
           <button
             type="button"
@@ -94,7 +104,10 @@
             class="browser__pill browser__pill--spotify"
             class:browser__pill--active={$playlistBrowserStore.providerFilter === 'spotify'}
             on:click={() => handleProviderFilter('spotify')}
-          >Spotify</button>
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M7 0a7 7 0 1 0 0 14A7 7 0 0 0 7 0zm3.2 10.1a.43.43 0 0 1-.6.15c-1.63-.99-3.68-1.22-6.1-.67a.44.44 0 0 1-.2-.85c2.64-.6 4.9-.34 6.73.78.2.13.27.4.14.6zm.86-1.9a.55.55 0 0 1-.75.18c-1.86-1.15-4.7-1.48-6.9-.81a.55.55 0 0 1-.32-1.05c2.51-.76 5.63-.39 7.78.93.25.16.33.5.18.75zm.07-1.98C9.06 4.94 5.26 4.82 3.07 5.48a.66.66 0 0 1-.38-1.26c2.51-.76 6.68-.61 9.32 1.02a.66.66 0 0 1-.66 1.14z"/></svg>
+            Spotify
+          </button>
           <button
             type="button"
             class="browser__pill browser__pill--apple"
@@ -106,17 +119,22 @@
 
       {#if $playlistBrowserStore.isLoadingPlaylists}
         <div class="browser__loading">
-          <div class="brand-button__spinner browser__spinner"></div>
+          <div class="browser__loading-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
           <p>Loading playlists...</p>
         </div>
       {:else if $filteredPlaylists.length === 0}
-        <p class="sanitizer__empty">
+        <div class="sanitizer__empty-state">
           {#if $playlistBrowserStore.playlists.length === 0}
-            No synced playlists found. Sync your library from Spotify or Apple Music first.
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-dasharray="4 3"/><path d="M18 24h12M24 18v12" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <p>No synced playlists found.</p>
+            <span class="sanitizer__empty-hint">Sync your library from Spotify or Apple Music first.</span>
           {:else}
-            No playlists match your search.
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="20" cy="20" r="12" stroke="var(--color-text-muted)" stroke-width="1.5"/><path d="M29 29l10 10" stroke="var(--color-text-muted)" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <p>No playlists match your search.</p>
           {/if}
-        </p>
+        </div>
       {:else}
         <div class="browser__grid">
           {#each $filteredPlaylists as playlist, i (playlist.provider + '::' + playlist.playlist_name)}
@@ -141,8 +159,9 @@
   {:else}
     <!-- ======================== SANITIZE MODE ======================== -->
 
-    <button type="button" class="tracklist__back" on:click={handleBackToPlaylists}>
-      &larr; Back to Playlists
+    <button type="button" class="sanitizer__back-btn" on:click={handleBackToPlaylists}>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Back to Playlists
     </button>
 
     <header class="sanitizer__header">
@@ -153,40 +172,60 @@
     <!-- Error banner -->
     {#if $sanitizerStore.error}
       <div class="sanitizer__error">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
         <span>{$sanitizerStore.error}</span>
         <button type="button" on:click={sanitizerActions.clearError} class="sanitizer__error-dismiss">&times;</button>
       </div>
     {/if}
 
-    <!-- Step tabs -->
-    <nav class="sanitizer__tabs">
+    <!-- Step tabs — redesigned with connector line -->
+    <nav class="stepper">
+      <div class="stepper__track">
+        <div class="stepper__track-fill" style="width: {stepIndex * 50}%;"></div>
+      </div>
+
       <button
         type="button"
-        class="sanitizer__tab"
-        class:sanitizer__tab--active={$sanitizerStore.step === 'grade'}
+        class="stepper__step"
+        class:stepper__step--active={$sanitizerStore.step === 'grade'}
+        class:stepper__step--done={stepIndex > 0}
         on:click={() => sanitizerActions.goToStep('grade')}
       >
-        <span class="sanitizer__tab-num">1</span> Grade
+        <span class="stepper__num">
+          {#if stepIndex > 0}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {:else}1{/if}
+        </span>
+        <span class="stepper__label">Grade</span>
       </button>
+
       <button
         type="button"
-        class="sanitizer__tab"
-        class:sanitizer__tab--active={$sanitizerStore.step === 'replace'}
-        class:sanitizer__tab--disabled={!$hasGrade}
+        class="stepper__step"
+        class:stepper__step--active={$sanitizerStore.step === 'replace'}
+        class:stepper__step--done={stepIndex > 1}
+        class:stepper__step--disabled={!$hasGrade}
         disabled={!$hasGrade}
         on:click={() => sanitizerActions.goToStep('replace')}
       >
-        <span class="sanitizer__tab-num">2</span> Replace
+        <span class="stepper__num">
+          {#if stepIndex > 1}
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {:else}2{/if}
+        </span>
+        <span class="stepper__label">Replace</span>
       </button>
+
       <button
         type="button"
-        class="sanitizer__tab"
-        class:sanitizer__tab--active={$sanitizerStore.step === 'publish'}
-        class:sanitizer__tab--disabled={!$hasPlan}
+        class="stepper__step"
+        class:stepper__step--active={$sanitizerStore.step === 'publish'}
+        class:stepper__step--disabled={!$hasPlan}
         disabled={!$hasPlan}
         on:click={() => sanitizerActions.goToStep('publish')}
       >
-        <span class="sanitizer__tab-num">3</span> Publish
+        <span class="stepper__num">3</span>
+        <span class="stepper__label">Publish</span>
       </button>
     </nav>
 
@@ -194,9 +233,13 @@
     {#if $sanitizerStore.step === 'grade'}
       <section class="sanitizer__section">
         {#if $sanitizerStore.isGrading || $sanitizerStore.isSuggesting}
-          <div class="browser__loading">
-            <div class="brand-button__spinner browser__spinner"></div>
-            <p>Analyzing playlist...</p>
+          <div class="analyzing">
+            <div class="analyzing__pulse"></div>
+            <div class="analyzing__bars">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <p class="analyzing__text">Analyzing playlist...</p>
+            <p class="analyzing__sub">Checking tracks against your blocklist</p>
           </div>
         {:else if $sanitizerStore.currentGrade}
           {@const g = $sanitizerStore.currentGrade}
@@ -226,12 +269,17 @@
 
           {#if g.artist_breakdown.length > 0}
             <div class="blocked-artists">
-              <h3 class="section-heading">Blocked Artists Found</h3>
+              <h3 class="section-heading">
+                <span class="section-heading__dot section-heading__dot--red"></span>
+                Blocked Artists Found
+              </h3>
               <div class="blocked-artists__grid">
-                {#each g.artist_breakdown as artist}
-                  <div class="blocked-artist-card">
-                    <span class="blocked-artist-card__name">{artist.artist_name}</span>
-                    <span class="blocked-artist-card__count">{artist.track_count} track{artist.track_count !== 1 ? 's' : ''}</span>
+                {#each g.artist_breakdown as artist, i}
+                  <div class="blocked-artist-card" style="animation-delay: {i * 60}ms;">
+                    <div class="blocked-artist-card__header">
+                      <span class="blocked-artist-card__name">{artist.artist_name}</span>
+                      <span class="blocked-artist-card__count">{artist.track_count} track{artist.track_count !== 1 ? 's' : ''}</span>
+                    </div>
                     <span class="blocked-artist-card__reason">{artist.block_reason}</span>
                   </div>
                 {/each}
@@ -241,7 +289,10 @@
 
           {#if g.blocked_track_details.length > 0}
             <div class="blocked-tracks">
-              <h3 class="section-heading">Blocked Tracks</h3>
+              <h3 class="section-heading">
+                <span class="section-heading__dot section-heading__dot--amber"></span>
+                Blocked Tracks
+              </h3>
               <div class="blocked-tracks__list">
                 {#each g.blocked_track_details as track}
                   <div class="blocked-track-row">
@@ -262,6 +313,7 @@
                   on:click={() => sanitizerActions.goToStep('replace')}
                 >
                   Choose Replacements
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>
               </div>
             {/if}
@@ -274,7 +326,10 @@
     {#if $sanitizerStore.step === 'replace'}
       <section class="sanitizer__section">
         {#if $sanitizerStore.replacements.length === 0}
-          <p class="sanitizer__empty">No blocked tracks to replace. The playlist is clean!</p>
+          <div class="sanitizer__empty-state">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="rgba(34,197,94,0.1)"/><path d="M16 24l6 6 10-10" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p>No blocked tracks to replace. The playlist is clean!</p>
+          </div>
         {:else}
           <div class="replace-header">
             <h2 class="section-heading">Choose Replacements</h2>
@@ -309,6 +364,7 @@
               class="brand-button brand-button--secondary"
               on:click={() => sanitizerActions.goToStep('grade')}
             >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               Back
             </button>
             <button
@@ -322,6 +378,7 @@
                 Publishing...
               {:else}
                 Create Sanitized Playlist
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               {/if}
             </button>
           </div>
@@ -334,44 +391,71 @@
       <section class="sanitizer__section">
         {#if $sanitizerStore.isPublishing}
           <div class="publish-status">
-            <div class="brand-button__spinner publish-status__spinner"></div>
-            <p>Creating your sanitized playlist...</p>
+            <div class="publish-status__vinyl">
+              <div class="publish-status__disc"></div>
+            </div>
+            <p class="publish-status__text">Creating your sanitized playlist...</p>
+            <p class="publish-status__sub">Adding tracks to Spotify</p>
           </div>
         {:else if $sanitizerStore.publishResult}
           {@const r = $sanitizerStore.publishResult}
+
+          <!-- Confetti -->
+          {#if showConfetti}
+            <div class="confetti" aria-hidden="true">
+              {#each Array(20) as _, i}
+                <div
+                  class="confetti__piece"
+                  style="
+                    left: {10 + Math.random() * 80}%;
+                    animation-delay: {Math.random() * 0.5}s;
+                    --hue: {Math.random() * 360};
+                    --drift: {-30 + Math.random() * 60}px;
+                  "
+                ></div>
+              {/each}
+            </div>
+          {/if}
+
           <div class="publish-success">
             <div class="publish-success__icon">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                <circle cx="24" cy="24" r="24" fill="var(--color-brand-success, #22c55e)" opacity="0.15"/>
-                <path d="M14 24l7 7 13-13" stroke="var(--color-brand-success, #22c55e)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="28" fill="rgba(34,197,94,0.12)"/>
+                <circle cx="28" cy="28" r="20" fill="rgba(34,197,94,0.08)"/>
+                <path d="M18 28l7 7 13-13" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="publish-success__check"/>
               </svg>
             </div>
+
             <h2 class="publish-success__title">Playlist Created!</h2>
+            <p class="publish-success__subtitle">Your sanitized playlist is live on Spotify</p>
+
             <div class="publish-success__stats">
               <div class="publish-success__stat">
                 <span class="publish-success__stat-val">{r.tracks_kept}</span>
                 <span class="publish-success__stat-label">Kept</span>
               </div>
-              <div class="publish-success__stat">
+              <div class="publish-success__stat publish-success__stat--replaced">
                 <span class="publish-success__stat-val">{r.tracks_replaced}</span>
                 <span class="publish-success__stat-label">Replaced</span>
               </div>
-              <div class="publish-success__stat">
+              <div class="publish-success__stat publish-success__stat--removed">
                 <span class="publish-success__stat-val">{r.tracks_removed}</span>
                 <span class="publish-success__stat-label">Removed</span>
               </div>
-              <div class="publish-success__stat">
+              <div class="publish-success__stat publish-success__stat--total">
                 <span class="publish-success__stat-val">{r.total_tracks}</span>
                 <span class="publish-success__stat-label">Total</span>
               </div>
             </div>
-            <div class="sanitizer__actions">
+
+            <div class="sanitizer__actions sanitizer__actions--center">
               <a
                 href={r.new_playlist_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 class="brand-button brand-button--primary"
               >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm3.66 11.54a.5.5 0 0 1-.68.17c-1.87-1.14-4.23-1.4-7-.77a.5.5 0 0 1-.22-.97c3.04-.7 5.65-.4 7.72.88a.5.5 0 0 1 .17.69zm.98-2.18a.62.62 0 0 1-.86.21c-2.14-1.32-5.4-1.7-7.93-.93a.62.62 0 0 1-.37-1.19c2.89-.88 6.48-.45 8.95 1.06.28.18.37.55.2.85zm.08-2.27C10.16 5.56 5.9 5.42 3.43 6.16a.74.74 0 1 1-.43-1.42c2.83-.86 7.53-.69 10.5 1.15a.74.74 0 0 1-.78 1.26z"/></svg>
                 Open in Spotify
               </a>
               <button
@@ -384,7 +468,9 @@
             </div>
           </div>
         {:else}
-          <p class="sanitizer__empty">Confirm replacements in the previous step to create your playlist.</p>
+          <div class="sanitizer__empty-state">
+            <p>Confirm replacements in the previous step to create your playlist.</p>
+          </div>
         {/if}
       </section>
     {/if}
@@ -399,34 +485,43 @@
   }
 
   .sanitizer__header {
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
   }
 
   .sanitizer__title {
-    font-size: 1.75rem;
+    font-size: 1.875rem;
     font-weight: 700;
     color: var(--color-text-primary, #fff);
     margin: 0 0 0.25rem;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
   }
 
   .sanitizer__subtitle {
     color: var(--color-text-tertiary, #71717a);
     margin: 0;
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
   }
 
   .sanitizer__error {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.625rem;
     padding: 0.75rem 1rem;
-    border-radius: 0.5rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: var(--color-brand-danger, #ef4444);
+    border-radius: 0.625rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: var(--color-error, #ef4444);
     margin-bottom: 1rem;
     font-size: 0.875rem;
+    animation: slideDown 0.25s ease-out;
+  }
+
+  .sanitizer__error svg { flex-shrink: 0; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
   .sanitizer__error-dismiss {
@@ -436,7 +531,32 @@
     cursor: pointer;
     font-size: 1.25rem;
     padding: 0 0.25rem;
+    margin-left: auto;
+    opacity: 0.6;
+    transition: opacity 0.15s;
   }
+
+  .sanitizer__error-dismiss:hover { opacity: 1; }
+
+  /* ---- Back button ---- */
+  .sanitizer__back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    color: var(--color-text-secondary, #999);
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: 0.25rem 0;
+    margin-bottom: 1rem;
+    font-family: inherit;
+    transition: color 0.15s;
+  }
+
+  .sanitizer__back-btn svg { transition: transform 0.2s; }
+  .sanitizer__back-btn:hover { color: var(--color-text-primary, #fff); }
+  .sanitizer__back-btn:hover svg { transform: translateX(-2px); }
 
   /* ---- Browser ---- */
 
@@ -445,11 +565,44 @@
     gap: 0.75rem;
     margin-bottom: 1.5rem;
     flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .browser__search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .browser__search-icon {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-muted);
+    pointer-events: none;
   }
 
   .browser__search {
-    flex: 1;
-    min-width: 200px;
+    width: 100%;
+    padding: 0.5rem 0.875rem 0.5rem 2.25rem;
+    border: 1px solid var(--color-border-default, #27272a);
+    border-radius: 0.625rem;
+    background: var(--input-bg, #1c1c22);
+    color: var(--color-text-primary, #fff);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+
+  .browser__search:focus {
+    border-color: var(--color-brand-primary, #f43f5e);
+    box-shadow: 0 0 0 3px rgba(244,63,94,0.08);
+  }
+
+  .browser__search::placeholder {
+    color: var(--color-text-muted, #52525b);
   }
 
   .browser__pills {
@@ -458,8 +611,11 @@
   }
 
   .browser__pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     padding: 0.375rem 0.75rem;
-    border: 1px solid var(--color-border-subtle, #333);
+    border: 1px solid var(--color-border-subtle, #1f1f22);
     border-radius: 9999px;
     background: transparent;
     color: var(--color-text-secondary, #999);
@@ -469,9 +625,12 @@
     transition: all 0.15s;
   }
 
+  .browser__pill svg { width: 14px; height: 14px; }
+
   .browser__pill:hover {
-    border-color: var(--color-border-hover, #555);
+    border-color: var(--color-border-hover, #3f3f46);
     color: var(--color-text-primary, #fff);
+    background: var(--color-bg-interactive);
   }
 
   .browser__pill--active {
@@ -488,7 +647,7 @@
 
   .browser__grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
     gap: 1rem;
   }
 
@@ -496,90 +655,147 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    padding: 3rem 1rem;
+    gap: 1rem;
+    padding: 4rem 1rem;
     color: var(--color-text-secondary, #999);
   }
 
-  .browser__spinner {
-    width: 1.5rem;
+  .browser__loading-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
     height: 1.5rem;
   }
 
-  /* ---- Sanitizer tabs & steps (preserved) ---- */
-
-  .sanitizer__tabs {
-    display: flex;
-    gap: 0.25rem;
-    margin-bottom: 1.5rem;
-    border-bottom: 1px solid var(--color-border-subtle, #333);
-    padding-bottom: -1px;
+  .browser__loading-bars span {
+    width: 3px;
+    background: var(--color-brand-primary);
+    border-radius: 1px;
+    animation: barPulse 1.2s ease-in-out infinite;
   }
 
-  .sanitizer__tab {
+  .browser__loading-bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
+  .browser__loading-bars span:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+  .browser__loading-bars span:nth-child(3) { height: 50%; animation-delay: 0.3s; }
+  .browser__loading-bars span:nth-child(4) { height: 80%; animation-delay: 0.45s; }
+
+  @keyframes barPulse {
+    0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
+    50% { transform: scaleY(1); opacity: 1; }
+  }
+
+  /* ---- Stepper ---- */
+
+  .stepper {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.75rem 1.25rem;
-    border: none;
-    background: none;
-    color: var(--color-text-tertiary, #666);
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    transition: color 0.15s, border-color 0.15s;
-    font-family: inherit;
+    justify-content: space-between;
+    position: relative;
+    margin-bottom: 2rem;
+    padding: 0 1rem;
   }
 
-  .sanitizer__tab:hover:not(:disabled) {
+  .stepper__track {
+    position: absolute;
+    top: 50%;
+    left: 3rem;
+    right: 3rem;
+    height: 2px;
+    background: var(--color-border-subtle, #1f1f22);
+    transform: translateY(-50%);
+    border-radius: 1px;
+    z-index: 0;
+  }
+
+  .stepper__track-fill {
+    height: 100%;
+    background: var(--color-brand-primary, #f43f5e);
+    border-radius: 1px;
+    transition: width 0.4s cubic-bezier(.4,0,.2,1);
+    box-shadow: 0 0 8px rgba(244,63,94,0.3);
+  }
+
+  .stepper__step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--color-text-tertiary, #666);
+    z-index: 1;
+    transition: color 0.2s;
+    padding: 0;
+  }
+
+  .stepper__step:hover:not(:disabled) {
     color: var(--color-text-secondary, #999);
   }
 
-  .sanitizer__tab--active {
+  .stepper__step--active {
     color: var(--color-text-primary, #fff);
-    border-bottom-color: var(--color-brand-primary, #8b5cf6);
   }
 
-  .sanitizer__tab--disabled {
-    opacity: 0.4;
+  .stepper__step--disabled {
+    opacity: 0.35;
     cursor: not-allowed;
   }
 
-  .sanitizer__tab-num {
+  .stepper__num {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.375rem;
-    height: 1.375rem;
+    width: 2.25rem;
+    height: 2.25rem;
     border-radius: 50%;
-    background: var(--color-surface-tertiary, #2a2a3e);
-    font-size: 0.75rem;
+    background: var(--color-bg-interactive, #18181b);
+    border: 2px solid var(--color-border-subtle, #1f1f22);
+    font-size: 0.8125rem;
     font-weight: 700;
+    transition: all 0.25s;
   }
 
-  .sanitizer__tab--active .sanitizer__tab-num {
-    background: var(--color-brand-primary, #8b5cf6);
+  .stepper__step--active .stepper__num {
+    background: var(--color-brand-primary, #f43f5e);
+    border-color: var(--color-brand-primary, #f43f5e);
     color: white;
+    box-shadow: 0 0 16px rgba(244,63,94,0.35);
   }
+
+  .stepper__step--done .stepper__num {
+    background: rgba(34,197,94,0.15);
+    border-color: rgba(34,197,94,0.4);
+    color: #22c55e;
+  }
+
+  .stepper__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---- Sections ---- */
 
   .sanitizer__section {
-    animation: fadeIn 0.2s ease-out;
+    animation: sectionIn 0.3s ease-out;
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
+  @keyframes sectionIn {
+    from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
   .sanitizer__input {
-    flex: 1;
+    width: 100%;
     padding: 0.5rem 0.875rem;
     border: 1px solid var(--color-border-default, #27272a);
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
     background: var(--input-bg, #1c1c22);
     color: var(--color-text-primary, #fff);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-family: inherit;
     outline: none;
     transition: border-color 0.15s, box-shadow 0.15s;
@@ -587,7 +803,7 @@
 
   .sanitizer__input:focus {
     border-color: var(--color-brand-primary, #f43f5e);
-    box-shadow: 0 0 0 2px var(--color-brand-primary-subtle, rgba(244,63,94,0.08));
+    box-shadow: 0 0 0 3px rgba(244,63,94,0.08);
   }
 
   .sanitizer__input::placeholder {
@@ -598,26 +814,106 @@
     display: flex;
     gap: 0.75rem;
     justify-content: flex-end;
-    margin-top: 1.5rem;
+    margin-top: 1.75rem;
   }
 
-  .sanitizer__empty {
+  .sanitizer__actions--center {
+    justify-content: center;
+  }
+
+  .sanitizer__empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
+    padding: 3.5rem 1rem;
+    gap: 0.75rem;
     color: var(--color-text-tertiary, #666);
-    padding: 3rem 1rem;
     font-size: 0.9375rem;
   }
 
-  /* Grade result */
+  .sanitizer__empty-state p { margin: 0; }
+
+  .sanitizer__empty-hint {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  /* ---- Analyzing animation ---- */
+
+  .analyzing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 3.5rem 1rem;
+    position: relative;
+  }
+
+  .analyzing__pulse {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(244,63,94,0.08) 0%, transparent 70%);
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(0.8); opacity: 0.5; }
+    50% { transform: scale(1.2); opacity: 1; }
+  }
+
+  .analyzing__bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 2rem;
+    z-index: 1;
+  }
+
+  .analyzing__bars span {
+    width: 4px;
+    background: var(--color-brand-primary);
+    border-radius: 2px;
+    animation: barPulse 1.2s ease-in-out infinite;
+  }
+
+  .analyzing__bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
+  .analyzing__bars span:nth-child(2) { height: 65%; animation-delay: 0.1s; }
+  .analyzing__bars span:nth-child(3) { height: 85%; animation-delay: 0.2s; }
+  .analyzing__bars span:nth-child(4) { height: 55%; animation-delay: 0.3s; }
+  .analyzing__bars span:nth-child(5) { height: 70%; animation-delay: 0.4s; }
+
+  .analyzing__text {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .analyzing__sub {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+    margin: 0;
+  }
+
+  /* ---- Grade result ---- */
+
   .grade-result {
     display: flex;
     gap: 2rem;
     align-items: center;
-    padding: 1.5rem;
-    border: 1px solid var(--color-border-subtle, #333);
-    border-radius: 0.75rem;
-    background: var(--color-surface-secondary, #1a1a2e);
-    margin-bottom: 1.5rem;
+    padding: 1.75rem;
+    border: 1px solid var(--color-border-subtle, #1f1f22);
+    border-radius: 0.875rem;
+    background: var(--color-bg-elevated, #111113);
+    margin-bottom: 1.75rem;
+    animation: gradeIn 0.4s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  @keyframes gradeIn {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
   }
 
   .grade-result__info {
@@ -627,13 +923,13 @@
   .grade-result__name {
     font-size: 1.125rem;
     font-weight: 600;
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.875rem;
     color: var(--color-text-primary, #fff);
   }
 
   .grade-result__stats {
     display: flex;
-    gap: 1.5rem;
+    gap: 1.75rem;
   }
 
   .grade-result__stat {
@@ -642,36 +938,63 @@
   }
 
   .grade-result__stat-val {
-    font-size: 1.5rem;
+    font-size: 1.625rem;
     font-weight: 700;
     color: var(--color-text-primary, #fff);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
   }
 
   .grade-result__stat--clean .grade-result__stat-val {
-    color: var(--color-brand-success, #22c55e);
+    color: #22c55e;
   }
 
   .grade-result__stat--blocked .grade-result__stat-val {
-    color: var(--color-brand-danger, #ef4444);
+    color: #ef4444;
   }
 
   .grade-result__stat-label {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     color: var(--color-text-tertiary, #666);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-top: 0.125rem;
   }
 
-  /* Blocked artists */
+  /* ---- Section headings ---- */
+
   .section-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.9375rem;
     font-weight: 600;
-    margin: 0 0 0.75rem;
+    margin: 0 0 0.875rem;
     color: var(--color-text-primary, #fff);
   }
 
+  .section-heading__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .section-heading__dot--red {
+    background: #ef4444;
+    box-shadow: 0 0 8px rgba(239,68,68,0.4);
+  }
+
+  .section-heading__dot--amber {
+    background: #f59e0b;
+    box-shadow: 0 0 8px rgba(245,158,11,0.4);
+  }
+
+  /* ---- Blocked artists ---- */
+
   .blocked-artists {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.75rem;
   }
 
   .blocked-artists__grid {
@@ -682,12 +1005,30 @@
 
   .blocked-artist-card {
     display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.625rem 0.875rem;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    border-radius: 0.5rem;
+    background: rgba(239, 68, 68, 0.04);
+    transition: border-color 0.15s, background 0.15s;
+    animation: cardFadeIn 0.35s ease-out both;
+  }
+
+  @keyframes cardFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .blocked-artist-card:hover {
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.06);
+  }
+
+  .blocked-artist-card__header {
+    display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    border-radius: 0.375rem;
-    background: rgba(239, 68, 68, 0.05);
+    gap: 0.625rem;
   }
 
   .blocked-artist-card__name {
@@ -697,25 +1038,28 @@
   }
 
   .blocked-artist-card__count {
-    font-size: 0.75rem;
-    color: var(--color-brand-danger, #ef4444);
+    font-size: 0.6875rem;
+    color: #ef4444;
+    font-weight: 600;
   }
 
   .blocked-artist-card__reason {
     font-size: 0.6875rem;
     color: var(--color-text-tertiary, #666);
     text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
-  /* Blocked tracks list */
+  /* ---- Blocked tracks ---- */
+
   .blocked-tracks {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
 
   .blocked-tracks__list {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.125rem;
   }
 
   .blocked-track-row {
@@ -726,15 +1070,21 @@
     padding: 0.5rem 0.75rem;
     border-radius: 0.375rem;
     font-size: 0.875rem;
+    transition: background 0.12s;
+  }
+
+  .blocked-track-row:hover {
+    background: rgba(255,255,255,0.02);
   }
 
   .blocked-track-row:nth-child(odd) {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.015);
   }
 
   .blocked-track-row__pos {
     color: var(--color-text-tertiary, #666);
     font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
 
   .blocked-track-row__name {
@@ -755,24 +1105,26 @@
   .blocked-track-row__dur {
     color: var(--color-text-tertiary, #666);
     font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Replace step */
+  /* ---- Replace step ---- */
+
   .replace-header {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
   }
 
   .replace-header__sub {
     color: var(--color-text-secondary, #999);
     font-size: 0.875rem;
-    margin: 0;
+    margin: 0.25rem 0 0;
   }
 
   .replacement-list {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    gap: 0.875rem;
+    margin-bottom: 1.75rem;
   }
 
   .target-name {
@@ -787,44 +1139,98 @@
     margin-bottom: 0.375rem;
   }
 
-  /* Publish step */
+  /* ---- Publish step ---- */
+
   .publish-status {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
-    padding: 3rem 1rem;
-    color: var(--color-text-secondary, #999);
+    padding: 3.5rem 1rem;
   }
 
-  .publish-status__spinner {
-    width: 2rem;
-    height: 2rem;
+  .publish-status__vinyl {
+    width: 4rem;
+    height: 4rem;
+    position: relative;
   }
+
+  .publish-status__disc {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, #1a1a1a 20%, transparent 21%),
+      conic-gradient(from 0deg, #1a1a1a, #2a2a2a, #1a1a1a, #252525, #1a1a1a);
+    animation: spin 2s linear infinite;
+    box-shadow: 0 0 20px rgba(244,63,94,0.15);
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .publish-status__text {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .publish-status__sub {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+    margin: 0;
+  }
+
+  /* Success */
 
   .publish-success {
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding: 2rem 1rem;
+    padding: 2.5rem 1rem;
+    animation: successIn 0.5s cubic-bezier(.22,1,.36,1) both;
+    position: relative;
+  }
+
+  @keyframes successIn {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
   }
 
   .publish-success__icon {
-    margin-bottom: 1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .publish-success__check {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: drawCheck 0.6s ease-out 0.3s forwards;
+  }
+
+  @keyframes drawCheck {
+    to { stroke-dashoffset: 0; }
   }
 
   .publish-success__title {
-    font-size: 1.375rem;
+    font-size: 1.5rem;
     font-weight: 700;
     color: var(--color-text-primary, #fff);
-    margin: 0 0 1.5rem;
+    margin: 0 0 0.375rem;
+    letter-spacing: -0.02em;
+  }
+
+  .publish-success__subtitle {
+    color: var(--color-text-tertiary);
+    font-size: 0.875rem;
+    margin: 0 0 1.75rem;
   }
 
   .publish-success__stats {
     display: flex;
-    gap: 2rem;
-    margin-bottom: 1.5rem;
+    gap: 2.25rem;
+    margin-bottom: 2rem;
   }
 
   .publish-success__stat {
@@ -834,49 +1240,73 @@
   }
 
   .publish-success__stat-val {
-    font-size: 1.75rem;
+    font-size: 2rem;
     font-weight: 700;
     color: var(--color-text-primary, #fff);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
   }
+
+  .publish-success__stat--replaced .publish-success__stat-val { color: #3b82f6; }
+  .publish-success__stat--removed .publish-success__stat-val { color: #f59e0b; }
+  .publish-success__stat--total .publish-success__stat-val { color: #22c55e; }
 
   .publish-success__stat-label {
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     color: var(--color-text-tertiary, #666);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-top: 0.125rem;
   }
 
-  /* Back button (reused from tracklist) */
-  .tracklist__back {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    background: none;
-    border: none;
-    color: var(--color-text-secondary, #999);
-    font-size: 0.875rem;
-    cursor: pointer;
-    padding: 0.25rem 0;
-    margin-bottom: 1rem;
-    font-family: inherit;
-    transition: color 0.15s;
+  /* ---- Confetti ---- */
+
+  .confetti {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    overflow: hidden;
   }
 
-  .tracklist__back:hover {
-    color: var(--color-text-primary, #fff);
+  .confetti__piece {
+    position: absolute;
+    top: -10px;
+    width: 8px;
+    height: 8px;
+    background: hsl(var(--hue), 80%, 60%);
+    border-radius: 1px;
+    animation: confettiFall 2.5s ease-out forwards;
   }
+
+  @keyframes confettiFall {
+    0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(100vh) translateX(var(--drift)) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  /* ---- Mobile ---- */
 
   @media (max-width: 640px) {
+    .sanitizer { padding: 1rem; }
+
     .browser__filters {
       flex-direction: column;
     }
 
-    .browser__search {
+    .browser__search-wrap {
       width: 100%;
     }
 
     .browser__grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
     }
 
     .grade-result {
@@ -895,5 +1325,11 @@
     .blocked-track-row__artist {
       display: none;
     }
+
+    .stepper { padding: 0; }
+    .stepper__track { left: 2rem; right: 2rem; }
+
+    .publish-success__stats { gap: 1.25rem; }
+    .publish-success__stat-val { font-size: 1.5rem; }
   }
 </style>

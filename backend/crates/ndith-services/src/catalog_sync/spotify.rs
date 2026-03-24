@@ -18,6 +18,11 @@ use uuid::Uuid;
 /// Spotify API base URL
 const SPOTIFY_API_BASE: &str = "https://api.spotify.com/v1";
 
+/// Maximum number of retries on 429 rate-limit responses for API requests.
+const MAX_RATE_LIMIT_RETRIES: u32 = 3;
+/// Maximum Retry-After wait time in seconds for catalog API calls.
+const MAX_RETRY_AFTER_SECS: u64 = 60;
+
 /// Spotify sync worker
 pub struct SpotifySyncWorker {
     client: Client,
@@ -133,39 +138,106 @@ impl SpotifySyncWorker {
         }
     }
 
-    /// Make an authenticated API request
+    /// Make an authenticated API request with 429/Retry-After handling.
     async fn api_request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
-        self.wait_for_rate_limit().await;
-        let token = self.ensure_token().await?;
-
         let url = format!("{}{}", SPOTIFY_API_BASE, endpoint);
-        let response = self
-            .client
-            .get(&url)
-            .bearer_auth(&token)
-            .send()
-            .await
-            .context("Spotify API request failed")?;
 
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            // Token expired, refresh and retry
-            let mut token_lock = self.access_token.write().await;
-            *token_lock = None;
-            drop(token_lock);
-
-            let new_token = self.refresh_token().await?;
-            {
-                let mut token_lock = self.access_token.write().await;
-                *token_lock = Some(new_token.clone());
-            }
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            self.wait_for_rate_limit().await;
+            let token = self.ensure_token().await?;
 
             let response = self
                 .client
                 .get(&url)
-                .bearer_auth(&new_token)
+                .bearer_auth(&token)
                 .send()
                 .await
-                .context("Spotify API retry failed")?;
+                .context("Spotify API request failed")?;
+
+            if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+                // Token expired, refresh and retry once
+                let mut token_lock = self.access_token.write().await;
+                *token_lock = None;
+                drop(token_lock);
+
+                let new_token = self.refresh_token().await?;
+                {
+                    let mut token_lock = self.access_token.write().await;
+                    *token_lock = Some(new_token.clone());
+                }
+
+                let response = self
+                    .client
+                    .get(&url)
+                    .bearer_auth(&new_token)
+                    .send()
+                    .await
+                    .context("Spotify API retry failed")?;
+
+                // Handle 429 on the auth-retry response too
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(anyhow::anyhow!(
+                            "Spotify API rate limited after {} retries: {}",
+                            MAX_RATE_LIMIT_RETRIES,
+                            endpoint
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(1)
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "Spotify API 429 (after auth retry) for {}, retry {}/{} after {}s",
+                        endpoint,
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    sleep(Duration::from_secs(wait_secs)).await;
+                    continue;
+                }
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let body = response.text().await.unwrap_or_default();
+                    return Err(anyhow::anyhow!("Spotify API error: {} - {}", status, body));
+                }
+
+                return response
+                    .json()
+                    .await
+                    .context("Failed to parse Spotify response");
+            }
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(anyhow::anyhow!(
+                        "Spotify API rate limited after {} retries: {}",
+                        MAX_RATE_LIMIT_RETRIES,
+                        endpoint
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1)
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Spotify API 429 for {}, retry {}/{} after {}s",
+                    endpoint,
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                sleep(Duration::from_secs(wait_secs)).await;
+                continue;
+            }
 
             if !response.status().is_success() {
                 let status = response.status();
@@ -173,20 +245,17 @@ impl SpotifySyncWorker {
                 return Err(anyhow::anyhow!("Spotify API error: {} - {}", status, body));
             }
 
-            response
+            return response
                 .json()
                 .await
-                .context("Failed to parse Spotify response")
-        } else if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            Err(anyhow::anyhow!("Spotify API error: {} - {}", status, body))
-        } else {
-            response
-                .json()
-                .await
-                .context("Failed to parse Spotify response")
+                .context("Failed to parse Spotify response");
         }
+
+        Err(anyhow::anyhow!(
+            "Spotify API request failed after {} retries: {}",
+            MAX_RATE_LIMIT_RETRIES,
+            endpoint
+        ))
     }
 }
 

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -45,6 +46,9 @@ impl PlaylistSanitizerService {
         playlist_id: &str,
         blocked_artist_ids: &HashSet<String>,
     ) -> Result<PlaylistGrade> {
+        let api_requests = AtomicU32::new(0);
+        let rate_limit_retries = AtomicU32::new(0);
+
         // Fetch playlist details
         let url = format!(
             "https://api.spotify.com/v1/playlists/{}?fields=id,name,tracks(total,items(track(id,name,duration_ms,artists(id,name),album(id,name))))",
@@ -52,7 +56,14 @@ impl PlaylistSanitizerService {
         );
         let response = self
             .spotify_service
-            .make_api_request(connection, "GET", &url, None)
+            .make_api_request_with_backoff(
+                connection,
+                "GET",
+                &url,
+                None,
+                &api_requests,
+                &rate_limit_retries,
+            )
             .await?;
 
         if !response.status().is_success() {
@@ -94,7 +105,14 @@ impl PlaylistSanitizerService {
             );
             let page_response = self
                 .spotify_service
-                .make_api_request(connection, "GET", &page_url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &page_url,
+                    None,
+                    &api_requests,
+                    &rate_limit_retries,
+                )
                 .await?;
 
             if page_response.status().is_success() {
@@ -253,6 +271,8 @@ impl PlaylistSanitizerService {
         grade: &PlaylistGrade,
         blocked_artist_ids: &HashSet<String>,
     ) -> Result<Vec<ReplacementSuggestion>> {
+        let api_requests = AtomicU32::new(0);
+        let rate_limit_retries = AtomicU32::new(0);
         let mut suggestions = Vec::new();
 
         for blocked_track in &grade.blocked_track_details {
@@ -261,13 +281,15 @@ impl PlaylistSanitizerService {
 
             match self
                 .spotify_service
-                .get_recommendations(
+                .get_recommendations_with_backoff(
                     connection,
                     &seed_tracks,
                     &[],
                     &[],
                     None,
                     Some(10), // Request 10, filter to 3
+                    &api_requests,
+                    &rate_limit_retries,
                 )
                 .await
             {
@@ -516,6 +538,9 @@ impl PlaylistSanitizerService {
         plan_id: Uuid,
         user_id: Uuid,
     ) -> Result<PublishResult> {
+        let api_requests = AtomicU32::new(0);
+        let rate_limit_retries = AtomicU32::new(0);
+
         let plan = self.load_plan(plan_id, user_id).await?;
 
         if plan.status != SanitizationStatus::Confirmed {
@@ -583,7 +608,14 @@ impl PlaylistSanitizerService {
             let page_url = format!("{}&offset={}", tracks_url, offset);
             let resp = self
                 .spotify_service
-                .make_api_request(connection, "GET", &page_url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &page_url,
+                    None,
+                    &api_requests,
+                    &rate_limit_retries,
+                )
                 .await?;
 
             if !resp.status().is_success() {
@@ -630,7 +662,14 @@ impl PlaylistSanitizerService {
         // Get user's Spotify ID
         let me_resp = self
             .spotify_service
-            .make_api_request(connection, "GET", "https://api.spotify.com/v1/me", None)
+            .make_api_request_with_backoff(
+                connection,
+                "GET",
+                "https://api.spotify.com/v1/me",
+                None,
+                &api_requests,
+                &rate_limit_retries,
+            )
             .await?;
         let me_json: serde_json::Value = me_resp.json().await?;
         let spotify_user_id = me_json
@@ -652,19 +691,28 @@ impl PlaylistSanitizerService {
         // Create the playlist
         let (new_playlist_id, new_playlist_url) = self
             .spotify_service
-            .create_playlist(
+            .create_playlist_with_backoff(
                 connection,
                 spotify_user_id,
                 target_name,
                 &description,
                 false,
+                &api_requests,
+                &rate_limit_retries,
             )
             .await?;
 
         // Add tracks in batches of 100
         for chunk in track_uris_ordered.chunks(100) {
             self.spotify_service
-                .add_playlist_tracks_batch(connection, &new_playlist_id, chunk, None)
+                .add_playlist_tracks_batch_with_backoff(
+                    connection,
+                    &new_playlist_id,
+                    chunk,
+                    None,
+                    &api_requests,
+                    &rate_limit_retries,
+                )
                 .await?;
         }
 

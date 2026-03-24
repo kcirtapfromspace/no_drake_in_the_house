@@ -766,6 +766,70 @@ impl SpotifyService {
         }
     }
 
+    /// Add tracks to a playlist with rate-limit backoff.
+    pub async fn add_playlist_tracks_batch_with_backoff(
+        &self,
+        connection: &Connection,
+        playlist_id: &str,
+        track_uris: &[String],
+        position: Option<u32>,
+        api_requests: &AtomicU32,
+        rate_limit_retries: &AtomicU32,
+    ) -> Result<String> {
+        if track_uris.is_empty() {
+            return Err(anyhow!("No tracks to add"));
+        }
+
+        if track_uris.len() > 100 {
+            return Err(anyhow!("Cannot add more than 100 tracks at once"));
+        }
+
+        let url = format!(
+            "https://api.spotify.com/v1/playlists/{}/tracks",
+            playlist_id
+        );
+        let mut body = serde_json::json!({ "uris": track_uris });
+
+        if let Some(pos) = position {
+            body["position"] = serde_json::json!(pos);
+        }
+
+        let response = self
+            .make_api_request_with_backoff(
+                connection,
+                "POST",
+                &url,
+                Some(body),
+                api_requests,
+                rate_limit_retries,
+            )
+            .await?;
+
+        if response.status().is_success() {
+            let response_json: serde_json::Value = response.json().await?;
+            let snapshot_id = response_json
+                .get("snapshot_id")
+                .and_then(|s| s.as_str())
+                .unwrap_or("unknown")
+                .to_string();
+
+            tracing::info!(
+                "Successfully added {} tracks to playlist {}",
+                track_uris.len(),
+                playlist_id
+            );
+            Ok(snapshot_id)
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "Failed to add playlist tracks: {} - {}",
+                status,
+                error_text
+            ))
+        }
+    }
+
     // ===========================================
     // Recommendations & Playlist Creation Methods
     // ===========================================
@@ -837,6 +901,81 @@ impl SpotifyService {
         }
     }
 
+    /// Get track recommendations with rate-limit backoff.
+    pub async fn get_recommendations_with_backoff(
+        &self,
+        connection: &Connection,
+        seed_track_ids: &[String],
+        seed_artist_ids: &[String],
+        seed_genres: &[String],
+        target_popularity: Option<u32>,
+        limit: Option<u32>,
+        api_requests: &AtomicU32,
+        rate_limit_retries: &AtomicU32,
+    ) -> Result<Vec<serde_json::Value>> {
+        let total_seeds = seed_track_ids.len() + seed_artist_ids.len() + seed_genres.len();
+        if total_seeds == 0 {
+            return Err(anyhow!("At least one seed is required"));
+        }
+        if total_seeds > 5 {
+            return Err(anyhow!(
+                "Spotify allows a maximum of 5 total seeds, got {}",
+                total_seeds
+            ));
+        }
+
+        let mut params = Vec::new();
+        if !seed_track_ids.is_empty() {
+            params.push(format!("seed_tracks={}", seed_track_ids.join(",")));
+        }
+        if !seed_artist_ids.is_empty() {
+            params.push(format!("seed_artists={}", seed_artist_ids.join(",")));
+        }
+        if !seed_genres.is_empty() {
+            params.push(format!("seed_genres={}", seed_genres.join(",")));
+        }
+        if let Some(pop) = target_popularity {
+            params.push(format!("target_popularity={}", pop));
+        }
+        params.push(format!("limit={}", limit.unwrap_or(20)));
+
+        let url = format!(
+            "https://api.spotify.com/v1/recommendations?{}",
+            params.join("&")
+        );
+
+        let response = self
+            .make_api_request_with_backoff(
+                connection,
+                "GET",
+                &url,
+                None,
+                api_requests,
+                rate_limit_retries,
+            )
+            .await?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await?;
+            let tracks = json
+                .get("tracks")
+                .and_then(|t| t.as_array())
+                .cloned()
+                .unwrap_or_default();
+
+            tracing::info!("Got {} recommendations from Spotify", tracks.len());
+            Ok(tracks)
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "Failed to get recommendations: {} - {}",
+                status,
+                error_text
+            ))
+        }
+    }
+
     /// Create a new playlist on the user's Spotify account.
     ///
     /// Returns (playlist_id, playlist_url).
@@ -861,6 +1000,66 @@ impl SpotifyService {
 
         let response = self
             .make_api_request(connection, "POST", &url, Some(body))
+            .await?;
+
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().await?;
+            let playlist_id = json
+                .get("id")
+                .and_then(|v| v.as_str())
+                .ok_or_else(|| anyhow!("Missing playlist id in response"))?
+                .to_string();
+            let playlist_url = json
+                .get("external_urls")
+                .and_then(|u| u.get("spotify"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            tracing::info!("Created playlist '{}' ({})", name, playlist_id);
+            Ok((playlist_id, playlist_url))
+        } else {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "Failed to create playlist: {} - {}",
+                status,
+                error_text
+            ))
+        }
+    }
+
+    /// Create a new playlist with rate-limit backoff.
+    pub async fn create_playlist_with_backoff(
+        &self,
+        connection: &Connection,
+        spotify_user_id: &str,
+        name: &str,
+        description: &str,
+        public: bool,
+        api_requests: &AtomicU32,
+        rate_limit_retries: &AtomicU32,
+    ) -> Result<(String, String)> {
+        let url = format!(
+            "https://api.spotify.com/v1/users/{}/playlists",
+            spotify_user_id
+        );
+
+        let body = serde_json::json!({
+            "name": name,
+            "description": description,
+            "public": public,
+        });
+
+        let response = self
+            .make_api_request_with_backoff(
+                connection,
+                "POST",
+                &url,
+                Some(body),
+                api_requests,
+                rate_limit_retries,
+            )
             .await?;
 
         if response.status().is_success() {
@@ -1044,7 +1243,7 @@ impl SpotifyService {
     }
 
     /// Make an API request with exponential backoff on rate limiting
-    async fn make_api_request_with_backoff(
+    pub async fn make_api_request_with_backoff(
         &self,
         connection: &Connection,
         method: &str,

@@ -12,6 +12,11 @@ use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 
+/// Maximum number of retries on 429 rate-limit responses.
+const MAX_RATE_LIMIT_RETRIES: u32 = 3;
+/// Maximum Retry-After wait time in seconds for OAuth endpoints.
+const MAX_RETRY_AFTER_SECS: u64 = 30;
+
 /// Spotify OAuth provider implementation
 pub struct SpotifyOAuthProvider {
     config: OAuthConfig,
@@ -151,88 +156,152 @@ impl OAuthProvider for SpotifyOAuthProvider {
         let auth_string = format!("{}:{}", self.config.client_id, self.config.client_secret);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let response = self
-            .client
-            .post(token_url)
-            .header("Authorization", auth_header)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to exchange code: {}", e))
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .client
+                .post(token_url)
+                .header("Authorization", auth_header.clone())
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .form(&params)
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("Failed to exchange code: {}", e))
+                })?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "Spotify token exchange rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1)
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Spotify token exchange 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Spotify token exchange failed: {}",
+                    error_text
+                )));
+            }
+
+            let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to parse token response: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Spotify token exchange failed: {}",
-                error_text
-            )));
+            return Ok(OAuthTokens {
+                access_token: token_response.access_token,
+                refresh_token: token_response.refresh_token,
+                expires_in: Some(token_response.expires_in),
+                token_type: token_response.token_type,
+                scope: Some(token_response.scope),
+                id_token: None,
+            });
         }
 
-        let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse token response: {}", e))
-        })?;
-
-        Ok(OAuthTokens {
-            access_token: token_response.access_token,
-            refresh_token: token_response.refresh_token,
-            expires_in: Some(token_response.expires_in),
-            token_type: token_response.token_type,
-            scope: Some(token_response.scope),
-            id_token: None,
-        })
+        Err(AppError::ExternalServiceError(format!(
+            "Spotify token exchange failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
         let user_url = "https://api.spotify.com/v1/me";
 
-        let response = self
-            .client
-            .get(user_url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to get user info: {}", e))
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .client
+                .get(user_url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("Failed to get user info: {}", e))
+                })?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "Spotify user info rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1)
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Spotify user info 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Spotify user info request failed: {}",
+                    error_text
+                )));
+            }
+
+            let user_profile: SpotifyUserProfile = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to parse user profile: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Spotify user info request failed: {}",
-                error_text
-            )));
+            // Get avatar URL from images
+            let avatar_url = user_profile
+                .images
+                .as_ref()
+                .and_then(|images| images.first())
+                .map(|image| image.url.clone());
+
+            let mut provider_data = HashMap::new();
+            if let Some(country) = user_profile.country {
+                provider_data.insert("country".to_string(), serde_json::Value::String(country));
+            }
+
+            return Ok(OAuthUserInfo {
+                provider_user_id: user_profile.id,
+                email: user_profile.email,
+                email_verified: Some(true), // Spotify emails are generally verified
+                display_name: user_profile.display_name,
+                first_name: None,
+                last_name: None,
+                avatar_url,
+                locale: None,
+                provider_data,
+            });
         }
 
-        let user_profile: SpotifyUserProfile = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse user profile: {}", e))
-        })?;
-
-        // Get avatar URL from images
-        let avatar_url = user_profile
-            .images
-            .as_ref()
-            .and_then(|images| images.first())
-            .map(|image| image.url.clone());
-
-        let mut provider_data = HashMap::new();
-        if let Some(country) = user_profile.country {
-            provider_data.insert("country".to_string(), serde_json::Value::String(country));
-        }
-
-        Ok(OAuthUserInfo {
-            provider_user_id: user_profile.id,
-            email: user_profile.email,
-            email_verified: Some(true), // Spotify emails are generally verified
-            display_name: user_profile.display_name,
-            first_name: None,
-            last_name: None,
-            avatar_url,
-            locale: None,
-            provider_data,
-        })
+        Err(AppError::ExternalServiceError(format!(
+            "Spotify user info failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens> {
@@ -247,40 +316,72 @@ impl OAuthProvider for SpotifyOAuthProvider {
         let auth_string = format!("{}:{}", self.config.client_id, self.config.client_secret);
         let auth_header = format!("Basic {}", general_purpose::STANDARD.encode(auth_string));
 
-        let response = self
-            .client
-            .post(token_url)
-            .header("Authorization", auth_header)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to refresh token: {}", e))
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .client
+                .post(token_url)
+                .header("Authorization", auth_header.clone())
+                .header("Content-Type", "application/x-www-form-urlencoded")
+                .form(&params)
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("Failed to refresh token: {}", e))
+                })?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "Spotify token refresh rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1)
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Spotify token refresh 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Spotify token refresh failed: {}",
+                    error_text
+                )));
+            }
+
+            let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e))
             })?;
 
-        if !response.status().is_success() {
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Spotify token refresh failed: {}",
-                error_text
-            )));
+            return Ok(OAuthTokens {
+                access_token: token_response.access_token,
+                refresh_token: token_response
+                    .refresh_token
+                    .or_else(|| Some(refresh_token.to_string())), // Keep old refresh token if new one not provided
+                expires_in: Some(token_response.expires_in),
+                token_type: token_response.token_type,
+                scope: Some(token_response.scope),
+                id_token: None,
+            });
         }
 
-        let token_response: SpotifyTokenResponse = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse refresh response: {}", e))
-        })?;
-
-        Ok(OAuthTokens {
-            access_token: token_response.access_token,
-            refresh_token: token_response
-                .refresh_token
-                .or_else(|| Some(refresh_token.to_string())), // Keep old refresh token if new one not provided
-            expires_in: Some(token_response.expires_in),
-            token_type: token_response.token_type,
-            scope: Some(token_response.scope),
-            id_token: None,
-        })
+        Err(AppError::ExternalServiceError(format!(
+            "Spotify token refresh failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 
     fn validate_config(&self) -> Result<()> {

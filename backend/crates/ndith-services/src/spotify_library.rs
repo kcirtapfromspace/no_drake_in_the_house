@@ -3,6 +3,7 @@ use chrono::Utc;
 use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -19,6 +20,10 @@ use ndith_core::models::{
 pub struct SpotifyLibraryService {
     spotify_service: Arc<SpotifyService>,
     featuring_patterns: Vec<Regex>,
+    /// Counter for total API requests made during library scanning
+    api_requests: AtomicU32,
+    /// Counter for rate-limit retries encountered during library scanning
+    rate_limit_retries: AtomicU32,
 }
 
 impl SpotifyLibraryService {
@@ -36,6 +41,8 @@ impl SpotifyLibraryService {
         Self {
             spotify_service,
             featuring_patterns,
+            api_requests: AtomicU32::new(0),
+            rate_limit_retries: AtomicU32::new(0),
         }
     }
 
@@ -69,7 +76,14 @@ impl SpotifyLibraryService {
     ) -> Result<crate::spotify::SpotifyUserProfile> {
         let response = self
             .spotify_service
-            .make_api_request(connection, "GET", "https://api.spotify.com/v1/me", None)
+            .make_api_request_with_backoff(
+                connection,
+                "GET",
+                "https://api.spotify.com/v1/me",
+                None,
+                &self.api_requests,
+                &self.rate_limit_retries,
+            )
             .await?;
 
         if response.status().is_success() {
@@ -94,7 +108,14 @@ impl SpotifyLibraryService {
 
             let response = self
                 .spotify_service
-                .make_api_request(connection, "GET", &url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &url,
+                    None,
+                    &self.api_requests,
+                    &self.rate_limit_retries,
+                )
                 .await?;
 
             if !response.status().is_success() {
@@ -143,7 +164,14 @@ impl SpotifyLibraryService {
 
             let response = self
                 .spotify_service
-                .make_api_request(connection, "GET", &url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &url,
+                    None,
+                    &self.api_requests,
+                    &self.rate_limit_retries,
+                )
                 .await?;
 
             if !response.status().is_success() {
@@ -191,7 +219,14 @@ impl SpotifyLibraryService {
 
         let response = self
             .spotify_service
-            .make_api_request(connection, "GET", &url, None)
+            .make_api_request_with_backoff(
+                connection,
+                "GET",
+                &url,
+                None,
+                &self.api_requests,
+                &self.rate_limit_retries,
+            )
             .await?;
 
         if !response.status().is_success() {
@@ -226,7 +261,14 @@ impl SpotifyLibraryService {
 
             let response = self
                 .spotify_service
-                .make_api_request(connection, "GET", &url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &url,
+                    None,
+                    &self.api_requests,
+                    &self.rate_limit_retries,
+                )
                 .await?;
 
             if !response.status().is_success() {
@@ -282,7 +324,14 @@ impl SpotifyLibraryService {
 
             let response = self
                 .spotify_service
-                .make_api_request(connection, "GET", &url, None)
+                .make_api_request_with_backoff(
+                    connection,
+                    "GET",
+                    &url,
+                    None,
+                    &self.api_requests,
+                    &self.rate_limit_retries,
+                )
                 .await?;
 
             if !response.status().is_success() {

@@ -102,8 +102,8 @@ impl SpotifyOAuthProvider {
             ("scope", scope_string.as_str()),
         ];
 
-        // Add show_dialog parameter to force user to approve the app each time (optional)
-        params.push(("show_dialog", "false"));
+        // Force the Spotify consent screen so users can switch accounts
+        params.push(("show_dialog", "true"));
 
         let query_string = params
             .iter()

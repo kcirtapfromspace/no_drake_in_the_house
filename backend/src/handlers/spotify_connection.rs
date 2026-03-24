@@ -253,8 +253,8 @@ pub async fn spotify_callback_handler(
         });
     }
 
-    // Delete state from Redis to prevent replay attacks
-    delete_oauth_state(&state.redis_pool, &request.state).await?;
+    // NOTE: State is deleted from Redis after successful connection storage (below)
+    // to allow retries if the token exchange or user info fetch fails transiently.
 
     // Create Spotify OAuth provider with connection-specific scopes
     let spotify_provider = create_connection_provider().map_err(|e| {
@@ -329,6 +329,9 @@ pub async fn spotify_callback_handler(
         expires_at,
     )
     .await?;
+
+    // Now that the connection is stored, delete the OAuth state to prevent replay attacks
+    delete_oauth_state(&state.redis_pool, &request.state).await?;
 
     let (sync_summary, sync_warning) = match sync_spotify_library_to_user_library(
         &state.db_pool,

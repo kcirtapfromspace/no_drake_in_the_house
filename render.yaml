@@ -162,7 +162,6 @@ services:
     rootDir: frontend
     dockerfilePath: ./Dockerfile.render
     dockerContext: .
-    autoDeployTrigger: commit
     healthCheckPath: /render-health
     domains:
       - nodrakeinthe.house

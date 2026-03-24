@@ -797,13 +797,23 @@ jobs:
       - name: Trigger Render frontend deploy
         if: ${{ steps.resolve.outputs.service_id != '' }}
         run: |
-          curl --fail --silent --show-error \
-            --request POST \
-            --url "https://api.render.com/v1/services/${{ steps.resolve.outputs.service_id }}/deploys" \
-            --header "Authorization: Bearer ${RENDER_API_KEY}" \
-            --header "Content-Type: application/json" \
-            --data '{}'
-          echo "Triggered Render frontend deploy"
+          deploy_response="$(
+            curl --fail --silent --show-error \
+              --request POST \
+              --url "https://api.render.com/v1/services/${{ steps.resolve.outputs.service_id }}/deploys" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --header "Content-Type: application/json" \
+              --data '{}'
+          )"
+          echo "Deploy response: ${deploy_response}"
+          deploy_status="$(echo "${deploy_response}" | jq -r '.status // empty')"
+          deploy_id="$(echo "${deploy_response}" | jq -r '.id // empty')"
+          echo "Deploy ID: ${deploy_id}, Status: ${deploy_status}"
+          if [ "${deploy_status}" = "build_failed" ] || [ "${deploy_status}" = "deactivated" ]; then
+            echo "::error::Render deploy failed immediately with status: ${deploy_status}"
+            exit 1
+          fi
+          echo "Triggered Render frontend deploy: ${deploy_id} (${deploy_status})"
 
   ci-success:
     name: CI Success

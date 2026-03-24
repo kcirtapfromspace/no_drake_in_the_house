@@ -18,6 +18,11 @@ use uuid::Uuid;
 /// YouTube Data API base URL
 const YOUTUBE_API_BASE: &str = "https://www.googleapis.com/youtube/v3";
 
+/// Max retries on 429 responses
+const MAX_RETRIES: u32 = 3;
+/// Max seconds to wait on a Retry-After header
+const MAX_RETRY_WAIT_SECS: u64 = 60;
+
 /// YouTube Music sync worker
 ///
 /// Note: YouTube Music doesn't have a dedicated API. We use the YouTube Data API
@@ -111,7 +116,7 @@ impl YouTubeMusicSyncWorker {
         }
     }
 
-    /// Make an API request
+    /// Make an API request with 429/Retry-After handling
     async fn api_request<T: for<'de> Deserialize<'de>>(
         &self,
         endpoint: &str,
@@ -128,23 +133,46 @@ impl YouTubeMusicSyncWorker {
             self.api_key
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("YouTube API request failed")?;
+        for attempt in 0..=MAX_RETRIES {
+            let response = self
+                .client
+                .get(&url)
+                .send()
+                .await
+                .context("YouTube API request failed")?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("YouTube API error: {} - {}", status, body));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RETRIES {
+                    return Err(anyhow::anyhow!(
+                        "YouTube API rate limit exceeded after {} retries", MAX_RETRIES
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited, retry {}/{} after {}s",
+                    attempt + 1, MAX_RETRIES, wait
+                );
+                sleep(Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                return Err(anyhow::anyhow!("YouTube API error: {} - {}", status, body));
+            }
+
+            return response
+                .json()
+                .await
+                .context("Failed to parse YouTube response");
         }
 
-        response
-            .json()
-            .await
-            .context("Failed to parse YouTube response")
+        Err(anyhow::anyhow!("YouTube API request failed after retries"))
     }
 }
 

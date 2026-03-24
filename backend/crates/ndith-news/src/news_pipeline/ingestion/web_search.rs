@@ -129,19 +129,53 @@ impl WebSearchClient {
 
     /// Execute a single search query
     async fn search(&self, query: &str) -> Result<Vec<FetchedArticle>> {
-        let response = self
-            .http
-            .get("https://api.search.brave.com/res/v1/web/search")
-            .header("X-Subscription-Token", &self.config.api_key)
-            .header("Accept", "application/json")
-            .query(&[
-                ("q", query),
-                ("count", &self.config.max_results_per_query.to_string()),
-                ("text_decorations", "false"),
-            ])
-            .send()
-            .await
-            .context("Brave Search API request failed")?;
+        let api_url = "https://api.search.brave.com/res/v1/web/search";
+        let count_str = self.config.max_results_per_query.to_string();
+
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .http
+                .get(api_url)
+                .header("X-Subscription-Token", &self.config.api_key)
+                .header("Accept", "application/json")
+                .query(&[
+                    ("q", query),
+                    ("count", count_str.as_str()),
+                    ("text_decorations", "false"),
+                ])
+                .send()
+                .await
+                .context("Brave Search API request failed")?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Brave Search rate limited after 4 attempts"
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Brave Search, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("Brave Search: no response after retries"))?;
 
         if !response.status().is_success() {
             let status = response.status();

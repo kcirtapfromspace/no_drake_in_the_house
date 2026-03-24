@@ -174,12 +174,45 @@ impl RedditMonitor {
             REDDIT_BASE, subreddit, self.config.max_posts
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context(format!("Failed to fetch r/{}", subreddit))?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&url)
+                .send()
+                .await
+                .context(format!("Failed to fetch r/{}", subreddit))?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Reddit rate limited on r/{} after 4 attempts",
+                        subreddit
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Reddit r/{}, retry {}/3 after {}s",
+                    subreddit,
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("Reddit r/{}: no response after retries", subreddit))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -267,12 +300,43 @@ impl RedditMonitor {
             )
         };
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("Reddit search failed")?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&url)
+                .send()
+                .await
+                .context("Reddit search failed")?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Reddit search rate limited after 4 attempts"
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Reddit search, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("Reddit search: no response after retries"))?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

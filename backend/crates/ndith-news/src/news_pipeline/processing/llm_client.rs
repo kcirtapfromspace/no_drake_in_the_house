@@ -660,16 +660,48 @@ Respond ONLY with valid JSON:
     }
 
     async fn do_request(&self, request: &MessagesRequest, model: &ClaudeModel) -> Result<String> {
-        let response = self
-            .http
-            .post("https://api.anthropic.com/v1/messages")
-            .header("x-api-key", &self.config.api_key)
-            .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(request)
-            .send()
-            .await
-            .context("Failed to send request to Claude API")?;
+        let api_url = "https://api.anthropic.com/v1/messages";
+
+        let mut response = None;
+        for attempt in 0..=3u32 {
+            let resp = self
+                .http
+                .post(api_url)
+                .header("x-api-key", &self.config.api_key)
+                .header("anthropic-version", "2023-06-01")
+                .header("content-type", "application/json")
+                .json(request)
+                .send()
+                .await
+                .context("Failed to send request to Claude API")?;
+
+            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Claude API rate limited after 4 attempts"
+                    ));
+                }
+                let wait = resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Claude API, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            response = Some(resp);
+            break;
+        }
+
+        let response = response.ok_or_else(|| anyhow::anyhow!("Claude API: no response after retries"))?;
 
         if !response.status().is_success() {
             let status = response.status();

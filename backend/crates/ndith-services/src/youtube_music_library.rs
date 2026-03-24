@@ -24,6 +24,8 @@ pub struct YouTubeMusicLibraryService {
 impl YouTubeMusicLibraryService {
     const YOUTUBE_API_BASE: &'static str = "https://www.googleapis.com/youtube/v3";
     const MAX_RESULTS_PER_PAGE: u32 = 50;
+    const MAX_RETRIES: u32 = 3;
+    const MAX_RETRY_WAIT_SECS: u64 = 60;
 
     /// Create a new YouTube Music library service
     pub fn new(db_pool: PgPool) -> Self {
@@ -79,37 +81,63 @@ impl YouTubeMusicLibraryService {
             Self::YOUTUBE_API_BASE
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| AppError::ExternalServiceError(format!(
-                "YouTube API request failed: {}", e
-            )))?;
+        let mut last_error = None;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .get(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| AppError::ExternalServiceError(format!(
+                    "YouTube API request failed: {}", e
+                )))?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "YouTube API error ({}): {}", status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (get_user_channel_id)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (get_user_channel_id), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "YouTube API error ({}): {}", status, error_text
+                )));
+            }
+
+            let data: serde_json::Value = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!("Failed to parse YouTube response: {}", e))
+            })?;
+
+            return data["items"]
+                .as_array()
+                .and_then(|items| items.first())
+                .and_then(|item| item["id"].as_str())
+                .map(|s| s.to_string())
+                .ok_or_else(|| AppError::ExternalServiceError(
+                    "No YouTube channel found for user".to_string()
+                ));
         }
 
-        let data: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse YouTube response: {}", e))
-        })?;
-
-        data["items"]
-            .as_array()
-            .and_then(|items| items.first())
-            .and_then(|item| item["id"].as_str())
-            .map(|s| s.to_string())
-            .ok_or_else(|| AppError::ExternalServiceError(
-                "No YouTube channel found for user".to_string()
-            ))
+        Err(last_error.unwrap_or_else(|| AppError::ExternalServiceError(
+            "YouTube API request failed after retries".to_string()
+        )))
     }
 
     /// Scan liked videos from the user's "Liked Music" playlist
@@ -128,38 +156,58 @@ impl YouTubeMusicLibraryService {
                 url.push_str(&format!("&pageToken={}", token));
             }
 
-            let response = self
-                .client
-                .get(&url)
-                .header("Authorization", format!("Bearer {}", access_token))
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| AppError::ExternalServiceError(format!(
-                    "YouTube API request failed: {}", e
-                )))?;
+            let list_response: YouTubeListResponse<YouTubeMusicVideo> = {
+                let mut result = None;
+                for attempt in 0..=Self::MAX_RETRIES {
+                    let response = self
+                        .client
+                        .get(&url)
+                        .header("Authorization", format!("Bearer {}", access_token))
+                        .header("Accept", "application/json")
+                        .send()
+                        .await
+                        .map_err(|e| AppError::ExternalServiceError(format!(
+                            "YouTube API request failed: {}", e
+                        )))?;
 
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
+                    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        if attempt == Self::MAX_RETRIES {
+                            return Err(AppError::ExternalServiceError(
+                                "YouTube API rate limit exceeded after max retries (scan_liked_videos)".to_string()
+                            ));
+                        }
+                        let wait = response.headers().get("retry-after")
+                            .and_then(|h| h.to_str().ok())
+                            .and_then(|s| s.parse::<u64>().ok())
+                            .unwrap_or(2u64.pow(attempt + 1))
+                            .min(Self::MAX_RETRY_WAIT_SECS);
+                        tracing::warn!(
+                            "YouTube API rate limited (scan_liked_videos), retry {}/{} after {}s",
+                            attempt + 1, Self::MAX_RETRIES, wait
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
+                    }
 
-                // Handle rate limiting with retry-after
-                if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                    tracing::warn!("YouTube API rate limit hit during liked videos scan");
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(AppError::ExternalServiceError(format!(
+                            "YouTube API error ({}): {}", status, error_text
+                        )));
+                    }
+
+                    result = Some(response.json().await.map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to parse YouTube videos response: {}", e
+                        ))
+                    })?);
                     break;
                 }
-
-                return Err(AppError::ExternalServiceError(format!(
-                    "YouTube API error ({}): {}", status, error_text
-                )));
-            }
-
-            let list_response: YouTubeListResponse<YouTubeMusicVideo> =
-                response.json().await.map_err(|e| {
-                    AppError::ExternalServiceError(format!(
-                        "Failed to parse YouTube videos response: {}", e
-                    ))
-                })?;
+                result.ok_or_else(|| AppError::ExternalServiceError(
+                    "YouTube API request failed after retries".to_string()
+                ))?
+            };
 
             liked_videos.extend(list_response.items);
 
@@ -191,37 +239,58 @@ impl YouTubeMusicLibraryService {
                 url.push_str(&format!("&pageToken={}", token));
             }
 
-            let response = self
-                .client
-                .get(&url)
-                .header("Authorization", format!("Bearer {}", access_token))
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| AppError::ExternalServiceError(format!(
-                    "YouTube API request failed: {}", e
-                )))?;
+            let list_response: YouTubeListResponse<YouTubeMusicPlaylist> = {
+                let mut result = None;
+                for attempt in 0..=Self::MAX_RETRIES {
+                    let response = self
+                        .client
+                        .get(&url)
+                        .header("Authorization", format!("Bearer {}", access_token))
+                        .header("Accept", "application/json")
+                        .send()
+                        .await
+                        .map_err(|e| AppError::ExternalServiceError(format!(
+                            "YouTube API request failed: {}", e
+                        )))?;
 
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
+                    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        if attempt == Self::MAX_RETRIES {
+                            return Err(AppError::ExternalServiceError(
+                                "YouTube API rate limit exceeded after max retries (scan_playlists)".to_string()
+                            ));
+                        }
+                        let wait = response.headers().get("retry-after")
+                            .and_then(|h| h.to_str().ok())
+                            .and_then(|s| s.parse::<u64>().ok())
+                            .unwrap_or(2u64.pow(attempt + 1))
+                            .min(Self::MAX_RETRY_WAIT_SECS);
+                        tracing::warn!(
+                            "YouTube API rate limited (scan_playlists), retry {}/{} after {}s",
+                            attempt + 1, Self::MAX_RETRIES, wait
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
+                    }
 
-                if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                    tracing::warn!("YouTube API rate limit hit during playlists scan");
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(AppError::ExternalServiceError(format!(
+                            "YouTube API error ({}): {}", status, error_text
+                        )));
+                    }
+
+                    result = Some(response.json().await.map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to parse YouTube playlists response: {}", e
+                        ))
+                    })?);
                     break;
                 }
-
-                return Err(AppError::ExternalServiceError(format!(
-                    "YouTube API error ({}): {}", status, error_text
-                )));
-            }
-
-            let list_response: YouTubeListResponse<YouTubeMusicPlaylist> =
-                response.json().await.map_err(|e| {
-                    AppError::ExternalServiceError(format!(
-                        "Failed to parse YouTube playlists response: {}", e
-                    ))
-                })?;
+                result.ok_or_else(|| AppError::ExternalServiceError(
+                    "YouTube API request failed after retries".to_string()
+                ))?
+            };
 
             playlists.extend(list_response.items);
 
@@ -252,37 +321,58 @@ impl YouTubeMusicLibraryService {
                 url.push_str(&format!("&pageToken={}", token));
             }
 
-            let response = self
-                .client
-                .get(&url)
-                .header("Authorization", format!("Bearer {}", access_token))
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| AppError::ExternalServiceError(format!(
-                    "YouTube API request failed: {}", e
-                )))?;
+            let data: serde_json::Value = {
+                let mut result = None;
+                for attempt in 0..=Self::MAX_RETRIES {
+                    let response = self
+                        .client
+                        .get(&url)
+                        .header("Authorization", format!("Bearer {}", access_token))
+                        .header("Accept", "application/json")
+                        .send()
+                        .await
+                        .map_err(|e| AppError::ExternalServiceError(format!(
+                            "YouTube API request failed: {}", e
+                        )))?;
 
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
+                    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        if attempt == Self::MAX_RETRIES {
+                            return Err(AppError::ExternalServiceError(
+                                "YouTube API rate limit exceeded after max retries (scan_subscriptions)".to_string()
+                            ));
+                        }
+                        let wait = response.headers().get("retry-after")
+                            .and_then(|h| h.to_str().ok())
+                            .and_then(|s| s.parse::<u64>().ok())
+                            .unwrap_or(2u64.pow(attempt + 1))
+                            .min(Self::MAX_RETRY_WAIT_SECS);
+                        tracing::warn!(
+                            "YouTube API rate limited (scan_subscriptions), retry {}/{} after {}s",
+                            attempt + 1, Self::MAX_RETRIES, wait
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
+                    }
 
-                if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                    tracing::warn!("YouTube API rate limit hit during subscriptions scan");
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(AppError::ExternalServiceError(format!(
+                            "YouTube API error ({}): {}", status, error_text
+                        )));
+                    }
+
+                    result = Some(response.json().await.map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to parse YouTube subscriptions response: {}", e
+                        ))
+                    })?);
                     break;
                 }
-
-                return Err(AppError::ExternalServiceError(format!(
-                    "YouTube API error ({}): {}", status, error_text
-                )));
-            }
-
-            // Subscriptions have a different structure - need to convert
-            let data: serde_json::Value = response.json().await.map_err(|e| {
-                AppError::ExternalServiceError(format!(
-                    "Failed to parse YouTube subscriptions response: {}", e
-                ))
-            })?;
+                result.ok_or_else(|| AppError::ExternalServiceError(
+                    "YouTube API request failed after retries".to_string()
+                ))?
+            };
 
             let items = data["items"].as_array().cloned().unwrap_or_default();
 
@@ -340,37 +430,58 @@ impl YouTubeMusicLibraryService {
                 url.push_str(&format!("&pageToken={}", token));
             }
 
-            let response = self
-                .client
-                .get(&url)
-                .header("Authorization", format!("Bearer {}", access_token))
-                .header("Accept", "application/json")
-                .send()
-                .await
-                .map_err(|e| AppError::ExternalServiceError(format!(
-                    "YouTube API request failed: {}", e
-                )))?;
+            let list_response: YouTubeListResponse<YouTubeMusicPlaylistItem> = {
+                let mut result = None;
+                for attempt in 0..=Self::MAX_RETRIES {
+                    let response = self
+                        .client
+                        .get(&url)
+                        .header("Authorization", format!("Bearer {}", access_token))
+                        .header("Accept", "application/json")
+                        .send()
+                        .await
+                        .map_err(|e| AppError::ExternalServiceError(format!(
+                            "YouTube API request failed: {}", e
+                        )))?;
 
-            if !response.status().is_success() {
-                let status = response.status();
-                let error_text = response.text().await.unwrap_or_default();
+                    if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                        if attempt == Self::MAX_RETRIES {
+                            return Err(AppError::ExternalServiceError(
+                                "YouTube API rate limit exceeded after max retries (scan_playlist_items)".to_string()
+                            ));
+                        }
+                        let wait = response.headers().get("retry-after")
+                            .and_then(|h| h.to_str().ok())
+                            .and_then(|s| s.parse::<u64>().ok())
+                            .unwrap_or(2u64.pow(attempt + 1))
+                            .min(Self::MAX_RETRY_WAIT_SECS);
+                        tracing::warn!(
+                            "YouTube API rate limited (scan_playlist_items), retry {}/{} after {}s",
+                            attempt + 1, Self::MAX_RETRIES, wait
+                        );
+                        tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                        continue;
+                    }
 
-                if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                    tracing::warn!("YouTube API rate limit hit during playlist items scan");
+                    if !response.status().is_success() {
+                        let status = response.status();
+                        let error_text = response.text().await.unwrap_or_default();
+                        return Err(AppError::ExternalServiceError(format!(
+                            "YouTube API error ({}): {}", status, error_text
+                        )));
+                    }
+
+                    result = Some(response.json().await.map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to parse YouTube playlist items response: {}", e
+                        ))
+                    })?);
                     break;
                 }
-
-                return Err(AppError::ExternalServiceError(format!(
-                    "YouTube API error ({}): {}", status, error_text
-                )));
-            }
-
-            let list_response: YouTubeListResponse<YouTubeMusicPlaylistItem> =
-                response.json().await.map_err(|e| {
-                    AppError::ExternalServiceError(format!(
-                        "Failed to parse YouTube playlist items response: {}", e
-                    ))
-                })?;
+                result.ok_or_else(|| AppError::ExternalServiceError(
+                    "YouTube API request failed after retries".to_string()
+                ))?
+            };
 
             items.extend(list_response.items);
 

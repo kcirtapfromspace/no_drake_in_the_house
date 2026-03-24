@@ -229,13 +229,44 @@ impl TwitterMonitor {
             self.config.max_results.min(100)
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .bearer_auth(&self.config.bearer_token)
-            .send()
-            .await
-            .context("Twitter API request failed")?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&url)
+                .bearer_auth(&self.config.bearer_token)
+                .send()
+                .await
+                .context("Twitter API request failed")?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Twitter API rate limited after 4 attempts"
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Twitter API, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("Twitter API: no response after retries"))?;
 
         if !response.status().is_success() {
             let status = response.status();

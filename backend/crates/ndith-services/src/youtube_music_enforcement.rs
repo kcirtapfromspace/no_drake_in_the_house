@@ -33,6 +33,8 @@ pub struct YouTubeMusicEnforcementService {
 impl YouTubeMusicEnforcementService {
     const YOUTUBE_API_BASE: &'static str = "https://www.googleapis.com/youtube/v3";
     const BATCH_DELAY_MS: u64 = 200; // Delay between API calls for rate limiting
+    const MAX_RETRIES: u32 = 3;
+    const MAX_RETRY_WAIT_SECS: u64 = 60;
 
     /// Create a new YouTube Music enforcement service
     pub fn new(db_pool: PgPool, library_service: Arc<YouTubeMusicLibraryService>) -> Self {
@@ -341,24 +343,47 @@ impl YouTubeMusicEnforcementService {
             video_id
         );
 
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Content-Length", "0")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Content-Length", "0")
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to remove like ({}): {}",
-                status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (remove_like)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (remove_like), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Failed to remove like ({}): {}",
+                    status, error_text
+                )));
+            }
+
+            return Ok(());
         }
 
         Ok(())
@@ -378,24 +403,47 @@ impl YouTubeMusicEnforcementService {
             rating
         );
 
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Content-Length", "0")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Content-Length", "0")
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to rate video ({}): {}",
-                status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (rate_video)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (rate_video), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Failed to rate video ({}): {}",
+                    status, error_text
+                )));
+            }
+
+            return Ok(());
         }
 
         Ok(())
@@ -409,23 +457,46 @@ impl YouTubeMusicEnforcementService {
             playlist_item_id
         );
 
-        let response = self
-            .client
-            .delete(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .delete(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to remove playlist item ({}): {}",
-                status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (remove_playlist_item)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (remove_playlist_item), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Failed to remove playlist item ({}): {}",
+                    status, error_text
+                )));
+            }
+
+            return Ok(());
         }
 
         Ok(())
@@ -444,29 +515,57 @@ impl YouTubeMusicEnforcementService {
             channel_id
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        let data: serde_json::Value = {
+            let mut result = None;
+            for attempt in 0..=Self::MAX_RETRIES {
+                let response = self
+                    .client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", access_token))
+                    .header("Accept", "application/json")
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                    })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to find subscription ({}): {}",
-                status, error_text
-            )));
-        }
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == Self::MAX_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "YouTube API rate limit exceeded after max retries (find_subscription)".to_string()
+                        ));
+                    }
+                    let wait = response.headers().get("retry-after")
+                        .and_then(|h| h.to_str().ok())
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt + 1))
+                        .min(Self::MAX_RETRY_WAIT_SECS);
+                    tracing::warn!(
+                        "YouTube API rate limited (find_subscription), retry {}/{} after {}s",
+                        attempt + 1, Self::MAX_RETRIES, wait
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                    continue;
+                }
 
-        let data: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse response: {}", e))
-        })?;
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response.text().await.unwrap_or_default();
+                    return Err(AppError::ExternalServiceError(format!(
+                        "Failed to find subscription ({}): {}",
+                        status, error_text
+                    )));
+                }
+
+                result = Some(response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!("Failed to parse response: {}", e))
+                })?);
+                break;
+            }
+            result.ok_or_else(|| AppError::ExternalServiceError(
+                "YouTube API request failed after retries".to_string()
+            ))?
+        };
 
         let subscription_id = data["items"]
             .as_array()
@@ -491,23 +590,46 @@ impl YouTubeMusicEnforcementService {
             subscription_id
         );
 
-        let response = self
-            .client
-            .delete(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .delete(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to delete subscription ({}): {}",
-                status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (delete_subscription)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (delete_subscription), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Failed to delete subscription ({}): {}",
+                    status, error_text
+                )));
+            }
+
+            return Ok(());
         }
 
         Ok(())
@@ -593,25 +715,48 @@ impl YouTubeMusicEnforcementService {
             }
         });
 
-        let response = self
-            .client
-            .post(&url)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Content-Type", "application/json")
-            .json(&body)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
-            })?;
+        for attempt in 0..=Self::MAX_RETRIES {
+            let response = self
+                .client
+                .post(&url)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Content-Type", "application/json")
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("YouTube API request failed: {}", e))
+                })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(AppError::ExternalServiceError(format!(
-                "Failed to subscribe to channel ({}): {}",
-                status, error_text
-            )));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == Self::MAX_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "YouTube API rate limit exceeded after max retries (subscribe_to_channel)".to_string()
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(Self::MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "YouTube API rate limited (subscribe_to_channel), retry {}/{} after {}s",
+                    attempt + 1, Self::MAX_RETRIES, wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(AppError::ExternalServiceError(format!(
+                    "Failed to subscribe to channel ({}): {}",
+                    status, error_text
+                )));
+            }
+
+            return Ok(());
         }
 
         Ok(())

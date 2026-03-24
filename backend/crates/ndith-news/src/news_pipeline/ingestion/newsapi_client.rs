@@ -221,13 +221,44 @@ impl NewsApiClient {
             query_params.push(("page", page.to_string()));
         }
 
-        let response = self
-            .client
-            .get(&url)
-            .query(&query_params)
-            .send()
-            .await
-            .context("NewsAPI request failed")?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&url)
+                .query(&query_params)
+                .send()
+                .await
+                .context("NewsAPI request failed")?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "NewsAPI rate limited after 4 attempts"
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on NewsAPI, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("NewsAPI: no response after retries"))?;
 
         let api_response: NewsApiResponse = response
             .json()
@@ -278,13 +309,45 @@ impl NewsApiClient {
             query_params.push(("country", "us".to_string()));
         }
 
-        let response = self
-            .client
-            .get(format!("{}/top-headlines", NEWSAPI_BASE))
-            .query(&query_params)
-            .send()
-            .await
-            .context("NewsAPI request failed")?;
+        let headlines_url = format!("{}/top-headlines", NEWSAPI_BASE);
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&headlines_url)
+                .query(&query_params)
+                .send()
+                .await
+                .context("NewsAPI request failed")?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "NewsAPI top-headlines rate limited after 4 attempts"
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on NewsAPI top-headlines, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("NewsAPI top-headlines: no response after retries"))?;
 
         let api_response: NewsApiResponse = response
             .json()

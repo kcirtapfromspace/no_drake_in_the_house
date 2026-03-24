@@ -14,6 +14,11 @@ use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 
+/// Maximum number of retries on 429 rate-limit responses.
+const MAX_RATE_LIMIT_RETRIES: u32 = 3;
+/// Maximum Retry-After wait time in seconds for OAuth endpoints.
+const MAX_RETRY_AFTER_SECS: u64 = 30;
+
 /// Apple's JSON Web Key Set (JWKS) response structure
 #[derive(Debug, Clone, Deserialize)]
 pub struct AppleJWKS {
@@ -218,32 +223,65 @@ impl AppleOAuthProvider {
         let _client_secret = Self::generate_client_secret(&self.apple_config)?;
 
         // Test connection to Apple's discovery endpoint
-        let response = self
-            .base
-            .client
-            .get("https://appleid.apple.com/.well-known/openid-configuration")
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!(
-                    "Failed to connect to Apple OAuth API: {}",
-                    e
-                ))
-            })?;
+        let mut last_error = None;
+        let discovery_doc: serde_json::Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .get("https://appleid.apple.com/.well-known/openid-configuration")
+                    .header("Accept", "application/json")
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to connect to Apple OAuth API: {}",
+                            e
+                        ))
+                    })?;
 
-        if !response.status().is_success() {
-            return Err(AppError::ExternalServiceError(
-                "Apple OAuth API is not accessible".to_string(),
-            ));
-        }
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "Apple discovery rate limited after max retries".to_string(),
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "Apple discovery 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
+                }
 
-        let discovery_doc: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!(
-                "Failed to parse Apple discovery document: {}",
-                e
-            ))
-        })?;
+                if !response.status().is_success() {
+                    return Err(AppError::ExternalServiceError(
+                        "Apple OAuth API is not accessible".to_string(),
+                    ));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse Apple discovery document: {}",
+                        e
+                    ))
+                })?;
+            }
+            return Err(AppError::ExternalServiceError(format!(
+                "Apple discovery failed after retries: {}",
+                last_error.unwrap_or_default()
+            )));
+        };
 
         // Verify that the endpoints we're using match Apple's current endpoints
         let expected_auth_endpoint = discovery_doc["authorization_endpoint"]
@@ -318,32 +356,70 @@ impl AppleOAuthProvider {
             return Ok(cached);
         }
 
-        // Fetch from Apple
-        let response = self
-            .base
-            .client
-            .get("https://appleid.apple.com/auth/keys")
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to fetch Apple public keys: {}", e))
+        // Fetch from Apple with retry on 429
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .base
+                .client
+                .get("https://appleid.apple.com/auth/keys")
+                .header("Accept", "application/json")
+                .send()
+                .await
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to fetch Apple public keys: {}",
+                        e
+                    ))
+                })?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "Apple auth keys rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt))
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Apple auth keys 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
+            }
+
+            if !response.status().is_success() {
+                return Err(AppError::ExternalServiceError(
+                    "Failed to fetch Apple public keys".to_string(),
+                ));
+            }
+
+            let jwks: AppleJWKS = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Failed to parse Apple public keys: {}",
+                    e
+                ))
             })?;
 
-        if !response.status().is_success() {
-            return Err(AppError::ExternalServiceError(
-                "Failed to fetch Apple public keys".to_string(),
-            ));
+            // Cache the keys
+            self.key_cache.set(jwks.clone()).await;
+
+            return Ok(jwks);
         }
 
-        let jwks: AppleJWKS = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e))
-        })?;
-
-        // Cache the keys
-        self.key_cache.set(jwks.clone()).await;
-
-        Ok(jwks)
+        Err(AppError::ExternalServiceError(format!(
+            "Apple auth keys failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 
     /// Find the JWK matching the key ID from the token header
@@ -658,70 +734,111 @@ impl OAuthProvider for AppleOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self
-            .base
-            .client
-            .post(&self.base.token_endpoint)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Accept", "application/json")
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!(
-                    "Apple token exchange request failed: {}",
-                    e
-                ))
-            })?;
+        let mut last_error = None;
+        let token_response: Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .post(&self.base.token_endpoint)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Accept", "application/json")
+                    .form(&params)
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Apple token exchange request failed: {}",
+                            e
+                        ))
+                    })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-
-            // Parse Apple-specific error response
-            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
-                let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
-                let error_description = error_json["error_description"]
-                    .as_str()
-                    .unwrap_or(&error_text);
-
-                // Handle specific Apple errors
-                match error_code {
-                    "invalid_grant" => {
-                        return Err(AppError::OAuthProviderError {
-                            provider: "Apple".to_string(),
-                            message: "Apple authorization code is invalid or expired".to_string(),
-                        });
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "Apple token exchange rate limited after max retries".to_string(),
+                        ));
                     }
-                    "invalid_client" => {
-                        return Err(AppError::ConfigurationError {
-                            message: "Apple OAuth client credentials are invalid".to_string(),
-                        });
-                    }
-                    _ => {
-                        return Err(AppError::OAuthProviderError {
-                            provider: "Apple".to_string(),
-                            message: format!(
-                                "Token exchange failed ({}): {}",
-                                error_code, error_description
-                            ),
-                        });
-                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "Apple token exchange 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
                 }
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+
+                    // Parse Apple-specific error response
+                    if let Ok(error_json) =
+                        serde_json::from_str::<serde_json::Value>(&error_text)
+                    {
+                        let error_code =
+                            error_json["error"].as_str().unwrap_or("unknown_error");
+                        let error_description = error_json["error_description"]
+                            .as_str()
+                            .unwrap_or(&error_text);
+
+                        // Handle specific Apple errors
+                        match error_code {
+                            "invalid_grant" => {
+                                return Err(AppError::OAuthProviderError {
+                                    provider: "Apple".to_string(),
+                                    message: "Apple authorization code is invalid or expired"
+                                        .to_string(),
+                                });
+                            }
+                            "invalid_client" => {
+                                return Err(AppError::ConfigurationError {
+                                    message: "Apple OAuth client credentials are invalid"
+                                        .to_string(),
+                                });
+                            }
+                            _ => {
+                                return Err(AppError::OAuthProviderError {
+                                    provider: "Apple".to_string(),
+                                    message: format!(
+                                        "Token exchange failed ({}): {}",
+                                        error_code, error_description
+                                    ),
+                                });
+                            }
+                        }
+                    }
+
+                    return Err(AppError::ExternalServiceError(format!(
+                        "Apple token exchange failed with status {}: {}",
+                        status, error_text
+                    )));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse Apple token response: {}",
+                        e
+                    ))
+                })?;
             }
-
             return Err(AppError::ExternalServiceError(format!(
-                "Apple token exchange failed with status {}: {}",
-                status, error_text
+                "Apple token exchange failed after retries: {}",
+                last_error.unwrap_or_default()
             )));
-        }
-
-        let token_response: Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse Apple token response: {}", e))
-        })?;
+        };
 
         let access_token = token_response["access_token"]
             .as_str()

@@ -10,6 +10,11 @@ use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 
+/// Maximum number of retries on 429 rate-limit responses.
+const MAX_RATE_LIMIT_RETRIES: u32 = 3;
+/// Maximum Retry-After wait time in seconds for OAuth endpoints.
+const MAX_RETRY_AFTER_SECS: u64 = 30;
+
 /// Google OAuth provider implementation
 pub struct GoogleOAuthProvider {
     base: BaseOAuthProvider,
@@ -40,39 +45,72 @@ impl GoogleOAuthProvider {
         // Test by making a request to Google's OAuth2 discovery document
         let discovery_url = "https://accounts.google.com/.well-known/openid-configuration";
 
-        let response = self
-            .base
-            .client
-            .get(discovery_url)
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::OAuth(OAuthError::NetworkError {
-                    provider: OAuthProviderType::Google,
-                    reason: format!("Failed to connect to Google OAuth API: {}", e),
-                    is_transient: true,
-                    retry_count: 0,
-                })
-            })?;
+        let mut last_error = None;
+        let discovery_doc: serde_json::Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .get(discovery_url)
+                    .header("Accept", "application/json")
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::OAuth(OAuthError::NetworkError {
+                            provider: OAuthProviderType::Google,
+                            reason: format!("Failed to connect to Google OAuth API: {}", e),
+                            is_transient: true,
+                            retry_count: 0,
+                        })
+                    })?;
 
-        if !response.status().is_success() {
-            return Err(AppError::OAuth(OAuthError::ProviderUnavailable {
-                provider: OAuthProviderType::Google,
-                reason: "Google OAuth API is not accessible".to_string(),
-                estimated_recovery: None,
-                retry_after: Some(60),
-            }));
-        }
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "Google discovery rate limited after max retries".to_string(),
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "Google discovery 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
+                }
 
-        let discovery_doc: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::OAuth(OAuthError::ProviderError {
-                provider: OAuthProviderType::Google,
-                error_code: "discovery_parse_error".to_string(),
-                message: format!("Failed to parse Google discovery document: {}", e),
-                details: None,
-            })
-        })?;
+                if !response.status().is_success() {
+                    return Err(AppError::OAuth(OAuthError::ProviderUnavailable {
+                        provider: OAuthProviderType::Google,
+                        reason: "Google OAuth API is not accessible".to_string(),
+                        estimated_recovery: None,
+                        retry_after: Some(60),
+                    }));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::OAuth(OAuthError::ProviderError {
+                        provider: OAuthProviderType::Google,
+                        error_code: "discovery_parse_error".to_string(),
+                        message: format!("Failed to parse Google discovery document: {}", e),
+                        details: None,
+                    })
+                })?;
+            }
+            return Err(AppError::ExternalServiceError(format!(
+                "Google discovery failed after retries: {}",
+                last_error.unwrap_or_default()
+            )));
+        };
 
         // Verify that the endpoints we're using match Google's current endpoints
         let expected_auth_endpoint = discovery_doc["authorization_endpoint"]
@@ -250,42 +288,78 @@ impl OAuthProvider for GoogleOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self
-            .base
-            .client
-            .post(&self.base.token_endpoint)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Accept", "application/json")
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::OAuth(OAuthError::NetworkError {
-                    provider: OAuthProviderType::Google,
-                    reason: format!("Google token exchange request failed: {}", e),
-                    is_transient: true,
-                    retry_count: 0,
-                })
-            })?;
+        let mut last_error = None;
+        let token_response: serde_json::Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .post(&self.base.token_endpoint)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Accept", "application/json")
+                    .form(&params)
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::OAuth(OAuthError::NetworkError {
+                            provider: OAuthProviderType::Google,
+                            reason: format!("Google token exchange request failed: {}", e),
+                            is_transient: true,
+                            retry_count: 0,
+                        })
+                    })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "Google token exchange rate limited after max retries".to_string(),
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "Google token exchange 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
+                }
 
-            // Use the new error parsing function
-            return Err(AppError::OAuth(parse_provider_error(
-                OAuthProviderType::Google,
-                status.as_u16(),
-                &error_text,
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+
+                    // Use the new error parsing function
+                    return Err(AppError::OAuth(parse_provider_error(
+                        OAuthProviderType::Google,
+                        status.as_u16(),
+                        &error_text,
+                    )));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse Google token response: {}",
+                        e
+                    ))
+                })?;
+            }
+            return Err(AppError::ExternalServiceError(format!(
+                "Google token exchange failed after retries: {}",
+                last_error.unwrap_or_default()
             )));
-        }
-
-        let token_response: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse Google token response: {}", e))
-        })?;
+        };
 
         // Parse the Google OAuth2 token response
         let access_token = token_response["access_token"]
@@ -337,57 +411,89 @@ impl OAuthProvider for GoogleOAuthProvider {
     }
 
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
-        let response = self
-            .base
-            .client
-            .get(&self.base.user_info_endpoint)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/json")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::OAuth(OAuthError::NetworkError {
-                    provider: OAuthProviderType::Google,
-                    reason: format!("Google user info request failed: {}", e),
-                    is_transient: true,
-                    retry_count: 0,
-                })
-            })?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .base
+                .client
+                .get(&self.base.user_info_endpoint)
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Accept", "application/json")
+                .send()
                 .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+                .map_err(|e| {
+                    AppError::OAuth(OAuthError::NetworkError {
+                        provider: OAuthProviderType::Google,
+                        reason: format!("Google user info request failed: {}", e),
+                        is_transient: true,
+                        retry_count: 0,
+                    })
+                })?;
 
-            // Handle specific Google API error responses
-            if status == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(AppError::OAuth(OAuthError::InvalidToken {
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "Google user info rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt))
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "Google user info 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
+            }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+
+                // Handle specific Google API error responses
+                if status == reqwest::StatusCode::UNAUTHORIZED {
+                    return Err(AppError::OAuth(OAuthError::InvalidToken {
+                        provider: OAuthProviderType::Google,
+                        token_type: ndith_core::error::oauth::TokenType::AccessToken,
+                        reason: "Google access token is invalid or expired".to_string(),
+                    }));
+                }
+
+                return Err(AppError::OAuth(OAuthError::UserInfoRetrievalFailed {
                     provider: OAuthProviderType::Google,
-                    token_type: ndith_core::error::oauth::TokenType::AccessToken,
-                    reason: "Google access token is invalid or expired".to_string(),
+                    reason: format!(
+                        "Google user info request failed with status {}: {}",
+                        status, error_text
+                    ),
+                    missing_scopes: vec![],
                 }));
             }
 
-            return Err(AppError::OAuth(OAuthError::UserInfoRetrievalFailed {
-                provider: OAuthProviderType::Google,
-                reason: format!(
-                    "Google user info request failed with status {}: {}",
-                    status, error_text
-                ),
-                missing_scopes: vec![],
-            }));
+            let user_data: serde_json::Value = response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Failed to parse Google user info response: {}",
+                    e
+                ))
+            })?;
+
+            return self.parse_user_info(user_data);
         }
 
-        let user_data: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!(
-                "Failed to parse Google user info response: {}",
-                e
-            ))
-        })?;
-
-        self.parse_user_info(user_data)
+        Err(AppError::ExternalServiceError(format!(
+            "Google user info failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 
     async fn refresh_token(&self, refresh_token: &str) -> Result<OAuthTokens> {

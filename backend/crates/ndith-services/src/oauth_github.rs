@@ -8,6 +8,11 @@ use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
 };
 
+/// Maximum number of retries on 429 rate-limit responses.
+const MAX_RATE_LIMIT_RETRIES: u32 = 3;
+/// Maximum Retry-After wait time in seconds for OAuth endpoints.
+const MAX_RETRY_AFTER_SECS: u64 = 30;
+
 /// GitHub OAuth provider implementation
 pub struct GitHubOAuthProvider {
     base: BaseOAuthProvider,
@@ -17,27 +22,66 @@ impl GitHubOAuthProvider {
     /// Test GitHub OAuth configuration by making a test API call
     pub async fn test_configuration(&self) -> Result<()> {
         // Test connection to GitHub API
-        let response = self
-            .base
-            .client
-            .get("https://api.github.com/meta")
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("User-Agent", "OAuth-App")
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("Failed to connect to GitHub API: {}", e))
-            })?;
+        let mut last_error = None;
+        let meta_info: serde_json::Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .get("https://api.github.com/meta")
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("User-Agent", "OAuth-App")
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "Failed to connect to GitHub API: {}",
+                            e
+                        ))
+                    })?;
 
-        if !response.status().is_success() {
-            return Err(AppError::ExternalServiceError(
-                "GitHub API is not accessible".to_string(),
-            ));
-        }
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "GitHub meta endpoint rate limited after max retries".to_string(),
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "GitHub meta 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
+                }
 
-        let meta_info: serde_json::Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse GitHub meta response: {}", e))
-        })?;
+                if !response.status().is_success() {
+                    return Err(AppError::ExternalServiceError(
+                        "GitHub API is not accessible".to_string(),
+                    ));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse GitHub meta response: {}",
+                        e
+                    ))
+                })?;
+            }
+            return Err(AppError::ExternalServiceError(format!(
+                "GitHub meta failed after retries: {}",
+                last_error.unwrap_or_default()
+            )));
+        };
 
         // Verify that GitHub API is responding correctly
         if meta_info["verifiable_password_authentication"].is_null() {
@@ -201,62 +245,98 @@ impl GitHubOAuthProvider {
 
     /// Get user's primary email from GitHub API
     async fn get_user_emails(&self, access_token: &str) -> Result<Vec<Value>> {
-        let response = self
-            .base
-            .client
-            .get("https://api.github.com/user/emails")
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("GitHub emails request failed: {}", e))
-            })?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
+        let mut last_error = None;
+        for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+            let response = self
+                .base
+                .client
+                .get("https://api.github.com/user/emails")
+                .header("Authorization", format!("Bearer {}", access_token))
+                .header("Accept", "application/vnd.github.v3+json")
+                .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
+                .send()
                 .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
+                .map_err(|e| {
+                    AppError::ExternalServiceError(format!("GitHub emails request failed: {}", e))
+                })?;
 
-            // Handle specific GitHub API error responses
-            if status == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(AppError::OAuthProviderError {
-                    provider: "GitHub".to_string(),
-                    message: "GitHub access token is invalid or expired".to_string(),
-                });
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RATE_LIMIT_RETRIES {
+                    return Err(AppError::ExternalServiceError(
+                        "GitHub emails rate limited after max retries".to_string(),
+                    ));
+                }
+                let wait_secs = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt))
+                    .min(MAX_RETRY_AFTER_SECS);
+                tracing::warn!(
+                    "GitHub emails 429, retry {}/{} after {}s",
+                    attempt + 1,
+                    MAX_RATE_LIMIT_RETRIES,
+                    wait_secs
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                last_error = Some("rate limited".to_string());
+                continue;
             }
 
-            if status == reqwest::StatusCode::FORBIDDEN {
-                // This might happen if the user:email scope wasn't granted
-                return Err(AppError::OAuthProviderError {
-                    provider: "GitHub".to_string(),
-                    message: "GitHub API access denied. Check if 'user:email' scope was granted."
-                        .to_string(),
-                });
-            }
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
 
-            // Parse GitHub-specific error response
-            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
-                if let Some(message) = error_json["message"].as_str() {
+                // Handle specific GitHub API error responses
+                if status == reqwest::StatusCode::UNAUTHORIZED {
                     return Err(AppError::OAuthProviderError {
                         provider: "GitHub".to_string(),
-                        message: format!("GitHub emails API error: {}", message),
+                        message: "GitHub access token is invalid or expired".to_string(),
                     });
                 }
+
+                if status == reqwest::StatusCode::FORBIDDEN {
+                    // This might happen if the user:email scope wasn't granted
+                    return Err(AppError::OAuthProviderError {
+                        provider: "GitHub".to_string(),
+                        message:
+                            "GitHub API access denied. Check if 'user:email' scope was granted."
+                                .to_string(),
+                    });
+                }
+
+                // Parse GitHub-specific error response
+                if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                    if let Some(message) = error_json["message"].as_str() {
+                        return Err(AppError::OAuthProviderError {
+                            provider: "GitHub".to_string(),
+                            message: format!("GitHub emails API error: {}", message),
+                        });
+                    }
+                }
+
+                return Err(AppError::ExternalServiceError(format!(
+                    "GitHub emails request failed with status {}: {}",
+                    status, error_text
+                )));
             }
 
-            return Err(AppError::ExternalServiceError(format!(
-                "GitHub emails request failed with status {}: {}",
-                status, error_text
-            )));
+            return response.json().await.map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Failed to parse GitHub emails response: {}",
+                    e
+                ))
+            });
         }
 
-        response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse GitHub emails response: {}", e))
-        })
+        Err(AppError::ExternalServiceError(format!(
+            "GitHub emails failed after retries: {}",
+            last_error.unwrap_or_default()
+        )))
     }
 }
 
@@ -298,77 +378,118 @@ impl OAuthProvider for GitHubOAuthProvider {
             ("redirect_uri", redirect_uri),
         ];
 
-        let response = self
-            .base
-            .client
-            .post(&self.base.token_endpoint)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Accept", "application/json") // GitHub returns JSON when this header is set
-            .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!(
-                    "GitHub token exchange request failed: {}",
-                    e
-                ))
-            })?;
+        let mut last_error = None;
+        let token_response: Value = 'retry: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .post(&self.base.token_endpoint)
+                    .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Accept", "application/json") // GitHub returns JSON when this header is set
+                    .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
+                    .form(&params)
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "GitHub token exchange request failed: {}",
+                            e
+                        ))
+                    })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-
-            // Parse GitHub-specific error response
-            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
-                let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
-                let error_description = error_json["error_description"]
-                    .as_str()
-                    .unwrap_or(&error_text);
-
-                // Handle specific GitHub errors
-                match error_code {
-                    "bad_verification_code" => {
-                        return Err(AppError::OAuthProviderError {
-                            provider: "GitHub".to_string(),
-                            message: "GitHub authorization code is invalid or expired".to_string(),
-                        });
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "GitHub token exchange rate limited after max retries".to_string(),
+                        ));
                     }
-                    "incorrect_client_credentials" => {
-                        return Err(AppError::ConfigurationError {
-                            message: "GitHub OAuth client credentials are invalid".to_string(),
-                        });
-                    }
-                    "redirect_uri_mismatch" => {
-                        return Err(AppError::OAuthProviderError {
-                            provider: "GitHub".to_string(),
-                            message: "GitHub OAuth redirect URI mismatch".to_string(),
-                        });
-                    }
-                    _ => {
-                        return Err(AppError::OAuthProviderError {
-                            provider: "GitHub".to_string(),
-                            message: format!(
-                                "Token exchange failed ({}): {}",
-                                error_code, error_description
-                            ),
-                        });
-                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "GitHub token exchange 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error = Some("rate limited".to_string());
+                    continue;
                 }
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+
+                    // Parse GitHub-specific error response
+                    if let Ok(error_json) =
+                        serde_json::from_str::<serde_json::Value>(&error_text)
+                    {
+                        let error_code =
+                            error_json["error"].as_str().unwrap_or("unknown_error");
+                        let error_description = error_json["error_description"]
+                            .as_str()
+                            .unwrap_or(&error_text);
+
+                        // Handle specific GitHub errors
+                        match error_code {
+                            "bad_verification_code" => {
+                                return Err(AppError::OAuthProviderError {
+                                    provider: "GitHub".to_string(),
+                                    message: "GitHub authorization code is invalid or expired"
+                                        .to_string(),
+                                });
+                            }
+                            "incorrect_client_credentials" => {
+                                return Err(AppError::ConfigurationError {
+                                    message: "GitHub OAuth client credentials are invalid"
+                                        .to_string(),
+                                });
+                            }
+                            "redirect_uri_mismatch" => {
+                                return Err(AppError::OAuthProviderError {
+                                    provider: "GitHub".to_string(),
+                                    message: "GitHub OAuth redirect URI mismatch".to_string(),
+                                });
+                            }
+                            _ => {
+                                return Err(AppError::OAuthProviderError {
+                                    provider: "GitHub".to_string(),
+                                    message: format!(
+                                        "Token exchange failed ({}): {}",
+                                        error_code, error_description
+                                    ),
+                                });
+                            }
+                        }
+                    }
+
+                    return Err(AppError::ExternalServiceError(format!(
+                        "GitHub token exchange failed with status {}: {}",
+                        status, error_text
+                    )));
+                }
+
+                break 'retry response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse GitHub token response: {}",
+                        e
+                    ))
+                })?;
             }
-
             return Err(AppError::ExternalServiceError(format!(
-                "GitHub token exchange failed with status {}: {}",
-                status, error_text
+                "GitHub token exchange failed after retries: {}",
+                last_error.unwrap_or_default()
             )));
-        }
-
-        let token_response: Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!("Failed to parse GitHub token response: {}", e))
-        })?;
+        };
 
         let access_token = token_response["access_token"]
             .as_str()
@@ -405,64 +526,103 @@ impl OAuthProvider for GitHubOAuthProvider {
     }
 
     async fn get_user_info(&self, access_token: &str) -> Result<OAuthUserInfo> {
-        let response = self
-            .base
-            .client
-            .get(&self.base.user_info_endpoint)
-            .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.github.v3+json")
-            .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
-            .send()
-            .await
-            .map_err(|e| {
-                AppError::ExternalServiceError(format!("GitHub user info request failed: {}", e))
-            })?;
+        let mut last_error_user = None;
+        let user_data: Value = 'retry_user: {
+            for attempt in 0..=MAX_RATE_LIMIT_RETRIES {
+                let response = self
+                    .base
+                    .client
+                    .get(&self.base.user_info_endpoint)
+                    .header("Authorization", format!("Bearer {}", access_token))
+                    .header("Accept", "application/vnd.github.v3+json")
+                    .header("User-Agent", "OAuth-App") // GitHub requires User-Agent header
+                    .send()
+                    .await
+                    .map_err(|e| {
+                        AppError::ExternalServiceError(format!(
+                            "GitHub user info request failed: {}",
+                            e
+                        ))
+                    })?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response
-                .text()
-                .await
-                .unwrap_or_else(|_| "Unknown error".to_string());
-
-            // Handle specific GitHub API error responses
-            if status == reqwest::StatusCode::UNAUTHORIZED {
-                return Err(AppError::OAuthProviderError {
-                    provider: "GitHub".to_string(),
-                    message: "GitHub access token is invalid or expired".to_string(),
-                });
-            }
-
-            if status == reqwest::StatusCode::FORBIDDEN {
-                return Err(AppError::OAuthProviderError {
-                    provider: "GitHub".to_string(),
-                    message: "GitHub API rate limit exceeded or insufficient permissions"
-                        .to_string(),
-                });
-            }
-
-            // Parse GitHub-specific error response
-            if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
-                if let Some(message) = error_json["message"].as_str() {
-                    return Err(AppError::OAuthProviderError {
-                        provider: "GitHub".to_string(),
-                        message: format!("GitHub API error: {}", message),
-                    });
+                if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                    if attempt == MAX_RATE_LIMIT_RETRIES {
+                        return Err(AppError::ExternalServiceError(
+                            "GitHub user info rate limited after max retries".to_string(),
+                        ));
+                    }
+                    let wait_secs = response
+                        .headers()
+                        .get("retry-after")
+                        .and_then(|v| v.to_str().ok())
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .unwrap_or(2u64.pow(attempt))
+                        .min(MAX_RETRY_AFTER_SECS);
+                    tracing::warn!(
+                        "GitHub user info 429, retry {}/{} after {}s",
+                        attempt + 1,
+                        MAX_RATE_LIMIT_RETRIES,
+                        wait_secs
+                    );
+                    tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                    last_error_user = Some("rate limited".to_string());
+                    continue;
                 }
+
+                if !response.status().is_success() {
+                    let status = response.status();
+                    let error_text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "Unknown error".to_string());
+
+                    // Handle specific GitHub API error responses
+                    if status == reqwest::StatusCode::UNAUTHORIZED {
+                        return Err(AppError::OAuthProviderError {
+                            provider: "GitHub".to_string(),
+                            message: "GitHub access token is invalid or expired".to_string(),
+                        });
+                    }
+
+                    if status == reqwest::StatusCode::FORBIDDEN {
+                        return Err(AppError::OAuthProviderError {
+                            provider: "GitHub".to_string(),
+                            message:
+                                "GitHub API rate limit exceeded or insufficient permissions"
+                                    .to_string(),
+                        });
+                    }
+
+                    // Parse GitHub-specific error response
+                    if let Ok(error_json) =
+                        serde_json::from_str::<serde_json::Value>(&error_text)
+                    {
+                        if let Some(message) = error_json["message"].as_str() {
+                            return Err(AppError::OAuthProviderError {
+                                provider: "GitHub".to_string(),
+                                message: format!("GitHub API error: {}", message),
+                            });
+                        }
+                    }
+
+                    return Err(AppError::ExternalServiceError(format!(
+                        "GitHub user info request failed with status {}: {}",
+                        status, error_text
+                    )));
+                }
+
+                break 'retry_user response.json().await.map_err(|e| {
+                    AppError::ExternalServiceError(format!(
+                        "Failed to parse GitHub user info response: {}",
+                        e
+                    ))
+                })?;
             }
-
             return Err(AppError::ExternalServiceError(format!(
-                "GitHub user info request failed with status {}: {}",
-                status, error_text
+                "GitHub user info failed after retries: {}",
+                last_error_user.unwrap_or_default()
             )));
-        }
-
-        let user_data: Value = response.json().await.map_err(|e| {
-            AppError::ExternalServiceError(format!(
-                "Failed to parse GitHub user info response: {}",
-                e
-            ))
-        })?;
+        };
 
         let mut user_info = self.parse_user_info(user_data)?;
 

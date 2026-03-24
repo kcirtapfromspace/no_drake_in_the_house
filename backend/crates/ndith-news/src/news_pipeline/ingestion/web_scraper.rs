@@ -182,12 +182,45 @@ impl WebScraper {
 
         tracing::debug!(url = %url, "Scraping web page");
 
-        let response = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .context(format!("Failed to fetch {}", url))?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(url)
+                .send()
+                .await
+                .context(format!("Failed to fetch {}", url))?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Rate limited on {} after 4 attempts",
+                        url
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on {}, retry {}/3 after {}s",
+                    url,
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("Scrape {}: no response after retries", url))?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

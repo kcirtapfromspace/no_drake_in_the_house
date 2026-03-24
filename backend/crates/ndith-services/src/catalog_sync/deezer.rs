@@ -18,6 +18,11 @@ use uuid::Uuid;
 /// Deezer API base URL
 const DEEZER_API_BASE: &str = "https://api.deezer.com";
 
+/// Max retries on 429 responses
+const MAX_RETRIES: u32 = 3;
+/// Max seconds to wait on a Retry-After header
+const MAX_RETRY_WAIT_SECS: u64 = 60;
+
 /// Deezer sync worker
 pub struct DeezerSyncWorker {
     client: Client,
@@ -67,35 +72,59 @@ impl DeezerSyncWorker {
         }
     }
 
-    /// Make an API request
+    /// Make an API request with 429/Retry-After handling
     async fn api_request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
         self.wait_for_rate_limit().await;
 
         let url = format!("{}{}", DEEZER_API_BASE, endpoint);
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .await
-            .context("Deezer API request failed")?;
 
-        if !response.status().is_success() {
-            let status = response.status();
-            let body = response.text().await.unwrap_or_default();
-            return Err(anyhow::anyhow!("Deezer API error: {} - {}", status, body));
-        }
+        for attempt in 0..=MAX_RETRIES {
+            let response = self
+                .client
+                .get(&url)
+                .send()
+                .await
+                .context("Deezer API request failed")?;
 
-        // Check for Deezer API error in response body
-        let text = response.text().await?;
-
-        // Check if response contains error
-        if let Ok(error) = serde_json::from_str::<DeezerError>(&text) {
-            if error.error.is_some() {
-                return Err(anyhow::anyhow!("Deezer API error: {:?}", error.error));
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == MAX_RETRIES {
+                    return Err(anyhow::anyhow!(
+                        "Deezer API rate limit exceeded after {} retries", MAX_RETRIES
+                    ));
+                }
+                let wait = response.headers().get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(MAX_RETRY_WAIT_SECS);
+                tracing::warn!(
+                    "Deezer API rate limited, retry {}/{} after {}s",
+                    attempt + 1, MAX_RETRIES, wait
+                );
+                sleep(Duration::from_secs(wait)).await;
+                continue;
             }
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let body = response.text().await.unwrap_or_default();
+                return Err(anyhow::anyhow!("Deezer API error: {} - {}", status, body));
+            }
+
+            // Check for Deezer API error in response body
+            let text = response.text().await?;
+
+            // Check if response contains error
+            if let Ok(error) = serde_json::from_str::<DeezerError>(&text) {
+                if error.error.is_some() {
+                    return Err(anyhow::anyhow!("Deezer API error: {:?}", error.error));
+                }
+            }
+
+            return serde_json::from_str(&text).context("Failed to parse Deezer response");
         }
 
-        serde_json::from_str(&text).context("Failed to parse Deezer response")
+        Err(anyhow::anyhow!("Deezer API request failed after retries"))
     }
 }
 

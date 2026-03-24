@@ -109,12 +109,43 @@ impl WikipediaClient {
             urlencoding::encode(artist_name)
         );
 
-        let response: serde_json::Value = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .context("Wikipedia search request failed")?
+        let mut final_resp = None;
+        for attempt in 0..=3u32 {
+            let resp = self
+                .http
+                .get(&url)
+                .send()
+                .await
+                .context("Wikipedia search request failed")?;
+
+            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Wikipedia search rate limited after 4 attempts"
+                    ));
+                }
+                let wait = resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Wikipedia search, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_resp = Some(resp);
+            break;
+        }
+
+        let response: serde_json::Value = final_resp
+            .ok_or_else(|| anyhow::anyhow!("Wikipedia search: no response after retries"))?
             .json()
             .await
             .context("Failed to parse Wikipedia search response")?;
@@ -156,12 +187,43 @@ impl WikipediaClient {
             urlencoding::encode(title)
         );
 
-        let response = self
-            .http
-            .get(&url)
-            .send()
-            .await
-            .context("Wikipedia page fetch failed")?;
+        let mut final_resp = None;
+        for attempt in 0..=3u32 {
+            let resp = self
+                .http
+                .get(&url)
+                .send()
+                .await
+                .context("Wikipedia page fetch failed")?;
+
+            if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "Wikipedia page fetch rate limited after 4 attempts"
+                    ));
+                }
+                let wait = resp
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on Wikipedia page fetch, retry {}/3 after {}s",
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_resp = Some(resp);
+            break;
+        }
+
+        let response = final_resp
+            .ok_or_else(|| anyhow::anyhow!("Wikipedia page fetch: no response after retries"))?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

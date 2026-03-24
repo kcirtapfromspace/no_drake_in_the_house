@@ -249,12 +249,45 @@ impl RssFetcher {
     pub async fn fetch_source(&self, source: &NewsSource) -> Result<Vec<FetchedArticle>> {
         tracing::info!(source = %source.name, url = %source.url, "Fetching RSS feed");
 
-        let response = self
-            .client
-            .get(&source.url)
-            .send()
-            .await
-            .context(format!("Failed to fetch feed from {}", source.name))?;
+        let mut final_response = None;
+        for attempt in 0..=3u32 {
+            let response = self
+                .client
+                .get(&source.url)
+                .send()
+                .await
+                .context(format!("Failed to fetch feed from {}", source.name))?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if attempt == 3 {
+                    return Err(anyhow::anyhow!(
+                        "RSS feed {} rate limited after 4 attempts",
+                        source.name
+                    ));
+                }
+                let wait = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|h| h.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok())
+                    .unwrap_or(2u64.pow(attempt + 1))
+                    .min(60);
+                tracing::warn!(
+                    "Rate limited on RSS feed {}, retry {}/3 after {}s",
+                    source.name,
+                    attempt + 1,
+                    wait
+                );
+                tokio::time::sleep(std::time::Duration::from_secs(wait)).await;
+                continue;
+            }
+
+            final_response = Some(response);
+            break;
+        }
+
+        let response = final_response
+            .ok_or_else(|| anyhow::anyhow!("RSS feed {}: no response after retries", source.name))?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

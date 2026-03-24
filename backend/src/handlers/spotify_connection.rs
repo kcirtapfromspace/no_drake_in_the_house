@@ -277,14 +277,32 @@ pub async fn spotify_callback_handler(
         })
         .await?;
 
-    // Get user info from Spotify through circuit breaker (US-026)
+    // Get user info from Spotify — non-fatal if rate-limited, since we already
+    // have valid tokens and can fetch the profile later.
     let access_token = tokens.access_token.clone();
-    let user_info = state
+    let user_info = match state
         .circuit_breaker
         .execute_typed(OAuthProviderType::Spotify, || async {
             spotify_provider.get_user_info(&access_token).await
         })
-        .await?;
+        .await
+    {
+        Ok(info) => info,
+        Err(e) => {
+            tracing::warn!(error = %e, "Failed to fetch Spotify user info (will use fallback); tokens are valid");
+            ndith_core::models::oauth::OAuthUserInfo {
+                provider_user_id: format!("pending_{}", uuid::Uuid::new_v4()),
+                email: None,
+                email_verified: None,
+                display_name: None,
+                first_name: None,
+                last_name: None,
+                avatar_url: None,
+                locale: None,
+                provider_data: std::collections::HashMap::new(),
+            }
+        }
+    };
 
     // Encrypt tokens using OAuthTokenEncryption
     let encryption = OAuthTokenEncryption::new().map_err(|e| {

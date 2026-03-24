@@ -780,13 +780,29 @@ async fn spotify_get_json<T: serde::de::DeserializeOwned>(
                 )));
             }
 
-            // Respect Retry-After header, fall back to exponential backoff
-            let retry_after_secs = response
+            // Respect Retry-After header, fall back to exponential backoff.
+            // Cap at 60s — if Spotify says wait hours, fail fast instead of blocking.
+            const MAX_WAIT_SECS: u64 = 60;
+            let raw_retry = response
                 .headers()
                 .get("retry-after")
                 .and_then(|h| h.to_str().ok())
                 .and_then(|s| s.parse::<u64>().ok())
                 .unwrap_or_else(|| 2_u64.pow(attempt + 1));
+            let retry_after_secs = raw_retry.min(MAX_WAIT_SECS);
+
+            if raw_retry > MAX_WAIT_SECS {
+                tracing::warn!(
+                    url = url,
+                    retry_after_raw = raw_retry,
+                    "Spotify rate limit too long ({}s), failing fast instead of waiting",
+                    raw_retry
+                );
+                return Err(AppError::ExternalServiceError(format!(
+                    "Spotify rate limited for {}s ({}h) — try again later or use a fresh app",
+                    raw_retry, raw_retry / 3600
+                )));
+            }
 
             tracing::warn!(
                 url = url,

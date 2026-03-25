@@ -493,11 +493,15 @@ pub async fn spotify_library_sync_handler(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
 ) -> Result<(StatusCode, Json<SpotifyLibrarySyncResponse>)> {
+    tracing::info!(user_id = %authenticated_user.id, "Spotify library sync requested");
+
     let connection = get_user_spotify_connection(&state.db_pool, authenticated_user.id)
         .await?
         .ok_or_else(|| AppError::NotFound {
             resource: "Spotify connection".to_string(),
         })?;
+
+    tracing::info!(connection_id = %connection.id, "Found Spotify connection");
 
     let encrypted_access_token = connection.access_token_encrypted.ok_or_else(|| {
         AppError::ExternalServiceError(
@@ -505,25 +509,50 @@ pub async fn spotify_library_sync_handler(
         )
     })?;
 
+    tracing::info!("Decrypting Spotify access token");
     let access_token = decrypt_connection_access_token(&encrypted_access_token).await?;
+    tracing::info!("Token decrypted, starting background library sync");
 
-    let summary =
-        sync_spotify_library_to_user_library(&state.db_pool, authenticated_user.id, &access_token)
-            .await?;
+    // Run sync in background to avoid Cloudflare 524 timeouts.
+    // The sync makes many paginated Spotify API calls that can take minutes.
+    let db_pool = state.db_pool.clone();
+    let user_id = authenticated_user.id;
+    tokio::spawn(async move {
+        match sync_spotify_library_to_user_library(&db_pool, user_id, &access_token).await {
+            Ok(summary) => {
+                tracing::info!(
+                    user_id = %user_id,
+                    imported = summary.imported_tracks,
+                    liked = summary.liked_tracks_synced,
+                    playlists = summary.playlist_tracks_synced,
+                    albums = summary.saved_albums_synced,
+                    artists = summary.followed_artists_synced,
+                    "Spotify library sync completed successfully"
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    user_id = %user_id,
+                    error = %e,
+                    "Spotify library sync failed in background"
+                );
+            }
+        }
+    });
 
     Ok((
         StatusCode::OK,
         Json(SpotifyLibrarySyncResponse {
             success: true,
-            message: format!(
-                "Synced Spotify library: {} imported items ({} liked, {} playlist tracks, {} saved albums, {} followed artists)",
-                summary.imported_tracks,
-                summary.liked_tracks_synced,
-                summary.playlist_tracks_synced,
-                summary.saved_albums_synced,
-                summary.followed_artists_synced
-            ),
-            summary,
+            message: "Spotify library sync started in background. Refresh to see progress."
+                .to_string(),
+            summary: SpotifyLibrarySyncSummary {
+                imported_tracks: 0,
+                liked_tracks_synced: 0,
+                playlist_tracks_synced: 0,
+                saved_albums_synced: 0,
+                followed_artists_synced: 0,
+            },
         }),
     ))
 }

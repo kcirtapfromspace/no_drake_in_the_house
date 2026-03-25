@@ -47,6 +47,10 @@
   let featuredShowCount = 20;
   let behindShowCount = 20;
 
+  // Connections tab state
+  let connectionsLoading = false;
+  let blockedNetworkArtists: Set<string> = new Set();
+
   // Track blocking in progress
   let trackBlockingInProgress: Set<string> = new Set();
 
@@ -297,46 +301,74 @@
         profile.streaming_metrics = metricsResult.data;
       }
 
-      // Fetch collaborators
+      // Fetch collaborators from real API
+      connectionsLoading = true;
       try {
-        const collabResult = await apiClient.get<any>(`/api/v1/graph/artists/${artistId}/collaborators`);
+        const [collabResult, blockedResult] = await Promise.all([
+          apiClient.get<any>(`/api/v1/graph/artists/${artistId}/collaborators`),
+          apiClient.get<any>(`/api/v1/graph/blocked-network`).catch(() => null),
+        ]);
+
+        // Build set of blocked/flagged artist IDs from the blocked-network endpoint
+        blockedNetworkArtists = new Set();
+        if (blockedResult?.success && blockedResult.data) {
+          const clusters = blockedResult.data.blocked_clusters || [];
+          for (const cluster of clusters) {
+            for (const a of cluster.artists || []) {
+              if (a.id) blockedNetworkArtists.add(a.id);
+            }
+          }
+          const atRisk = blockedResult.data.at_risk_artists || [];
+          for (const entry of atRisk) {
+            if (entry.artist?.id && entry.artist?.is_blocked) {
+              blockedNetworkArtists.add(entry.artist.id);
+            }
+          }
+        }
+
         if (collabResult.success && collabResult.data && profile) {
-          profile.collaborators = collabResult.data.collaborators || collabResult.data || [];
+          const raw = collabResult.data.collaborators || collabResult.data || [];
+          // Map API response to Collaborator shape, merging blocked-network info
+          profile.collaborators = raw.map((c: any) => ({
+            id: c.artist_id || c.id || '',
+            name: c.artist_name || c.name || 'Unknown',
+            collaboration_type: c.collab_type || c.collaboration_type || 'featured',
+            collaboration_count: c.track_count || c.collaboration_count || 1,
+            is_flagged: c.is_flagged ?? blockedNetworkArtists.has(c.artist_id || c.id || ''),
+            status: c.status || (blockedNetworkArtists.has(c.artist_id || c.id || '') ? 'flagged' : 'clean'),
+            image_url: c.image_url || null,
+            recent_tracks: c.track_title ? [c.track_title] : [],
+          }));
+          // De-duplicate by artist id (API may return multiple rows per collaborator)
+          const seen = new Map<string, any>();
+          for (const collab of profile.collaborators) {
+            const existing = seen.get(collab.id);
+            if (existing) {
+              existing.collaboration_count = Math.max(existing.collaboration_count, collab.collaboration_count);
+              if (collab.recent_tracks?.length) {
+                existing.recent_tracks = [...new Set([...(existing.recent_tracks || []), ...collab.recent_tracks])];
+              }
+            } else {
+              seen.set(collab.id, collab);
+            }
+          }
+          profile.collaborators = Array.from(seen.values());
+          // Sort by collaboration count descending
+          profile.collaborators.sort((a: any, b: any) => b.collaboration_count - a.collaboration_count);
         }
       } catch (collabErr) {
-        console.log('Collaborators API failed, will use fallback');
+        console.warn('Collaborators API failed:', collabErr);
+      } finally {
+        connectionsLoading = false;
       }
 
-      // If no collaborators and this is Drake, add simulated ones for showcase
-      if (profile && (!profile.collaborators || profile.collaborators.length === 0) && profile.canonical_name === 'Drake') {
-        profile.collaborators = [
-          // Featured Artists
-          { id: 'collab-1', name: 'Future', collaboration_type: 'featured', collaboration_count: 25, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5ebdf9a1555f53a20087b8c5a5c' },
-          { id: 'collab-2', name: '21 Savage', collaboration_type: 'featured', collaboration_count: 18, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb50defaf9fc059a1efc541f4c' },
-          { id: 'collab-3', name: 'Lil Wayne', collaboration_type: 'featured', collaboration_count: 28, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb749114d7b3fc16d80a0a9572' },
-          { id: 'collab-4', name: 'Rihanna', collaboration_type: 'featured', collaboration_count: 12, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb99e4fca7c0b7cb166d915789' },
-          { id: 'collab-5', name: 'Travis Scott', collaboration_type: 'featured', collaboration_count: 8, is_flagged: true, status: 'flagged', image_url: 'https://i.scdn.co/image/ab6761610000e5eb19c2790744c792d05570bb71' },
-          { id: 'collab-6', name: 'Chris Brown', collaboration_type: 'featured', collaboration_count: 7, is_flagged: true, status: 'flagged', image_url: 'https://i.scdn.co/image/ab6761610000e5eb6be070445b03e0b63147c2c1' },
-          { id: 'collab-7', name: 'Nicki Minaj', collaboration_type: 'featured', collaboration_count: 15, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5bbd0251a2d22a026181f0c5cc5' },
-          { id: 'collab-8', name: 'The Weeknd', collaboration_type: 'featured', collaboration_count: 9, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb214f3cf1cbe7139c1e26ffbb' },
-          { id: 'collab-9', name: 'DJ Khaled', collaboration_type: 'featured', collaboration_count: 20, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb8945f4d4f9ceccf7a44e5e2a' },
-          { id: 'collab-10', name: 'Rick Ross', collaboration_type: 'featured', collaboration_count: 12, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb85c03c0b19a5a34d76f88de1' },
-          { id: 'collab-11', name: 'J. Cole', collaboration_type: 'featured', collaboration_count: 6, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5ebadd503b411a712e277895c8a' },
-          { id: 'collab-12', name: 'Kanye West', collaboration_type: 'featured', collaboration_count: 5, is_flagged: true, status: 'flagged', image_url: 'https://i.scdn.co/image/ab6761610000e5eb6e835a500e791bf9c27a519a' },
-          { id: 'collab-13', name: 'Kendrick Lamar', collaboration_type: 'featured', collaboration_count: 4, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb437b9e2a82505b3d93ff1022' },
-          { id: 'collab-14', name: 'Migos', collaboration_type: 'featured', collaboration_count: 8, is_flagged: false, status: 'certified_creeper', image_url: 'https://i.scdn.co/image/ab6761610000e5eb1a0c6c6c6c6c6c6c6c6c6c6c' },
-          { id: 'collab-15', name: 'Young Thug', collaboration_type: 'featured', collaboration_count: 7, is_flagged: true, status: 'flagged', image_url: 'https://i.scdn.co/image/ab6761610000e5eb4b4b4b4b4b4b4b4b4b4b4b4b' },
-          { id: 'collab-16', name: 'Partynextdoor', collaboration_type: 'featured', collaboration_count: 14, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb9997e163236a0dbbe8e7fdf7' },
-          { id: 'collab-17', name: 'Tory Lanez', collaboration_type: 'featured', collaboration_count: 6, is_flagged: true, status: 'flagged', image_url: 'https://i.scdn.co/image/ab6761610000e5eb4f4f4f4f4f4f4f4f4f4f4f4f' },
-          { id: 'collab-18', name: 'Quavo', collaboration_type: 'featured', collaboration_count: 5, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5ebf83e7d4a4e4a4e4a4e4a4e4a' },
-          // Producers
-          { id: 'collab-p1', name: 'Noah "40" Shebib', collaboration_type: 'producer', collaboration_count: 150, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb9e3c7c7c7c7c7c7c7c7c7c7c' },
-          { id: 'collab-p2', name: 'Boi-1da', collaboration_type: 'producer', collaboration_count: 55, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb6a6a6a6a6a6a6a6a6a6a6a6a' },
-          { id: 'collab-p3', name: 'Metro Boomin', collaboration_type: 'producer', collaboration_count: 25, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb9d4b4b4b4b4b4b4b4b4b4b4b' },
-          { id: 'collab-p4', name: 'Tay Keith', collaboration_type: 'producer', collaboration_count: 15, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb8e8e8e8e8e8e8e8e8e8e8e8e' },
-          { id: 'collab-p5', name: 'Hit-Boy', collaboration_type: 'producer', collaboration_count: 12, is_flagged: false, status: 'clean', image_url: 'https://i.scdn.co/image/ab6761610000e5eb7f7f7f7f7f7f7f7f7f7f7f7f' },
-        ];
+      // If still no collaborators, initialize to empty array (no mock data)
+      if (profile && !profile.collaborators) {
+        profile.collaborators = [];
+      }
 
+      // Add credits and catalog data for Drake showcase
+      if (profile && profile.canonical_name === 'Drake') {
         // Add writers/producers credits for Drake
         profile.credits = {
           writers: [
@@ -1582,9 +1614,25 @@
               <span class="conn-count">({profile.collaborators.length})</span>
             {/if}
           </h2>
+          {#if profile.collaborators.length > 0}
+            {@const flaggedCount = profile.collaborators.filter(c => c.is_flagged).length}
+            {#if flaggedCount > 0}
+              <span class="conn-flagged-summary">{flaggedCount} flagged/blocked</span>
+            {/if}
+          {/if}
         </div>
 
-        {#if profile.collaborators.length === 0}
+        {#if connectionsLoading}
+          <div class="conn-empty surface-panel-thin">
+            <div class="conn-empty__icon">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="conn-spinner">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <p class="conn-empty__title">Loading connections...</p>
+            <p class="conn-empty__sub">Fetching collaborator and network data</p>
+          </div>
+        {:else if profile.collaborators.length === 0}
           <div class="conn-empty surface-panel-thin">
             <div class="conn-empty__icon">
               <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1611,7 +1659,9 @@
                 <div class="conn-info">
                   <span class="conn-name">{collab.name}</span>
                   {#if collab.is_flagged}
-                    <span class="conn-dot conn-dot--flagged"></span>
+                    <span class="conn-dot conn-dot--flagged" title="Flagged or blocked artist"></span>
+                  {:else if blockedNetworkArtists.has(collab.id)}
+                    <span class="conn-dot conn-dot--blocked" title="In your blocked network"></span>
                   {:else}
                     <span class="conn-dot conn-dot--clean"></span>
                   {/if}
@@ -1635,16 +1685,16 @@
           </p>
         </div>
 
-        <!-- Explore Network Button -->
+        <!-- View Full Network Link -->
         <button
           type="button"
-          on:click={() => navigateTo('graph')}
+          on:click={() => { navigateTo('graph'); window.history.replaceState(window.history.state, '', `/graph?artist=${artistId}`); }}
           class="conn-explore"
         >
           <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
           </svg>
-          Explore Full Network
+          View Full Network
         </button>
       {/if}
     </main>
@@ -2880,7 +2930,7 @@
   .cred-disclaimer strong { color: #d4d4d8; }
 
   /* ===== Connections Tab ===== */
-  .conn-header { margin-bottom: 1rem; }
+  .conn-header { margin-bottom: 1rem; display: flex; align-items: baseline; gap: 0.5rem; }
 
   .conn-title {
     font-size: 1.125rem;
@@ -2892,6 +2942,22 @@
   .conn-count {
     color: #71717a;
     font-weight: 400;
+  }
+
+  .conn-flagged-summary {
+    font-size: 0.75rem;
+    color: #fb7185;
+    font-weight: 500;
+    margin-left: auto;
+  }
+
+  .conn-spinner {
+    animation: conn-spin 1.2s linear infinite;
+  }
+
+  @keyframes conn-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .conn-empty {
@@ -2996,6 +3062,7 @@
 
   .conn-dot--clean { background: #22c55e; }
   .conn-dot--flagged { background: #fb7185; }
+  .conn-dot--blocked { background: #f59e0b; }
 
   .conn-collabs {
     font-size: 0.75rem;

@@ -54,16 +54,9 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playl
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_artist   ON playlist_tracks(artist_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_synced   ON playlist_tracks(playlist_id, last_synced);
 
--- Performance: fast lookup for offense name matching
-CREATE INDEX IF NOT EXISTS idx_artists_canonical_lower ON artists (LOWER(canonical_name));
-CREATE INDEX IF NOT EXISTS idx_playlist_tracks_artist_name_lower ON playlist_tracks (LOWER(artist_name)) WHERE artist_name IS NOT NULL;
-
 -- ============================================================
 -- Backfill: extract playlists from existing user_library_tracks
--- Wrapped in a subtransaction so backfill failures don't block
--- the table creation (tables are the critical part).
 -- ============================================================
-DO $backfill$ BEGIN
 
 -- Step 1: Create playlist entities from distinct (user, provider, playlist) combos
 INSERT INTO playlists (user_id, provider, provider_playlist_id, name, source_type, last_synced)
@@ -181,7 +174,3 @@ WHERE ult.track_name NOT LIKE '[Album] %'
   AND NOT (ult.source_type = 'playlist' AND ult.provider_track_id LIKE 'playlist:%')
   AND NOT (ult.source_type = 'library_playlist')
 ON CONFLICT (playlist_id, provider_track_id, position) DO NOTHING;
-
-EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'Playlist backfill skipped due to error: %', SQLERRM;
-END $backfill$;

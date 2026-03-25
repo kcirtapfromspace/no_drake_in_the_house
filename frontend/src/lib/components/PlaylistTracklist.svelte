@@ -157,7 +157,7 @@
       <button
         type="button"
         class="tl__sanitize-btn"
-        on:click={() => dispatch('sanitize', { provider: playlist.provider, playlistName: playlist.playlist_name })}
+        on:click={() => dispatch('sanitize', { provider: playlist.provider, playlistName: playlist.provider_playlist_id || playlist.playlist_name })}
       >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
           <path d="M9 2v5M9 11v5M2 9h5M11 9h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

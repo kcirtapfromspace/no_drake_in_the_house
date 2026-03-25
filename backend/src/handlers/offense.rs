@@ -18,6 +18,7 @@ use crate::models::offense::{
 };
 use crate::models::{AuthenticatedUser, Claims};
 use crate::services::offense::OffenseService;
+use crate::services::PlaylistRepository;
 use crate::AppState;
 
 /// Query parameters for listing flagged artists
@@ -1192,227 +1193,18 @@ pub struct ListPlaylistsQuery {
     pub provider: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct PlaylistSummary {
-    pub provider: String,
-    pub playlist_name: String,
-    pub total_tracks: i64,
-    pub flagged_tracks: i64,
-    pub clean_ratio: f64,
-    pub grade: String,
-    pub unique_artists: i64,
-    pub flagged_artists: Vec<String>,
-    pub last_synced: Option<DateTime<Utc>>,
-    pub cover_images: Vec<String>,
-}
-
-fn grade_from_ratio(clean_ratio: f64) -> String {
-    if clean_ratio < 0.5 {
-        "F"
-    } else if clean_ratio < 0.6 {
-        "D"
-    } else if clean_ratio < 0.7 {
-        "C"
-    } else if clean_ratio < 0.8 {
-        "B"
-    } else if clean_ratio < 0.95 {
-        "A"
-    } else {
-        "A+"
-    }
-    .to_string()
-}
-
-/// List all playlists for the authenticated user, grouped from library tracks.
+/// List all playlists using the normalized playlists table.
 pub async fn list_playlists(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Query(query): Query<ListPlaylistsQuery>,
 ) -> Result<Json<serde_json::Value>> {
-    #[derive(sqlx::FromRow)]
-    struct PlaylistRow {
-        provider: String,
-        playlist_name: String,
-        total_tracks: i64,
-        unique_artists: i64,
-        last_synced: Option<DateTime<Utc>>,
-    }
-
     let provider = normalize_optional(query.provider);
+    let repo = PlaylistRepository::new(&state.db_pool);
 
-    let playlists = if let Some(ref prov) = provider {
-        sqlx::query_as::<_, PlaylistRow>(
-            r#"
-            SELECT
-                provider,
-                playlist_name,
-                COUNT(*)::bigint AS total_tracks,
-                COUNT(DISTINCT LOWER(artist_name)) FILTER (
-                    WHERE artist_name IS NOT NULL AND TRIM(artist_name) <> ''
-                )::bigint AS unique_artists,
-                MAX(last_synced) AS last_synced
-            FROM user_library_tracks
-            WHERE user_id = $1
-              AND provider = $2
-              AND playlist_name IS NOT NULL
-              AND TRIM(playlist_name) <> ''
-            GROUP BY provider, playlist_name
-            "#,
-        )
-        .bind(user.id)
-        .bind(prov)
-        .fetch_all(&state.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-    } else {
-        sqlx::query_as::<_, PlaylistRow>(
-            r#"
-            SELECT
-                provider,
-                playlist_name,
-                COUNT(*)::bigint AS total_tracks,
-                COUNT(DISTINCT LOWER(artist_name)) FILTER (
-                    WHERE artist_name IS NOT NULL AND TRIM(artist_name) <> ''
-                )::bigint AS unique_artists,
-                MAX(last_synced) AS last_synced
-            FROM user_library_tracks
-            WHERE user_id = $1
-              AND playlist_name IS NOT NULL
-              AND TRIM(playlist_name) <> ''
-            GROUP BY provider, playlist_name
-            "#,
-        )
-        .bind(user.id)
-        .fetch_all(&state.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-    };
-
-    // Build flagged info per playlist
-    let mut summaries: Vec<PlaylistSummary> = Vec::with_capacity(playlists.len());
-
-    for p in playlists {
-        #[derive(sqlx::FromRow)]
-        struct FlaggedInfo {
-            flagged_count: i64,
-        }
-
-        let flagged: FlaggedInfo = sqlx::query_as(
-            r#"
-            SELECT COUNT(*)::bigint AS flagged_count
-            FROM user_library_tracks ult
-            WHERE ult.user_id = $1
-              AND ult.provider = $2
-              AND ult.playlist_name = $3
-              AND (
-                  EXISTS (
-                      SELECT 1 FROM artists a
-                      JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-                      WHERE a.id = ult.artist_id
-                         OR (ult.artist_name IS NOT NULL AND LOWER(ult.artist_name) = LOWER(a.canonical_name))
-                  )
-                  OR EXISTS (
-                      SELECT 1 FROM user_artist_blocks uab
-                      WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
-                  )
-              )
-            "#,
-        )
-        .bind(user.id)
-        .bind(&p.provider)
-        .bind(&p.playlist_name)
-        .fetch_one(&state.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-        let flagged_artists: Vec<String> = sqlx::query_scalar(
-            r#"
-            SELECT DISTINCT ult.artist_name
-            FROM user_library_tracks ult
-            WHERE ult.user_id = $1
-              AND ult.provider = $2
-              AND ult.playlist_name = $3
-              AND ult.artist_name IS NOT NULL
-              AND TRIM(ult.artist_name) <> ''
-              AND (
-                  EXISTS (
-                      SELECT 1 FROM artists a
-                      JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-                      WHERE a.id = ult.artist_id
-                         OR LOWER(ult.artist_name) = LOWER(a.canonical_name)
-                  )
-                  OR EXISTS (
-                      SELECT 1 FROM user_artist_blocks uab
-                      WHERE uab.user_id = ult.user_id AND uab.artist_id = ult.artist_id
-                  )
-              )
-            "#,
-        )
-        .bind(user.id)
-        .bind(&p.provider)
-        .bind(&p.playlist_name)
-        .fetch_all(&state.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-        // Grab up to 4 unique artist images for a mosaic cover
-        let cover_images: Vec<String> = sqlx::query_scalar(
-            r#"
-            SELECT DISTINCT a.metadata->>'image_url'
-            FROM user_library_tracks ult
-            JOIN artists a ON a.id = ult.artist_id
-            WHERE ult.user_id = $1
-              AND ult.provider = $2
-              AND ult.playlist_name = $3
-              AND a.metadata->>'image_url' IS NOT NULL
-              AND a.metadata->>'image_url' <> ''
-            LIMIT 4
-            "#,
-        )
-        .bind(user.id)
-        .bind(&p.provider)
-        .bind(&p.playlist_name)
-        .fetch_all(&state.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-        let clean_ratio = if p.total_tracks > 0 {
-            (p.total_tracks - flagged.flagged_count) as f64 / p.total_tracks as f64
-        } else {
-            1.0
-        };
-
-        summaries.push(PlaylistSummary {
-            provider: p.provider,
-            playlist_name: p.playlist_name,
-            total_tracks: p.total_tracks,
-            flagged_tracks: flagged.flagged_count,
-            clean_ratio,
-            grade: grade_from_ratio(clean_ratio),
-            unique_artists: p.unique_artists,
-            flagged_artists,
-            last_synced: p.last_synced,
-            cover_images,
-        });
-    }
-
-    // Sort: worst grade first, then alphabetically
-    let grade_order = |g: &str| -> u8 {
-        match g {
-            "F" => 0,
-            "D" => 1,
-            "C" => 2,
-            "B" => 3,
-            "A" => 4,
-            "A+" => 5,
-            _ => 5,
-        }
-    };
-    summaries.sort_by(|a, b| {
-        grade_order(&a.grade)
-            .cmp(&grade_order(&b.grade))
-            .then(a.playlist_name.cmp(&b.playlist_name))
-    });
+    let summaries = repo
+        .list_playlists_with_grades(user.id, provider.as_deref())
+        .await?;
 
     let total = summaries.len();
     Ok(Json(serde_json::json!({
@@ -1525,6 +1317,23 @@ pub async fn get_playlist_tracks(
         })
         .collect();
 
+    let total = tracks.len();
+    Ok(Json(serde_json::json!({
+        "tracks": tracks,
+        "total": total
+    })))
+}
+
+/// Get tracks for a playlist by its normalized UUID.
+pub async fn get_playlist_tracks_by_id(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path(playlist_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>> {
+    let repo = PlaylistRepository::new(&state.db_pool);
+    let tracks = repo
+        .get_playlist_tracks_with_status(playlist_id, user.id)
+        .await?;
     let total = tracks.len();
     Ok(Json(serde_json::json!({
         "tracks": tracks,

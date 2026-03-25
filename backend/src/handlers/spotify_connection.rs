@@ -22,7 +22,9 @@ use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::OAuthTokenEncryption;
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::services::OffenseService;
+use crate::services::PlaylistRepository;
 use crate::AppState;
 use ndith_core::config::provider_callback_uri;
 use std::collections::HashMap;
@@ -686,6 +688,29 @@ struct SpotifySavedAlbumPayload {
 struct SpotifyPlaylistPayload {
     id: String,
     name: String,
+    description: Option<String>,
+    images: Option<Vec<SpotifyImagePayload>>,
+    owner: Option<SpotifyPlaylistOwner>,
+    public: Option<bool>,
+    collaborative: Option<bool>,
+    snapshot_id: Option<String>,
+    tracks: Option<SpotifyPlaylistTracksRef>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyImagePayload {
+    url: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaylistOwner {
+    id: Option<String>,
+    display_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SpotifyPlaylistTracksRef {
+    total: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -943,12 +968,111 @@ async fn sync_spotify_library_to_user_library(
         }
     }
 
+    // ── Normalized playlist dual-write ──────────────────────────────────
+    let playlist_repo = PlaylistRepository::new(pool);
+    let sync_ts = Utc::now();
+
+    // Virtual playlists for non-playlist library items
+    let liked_pl_id = playlist_repo
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__liked_songs__".to_string(),
+                name: "Liked Songs".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "liked_songs".to_string(),
+                provider_track_count: Some(liked_count as i32),
+                snapshot_id: None,
+            },
+        )
+        .await?;
+
+    let saved_albums_pl_id = playlist_repo
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__saved_albums__".to_string(),
+                name: "Saved Albums".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "saved_albums".to_string(),
+                provider_track_count: Some(saved_album_count as i32),
+                snapshot_id: None,
+            },
+        )
+        .await?;
+
+    let followed_pl_id = playlist_repo
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__followed_artists__".to_string(),
+                name: "Followed Artists".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "followed_artists".to_string(),
+                provider_track_count: Some(followed_artist_count as i32),
+                snapshot_id: None,
+            },
+        )
+        .await?;
+
+    // ── Fetch playlists and their tracks, writing to both old and new tables ─
     let mut playlists_url = Some("https://api.spotify.com/v1/me/playlists?limit=50".to_string());
     while let Some(url) = playlists_url {
         let page: SpotifyPaging<SpotifyPlaylistPayload> =
             spotify_get_json(&client, access_token, &url).await?;
 
         for playlist in &page.items {
+            // Upsert playlist entity into normalized table
+            let pl_id = playlist_repo
+                .upsert_playlist(
+                    user_id,
+                    "spotify",
+                    &UpsertPlaylist {
+                        provider_playlist_id: playlist.id.clone(),
+                        name: playlist.name.clone(),
+                        description: playlist.description.clone(),
+                        image_url: playlist
+                            .images
+                            .as_ref()
+                            .and_then(|imgs| imgs.first())
+                            .map(|img| img.url.clone()),
+                        owner_name: playlist
+                            .owner
+                            .as_ref()
+                            .and_then(|o| o.display_name.clone()),
+                        owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
+                        is_public: playlist.public,
+                        is_collaborative: playlist.collaborative.unwrap_or(false),
+                        source_type: "playlist".to_string(),
+                        provider_track_count: playlist
+                            .tracks
+                            .as_ref()
+                            .and_then(|t| t.total),
+                        snapshot_id: playlist.snapshot_id.clone(),
+                    },
+                )
+                .await?;
+
+            // Fetch playlist tracks
+            let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::new();
             let mut playlist_tracks_url = Some(format!(
                 "https://api.spotify.com/v1/playlists/{}/tracks?limit=100&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))",
                 playlist.id
@@ -967,6 +1091,7 @@ async fn sync_spotify_library_to_user_library(
                         continue;
                     };
 
+                    // Old table (backward compat)
                     tracks.push(ImportTrack {
                         provider_track_id: format!(
                             "playlist:{}:{}:{}",
@@ -979,17 +1104,96 @@ async fn sync_spotify_library_to_user_library(
                         playlist_name: Some(playlist.name.clone()),
                         added_at: parse_spotify_timestamp(playlist_item.added_at.as_deref()),
                     });
+
+                    // New normalized table
+                    normalized_tracks.push(UpsertPlaylistTrack {
+                        provider_track_id: track_id,
+                        track_name: track.name.clone(),
+                        album_name: spotify_album_name(&track),
+                        artist_name: spotify_primary_artist(&track),
+                        position: playlist_index as i32,
+                        added_at: parse_spotify_timestamp(playlist_item.added_at.as_deref()),
+                    });
+
                     playlist_track_count += 1;
                     playlist_index += 1;
                 }
 
                 playlist_tracks_url = track_page.next;
             }
+
+            // Write tracks to normalized table
+            playlist_repo
+                .replace_playlist_tracks(pl_id, &normalized_tracks)
+                .await?;
         }
 
         playlists_url = page.next;
     }
 
+    // Write virtual playlist tracks to normalized tables
+    // (liked songs, saved albums, followed artists collected earlier)
+    {
+        let mut liked_norm: Vec<UpsertPlaylistTrack> = Vec::new();
+        let mut album_norm: Vec<UpsertPlaylistTrack> = Vec::new();
+        let mut artist_norm: Vec<UpsertPlaylistTrack> = Vec::new();
+        let mut liked_pos = 0i32;
+        let mut album_pos = 0i32;
+        let mut artist_pos = 0i32;
+
+        for t in &tracks {
+            match t.source_type.as_deref() {
+                Some("liked") => {
+                    let raw_id = t.provider_track_id.strip_prefix("liked:").unwrap_or(&t.provider_track_id);
+                    liked_norm.push(UpsertPlaylistTrack {
+                        provider_track_id: raw_id.to_string(),
+                        track_name: t.track_name.clone(),
+                        album_name: t.album_name.clone(),
+                        artist_name: t.artist_name.clone(),
+                        position: liked_pos,
+                        added_at: t.added_at,
+                    });
+                    liked_pos += 1;
+                }
+                Some("saved_album") => {
+                    let raw_id = t.provider_track_id.strip_prefix("album:").unwrap_or(&t.provider_track_id);
+                    album_norm.push(UpsertPlaylistTrack {
+                        provider_track_id: raw_id.to_string(),
+                        track_name: t.track_name.clone(),
+                        album_name: t.album_name.clone(),
+                        artist_name: t.artist_name.clone(),
+                        position: album_pos,
+                        added_at: t.added_at,
+                    });
+                    album_pos += 1;
+                }
+                Some("followed_artist") => {
+                    let raw_id = t.provider_track_id.strip_prefix("artist:").unwrap_or(&t.provider_track_id);
+                    artist_norm.push(UpsertPlaylistTrack {
+                        provider_track_id: raw_id.to_string(),
+                        track_name: t.track_name.clone(),
+                        album_name: t.album_name.clone(),
+                        artist_name: t.artist_name.clone(),
+                        position: artist_pos,
+                        added_at: t.added_at,
+                    });
+                    artist_pos += 1;
+                }
+                _ => {} // playlist_track already handled above
+            }
+        }
+
+        playlist_repo.replace_playlist_tracks(liked_pl_id, &liked_norm).await?;
+        playlist_repo.replace_playlist_tracks(saved_albums_pl_id, &album_norm).await?;
+        playlist_repo.replace_playlist_tracks(followed_pl_id, &artist_norm).await?;
+    }
+
+    // Remove playlists that were deleted on Spotify since last sync
+    playlist_repo
+        .delete_stale_playlists(user_id, "spotify", sync_ts)
+        .await?;
+
+    // ── Legacy table: delete-and-reimport ─────────────────────────────
     sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
         .bind(user_id)
         .bind("spotify")

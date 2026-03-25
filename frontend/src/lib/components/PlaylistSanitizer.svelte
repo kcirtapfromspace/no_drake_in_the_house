@@ -137,7 +137,7 @@
         </div>
       {:else}
         <div class="browser__grid">
-          {#each $filteredPlaylists as playlist, i (playlist.provider + '::' + playlist.playlist_name)}
+          {#each $filteredPlaylists as playlist, i (playlist.id || (playlist.provider + '::' + playlist.playlist_name))}
             <PlaylistCard {playlist} index={i} on:select={handleSelectPlaylist} />
           {/each}
         </div>

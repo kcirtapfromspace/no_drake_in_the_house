@@ -4,8 +4,17 @@ import { apiClient } from '../utils/api-client';
 // ---- Types ----
 
 export interface PlaylistSummary {
+  id: string;
   provider: string;
+  provider_playlist_id: string;
+  name: string;
+  /** @deprecated use `name` — kept for backward compat */
   playlist_name: string;
+  description?: string;
+  image_url?: string;
+  owner_name?: string;
+  is_public?: boolean;
+  source_type: string;
   total_tracks: number;
   flagged_tracks: number;
   clean_ratio: number;
@@ -72,7 +81,10 @@ export const filteredPlaylists = derived(
     }
     if ($s.searchQuery) {
       const q = $s.searchQuery.toLowerCase();
-      result = result.filter((p) => p.playlist_name.toLowerCase().includes(q));
+      result = result.filter((p) => {
+        const name = p.name || p.playlist_name || '';
+        return name.toLowerCase().includes(q);
+      });
     }
     return result;
   }
@@ -107,9 +119,14 @@ export const playlistBrowserActions = {
       );
 
       if (response.success && response.data) {
+        // Normalize: ensure playlist_name is populated for backward compat
+        const playlists = (response.data.playlists ?? []).map((p) => ({
+          ...p,
+          playlist_name: p.playlist_name || p.name,
+        }));
         playlistBrowserStore.update((s) => ({
           ...s,
-          playlists: response.data!.playlists ?? [],
+          playlists,
           isLoadingPlaylists: false,
         }));
       } else {
@@ -139,13 +156,22 @@ export const playlistBrowserActions = {
     }));
 
     try {
-      const params = new URLSearchParams({
-        provider: playlist.provider,
-        playlistName: playlist.playlist_name,
-      });
-      const response = await apiClient.get<{ tracks: PlaylistTrack[]; total: number }>(
-        `/api/v1/library/playlists/tracks?${params}`
-      );
+      let response;
+
+      // Prefer ID-based lookup (normalized), fall back to name-based (legacy)
+      if (playlist.id) {
+        response = await apiClient.get<{ tracks: PlaylistTrack[]; total: number }>(
+          `/api/v1/library/playlists/${playlist.id}/tracks`
+        );
+      } else {
+        const params = new URLSearchParams({
+          provider: playlist.provider,
+          playlistName: playlist.playlist_name || playlist.name,
+        });
+        response = await apiClient.get<{ tracks: PlaylistTrack[]; total: number }>(
+          `/api/v1/library/playlists/tracks?${params}`
+        );
+      }
 
       if (response.success && response.data) {
         playlistBrowserStore.update((s) => ({

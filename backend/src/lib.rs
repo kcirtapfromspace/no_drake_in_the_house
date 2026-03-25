@@ -318,6 +318,10 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::offense::get_playlist_tracks),
         )
         .route(
+            "/library/playlists/:playlist_id/tracks",
+            get(handlers::offense::get_playlist_tracks_by_id),
+        )
+        .route(
             "/library/playlists",
             get(handlers::offense::list_playlists),
         )

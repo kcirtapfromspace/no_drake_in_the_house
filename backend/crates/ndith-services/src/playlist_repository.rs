@@ -158,11 +158,16 @@ impl<'a> PlaylistRepository<'a> {
     }
 
     /// List all playlists for a user with computed flagging grades.
+    ///
+    /// Uses a two-pass approach for performance:
+    /// 1. Cheap aggregation query for track/artist counts (no correlated subqueries)
+    /// 2. Single batch query to compute flagged tracks across ALL playlists at once
     pub async fn list_playlists_with_grades(
         &self,
         user_id: Uuid,
         provider: Option<&str>,
     ) -> Result<Vec<PlaylistSummary>> {
+        // ── Pass 1: lightweight playlist metadata + counts ────────────
         #[derive(sqlx::FromRow)]
         struct RawRow {
             id: Uuid,
@@ -177,45 +182,23 @@ impl<'a> PlaylistRepository<'a> {
             last_synced: Option<DateTime<Utc>>,
             total_tracks: i64,
             unique_artists: i64,
-            flagged_tracks: i64,
         }
 
         let rows = if let Some(prov) = provider {
             sqlx::query_as::<_, RawRow>(
                 r#"
                 SELECT
-                    p.id,
-                    p.provider,
-                    p.provider_playlist_id,
-                    p.name,
-                    p.description,
-                    p.image_url,
-                    p.owner_name,
-                    p.is_public,
-                    p.source_type,
-                    p.last_synced,
+                    p.id, p.provider, p.provider_playlist_id, p.name,
+                    p.description, p.image_url, p.owner_name, p.is_public,
+                    p.source_type, p.last_synced,
                     COUNT(pt.id)::bigint AS total_tracks,
                     COUNT(DISTINCT pt.artist_name) FILTER (
                         WHERE pt.artist_name IS NOT NULL AND TRIM(pt.artist_name) <> ''
-                    )::bigint AS unique_artists,
-                    COUNT(pt.id) FILTER (
-                        WHERE EXISTS (
-                            SELECT 1 FROM artists a
-                            JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-                            WHERE a.id = pt.artist_id
-                               OR (pt.artist_name IS NOT NULL AND LOWER(pt.artist_name) = LOWER(a.canonical_name))
-                        )
-                        OR EXISTS (
-                            SELECT 1 FROM user_artist_blocks uab
-                            WHERE uab.user_id = p.user_id AND uab.artist_id = pt.artist_id
-                        )
-                    )::bigint AS flagged_tracks
+                    )::bigint AS unique_artists
                 FROM playlists p
                 LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
-                WHERE p.user_id = $1
-                  AND p.provider = $2
+                WHERE p.user_id = $1 AND p.provider = $2
                 GROUP BY p.id
-                ORDER BY p.name
                 "#,
             )
             .bind(user_id)
@@ -227,37 +210,17 @@ impl<'a> PlaylistRepository<'a> {
             sqlx::query_as::<_, RawRow>(
                 r#"
                 SELECT
-                    p.id,
-                    p.provider,
-                    p.provider_playlist_id,
-                    p.name,
-                    p.description,
-                    p.image_url,
-                    p.owner_name,
-                    p.is_public,
-                    p.source_type,
-                    p.last_synced,
+                    p.id, p.provider, p.provider_playlist_id, p.name,
+                    p.description, p.image_url, p.owner_name, p.is_public,
+                    p.source_type, p.last_synced,
                     COUNT(pt.id)::bigint AS total_tracks,
                     COUNT(DISTINCT pt.artist_name) FILTER (
                         WHERE pt.artist_name IS NOT NULL AND TRIM(pt.artist_name) <> ''
-                    )::bigint AS unique_artists,
-                    COUNT(pt.id) FILTER (
-                        WHERE EXISTS (
-                            SELECT 1 FROM artists a
-                            JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-                            WHERE a.id = pt.artist_id
-                               OR (pt.artist_name IS NOT NULL AND LOWER(pt.artist_name) = LOWER(a.canonical_name))
-                        )
-                        OR EXISTS (
-                            SELECT 1 FROM user_artist_blocks uab
-                            WHERE uab.user_id = p.user_id AND uab.artist_id = pt.artist_id
-                        )
-                    )::bigint AS flagged_tracks
+                    )::bigint AS unique_artists
                 FROM playlists p
                 LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
                 WHERE p.user_id = $1
                 GROUP BY p.id
-                ORDER BY p.name
                 "#,
             )
             .bind(user_id)
@@ -266,59 +229,151 @@ impl<'a> PlaylistRepository<'a> {
             .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?
         };
 
-        // Build summaries with grades and flagged artist names
+        if rows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let playlist_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+
+        // ── Pass 2: batch-compute flagged tracks for ALL playlists at once ─
+        // Precompute the set of offending artist IDs (verified offenses)
+        // and the user's blocked artist IDs, then join once.
+        #[derive(sqlx::FromRow)]
+        struct FlaggedRow {
+            playlist_id: Uuid,
+            flagged_count: i64,
+        }
+
+        let flagged_rows: Vec<FlaggedRow> = sqlx::query_as(
+            r#"
+            WITH offending_ids AS (
+                SELECT DISTINCT a.id
+                FROM artists a
+                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+            ),
+            offending_names AS (
+                SELECT DISTINCT LOWER(a.canonical_name) AS lname
+                FROM artists a
+                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+            ),
+            blocked_ids AS (
+                SELECT artist_id FROM user_artist_blocks WHERE user_id = $1
+            )
+            SELECT
+                pt.playlist_id,
+                COUNT(*)::bigint AS flagged_count
+            FROM playlist_tracks pt
+            WHERE pt.playlist_id = ANY($2)
+              AND (
+                  pt.artist_id IN (SELECT id FROM offending_ids)
+                  OR LOWER(pt.artist_name) IN (SELECT lname FROM offending_names)
+                  OR pt.artist_id IN (SELECT artist_id FROM blocked_ids)
+              )
+            GROUP BY pt.playlist_id
+            "#,
+        )
+        .bind(user_id)
+        .bind(&playlist_ids)
+        .fetch_all(self.db)
+        .await
+        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        let flagged_map: std::collections::HashMap<Uuid, i64> =
+            flagged_rows.into_iter().map(|r| (r.playlist_id, r.flagged_count)).collect();
+
+        // ── Pass 3: batch-fetch flagged artist names per playlist ──────
+        #[derive(sqlx::FromRow)]
+        struct FlaggedArtistRow {
+            playlist_id: Uuid,
+            artist_name: String,
+        }
+
+        let flagged_artist_rows: Vec<FlaggedArtistRow> = sqlx::query_as(
+            r#"
+            WITH offending_ids AS (
+                SELECT DISTINCT a.id
+                FROM artists a
+                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+            ),
+            offending_names AS (
+                SELECT DISTINCT LOWER(a.canonical_name) AS lname
+                FROM artists a
+                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
+            ),
+            blocked_ids AS (
+                SELECT artist_id FROM user_artist_blocks WHERE user_id = $1
+            )
+            SELECT DISTINCT pt.playlist_id, pt.artist_name
+            FROM playlist_tracks pt
+            WHERE pt.playlist_id = ANY($2)
+              AND pt.artist_name IS NOT NULL
+              AND TRIM(pt.artist_name) <> ''
+              AND (
+                  pt.artist_id IN (SELECT id FROM offending_ids)
+                  OR LOWER(pt.artist_name) IN (SELECT lname FROM offending_names)
+                  OR pt.artist_id IN (SELECT artist_id FROM blocked_ids)
+              )
+            "#,
+        )
+        .bind(user_id)
+        .bind(&playlist_ids)
+        .fetch_all(self.db)
+        .await
+        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        let mut flagged_artists_map: std::collections::HashMap<Uuid, Vec<String>> =
+            std::collections::HashMap::new();
+        for row in flagged_artist_rows {
+            flagged_artists_map
+                .entry(row.playlist_id)
+                .or_default()
+                .push(row.artist_name);
+        }
+
+        // ── Pass 4: batch-fetch cover images ──────────────────────────
+        #[derive(sqlx::FromRow)]
+        struct CoverRow {
+            playlist_id: Uuid,
+            image_url: String,
+        }
+
+        let cover_rows: Vec<CoverRow> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT ON (sub.playlist_id, sub.image_url)
+                sub.playlist_id, sub.image_url
+            FROM (
+                SELECT pt.playlist_id, a.metadata->>'image_url' AS image_url
+                FROM playlist_tracks pt
+                JOIN artists a ON a.id = pt.artist_id
+                WHERE pt.playlist_id = ANY($1)
+                  AND a.metadata->>'image_url' IS NOT NULL
+                  AND a.metadata->>'image_url' <> ''
+            ) sub
+            "#,
+        )
+        .bind(&playlist_ids)
+        .fetch_all(self.db)
+        .await
+        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        let mut cover_map: std::collections::HashMap<Uuid, Vec<String>> =
+            std::collections::HashMap::new();
+        for row in cover_rows {
+            let images = cover_map.entry(row.playlist_id).or_default();
+            if images.len() < 4 {
+                images.push(row.image_url);
+            }
+        }
+
+        // ── Assemble summaries ────────────────────────────────────────
         let mut summaries = Vec::with_capacity(rows.len());
         for r in rows {
+            let flagged_tracks = *flagged_map.get(&r.id).unwrap_or(&0);
             let clean_ratio = if r.total_tracks > 0 {
-                (r.total_tracks - r.flagged_tracks) as f64 / r.total_tracks as f64
+                (r.total_tracks - flagged_tracks) as f64 / r.total_tracks as f64
             } else {
                 1.0
             };
-
-            // Fetch flagged artist names for this playlist
-            let flagged_artists: Vec<String> = sqlx::query_scalar(
-                r#"
-                SELECT DISTINCT pt.artist_name
-                FROM playlist_tracks pt
-                WHERE pt.playlist_id = $1
-                  AND pt.artist_name IS NOT NULL
-                  AND TRIM(pt.artist_name) <> ''
-                  AND (
-                      EXISTS (
-                          SELECT 1 FROM artists a
-                          JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-                          WHERE a.id = pt.artist_id
-                             OR LOWER(pt.artist_name) = LOWER(a.canonical_name)
-                      )
-                      OR EXISTS (
-                          SELECT 1 FROM user_artist_blocks uab
-                          WHERE uab.user_id = $2 AND uab.artist_id = pt.artist_id
-                      )
-                  )
-                "#,
-            )
-            .bind(r.id)
-            .bind(user_id)
-            .fetch_all(self.db)
-            .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
-
-            // Fetch cover images from artist metadata
-            let cover_images: Vec<String> = sqlx::query_scalar(
-                r#"
-                SELECT DISTINCT a.metadata->>'image_url'
-                FROM playlist_tracks pt
-                JOIN artists a ON a.id = pt.artist_id
-                WHERE pt.playlist_id = $1
-                  AND a.metadata->>'image_url' IS NOT NULL
-                  AND a.metadata->>'image_url' <> ''
-                LIMIT 4
-                "#,
-            )
-            .bind(r.id)
-            .fetch_all(self.db)
-            .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
             summaries.push(PlaylistSummary {
                 id: r.id,
@@ -331,13 +386,13 @@ impl<'a> PlaylistRepository<'a> {
                 is_public: r.is_public,
                 source_type: r.source_type,
                 total_tracks: r.total_tracks,
-                flagged_tracks: r.flagged_tracks,
+                flagged_tracks,
                 clean_ratio,
                 grade: grade_from_ratio(clean_ratio),
                 unique_artists: r.unique_artists,
-                flagged_artists,
+                flagged_artists: flagged_artists_map.remove(&r.id).unwrap_or_default(),
                 last_synced: r.last_synced,
-                cover_images,
+                cover_images: cover_map.remove(&r.id).unwrap_or_default(),
             });
         }
 

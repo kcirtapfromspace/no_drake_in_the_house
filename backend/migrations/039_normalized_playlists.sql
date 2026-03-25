@@ -54,6 +54,10 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playl
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_artist   ON playlist_tracks(artist_id);
 CREATE INDEX IF NOT EXISTS idx_playlist_tracks_synced   ON playlist_tracks(playlist_id, last_synced);
 
+-- Performance: fast lookup for offense name matching
+CREATE INDEX IF NOT EXISTS idx_artists_canonical_lower ON artists (LOWER(canonical_name));
+CREATE INDEX IF NOT EXISTS idx_playlist_tracks_artist_name_lower ON playlist_tracks (LOWER(artist_name)) WHERE artist_name IS NOT NULL;
+
 -- ============================================================
 -- Backfill: extract playlists from existing user_library_tracks
 -- ============================================================

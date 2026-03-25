@@ -34,6 +34,7 @@ pub mod oauth_youtube_music;
 // Platform services
 pub mod apple_music;
 pub mod apple_music_enforcement;
+pub mod playlist_repository;
 pub mod playlist_sanitizer;
 pub mod spotify;
 pub mod spotify_library;
@@ -123,6 +124,7 @@ pub use token_refresh_job::{RefreshCycleResult, TokenRefreshBackgroundJob, Token
 
 pub use notification_service::NotificationService;
 
+pub use playlist_repository::PlaylistRepository;
 pub use playlist_sanitizer::PlaylistSanitizerService;
 pub use spotify::{SpotifyConfig, SpotifyService};
 pub use spotify_library::SpotifyLibraryService;

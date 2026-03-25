@@ -8,6 +8,7 @@ pub mod dnp_list;
 pub mod notification;
 pub mod oauth;
 pub mod offense;
+pub mod playlist;
 pub mod rate_limit;
 pub mod sanitizer;
 pub mod spotify;
@@ -59,6 +60,7 @@ pub use youtube_music::*;
 // Use qualified name for audit UserProfile
 pub use audit::UserProfile as AuditUserProfile;
 pub use notification::*;
+pub use playlist::*;
 pub use sanitizer::*;
 
 // Note: Job queue types (Job, JobHandler, etc.) are re-exported at the root binary crate level

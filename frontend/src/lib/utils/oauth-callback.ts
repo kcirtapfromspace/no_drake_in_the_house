@@ -68,9 +68,42 @@ function getCallbackEndpoint(provider: string): string {
   return `/api/v1/auth/oauth/${provider}/link-callback`;
 }
 
+/**
+ * POST to a connection callback endpoint without retry.
+ * OAuth authorization codes are single-use — retrying on 5xx would burn the
+ * code and cause "invalid_grant" errors from the provider.
+ */
+async function postCallbackNoRetry(
+  url: string,
+  body: OAuthCallbackRequest,
+  getAuthToken: () => string | null
+): Promise<OAuthCallbackResponse> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (res.ok && data.success !== false) {
+    return { success: true, message: data.message };
+  }
+
+  return {
+    success: false,
+    message: data.message || data.error || `Callback failed (${res.status})`,
+  };
+}
+
 export async function resolveOAuthCallback(
   location: OAuthCallbackLocation,
-  post: (url: string, body: OAuthCallbackRequest) => Promise<OAuthCallbackResponse>
+  post: (url: string, body: OAuthCallbackRequest) => Promise<OAuthCallbackResponse>,
+  getAuthToken?: () => string | null
 ): Promise<OAuthCallbackResolution> {
   const params = new URLSearchParams(location.search);
   const code = params.get('code');
@@ -105,7 +138,15 @@ export async function resolveOAuthCallback(
   }
 
   try {
-    const result = await post(getCallbackEndpoint(provider), request);
+    // Connection-provider callbacks (Spotify, Tidal, YouTube) use single-use
+    // OAuth authorization codes that must never be retried.  Use a raw fetch
+    // without retry logic for those endpoints.  Non-connection providers
+    // (e.g. Google/GitHub account linking) go through the normal post callback
+    // which may include retry.
+    const result =
+      isConnectionProvider(provider) && getAuthToken
+        ? await postCallbackNoRetry(getCallbackEndpoint(provider), request, getAuthToken)
+        : await post(getCallbackEndpoint(provider), request);
 
     if (result.success) {
       return {

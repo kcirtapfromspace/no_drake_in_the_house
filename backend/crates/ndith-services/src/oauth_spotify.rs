@@ -171,25 +171,30 @@ impl OAuthProvider for SpotifyOAuthProvider {
                 })?;
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let raw_retry = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1);
+                if raw_retry > MAX_RETRY_AFTER_SECS {
+                    return Err(AppError::ExternalServiceError(format!(
+                        "Spotify rate limited for {}s — try again later",
+                        raw_retry
+                    )));
+                }
                 if attempt == MAX_RATE_LIMIT_RETRIES {
                     return Err(AppError::ExternalServiceError(
                         "Spotify token exchange rate limited after max retries".to_string(),
                     ));
                 }
-                let wait_secs = response
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(1)
-                    .min(MAX_RETRY_AFTER_SECS);
                 tracing::warn!(
                     "Spotify token exchange 429, retry {}/{} after {}s",
                     attempt + 1,
                     MAX_RATE_LIMIT_RETRIES,
-                    wait_secs
+                    raw_retry
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(raw_retry)).await;
                 last_error = Some("rate limited".to_string());
                 continue;
             }
@@ -238,25 +243,30 @@ impl OAuthProvider for SpotifyOAuthProvider {
                 })?;
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let raw_retry = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1);
+                if raw_retry > MAX_RETRY_AFTER_SECS {
+                    return Err(AppError::ExternalServiceError(format!(
+                        "Spotify rate limited for {}s — try again later",
+                        raw_retry
+                    )));
+                }
                 if attempt == MAX_RATE_LIMIT_RETRIES {
                     return Err(AppError::ExternalServiceError(
                         "Spotify user info rate limited after max retries".to_string(),
                     ));
                 }
-                let wait_secs = response
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(1)
-                    .min(MAX_RETRY_AFTER_SECS);
                 tracing::warn!(
                     "Spotify user info 429, retry {}/{} after {}s",
                     attempt + 1,
                     MAX_RATE_LIMIT_RETRIES,
-                    wait_secs
+                    raw_retry
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(raw_retry)).await;
                 last_error = Some("rate limited".to_string());
                 continue;
             }
@@ -331,25 +341,30 @@ impl OAuthProvider for SpotifyOAuthProvider {
                 })?;
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let raw_retry = response
+                    .headers()
+                    .get("retry-after")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.parse::<u64>().ok())
+                    .unwrap_or(1);
+                if raw_retry > MAX_RETRY_AFTER_SECS {
+                    return Err(AppError::ExternalServiceError(format!(
+                        "Spotify rate limited for {}s — try again later",
+                        raw_retry
+                    )));
+                }
                 if attempt == MAX_RATE_LIMIT_RETRIES {
                     return Err(AppError::ExternalServiceError(
                         "Spotify token refresh rate limited after max retries".to_string(),
                     ));
                 }
-                let wait_secs = response
-                    .headers()
-                    .get("retry-after")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(1)
-                    .min(MAX_RETRY_AFTER_SECS);
                 tracing::warn!(
                     "Spotify token refresh 429, retry {}/{} after {}s",
                     attempt + 1,
                     MAX_RATE_LIMIT_RETRIES,
-                    wait_secs
+                    raw_retry
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(wait_secs)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(raw_retry)).await;
                 last_error = Some("rate limited".to_string());
                 continue;
             }

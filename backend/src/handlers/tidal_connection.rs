@@ -28,7 +28,6 @@ use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
-use ndith_core::config::provider_callback_uri;
 
 /// Query parameters for the authorize endpoint
 #[derive(Debug, Deserialize)]
@@ -146,17 +145,18 @@ pub async fn tidal_authorize_handler(
     // Generate state for CSRF protection
     let oauth_state = Uuid::new_v4().to_string();
 
-    // Determine redirect URI
+    // Determine redirect URI: prefer explicit query param, then the value from TidalConfig
+    // (which honours TIDAL_REDIRECT_URI env var), and finally the auto-derived callback URL.
     let redirect_uri = query
         .redirect_uri
-        .unwrap_or_else(|| provider_callback_uri("tidal"));
+        .unwrap_or_else(|| tidal_config.redirect_uri.clone());
     let requested_scopes = TidalService::configured_oauth_scopes();
 
     let tidal_service = TidalService::new(TidalConfig {
         client_id: tidal_config.client_id,
         client_secret: tidal_config.client_secret,
         redirect_uri: redirect_uri.clone(),
-        client_unique_key: None,
+        client_unique_key: tidal_config.client_unique_key,
     });
     let (code_verifier, code_challenge) = if tidal_service.uses_pkce() {
         let (verifier, challenge) = generate_pkce_verifier_and_challenge();
@@ -167,6 +167,12 @@ pub async fn tidal_authorize_handler(
 
     // Get authorization URL
     let authorization_url = tidal_service.get_auth_url(&oauth_state, code_challenge.as_deref());
+
+    tracing::info!(
+        user_id = %authenticated_user.id,
+        authorization_url = %authorization_url,
+        "Tidal authorize URL constructed (full URL for debugging)"
+    );
 
     // Store state in Redis for validation during callback
     let state_data = OAuthStateData {
@@ -265,13 +271,13 @@ pub async fn tidal_callback_handler(
                 .filter(|uri| !uri.is_empty())
                 .map(str::to_string)
         })
-        .unwrap_or_else(|| provider_callback_uri("tidal"));
+        .unwrap_or_else(|| tidal_config.redirect_uri.clone());
 
     let tidal_service = TidalService::new(TidalConfig {
         client_id: tidal_config.client_id,
         client_secret: tidal_config.client_secret,
         redirect_uri,
-        client_unique_key: None,
+        client_unique_key: tidal_config.client_unique_key,
     });
     tracing::info!(
         user_id = %state_data.user_id,

@@ -353,29 +353,35 @@ pub async fn spotify_callback_handler(
     // Now that the connection is stored, delete the OAuth state to prevent replay attacks
     delete_oauth_state(&state.redis_pool, &request.state).await?;
 
-    let (sync_summary, sync_warning) = match sync_spotify_library_to_user_library(
-        &state.db_pool,
-        state_data.user_id,
-        &tokens.access_token,
-    )
-    .await
-    {
-        Ok(summary) => (Some(summary), None),
-        Err(error) => {
-            tracing::warn!(
-                user_id = %state_data.user_id,
-                error = %error,
-                "Spotify connection succeeded but initial library sync failed"
-            );
-            (
-                None,
-                Some(
-                    "Spotify connected, but automatic library sync failed. Try syncing again from the Music Library page."
-                        .to_string(),
-                ),
-            )
+    // Spawn library sync as a background task to avoid Cloudflare 524 timeouts.
+    // The sync involves many paginated Spotify API calls and can take minutes.
+    let db_pool = state.db_pool.clone();
+    let user_id = state_data.user_id;
+    let access_token = tokens.access_token.clone();
+    tokio::spawn(async move {
+        match sync_spotify_library_to_user_library(&db_pool, user_id, &access_token).await {
+            Ok(summary) => {
+                tracing::info!(
+                    user_id = %user_id,
+                    liked = summary.liked_tracks_synced,
+                    playlists = summary.playlist_tracks_synced,
+                    albums = summary.saved_albums_synced,
+                    artists = summary.followed_artists_synced,
+                    imported = summary.imported_tracks,
+                    "Background Spotify library sync completed"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    user_id = %user_id,
+                    error = %e,
+                    "Background Spotify library sync failed"
+                );
+            }
         }
-    };
+    });
+    let sync_summary = None;
+    let sync_warning = Some("Library sync started in background. Refresh to see progress.".to_string());
 
     tracing::info!(
         user_id = %state_data.user_id,

@@ -381,21 +381,27 @@ export const connectionActions = {
   },
 
   handleTidalCallback: async (code: string, state: string) => {
-    const response = await apiClient.authenticatedRequest<any>(
-      'POST',
-      '/api/v1/connections/tidal/callback',
-      { code, state }
-    );
+    // OAuth authorization codes are single-use — never retry this request.
+    // The default apiClient retries on 5xx which burns the single-use code.
+    try {
+      const token = apiClient.getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    if (response.success) {
-      await connectionActions.fetchConnections();
-      return { success: true };
+      const res = await fetch('/api/v1/connections/tidal/callback', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ code, state }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
+        await connectionActions.fetchConnections();
+        return { success: true };
+      }
+      return { success: false, message: data.message || data.error || `Tidal callback failed (${res.status})` };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error during Tidal callback' };
     }
-
-    return {
-      success: false,
-      message: response.message || 'Failed to complete Tidal connection',
-    };
   },
 
   disconnectTidal: async () => {
@@ -452,21 +458,27 @@ export const connectionActions = {
   },
 
   handleYouTubeCallback: async (code: string, state: string) => {
-    const response = await apiClient.authenticatedRequest<any>(
-      'POST',
-      '/api/v1/connections/youtube/callback',
-      { code, state }
-    );
+    // OAuth authorization codes are single-use — never retry this request.
+    // The default apiClient retries on 5xx which burns the single-use code.
+    try {
+      const token = apiClient.getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    if (response.success) {
-      await connectionActions.fetchConnections();
-      return { success: true };
+      const res = await fetch('/api/v1/connections/youtube/callback', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ code, state }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success !== false) {
+        await connectionActions.fetchConnections();
+        return { success: true };
+      }
+      return { success: false, message: data.message || data.error || `YouTube callback failed (${res.status})` };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Network error during YouTube callback' };
     }
-
-    return {
-      success: false,
-      message: response.message || 'Failed to complete YouTube Music connection',
-    };
   },
 
   disconnectYouTube: async () => {

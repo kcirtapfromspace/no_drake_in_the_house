@@ -140,7 +140,13 @@ impl TidalConfig {
             .map_err(|_| anyhow!("TIDAL_CLIENT_ID environment variable is required"))?;
         let client_secret = std::env::var("TIDAL_CLIENT_SECRET")
             .map_err(|_| anyhow!("TIDAL_CLIENT_SECRET environment variable is required"))?;
-        let redirect_uri = provider_callback_uri("tidal");
+        // Prefer the explicit TIDAL_REDIRECT_URI env var (must match what is registered
+        // in the Tidal Developer Portal). Fall back to the auto-derived callback URL.
+        let redirect_uri = std::env::var("TIDAL_REDIRECT_URI")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| provider_callback_uri("tidal"));
         let client_unique_key = std::env::var("TIDAL_CLIENT_UNIQUE_KEY")
             .ok()
             .map(|value| value.trim().to_string())

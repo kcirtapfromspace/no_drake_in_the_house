@@ -20,7 +20,9 @@ use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::services::OAuthTokenEncryption;
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::services::OffenseService;
+use crate::services::PlaylistRepository;
 use crate::AppState;
 use ndith_core::config::provider_callback_uri;
 
@@ -753,8 +755,77 @@ async fn sync_youtube_library_to_user_library(
         }
     }
 
+    // ── Normalized playlist dual-write ──────────────────────────────────
+    let playlist_repo = PlaylistRepository::new(pool);
+    let sync_ts = Utc::now();
+
+    // Virtual playlist for liked videos
+    let liked_pl_id = playlist_repo
+        .upsert_playlist(
+            user_id,
+            "youtube_music",
+            &UpsertPlaylist {
+                provider_playlist_id: "__liked_videos__".to_string(),
+                name: "Liked Videos".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "liked_videos".to_string(),
+                provider_track_count: Some(liked_videos_count as i32),
+                snapshot_id: None,
+            },
+        )
+        .await?;
+
+    // Write liked videos to normalized table
+    {
+        let liked_norm: Vec<UpsertPlaylistTrack> = tracks
+            .iter()
+            .filter(|t| t.source_type.as_deref() == Some("liked_video"))
+            .enumerate()
+            .map(|(i, t)| {
+                let raw_id = t.provider_track_id.strip_prefix("video:").unwrap_or(&t.provider_track_id);
+                UpsertPlaylistTrack {
+                    provider_track_id: raw_id.to_string(),
+                    track_name: t.track_name.clone(),
+                    album_name: None,
+                    artist_name: t.artist_name.clone(),
+                    position: i as i32,
+                    added_at: t.added_at,
+                }
+            })
+            .collect();
+        playlist_repo.replace_playlist_tracks(liked_pl_id, &liked_norm).await?;
+    }
+
     for playlist in playlists {
+        // Upsert playlist entity
+        let pl_id = playlist_repo
+            .upsert_playlist(
+                user_id,
+                "youtube_music",
+                &UpsertPlaylist {
+                    provider_playlist_id: playlist.id.clone(),
+                    name: playlist.snippet.title.clone(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: None,
+                    is_collaborative: false,
+                    source_type: "playlist".to_string(),
+                    provider_track_count: None,
+                    snapshot_id: None,
+                },
+            )
+            .await?;
+
+        let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::new();
         let mut playlist_item_token: Option<String> = None;
+        let mut item_position = 0i32;
         loop {
             let mut url = format!(
                 "https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={}&maxResults=50",
@@ -769,20 +840,35 @@ async fn sync_youtube_library_to_user_library(
                 youtube_get_json(&client, access_token, &url).await?;
 
             for item in page.items {
+                let artist = item
+                    .snippet
+                    .channel_title
+                    .clone()
+                    .unwrap_or_else(|| "Unknown Channel".to_string());
+
+                // Legacy table
                 tracks.push(ImportTrack {
                     provider_track_id: format!("playlist_item:{}", item.id),
                     track_name: item.snippet.title.clone(),
                     album_name: None,
-                    artist_name: item
-                        .snippet
-                        .channel_title
-                        .clone()
-                        .unwrap_or_else(|| "Unknown Channel".to_string()),
+                    artist_name: artist.clone(),
                     source_type: Some("playlist_item".to_string()),
                     playlist_name: Some(playlist.snippet.title.clone()),
                     added_at: parse_youtube_timestamp(item.snippet.published_at.as_deref()),
                 });
+
+                // Normalized table
+                normalized_tracks.push(UpsertPlaylistTrack {
+                    provider_track_id: item.id.clone(),
+                    track_name: item.snippet.title.clone(),
+                    album_name: None,
+                    artist_name: artist,
+                    position: item_position,
+                    added_at: parse_youtube_timestamp(item.snippet.published_at.as_deref()),
+                });
+
                 playlist_items_count += 1;
+                item_position += 1;
             }
 
             playlist_item_token = page.next_page_token;
@@ -790,6 +876,8 @@ async fn sync_youtube_library_to_user_library(
                 break;
             }
         }
+
+        playlist_repo.replace_playlist_tracks(pl_id, &normalized_tracks).await?;
     }
 
     let mut subscription_page_token: Option<String> = None;
@@ -829,6 +917,50 @@ async fn sync_youtube_library_to_user_library(
         }
     }
 
+    // Virtual playlist for subscriptions
+    let subs_pl_id = playlist_repo
+        .upsert_playlist(
+            user_id,
+            "youtube_music",
+            &UpsertPlaylist {
+                provider_playlist_id: "__subscriptions__".to_string(),
+                name: "Subscriptions".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "subscriptions".to_string(),
+                provider_track_count: Some(subscriptions_count as i32),
+                snapshot_id: None,
+            },
+        )
+        .await?;
+    {
+        let sub_norm: Vec<UpsertPlaylistTrack> = tracks
+            .iter()
+            .filter(|t| t.source_type.as_deref() == Some("subscription"))
+            .enumerate()
+            .map(|(i, t)| {
+                let raw_id = t.provider_track_id.strip_prefix("subscription:").unwrap_or(&t.provider_track_id);
+                UpsertPlaylistTrack {
+                    provider_track_id: raw_id.to_string(),
+                    track_name: t.track_name.clone(),
+                    album_name: None,
+                    artist_name: t.artist_name.clone(),
+                    position: i as i32,
+                    added_at: t.added_at,
+                }
+            })
+            .collect();
+        playlist_repo.replace_playlist_tracks(subs_pl_id, &sub_norm).await?;
+    }
+
+    // Remove playlists deleted since last sync
+    playlist_repo.delete_stale_playlists(user_id, "youtube_music", sync_ts).await?;
+
+    // ── Legacy table: delete-and-reimport ─────────────────────────────
     sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
         .bind(user_id)
         .bind("youtube_music")

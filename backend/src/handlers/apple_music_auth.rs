@@ -16,10 +16,13 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use uuid::Uuid;
 
+use chrono::Utc;
 use crate::error::AppError;
 use crate::models::apple_music::AppleMusicResponse;
 use crate::models::offense::ImportTrack;
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
+use crate::services::PlaylistRepository;
 use crate::AppState;
 
 fn clean_optional_string(value: &str) -> Option<String> {
@@ -659,6 +662,103 @@ async fn perform_apple_music_library_sync(
         });
     }
 
+    // ── Normalized playlist dual-write ──────────────────────────────────
+    let playlist_repo = PlaylistRepository::new(&state.db_pool);
+    let sync_ts = Utc::now();
+
+    // Virtual playlist for library songs
+    let songs_pl_id = playlist_repo
+        .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
+            provider_playlist_id: "__library_songs__".to_string(),
+            name: "Library Songs".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "library_songs".to_string(),
+            provider_track_count: Some(tracks_count as i32),
+            snapshot_id: None,
+        })
+        .await
+        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    // Virtual playlist for library albums
+    let albums_pl_id = playlist_repo
+        .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
+            provider_playlist_id: "__library_albums__".to_string(),
+            name: "Library Albums".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "library_albums".to_string(),
+            provider_track_count: Some(albums_count as i32),
+            snapshot_id: None,
+        })
+        .await
+        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    // Write library songs to normalized table
+    {
+        let song_norm: Vec<UpsertPlaylistTrack> = library.library_tracks.iter()
+            .enumerate()
+            .map(|(i, track)| UpsertPlaylistTrack {
+                provider_track_id: track.id.clone(),
+                track_name: track.attributes.name.clone(),
+                album_name: clean_optional_string(&track.attributes.album_name),
+                artist_name: track.attributes.artist_name.clone(),
+                position: i as i32,
+                added_at: None,
+            })
+            .collect();
+        playlist_repo.replace_playlist_tracks(songs_pl_id, &song_norm).await
+            .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    }
+
+    // Write library albums to normalized table
+    {
+        let album_norm: Vec<UpsertPlaylistTrack> = library.library_albums.iter()
+            .enumerate()
+            .map(|(i, album)| UpsertPlaylistTrack {
+                provider_track_id: album.id.clone(),
+                track_name: album.attributes.name.clone(),
+                album_name: None,
+                artist_name: album.attributes.artist_name.clone(),
+                position: i as i32,
+                added_at: None,
+            })
+            .collect();
+        playlist_repo.replace_playlist_tracks(albums_pl_id, &album_norm).await
+            .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    }
+
+    // Upsert actual Apple Music playlists (metadata only — individual track
+    // fetching via GET /v1/me/library/playlists/{id}/tracks is not yet implemented)
+    for playlist in &library.library_playlists {
+        let attrs = &playlist.attributes;
+        playlist_repo
+            .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
+                provider_playlist_id: playlist.id.clone(),
+                name: attrs.name.clone(),
+                description: attrs.description.as_ref().map(|d| d.standard.clone().unwrap_or_default()),
+                image_url: attrs.artwork.as_ref().map(|a| a.url.clone()),
+                owner_name: attrs.curator_name.clone(),
+                owner_id: None,
+                is_public: None,
+                is_collaborative: false,
+                source_type: "playlist".to_string(),
+                provider_track_count: attrs.track_count.map(|c| c as i32),
+                snapshot_id: None,
+            })
+            .await
+            .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+        // TODO: fetch individual playlist tracks via
+        // GET /v1/me/library/playlists/{id}/tracks
+        // and call playlist_repo.replace_playlist_tracks(pl_id, &tracks)
+    }
+
+    // Remove playlists deleted since last sync
+    playlist_repo.delete_stale_playlists(user_id, "apple_music", sync_ts).await
+        .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+    // ── Legacy table: upsert ──────────────────────────────────────────
     let diff =
         upsert_user_library_cache(&state.db_pool, user_id, "apple_music", &import_tracks).await?;
 

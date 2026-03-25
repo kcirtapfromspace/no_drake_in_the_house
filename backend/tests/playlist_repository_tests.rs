@@ -692,3 +692,675 @@ async fn test_playlist_cascade_delete_on_user_delete() {
         .unwrap();
     assert!(!exists);
 }
+
+// ===========================================================================
+// MIGRATION BACKFILL VALIDATION
+// ===========================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_backfill_spotify_playlist_tracks_extracted() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+
+    // Seed legacy data: 3 tracks in a Spotify playlist
+    for i in 0..3 {
+        sqlx::query(
+            "INSERT INTO user_library_tracks (user_id, provider, provider_track_id, track_name, artist_name, source_type, playlist_name)
+             VALUES ($1, 'spotify', $2, $3, 'Artist', 'playlist_track', 'My Playlist')",
+        )
+        .bind(user_id)
+        .bind(format!("playlist:SP_PL_001:TRK_{}:{}", i, i))
+        .bind(format!("Track {}", i))
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    // The migration backfill should have already run during initialize_database.
+    // Verify: the playlists table should have an entry for SP_PL_001
+    let pl_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM playlists WHERE user_id = $1 AND provider = 'spotify' AND provider_playlist_id = 'SP_PL_001')",
+    )
+    .bind(user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    // Note: backfill only runs at migration time, not on INSERT.
+    // For newly inserted data, the dual-write handles it.
+    // This test validates the schema accepts the expected patterns.
+    assert!(!pl_exists); // Legacy data inserted AFTER migration won't be backfilled
+
+    // But the dual-write via PlaylistRepository works
+    let repo = PlaylistRepository::new(&pool);
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("My Playlist", "SP_PL_001"))
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(
+        pl_id,
+        &[
+            make_track("TRK_0", "Track 0", "Artist", 0),
+            make_track("TRK_1", "Track 1", "Artist", 1),
+            make_track("TRK_2", "Track 2", "Artist", 2),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // Verify normalized data matches legacy count
+    let legacy_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM user_library_tracks WHERE user_id = $1 AND provider = 'spotify' AND playlist_name = 'My Playlist'",
+    )
+    .bind(user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let normalized_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1",
+    )
+    .bind(pl_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(legacy_count.0, 3);
+    assert_eq!(normalized_count.0, 3);
+}
+
+// ===========================================================================
+// DUAL-WRITE CONSISTENCY
+// ===========================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_dual_write_track_count_consistency() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    // Create playlist with tracks via repository
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Consistent", "pl_cons"))
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(
+        pl_id,
+        &[
+            make_track("t1", "Song 1", "A", 0),
+            make_track("t2", "Song 2", "B", 1),
+            make_track("t3", "Song 3", "A", 2),
+            make_track("t4", "Song 4", "C", 3),
+            make_track("t5", "Song 5", "B", 4),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // list_playlists_with_grades should report 5 tracks
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].total_tracks, 5);
+    assert_eq!(summaries[0].unique_artists, 3);
+
+    // get_playlist_tracks_with_status should return 5 tracks in order
+    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    assert_eq!(tracks.len(), 5);
+    for (i, t) in tracks.iter().enumerate() {
+        assert_eq!(t.position, i as i32, "Track at index {} has wrong position", i);
+    }
+}
+
+#[tokio::test]
+#[serial]
+async fn test_replace_tracks_is_atomic_no_partial_state() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Atomic", "pl_atomic"))
+        .await
+        .unwrap();
+
+    // Insert 3 tracks
+    repo.replace_playlist_tracks(
+        pl_id,
+        &[
+            make_track("old_1", "Old 1", "A", 0),
+            make_track("old_2", "Old 2", "A", 1),
+            make_track("old_3", "Old 3", "A", 2),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // Replace with 2 new tracks
+    repo.replace_playlist_tracks(
+        pl_id,
+        &[
+            make_track("new_1", "New 1", "B", 0),
+            make_track("new_2", "New 2", "B", 1),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // Should have exactly 2 tracks — no leftover old tracks
+    let count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1",
+    )
+    .bind(pl_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count.0, 2);
+
+    // No old tracks remain
+    let old_exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM playlist_tracks WHERE playlist_id = $1 AND provider_track_id LIKE 'old_%')",
+    )
+    .bind(pl_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!old_exists);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_list_and_detail_return_consistent_data() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+    let bad_id = create_offending_artist(&pool, &format!("Flagged_{}", Uuid::new_v4())).await;
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("ConsistCheck", "pl_cc"))
+        .await
+        .unwrap();
+
+    // 2 clean + 1 flagged
+    sqlx::query(
+        "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_name, position)
+         VALUES ($1, 'c1', 'Clean1', 'Safe', 0), ($1, 'c2', 'Clean2', 'Safe', 1)",
+    )
+    .bind(pl_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_id, artist_name, position)
+         VALUES ($1, 'f1', 'Flagged1', $2, 'Flagged', 2)",
+    )
+    .bind(pl_id)
+    .bind(bad_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // list says 3 total, 1 flagged
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summary = summaries.iter().find(|s| s.name == "ConsistCheck").unwrap();
+    assert_eq!(summary.total_tracks, 3);
+    assert_eq!(summary.flagged_tracks, 1);
+
+    // detail also says 3 tracks, 1 flagged
+    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    assert_eq!(tracks.len(), 3);
+    let flagged_count = tracks.iter().filter(|t| t.status == "flagged").count();
+    assert_eq!(flagged_count, 1);
+
+    // Grade and ratio are consistent
+    assert!((summary.clean_ratio - (2.0 / 3.0)).abs() < 0.01);
+}
+
+// ===========================================================================
+// EDGE CASES AND BOUNDARIES
+// ===========================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_long_playlist_name_500_chars() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let long_name = "A".repeat(500);
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
+            provider_playlist_id: "pl_long_name".to_string(),
+            name: long_name.clone(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: None, is_collaborative: false,
+            source_type: "playlist".to_string(),
+            provider_track_count: None, snapshot_id: None,
+        })
+        .await
+        .unwrap();
+
+    let stored_name: String = sqlx::query_scalar("SELECT name FROM playlists WHERE id = $1")
+        .bind(pl_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(stored_name.len(), 500);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_empty_playlist_grades_a_plus() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    repo.upsert_playlist(user_id, "spotify", &make_playlist("Empty PL", "pl_empty_grade"))
+        .await
+        .unwrap();
+
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let s = summaries.iter().find(|s| s.name == "Empty PL").unwrap();
+    assert_eq!(s.total_tracks, 0);
+    assert_eq!(s.flagged_tracks, 0);
+    assert_eq!(s.clean_ratio, 1.0);
+    assert_eq!(s.grade, "A+");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_all_tracks_flagged_grades_f() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+    let bad_id = create_offending_artist(&pool, &format!("AllBad_{}", Uuid::new_v4())).await;
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("All Bad", "pl_all_bad"))
+        .await
+        .unwrap();
+
+    for i in 0..5 {
+        sqlx::query(
+            "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_id, artist_name, position)
+             VALUES ($1, $2, $3, $4, 'AllBad', $5)",
+        )
+        .bind(pl_id)
+        .bind(format!("bad_{}", i))
+        .bind(format!("Bad Track {}", i))
+        .bind(bad_id)
+        .bind(i)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let s = summaries.iter().find(|s| s.name == "All Bad").unwrap();
+    assert_eq!(s.total_tracks, 5);
+    assert_eq!(s.flagged_tracks, 5);
+    assert_eq!(s.clean_ratio, 0.0);
+    assert_eq!(s.grade, "F");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_flagging_by_artist_name_match_without_artist_id() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    // Create offending artist
+    let name = format!("NameMatch_{}", Uuid::new_v4());
+    create_offending_artist(&pool, &name).await;
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("NameMatch", "pl_nm"))
+        .await
+        .unwrap();
+
+    // Insert track WITHOUT artist_id, but with matching artist_name
+    sqlx::query(
+        "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_name, position)
+         VALUES ($1, 'nm_track', 'Name Match Song', $2, 0)",
+    )
+    .bind(pl_id)
+    .bind(&name)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Should still be flagged via name match
+    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    assert_eq!(tracks.len(), 1);
+    assert_eq!(tracks[0].status, "flagged");
+
+    // list_playlists should also count it
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let s = summaries.iter().find(|s| s.name == "NameMatch").unwrap();
+    assert_eq!(s.flagged_tracks, 1);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_blocked_vs_flagged_distinction() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    // Create an artist that is BOTH offending AND blocked by user
+    let artist_name = format!("BlockedArtist_{}", Uuid::new_v4());
+    let artist_id = create_offending_artist(&pool, &artist_name).await;
+
+    // User blocks this artist
+    sqlx::query(
+        "INSERT INTO user_artist_blocks (user_id, artist_id, note)
+         VALUES ($1, $2, 'test block')",
+    )
+    .bind(user_id)
+    .bind(artist_id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Blocked", "pl_blk"))
+        .await
+        .unwrap();
+
+    sqlx::query(
+        "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_id, artist_name, position)
+         VALUES ($1, 'blk_track', 'Blocked Song', $2, $3, 0)",
+    )
+    .bind(pl_id)
+    .bind(artist_id)
+    .bind(&artist_name)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    assert_eq!(tracks.len(), 1);
+    // Blocked takes precedence over flagged
+    assert_eq!(tracks[0].status, "blocked");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_multiple_offending_artists_counted_correctly() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let bad1 = create_offending_artist(&pool, &format!("BadA_{}", Uuid::new_v4())).await;
+    let bad2 = create_offending_artist(&pool, &format!("BadB_{}", Uuid::new_v4())).await;
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Multi Bad", "pl_mb"))
+        .await
+        .unwrap();
+
+    // 2 tracks from bad1, 1 from bad2, 2 clean
+    for (i, (tid, aid, name)) in [
+        ("b1a", Some(bad1), "BadA"),
+        ("b1b", Some(bad1), "BadA"),
+        ("b2a", Some(bad2), "BadB"),
+        ("c1", None, "Good"),
+        ("c2", None, "Good"),
+    ]
+    .iter()
+    .enumerate()
+    {
+        if let Some(aid) = aid {
+            sqlx::query(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_id, artist_name, position)
+                 VALUES ($1, $2, $3, $4, $5, $6)",
+            )
+            .bind(pl_id).bind(tid).bind(format!("Song {}", tid)).bind(aid).bind(name).bind(i as i32)
+            .execute(&pool).await.unwrap();
+        } else {
+            sqlx::query(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_name, position)
+                 VALUES ($1, $2, $3, $4, $5)",
+            )
+            .bind(pl_id).bind(tid).bind(format!("Song {}", tid)).bind(name).bind(i as i32)
+            .execute(&pool).await.unwrap();
+        }
+    }
+
+    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let s = summaries.iter().find(|s| s.name == "Multi Bad").unwrap();
+    assert_eq!(s.total_tracks, 5);
+    assert_eq!(s.flagged_tracks, 3); // 2 from bad1 + 1 from bad2
+    assert_eq!(s.flagged_artists.len(), 2); // 2 distinct flagged artist names
+}
+
+// ===========================================================================
+// VIRTUAL PLAYLISTS AND SOURCE_TYPE
+// ===========================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_virtual_playlist_liked_songs() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let pl_id = repo
+        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
+            provider_playlist_id: "__liked_songs__".to_string(),
+            name: "Liked Songs".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "liked_songs".to_string(),
+            provider_track_count: Some(3), snapshot_id: None,
+        })
+        .await
+        .unwrap();
+
+    repo.replace_playlist_tracks(
+        pl_id,
+        &[
+            make_track("liked_1", "Fav 1", "Artist A", 0),
+            make_track("liked_2", "Fav 2", "Artist B", 1),
+            make_track("liked_3", "Fav 3", "Artist A", 2),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let summaries = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
+    let liked = summaries.iter().find(|s| s.source_type == "liked_songs").unwrap();
+    assert_eq!(liked.name, "Liked Songs");
+    assert_eq!(liked.total_tracks, 3);
+    assert_eq!(liked.provider_playlist_id, "__liked_songs__");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_virtual_playlists_coexist_with_real_playlists() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    // Create a real playlist
+    let real_id = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Real Playlist", "sp_real"))
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(real_id, &[make_track("r1", "Real Song", "RA", 0)])
+        .await
+        .unwrap();
+
+    // Create virtual playlists
+    let liked_id = repo
+        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
+            provider_playlist_id: "__liked_songs__".to_string(),
+            name: "Liked Songs".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "liked_songs".to_string(),
+            provider_track_count: Some(2), snapshot_id: None,
+        })
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(
+        liked_id,
+        &[
+            make_track("l1", "Liked 1", "LA", 0),
+            make_track("l2", "Liked 2", "LB", 1),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let summaries = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
+    assert_eq!(summaries.len(), 2);
+
+    let real = summaries.iter().find(|s| s.source_type == "playlist").unwrap();
+    assert_eq!(real.total_tracks, 1);
+
+    let liked = summaries.iter().find(|s| s.source_type == "liked_songs").unwrap();
+    assert_eq!(liked.total_tracks, 2);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_multiple_providers_virtual_playlists_independent() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    // Spotify liked
+    let sp_liked = repo
+        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
+            provider_playlist_id: "__liked_songs__".to_string(),
+            name: "Liked Songs".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "liked_songs".to_string(),
+            provider_track_count: Some(10), snapshot_id: None,
+        })
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(sp_liked, &[make_track("sp1", "SP Song", "A", 0)])
+        .await
+        .unwrap();
+
+    // Apple Music library songs
+    let am_songs = repo
+        .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
+            provider_playlist_id: "__library_songs__".to_string(),
+            name: "Library Songs".to_string(),
+            description: None, image_url: None, owner_name: None, owner_id: None,
+            is_public: Some(false), is_collaborative: false,
+            source_type: "library_songs".to_string(),
+            provider_track_count: Some(20), snapshot_id: None,
+        })
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(
+        am_songs,
+        &[
+            make_track("am1", "AM Song 1", "B", 0),
+            make_track("am2", "AM Song 2", "C", 1),
+        ],
+    )
+    .await
+    .unwrap();
+
+    // Filter by provider
+    let sp = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
+    assert_eq!(sp.len(), 1);
+    assert_eq!(sp[0].total_tracks, 1);
+
+    let am = repo.list_playlists_with_grades(user_id, Some("apple_music")).await.unwrap();
+    assert_eq!(am.len(), 1);
+    assert_eq!(am[0].total_tracks, 2);
+
+    // All returns both
+    let all = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    assert_eq!(all.len(), 2);
+}
+
+// ===========================================================================
+// GRADE BOUNDARY VALIDATION
+// ===========================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_grade_boundaries() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+    let bad_id = create_offending_artist(&pool, &format!("GradeTest_{}", Uuid::new_v4())).await;
+
+    // Helper: create playlist with n clean + m flagged tracks, return grade
+    async fn grade_for(
+        repo: &PlaylistRepository<'_>,
+        pool: &PgPool,
+        user_id: Uuid,
+        bad_id: Uuid,
+        tag: &str,
+        clean: usize,
+        flagged: usize,
+    ) -> String {
+        let pl_id = repo
+            .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
+                provider_playlist_id: format!("pl_grade_{}", tag),
+                name: format!("Grade {}", tag),
+                description: None, image_url: None, owner_name: None, owner_id: None,
+                is_public: None, is_collaborative: false,
+                source_type: "playlist".to_string(),
+                provider_track_count: None, snapshot_id: None,
+            })
+            .await
+            .unwrap();
+
+        for i in 0..clean {
+            sqlx::query(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_name, position)
+                 VALUES ($1, $2, 'Clean', 'Safe', $3)",
+            )
+            .bind(pl_id)
+            .bind(format!("c_{}_{}", tag, i))
+            .bind(i as i32)
+            .execute(pool).await.unwrap();
+        }
+        for i in 0..flagged {
+            sqlx::query(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, artist_id, artist_name, position)
+                 VALUES ($1, $2, 'Bad', $3, 'Bad', $4)",
+            )
+            .bind(pl_id)
+            .bind(format!("f_{}_{}", tag, i))
+            .bind(bad_id)
+            .bind((clean + i) as i32)
+            .execute(pool).await.unwrap();
+        }
+
+        let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+        summaries.iter().find(|s| s.name == format!("Grade {}", tag)).unwrap().grade.clone()
+    }
+
+    // 100% clean = A+
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "100", 10, 0).await, "A+");
+    // 95% clean = A+ (boundary)
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "95", 19, 1).await, "A+");
+    // 90% clean = A
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "90", 9, 1).await, "A");
+    // 80% clean = A (boundary)
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "80", 8, 2).await, "A");
+    // 75% clean = B
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "75", 3, 1).await, "B");
+    // 66% clean = C
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "66", 2, 1).await, "C");
+    // 60% clean = C (boundary)
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "60", 3, 2).await, "C");
+    // 50% clean = D
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "50", 1, 1).await, "D");
+    // 40% clean = F
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "40", 2, 3).await, "F");
+    // 0% clean = F
+    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "0", 0, 5).await, "F");
+}

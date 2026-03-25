@@ -18,11 +18,11 @@ use uuid::Uuid;
 use crate::error::{AppError, Result};
 use crate::models::oauth::{OAuthConfig, OAuthProviderType};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::OAuthTokenEncryption;
-use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
@@ -825,7 +825,8 @@ async fn spotify_get_json<T: serde::de::DeserializeOwned>(
                 );
                 return Err(AppError::ExternalServiceError(format!(
                     "Spotify rate limited for {}s ({}h) — try again later or use a fresh app",
-                    raw_retry, raw_retry / 3600
+                    raw_retry,
+                    raw_retry / 3600
                 )));
             }
 
@@ -1054,18 +1055,12 @@ async fn sync_spotify_library_to_user_library(
                             .as_ref()
                             .and_then(|imgs| imgs.first())
                             .map(|img| img.url.clone()),
-                        owner_name: playlist
-                            .owner
-                            .as_ref()
-                            .and_then(|o| o.display_name.clone()),
+                        owner_name: playlist.owner.as_ref().and_then(|o| o.display_name.clone()),
                         owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
                         is_public: playlist.public,
                         is_collaborative: playlist.collaborative.unwrap_or(false),
                         source_type: "playlist".to_string(),
-                        provider_track_count: playlist
-                            .tracks
-                            .as_ref()
-                            .and_then(|t| t.total),
+                        provider_track_count: playlist.tracks.as_ref().and_then(|t| t.total),
                         snapshot_id: playlist.snapshot_id.clone(),
                     },
                 )
@@ -1144,7 +1139,10 @@ async fn sync_spotify_library_to_user_library(
         for t in &tracks {
             match t.source_type.as_deref() {
                 Some("liked") => {
-                    let raw_id = t.provider_track_id.strip_prefix("liked:").unwrap_or(&t.provider_track_id);
+                    let raw_id = t
+                        .provider_track_id
+                        .strip_prefix("liked:")
+                        .unwrap_or(&t.provider_track_id);
                     liked_norm.push(UpsertPlaylistTrack {
                         provider_track_id: raw_id.to_string(),
                         track_name: t.track_name.clone(),
@@ -1156,7 +1154,10 @@ async fn sync_spotify_library_to_user_library(
                     liked_pos += 1;
                 }
                 Some("saved_album") => {
-                    let raw_id = t.provider_track_id.strip_prefix("album:").unwrap_or(&t.provider_track_id);
+                    let raw_id = t
+                        .provider_track_id
+                        .strip_prefix("album:")
+                        .unwrap_or(&t.provider_track_id);
                     album_norm.push(UpsertPlaylistTrack {
                         provider_track_id: raw_id.to_string(),
                         track_name: t.track_name.clone(),
@@ -1168,7 +1169,10 @@ async fn sync_spotify_library_to_user_library(
                     album_pos += 1;
                 }
                 Some("followed_artist") => {
-                    let raw_id = t.provider_track_id.strip_prefix("artist:").unwrap_or(&t.provider_track_id);
+                    let raw_id = t
+                        .provider_track_id
+                        .strip_prefix("artist:")
+                        .unwrap_or(&t.provider_track_id);
                     artist_norm.push(UpsertPlaylistTrack {
                         provider_track_id: raw_id.to_string(),
                         track_name: t.track_name.clone(),
@@ -1183,9 +1187,15 @@ async fn sync_spotify_library_to_user_library(
             }
         }
 
-        playlist_repo.replace_playlist_tracks(liked_pl_id, &liked_norm).await?;
-        playlist_repo.replace_playlist_tracks(saved_albums_pl_id, &album_norm).await?;
-        playlist_repo.replace_playlist_tracks(followed_pl_id, &artist_norm).await?;
+        playlist_repo
+            .replace_playlist_tracks(liked_pl_id, &liked_norm)
+            .await?;
+        playlist_repo
+            .replace_playlist_tracks(saved_albums_pl_id, &album_norm)
+            .await?;
+        playlist_repo
+            .replace_playlist_tracks(followed_pl_id, &artist_norm)
+            .await?;
     }
 
     // Remove playlists that were deleted on Spotify since last sync

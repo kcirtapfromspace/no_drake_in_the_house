@@ -404,10 +404,7 @@ impl AppleOAuthProvider {
             }
 
             let jwks: AppleJWKS = response.json().await.map_err(|e| {
-                AppError::ExternalServiceError(format!(
-                    "Failed to parse Apple public keys: {}",
-                    e
-                ))
+                AppError::ExternalServiceError(format!("Failed to parse Apple public keys: {}", e))
             })?;
 
             // Cache the keys
@@ -785,11 +782,8 @@ impl OAuthProvider for AppleOAuthProvider {
                         .unwrap_or_else(|_| "Unknown error".to_string());
 
                     // Parse Apple-specific error response
-                    if let Ok(error_json) =
-                        serde_json::from_str::<serde_json::Value>(&error_text)
-                    {
-                        let error_code =
-                            error_json["error"].as_str().unwrap_or("unknown_error");
+                    if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                        let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
                         let error_description = error_json["error_description"]
                             .as_str()
                             .unwrap_or(&error_text);

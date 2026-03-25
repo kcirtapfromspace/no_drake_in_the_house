@@ -219,14 +219,18 @@ pub struct SpotifyCapabilitiesResponse {
 }
 
 /// Create a `SpotifyService` from app state.
-fn create_spotify_service(state: &AppState) -> Result<(SpotifyService, TokenVaultService), AppError> {
+fn create_spotify_service(
+    state: &AppState,
+) -> Result<(SpotifyService, TokenVaultService), AppError> {
     let spotify_config = SpotifyConfig::default();
     let token_vault = TokenVaultService::with_pool(state.db_pool.clone());
-    let spotify_service =
-        SpotifyService::new(spotify_config, Arc::new(TokenVaultService::with_pool(state.db_pool.clone())))
-            .map_err(|e| AppError::Internal {
-                message: Some(format!("Failed to initialize Spotify service: {}", e)),
-            })?;
+    let spotify_service = SpotifyService::new(
+        spotify_config,
+        Arc::new(TokenVaultService::with_pool(state.db_pool.clone())),
+    )
+    .map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to initialize Spotify service: {}", e)),
+    })?;
     Ok((spotify_service, token_vault))
 }
 
@@ -364,8 +368,20 @@ pub async fn run_spotify_enforcement(
     let batch_id = Uuid::new_v4();
     let idempotency_key = options
         .dry_run
-        .then(|| format!("dryrun_{}_{}", user_id, chrono::Utc::now().timestamp_millis()))
-        .unwrap_or_else(|| format!("enforce_{}_{}", user_id, chrono::Utc::now().timestamp_millis()));
+        .then(|| {
+            format!(
+                "dryrun_{}_{}",
+                user_id,
+                chrono::Utc::now().timestamp_millis()
+            )
+        })
+        .unwrap_or_else(|| {
+            format!(
+                "enforce_{}_{}",
+                user_id,
+                chrono::Utc::now().timestamp_millis()
+            )
+        });
 
     let options_json = serde_json::to_value(&options).unwrap_or_default();
 
@@ -390,7 +406,9 @@ pub async fn run_spotify_enforcement(
     let scan_result = spotify_service
         .scan_library(&connection)
         .await
-        .map_err(|e| AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e)))?;
+        .map_err(|e| {
+            AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e))
+        })?;
 
     let library = &scan_result.library;
 
@@ -398,15 +416,22 @@ pub async fn run_spotify_enforcement(
     let mut songs_to_remove: Vec<String> = Vec::new(); // track IDs
     let mut albums_to_remove: Vec<String> = Vec::new(); // album IDs
     let mut artists_to_unfollow: Vec<String> = Vec::new(); // artist IDs
-    // playlist_id -> Vec<(track_uri, track_id, track_name, artist_name)>
-    let mut playlist_tracks_to_remove: std::collections::HashMap<String, Vec<(String, String, String, String)>> =
-        std::collections::HashMap::new();
+                                                           // playlist_id -> Vec<(track_uri, track_id, track_name, artist_name)>
+    let mut playlist_tracks_to_remove: std::collections::HashMap<
+        String,
+        Vec<(String, String, String, String)>,
+    > = std::collections::HashMap::new();
 
     // Liked songs
     for saved_track in &library.liked_songs {
         let track = &saved_track.track;
         for artist in &track.artists {
-            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            if is_blocked_artist(
+                &artist.id,
+                &artist.name,
+                &blocked_spotify_ids,
+                &blocked_artist_names,
+            ) {
                 songs_to_remove.push(track.id.clone());
                 break;
             }
@@ -416,7 +441,12 @@ pub async fn run_spotify_enforcement(
     // Saved albums
     for album in &library.saved_albums {
         for artist in &album.artists {
-            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            if is_blocked_artist(
+                &artist.id,
+                &artist.name,
+                &blocked_spotify_ids,
+                &blocked_artist_names,
+            ) {
                 albums_to_remove.push(album.id.clone());
                 break;
             }
@@ -426,7 +456,12 @@ pub async fn run_spotify_enforcement(
     // Followed artists
     for followed in &library.followed_artists {
         let artist = &followed.artist;
-        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+        if is_blocked_artist(
+            &artist.id,
+            &artist.name,
+            &blocked_spotify_ids,
+            &blocked_artist_names,
+        ) {
             artists_to_unfollow.push(artist.id.clone());
         }
     }
@@ -440,9 +475,18 @@ pub async fn run_spotify_enforcement(
             for playlist_track in items {
                 if let Some(ref track) = playlist_track.track {
                     for artist in &track.artists {
-                        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                        if is_blocked_artist(
+                            &artist.id,
+                            &artist.name,
+                            &blocked_spotify_ids,
+                            &blocked_artist_names,
+                        ) {
                             let uri = format!("spotify:track:{}", track.id);
-                            let primary_artist = track.artists.first().map(|a| a.name.clone()).unwrap_or_default();
+                            let primary_artist = track
+                                .artists
+                                .first()
+                                .map(|a| a.name.clone())
+                                .unwrap_or_default();
                             playlist_tracks_to_remove
                                 .entry(playlist.id.clone())
                                 .or_default()
@@ -533,7 +577,10 @@ pub async fn run_spotify_enforcement(
             .await;
         }
 
-        match spotify_service.remove_liked_songs_batch(&connection, &chunk_vec).await {
+        match spotify_service
+            .remove_liked_songs_batch(&connection, &chunk_vec)
+            .await
+        {
             Ok(()) => {
                 completed_actions += chunk_vec.len() as u32;
                 // Mark actions completed
@@ -590,7 +637,10 @@ pub async fn run_spotify_enforcement(
             .await;
         }
 
-        match spotify_service.remove_saved_albums_batch(&connection, &chunk_vec).await {
+        match spotify_service
+            .remove_saved_albums_batch(&connection, &chunk_vec)
+            .await
+        {
             Ok(()) => {
                 completed_actions += chunk_vec.len() as u32;
                 let _ = sqlx::query(
@@ -646,7 +696,10 @@ pub async fn run_spotify_enforcement(
             .await;
         }
 
-        match spotify_service.unfollow_artists_batch(&connection, &chunk_vec).await {
+        match spotify_service
+            .unfollow_artists_batch(&connection, &chunk_vec)
+            .await
+        {
             Ok(()) => {
                 completed_actions += chunk_vec.len() as u32;
                 let _ = sqlx::query(
@@ -699,7 +752,10 @@ pub async fn run_spotify_enforcement(
                 "track_name": track_name,
                 "artist_name": artist_name,
             });
-            let idempotency = format!("{}_{}_{}_remove_playlist_track_{}", batch_id, user_id, playlist_id, track_id);
+            let idempotency = format!(
+                "{}_{}_{}_remove_playlist_track_{}",
+                batch_id, user_id, playlist_id, track_id
+            );
             let _ = sqlx::query(
                 r#"INSERT INTO action_items (id, batch_id, entity_type, entity_id, action, idempotency_key, before_state, status, created_at)
                    VALUES ($1, $2, 'track', $3, 'remove_playlist_track', $4, $5, 'pending', NOW())"#,
@@ -716,13 +772,20 @@ pub async fn run_spotify_enforcement(
         // Spotify allows up to 100 tracks per playlist modification request
         for chunk in track_objects.chunks(100) {
             let chunk_vec: Vec<serde_json::Value> = chunk.to_vec();
-            match spotify_service.remove_playlist_tracks_batch(&connection, playlist_id, &chunk_vec).await {
+            match spotify_service
+                .remove_playlist_tracks_batch(&connection, playlist_id, &chunk_vec)
+                .await
+            {
                 Ok(_snapshot_id) => {
                     completed_actions += chunk_vec.len() as u32;
                 }
                 Err(e) => {
                     let err_msg = e.to_string();
-                    tracing::error!("Failed to remove playlist tracks from {}: {}", playlist_id, err_msg);
+                    tracing::error!(
+                        "Failed to remove playlist tracks from {}: {}",
+                        playlist_id,
+                        err_msg
+                    );
                     failed_actions += chunk_vec.len() as u32;
                     errors.push(BatchError {
                         action_id: batch_id,
@@ -778,7 +841,9 @@ pub async fn run_spotify_enforcement(
     .bind(batch_id)
     .execute(&state.db_pool)
     .await
-    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     let message = format!(
         "Spotify enforcement {}: removed {} liked songs, {} albums, unfollowed {} artists, removed {} playlist tracks. {} errors.",
@@ -849,7 +914,9 @@ pub async fn preview_spotify_enforcement(
     let scan_result = spotify_service
         .scan_library(&connection)
         .await
-        .map_err(|e| AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e)))?;
+        .map_err(|e| {
+            AppError::ExternalServiceError(format!("Spotify library scan failed: {}", e))
+        })?;
 
     let library = &scan_result.library;
 
@@ -863,7 +930,12 @@ pub async fn preview_spotify_enforcement(
     for saved_track in &library.liked_songs {
         let track = &saved_track.track;
         for artist in &track.artists {
-            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            if is_blocked_artist(
+                &artist.id,
+                &artist.name,
+                &blocked_spotify_ids,
+                &blocked_artist_names,
+            ) {
                 blocked_songs.push(BlockedSongPreview {
                     track_id: track.id.clone(),
                     name: track.name.clone(),
@@ -879,7 +951,12 @@ pub async fn preview_spotify_enforcement(
     // Scan saved albums
     for album in &library.saved_albums {
         for artist in &album.artists {
-            if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+            if is_blocked_artist(
+                &artist.id,
+                &artist.name,
+                &blocked_spotify_ids,
+                &blocked_artist_names,
+            ) {
                 blocked_albums.push(BlockedAlbumPreview {
                     album_id: album.id.clone(),
                     name: album.name.clone(),
@@ -894,7 +971,12 @@ pub async fn preview_spotify_enforcement(
     // Scan followed artists
     for followed in &library.followed_artists {
         let artist = &followed.artist;
-        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+        if is_blocked_artist(
+            &artist.id,
+            &artist.name,
+            &blocked_spotify_ids,
+            &blocked_artist_names,
+        ) {
             // Find the reason from blocked_artist_details
             let reason = blocked_artist_details
                 .iter()
@@ -915,14 +997,22 @@ pub async fn preview_spotify_enforcement(
             for playlist_track in items {
                 if let Some(ref track) = playlist_track.track {
                     for artist in &track.artists {
-                        if is_blocked_artist(&artist.id, &artist.name, &blocked_spotify_ids, &blocked_artist_names) {
+                        if is_blocked_artist(
+                            &artist.id,
+                            &artist.name,
+                            &blocked_spotify_ids,
+                            &blocked_artist_names,
+                        ) {
                             blocked_playlist_tracks.push(BlockedPlaylistTrackPreview {
                                 playlist_id: playlist.id.clone(),
                                 playlist_name: playlist.name.clone(),
                                 track_id: track.id.clone(),
                                 track_name: track.name.clone(),
                                 artist_name: artist.name.clone(),
-                                blocked_reason: format!("Artist '{}' is on your DNP list", artist.name),
+                                blocked_reason: format!(
+                                    "Artist '{}' is on your DNP list",
+                                    artist.name
+                                ),
                             });
                             break;
                         }
@@ -932,7 +1022,10 @@ pub async fn preview_spotify_enforcement(
         }
     }
 
-    let total_items = blocked_songs.len() + blocked_albums.len() + blocked_artists_preview.len() + blocked_playlist_tracks.len();
+    let total_items = blocked_songs.len()
+        + blocked_albums.len()
+        + blocked_artists_preview.len()
+        + blocked_playlist_tracks.len();
     // Estimate ~0.75 seconds per item for API calls
     let estimated_duration = (total_items as u64 * 750) / 1000 + 1;
 
@@ -1440,7 +1533,10 @@ async fn execute_single_rollback_action(
                 entity_type,
                 entity_id
             );
-            Err(anyhow::anyhow!("Unknown rollback action: {}", rollback_action))
+            Err(anyhow::anyhow!(
+                "Unknown rollback action: {}",
+                rollback_action
+            ))
         }
     };
 

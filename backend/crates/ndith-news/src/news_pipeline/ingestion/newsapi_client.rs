@@ -233,9 +233,7 @@ impl NewsApiClient {
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == 3 {
-                    return Err(anyhow::anyhow!(
-                        "NewsAPI rate limited after 4 attempts"
-                    ));
+                    return Err(anyhow::anyhow!("NewsAPI rate limited after 4 attempts"));
                 }
                 let wait = response
                     .headers()
@@ -257,8 +255,8 @@ impl NewsApiClient {
             break;
         }
 
-        let response = final_response
-            .ok_or_else(|| anyhow::anyhow!("NewsAPI: no response after retries"))?;
+        let response =
+            final_response.ok_or_else(|| anyhow::anyhow!("NewsAPI: no response after retries"))?;
 
         let api_response: NewsApiResponse = response
             .json()

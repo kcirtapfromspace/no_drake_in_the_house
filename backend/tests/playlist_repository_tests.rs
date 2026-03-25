@@ -459,7 +459,10 @@ async fn test_list_playlists_empty() {
     let user_id = create_test_user(&pool).await;
     let repo = PlaylistRepository::new(&pool);
 
-    let result = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let result = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert!(result.is_empty());
 }
 
@@ -485,7 +488,10 @@ async fn test_list_playlists_returns_track_counts() {
     .await
     .unwrap();
 
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].name, "Full");
     assert_eq!(summaries[0].total_tracks, 3);
@@ -513,7 +519,10 @@ async fn test_list_playlists_filters_by_provider() {
     assert_eq!(sp.len(), 1);
     assert_eq!(sp[0].provider, "spotify");
 
-    let all = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let all = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 2);
 }
 
@@ -549,7 +558,10 @@ async fn test_list_playlists_counts_flagged_tracks() {
     .await
     .unwrap();
 
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert_eq!(summaries.len(), 1);
 
     let s = &summaries[0];
@@ -734,7 +746,11 @@ async fn test_backfill_spotify_playlist_tracks_extracted() {
     // But the dual-write via PlaylistRepository works
     let repo = PlaylistRepository::new(&pool);
     let pl_id = repo
-        .upsert_playlist(user_id, "spotify", &make_playlist("My Playlist", "SP_PL_001"))
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &make_playlist("My Playlist", "SP_PL_001"),
+        )
         .await
         .unwrap();
     repo.replace_playlist_tracks(
@@ -757,13 +773,12 @@ async fn test_backfill_spotify_playlist_tracks_extracted() {
     .await
     .unwrap();
 
-    let normalized_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1",
-    )
-    .bind(pl_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let normalized_count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1")
+            .bind(pl_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(legacy_count.0, 3);
     assert_eq!(normalized_count.0, 3);
@@ -799,16 +814,26 @@ async fn test_dual_write_track_count_consistency() {
     .unwrap();
 
     // list_playlists_with_grades should report 5 tracks
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert_eq!(summaries.len(), 1);
     assert_eq!(summaries[0].total_tracks, 5);
     assert_eq!(summaries[0].unique_artists, 3);
 
     // get_playlist_tracks_with_status should return 5 tracks in order
-    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    let tracks = repo
+        .get_playlist_tracks_with_status(pl_id, user_id)
+        .await
+        .unwrap();
     assert_eq!(tracks.len(), 5);
     for (i, t) in tracks.iter().enumerate() {
-        assert_eq!(t.position, i as i32, "Track at index {} has wrong position", i);
+        assert_eq!(
+            t.position, i as i32,
+            "Track at index {} has wrong position",
+            i
+        );
     }
 }
 
@@ -848,13 +873,12 @@ async fn test_replace_tracks_is_atomic_no_partial_state() {
     .unwrap();
 
     // Should have exactly 2 tracks — no leftover old tracks
-    let count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1",
-    )
-    .bind(pl_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let count: (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM playlist_tracks WHERE playlist_id = $1")
+            .bind(pl_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(count.0, 2);
 
     // No old tracks remain
@@ -901,13 +925,19 @@ async fn test_list_and_detail_return_consistent_data() {
     .unwrap();
 
     // list says 3 total, 1 flagged
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     let summary = summaries.iter().find(|s| s.name == "ConsistCheck").unwrap();
     assert_eq!(summary.total_tracks, 3);
     assert_eq!(summary.flagged_tracks, 1);
 
     // detail also says 3 tracks, 1 flagged
-    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    let tracks = repo
+        .get_playlist_tracks_with_status(pl_id, user_id)
+        .await
+        .unwrap();
     assert_eq!(tracks.len(), 3);
     let flagged_count = tracks.iter().filter(|t| t.status == "flagged").count();
     assert_eq!(flagged_count, 1);
@@ -929,14 +959,23 @@ async fn test_long_playlist_name_500_chars() {
 
     let long_name = "A".repeat(500);
     let pl_id = repo
-        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
-            provider_playlist_id: "pl_long_name".to_string(),
-            name: long_name.clone(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: None, is_collaborative: false,
-            source_type: "playlist".to_string(),
-            provider_track_count: None, snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "pl_long_name".to_string(),
+                name: long_name.clone(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: None,
+                is_collaborative: false,
+                source_type: "playlist".to_string(),
+                provider_track_count: None,
+                snapshot_id: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -955,11 +994,18 @@ async fn test_empty_playlist_grades_a_plus() {
     let user_id = create_test_user(&pool).await;
     let repo = PlaylistRepository::new(&pool);
 
-    repo.upsert_playlist(user_id, "spotify", &make_playlist("Empty PL", "pl_empty_grade"))
+    repo.upsert_playlist(
+        user_id,
+        "spotify",
+        &make_playlist("Empty PL", "pl_empty_grade"),
+    )
+    .await
+    .unwrap();
+
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
         .await
         .unwrap();
-
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
     let s = summaries.iter().find(|s| s.name == "Empty PL").unwrap();
     assert_eq!(s.total_tracks, 0);
     assert_eq!(s.flagged_tracks, 0);
@@ -995,7 +1041,10 @@ async fn test_all_tracks_flagged_grades_f() {
         .unwrap();
     }
 
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     let s = summaries.iter().find(|s| s.name == "All Bad").unwrap();
     assert_eq!(s.total_tracks, 5);
     assert_eq!(s.flagged_tracks, 5);
@@ -1031,12 +1080,18 @@ async fn test_flagging_by_artist_name_match_without_artist_id() {
     .unwrap();
 
     // Should still be flagged via name match
-    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    let tracks = repo
+        .get_playlist_tracks_with_status(pl_id, user_id)
+        .await
+        .unwrap();
     assert_eq!(tracks.len(), 1);
     assert_eq!(tracks[0].status, "flagged");
 
     // list_playlists should also count it
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     let s = summaries.iter().find(|s| s.name == "NameMatch").unwrap();
     assert_eq!(s.flagged_tracks, 1);
 }
@@ -1079,7 +1134,10 @@ async fn test_blocked_vs_flagged_distinction() {
     .await
     .unwrap();
 
-    let tracks = repo.get_playlist_tracks_with_status(pl_id, user_id).await.unwrap();
+    let tracks = repo
+        .get_playlist_tracks_with_status(pl_id, user_id)
+        .await
+        .unwrap();
     assert_eq!(tracks.len(), 1);
     // Blocked takes precedence over flagged
     assert_eq!(tracks[0].status, "blocked");
@@ -1128,7 +1186,10 @@ async fn test_multiple_offending_artists_counted_correctly() {
         }
     }
 
-    let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     let s = summaries.iter().find(|s| s.name == "Multi Bad").unwrap();
     assert_eq!(s.total_tracks, 5);
     assert_eq!(s.flagged_tracks, 3); // 2 from bad1 + 1 from bad2
@@ -1147,14 +1208,23 @@ async fn test_virtual_playlist_liked_songs() {
     let repo = PlaylistRepository::new(&pool);
 
     let pl_id = repo
-        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
-            provider_playlist_id: "__liked_songs__".to_string(),
-            name: "Liked Songs".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "liked_songs".to_string(),
-            provider_track_count: Some(3), snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__liked_songs__".to_string(),
+                name: "Liked Songs".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "liked_songs".to_string(),
+                provider_track_count: Some(3),
+                snapshot_id: None,
+            },
+        )
         .await
         .unwrap();
 
@@ -1169,8 +1239,14 @@ async fn test_virtual_playlist_liked_songs() {
     .await
     .unwrap();
 
-    let summaries = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
-    let liked = summaries.iter().find(|s| s.source_type == "liked_songs").unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, Some("spotify"))
+        .await
+        .unwrap();
+    let liked = summaries
+        .iter()
+        .find(|s| s.source_type == "liked_songs")
+        .unwrap();
     assert_eq!(liked.name, "Liked Songs");
     assert_eq!(liked.total_tracks, 3);
     assert_eq!(liked.provider_playlist_id, "__liked_songs__");
@@ -1185,7 +1261,11 @@ async fn test_virtual_playlists_coexist_with_real_playlists() {
 
     // Create a real playlist
     let real_id = repo
-        .upsert_playlist(user_id, "spotify", &make_playlist("Real Playlist", "sp_real"))
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &make_playlist("Real Playlist", "sp_real"),
+        )
         .await
         .unwrap();
     repo.replace_playlist_tracks(real_id, &[make_track("r1", "Real Song", "RA", 0)])
@@ -1194,14 +1274,23 @@ async fn test_virtual_playlists_coexist_with_real_playlists() {
 
     // Create virtual playlists
     let liked_id = repo
-        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
-            provider_playlist_id: "__liked_songs__".to_string(),
-            name: "Liked Songs".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "liked_songs".to_string(),
-            provider_track_count: Some(2), snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__liked_songs__".to_string(),
+                name: "Liked Songs".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "liked_songs".to_string(),
+                provider_track_count: Some(2),
+                snapshot_id: None,
+            },
+        )
         .await
         .unwrap();
     repo.replace_playlist_tracks(
@@ -1214,13 +1303,22 @@ async fn test_virtual_playlists_coexist_with_real_playlists() {
     .await
     .unwrap();
 
-    let summaries = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
+    let summaries = repo
+        .list_playlists_with_grades(user_id, Some("spotify"))
+        .await
+        .unwrap();
     assert_eq!(summaries.len(), 2);
 
-    let real = summaries.iter().find(|s| s.source_type == "playlist").unwrap();
+    let real = summaries
+        .iter()
+        .find(|s| s.source_type == "playlist")
+        .unwrap();
     assert_eq!(real.total_tracks, 1);
 
-    let liked = summaries.iter().find(|s| s.source_type == "liked_songs").unwrap();
+    let liked = summaries
+        .iter()
+        .find(|s| s.source_type == "liked_songs")
+        .unwrap();
     assert_eq!(liked.total_tracks, 2);
 }
 
@@ -1233,14 +1331,23 @@ async fn test_multiple_providers_virtual_playlists_independent() {
 
     // Spotify liked
     let sp_liked = repo
-        .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
-            provider_playlist_id: "__liked_songs__".to_string(),
-            name: "Liked Songs".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "liked_songs".to_string(),
-            provider_track_count: Some(10), snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "__liked_songs__".to_string(),
+                name: "Liked Songs".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "liked_songs".to_string(),
+                provider_track_count: Some(10),
+                snapshot_id: None,
+            },
+        )
         .await
         .unwrap();
     repo.replace_playlist_tracks(sp_liked, &[make_track("sp1", "SP Song", "A", 0)])
@@ -1249,14 +1356,23 @@ async fn test_multiple_providers_virtual_playlists_independent() {
 
     // Apple Music library songs
     let am_songs = repo
-        .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
-            provider_playlist_id: "__library_songs__".to_string(),
-            name: "Library Songs".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "library_songs".to_string(),
-            provider_track_count: Some(20), snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "apple_music",
+            &UpsertPlaylist {
+                provider_playlist_id: "__library_songs__".to_string(),
+                name: "Library Songs".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "library_songs".to_string(),
+                provider_track_count: Some(20),
+                snapshot_id: None,
+            },
+        )
         .await
         .unwrap();
     repo.replace_playlist_tracks(
@@ -1270,16 +1386,25 @@ async fn test_multiple_providers_virtual_playlists_independent() {
     .unwrap();
 
     // Filter by provider
-    let sp = repo.list_playlists_with_grades(user_id, Some("spotify")).await.unwrap();
+    let sp = repo
+        .list_playlists_with_grades(user_id, Some("spotify"))
+        .await
+        .unwrap();
     assert_eq!(sp.len(), 1);
     assert_eq!(sp[0].total_tracks, 1);
 
-    let am = repo.list_playlists_with_grades(user_id, Some("apple_music")).await.unwrap();
+    let am = repo
+        .list_playlists_with_grades(user_id, Some("apple_music"))
+        .await
+        .unwrap();
     assert_eq!(am.len(), 1);
     assert_eq!(am[0].total_tracks, 2);
 
     // All returns both
-    let all = repo.list_playlists_with_grades(user_id, None).await.unwrap();
+    let all = repo
+        .list_playlists_with_grades(user_id, None)
+        .await
+        .unwrap();
     assert_eq!(all.len(), 2);
 }
 
@@ -1306,14 +1431,23 @@ async fn test_grade_boundaries() {
         flagged: usize,
     ) -> String {
         let pl_id = repo
-            .upsert_playlist(user_id, "spotify", &UpsertPlaylist {
-                provider_playlist_id: format!("pl_grade_{}", tag),
-                name: format!("Grade {}", tag),
-                description: None, image_url: None, owner_name: None, owner_id: None,
-                is_public: None, is_collaborative: false,
-                source_type: "playlist".to_string(),
-                provider_track_count: None, snapshot_id: None,
-            })
+            .upsert_playlist(
+                user_id,
+                "spotify",
+                &UpsertPlaylist {
+                    provider_playlist_id: format!("pl_grade_{}", tag),
+                    name: format!("Grade {}", tag),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: None,
+                    is_collaborative: false,
+                    source_type: "playlist".to_string(),
+                    provider_track_count: None,
+                    snapshot_id: None,
+                },
+            )
             .await
             .unwrap();
 
@@ -1339,28 +1473,66 @@ async fn test_grade_boundaries() {
             .execute(pool).await.unwrap();
         }
 
-        let summaries = repo.list_playlists_with_grades(user_id, None).await.unwrap();
-        summaries.iter().find(|s| s.name == format!("Grade {}", tag)).unwrap().grade.clone()
+        let summaries = repo
+            .list_playlists_with_grades(user_id, None)
+            .await
+            .unwrap();
+        summaries
+            .iter()
+            .find(|s| s.name == format!("Grade {}", tag))
+            .unwrap()
+            .grade
+            .clone()
     }
 
     // 100% clean = A+
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "100", 10, 0).await, "A+");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "100", 10, 0).await,
+        "A+"
+    );
     // 95% clean = A+ (boundary)
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "95", 19, 1).await, "A+");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "95", 19, 1).await,
+        "A+"
+    );
     // 90% clean = A
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "90", 9, 1).await, "A");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "90", 9, 1).await,
+        "A"
+    );
     // 80% clean = A (boundary)
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "80", 8, 2).await, "A");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "80", 8, 2).await,
+        "A"
+    );
     // 75% clean = B
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "75", 3, 1).await, "B");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "75", 3, 1).await,
+        "B"
+    );
     // 66% clean = C
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "66", 2, 1).await, "C");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "66", 2, 1).await,
+        "C"
+    );
     // 60% clean = C (boundary)
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "60", 3, 2).await, "C");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "60", 3, 2).await,
+        "C"
+    );
     // 50% clean = D
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "50", 1, 1).await, "D");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "50", 1, 1).await,
+        "D"
+    );
     // 40% clean = F
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "40", 2, 3).await, "F");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "40", 2, 3).await,
+        "F"
+    );
     // 0% clean = F
-    assert_eq!(grade_for(&repo, &pool, user_id, bad_id, "0", 0, 5).await, "F");
+    assert_eq!(
+        grade_for(&repo, &pool, user_id, bad_id, "0", 0, 5).await,
+        "F"
+    );
 }

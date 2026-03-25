@@ -430,11 +430,8 @@ impl OAuthProvider for GitHubOAuthProvider {
                         .unwrap_or_else(|_| "Unknown error".to_string());
 
                     // Parse GitHub-specific error response
-                    if let Ok(error_json) =
-                        serde_json::from_str::<serde_json::Value>(&error_text)
-                    {
-                        let error_code =
-                            error_json["error"].as_str().unwrap_or("unknown_error");
+                    if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
+                        let error_code = error_json["error"].as_str().unwrap_or("unknown_error");
                         let error_description = error_json["error_description"]
                             .as_str()
                             .unwrap_or(&error_text);
@@ -587,16 +584,13 @@ impl OAuthProvider for GitHubOAuthProvider {
                     if status == reqwest::StatusCode::FORBIDDEN {
                         return Err(AppError::OAuthProviderError {
                             provider: "GitHub".to_string(),
-                            message:
-                                "GitHub API rate limit exceeded or insufficient permissions"
-                                    .to_string(),
+                            message: "GitHub API rate limit exceeded or insufficient permissions"
+                                .to_string(),
                         });
                     }
 
                     // Parse GitHub-specific error response
-                    if let Ok(error_json) =
-                        serde_json::from_str::<serde_json::Value>(&error_text)
-                    {
+                    if let Ok(error_json) = serde_json::from_str::<serde_json::Value>(&error_text) {
                         if let Some(message) = error_json["message"].as_str() {
                             return Err(AppError::OAuthProviderError {
                                 provider: "GitHub".to_string(),

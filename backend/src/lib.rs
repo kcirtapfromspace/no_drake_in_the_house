@@ -321,10 +321,7 @@ pub fn create_router(state: AppState) -> Router {
             "/library/playlists/:playlist_id/tracks",
             get(handlers::offense::get_playlist_tracks_by_id),
         )
-        .route(
-            "/library/playlists",
-            get(handlers::offense::list_playlists),
-        )
+        .route("/library/playlists", get(handlers::offense::list_playlists))
         // Offense submission routes
         .route("/offenses/submit", post(handlers::offense::create_offense))
         .route(

@@ -677,9 +677,7 @@ Respond ONLY with valid JSON:
 
             if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == 3 {
-                    return Err(anyhow::anyhow!(
-                        "Claude API rate limited after 4 attempts"
-                    ));
+                    return Err(anyhow::anyhow!("Claude API rate limited after 4 attempts"));
                 }
                 let wait = resp
                     .headers()
@@ -701,7 +699,8 @@ Respond ONLY with valid JSON:
             break;
         }
 
-        let response = response.ok_or_else(|| anyhow::anyhow!("Claude API: no response after retries"))?;
+        let response =
+            response.ok_or_else(|| anyhow::anyhow!("Claude API: no response after retries"))?;
 
         if !response.status().is_success() {
             let status = response.status();

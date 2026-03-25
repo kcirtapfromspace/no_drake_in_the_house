@@ -21,10 +21,10 @@ use uuid::Uuid;
 
 use crate::error::{AppError, Result};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
 use crate::services::tidal::{TidalConfig, TidalService};
 use crate::services::OAuthTokenEncryption;
-use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
@@ -886,48 +886,76 @@ async fn sync_tidal_library_to_user_library(
 
     // Virtual playlists for favorites
     let fav_tracks_pl_id = playlist_repo
-        .upsert_playlist(user_id, "tidal", &UpsertPlaylist {
-            provider_playlist_id: "__favorite_tracks__".to_string(),
-            name: "Favorite Tracks".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "favorite_tracks".to_string(),
-            provider_track_count: Some(favorite_tracks_synced as i32),
-            snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "tidal",
+            &UpsertPlaylist {
+                provider_playlist_id: "__favorite_tracks__".to_string(),
+                name: "Favorite Tracks".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "favorite_tracks".to_string(),
+                provider_track_count: Some(favorite_tracks_synced as i32),
+                snapshot_id: None,
+            },
+        )
         .await?;
 
     let fav_albums_pl_id = playlist_repo
-        .upsert_playlist(user_id, "tidal", &UpsertPlaylist {
-            provider_playlist_id: "__favorite_albums__".to_string(),
-            name: "Favorite Albums".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "favorite_albums".to_string(),
-            provider_track_count: Some(favorite_albums_synced as i32),
-            snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "tidal",
+            &UpsertPlaylist {
+                provider_playlist_id: "__favorite_albums__".to_string(),
+                name: "Favorite Albums".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "favorite_albums".to_string(),
+                provider_track_count: Some(favorite_albums_synced as i32),
+                snapshot_id: None,
+            },
+        )
         .await?;
 
     let fav_artists_pl_id = playlist_repo
-        .upsert_playlist(user_id, "tidal", &UpsertPlaylist {
-            provider_playlist_id: "__favorite_artists__".to_string(),
-            name: "Favorite Artists".to_string(),
-            description: None, image_url: None, owner_name: None, owner_id: None,
-            is_public: Some(false), is_collaborative: false,
-            source_type: "favorite_artists".to_string(),
-            provider_track_count: Some(favorite_artists_synced as i32),
-            snapshot_id: None,
-        })
+        .upsert_playlist(
+            user_id,
+            "tidal",
+            &UpsertPlaylist {
+                provider_playlist_id: "__favorite_artists__".to_string(),
+                name: "Favorite Artists".to_string(),
+                description: None,
+                image_url: None,
+                owner_name: None,
+                owner_id: None,
+                is_public: Some(false),
+                is_collaborative: false,
+                source_type: "favorite_artists".to_string(),
+                provider_track_count: Some(favorite_artists_synced as i32),
+                snapshot_id: None,
+            },
+        )
         .await?;
 
     // Write favorites to normalized tables
     {
-        let fav_track_norm: Vec<UpsertPlaylistTrack> = tracks.iter()
+        let fav_track_norm: Vec<UpsertPlaylistTrack> = tracks
+            .iter()
             .filter(|t| t.source_type.as_deref() == Some("favorite_track"))
             .enumerate()
             .map(|(i, t)| {
-                let raw_id = t.provider_track_id.strip_prefix("track:").unwrap_or(&t.provider_track_id);
+                let raw_id = t
+                    .provider_track_id
+                    .strip_prefix("track:")
+                    .unwrap_or(&t.provider_track_id);
                 UpsertPlaylistTrack {
                     provider_track_id: raw_id.to_string(),
                     track_name: t.track_name.clone(),
@@ -936,14 +964,21 @@ async fn sync_tidal_library_to_user_library(
                     position: i as i32,
                     added_at: t.added_at,
                 }
-            }).collect();
-        playlist_repo.replace_playlist_tracks(fav_tracks_pl_id, &fav_track_norm).await?;
+            })
+            .collect();
+        playlist_repo
+            .replace_playlist_tracks(fav_tracks_pl_id, &fav_track_norm)
+            .await?;
 
-        let fav_album_norm: Vec<UpsertPlaylistTrack> = tracks.iter()
+        let fav_album_norm: Vec<UpsertPlaylistTrack> = tracks
+            .iter()
             .filter(|t| t.source_type.as_deref() == Some("favorite_album"))
             .enumerate()
             .map(|(i, t)| {
-                let raw_id = t.provider_track_id.strip_prefix("album:").unwrap_or(&t.provider_track_id);
+                let raw_id = t
+                    .provider_track_id
+                    .strip_prefix("album:")
+                    .unwrap_or(&t.provider_track_id);
                 UpsertPlaylistTrack {
                     provider_track_id: raw_id.to_string(),
                     track_name: t.track_name.clone(),
@@ -952,14 +987,21 @@ async fn sync_tidal_library_to_user_library(
                     position: i as i32,
                     added_at: t.added_at,
                 }
-            }).collect();
-        playlist_repo.replace_playlist_tracks(fav_albums_pl_id, &fav_album_norm).await?;
+            })
+            .collect();
+        playlist_repo
+            .replace_playlist_tracks(fav_albums_pl_id, &fav_album_norm)
+            .await?;
 
-        let fav_artist_norm: Vec<UpsertPlaylistTrack> = tracks.iter()
+        let fav_artist_norm: Vec<UpsertPlaylistTrack> = tracks
+            .iter()
             .filter(|t| t.source_type.as_deref() == Some("favorite_artist"))
             .enumerate()
             .map(|(i, t)| {
-                let raw_id = t.provider_track_id.strip_prefix("artist:").unwrap_or(&t.provider_track_id);
+                let raw_id = t
+                    .provider_track_id
+                    .strip_prefix("artist:")
+                    .unwrap_or(&t.provider_track_id);
                 UpsertPlaylistTrack {
                     provider_track_id: raw_id.to_string(),
                     track_name: t.track_name.clone(),
@@ -968,8 +1010,11 @@ async fn sync_tidal_library_to_user_library(
                     position: i as i32,
                     added_at: t.added_at,
                 }
-            }).collect();
-        playlist_repo.replace_playlist_tracks(fav_artists_pl_id, &fav_artist_norm).await?;
+            })
+            .collect();
+        playlist_repo
+            .replace_playlist_tracks(fav_artists_pl_id, &fav_artist_norm)
+            .await?;
     }
 
     // Upsert actual Tidal playlists + fetch individual tracks per playlist
@@ -982,19 +1027,23 @@ async fn sync_tidal_library_to_user_library(
         let playlist_title = playlist.title.clone();
 
         let pl_id = playlist_repo
-            .upsert_playlist(user_id, "tidal", &UpsertPlaylist {
-                provider_playlist_id: playlist.uuid.clone(),
-                name: playlist_title.clone(),
-                description: playlist.description.clone(),
-                image_url: playlist.image.clone(),
-                owner_name: Some(creator_name.clone()),
-                owner_id: None,
-                is_public: Some(playlist.public_playlist),
-                is_collaborative: false,
-                source_type: "playlist".to_string(),
-                provider_track_count: Some(playlist.number_of_tracks as i32),
-                snapshot_id: None,
-            })
+            .upsert_playlist(
+                user_id,
+                "tidal",
+                &UpsertPlaylist {
+                    provider_playlist_id: playlist.uuid.clone(),
+                    name: playlist_title.clone(),
+                    description: playlist.description.clone(),
+                    image_url: playlist.image.clone(),
+                    owner_name: Some(creator_name.clone()),
+                    owner_id: None,
+                    is_public: Some(playlist.public_playlist),
+                    is_collaborative: false,
+                    source_type: "playlist".to_string(),
+                    provider_track_count: Some(playlist.number_of_tracks as i32),
+                    snapshot_id: None,
+                },
+            )
             .await?;
 
         // Fetch individual playlist tracks from Tidal API
@@ -1025,7 +1074,9 @@ async fn sync_tidal_library_to_user_library(
                     .collect();
 
                 // Write to normalized table
-                playlist_repo.replace_playlist_tracks(pl_id, &normalized).await?;
+                playlist_repo
+                    .replace_playlist_tracks(pl_id, &normalized)
+                    .await?;
 
                 // Also add to legacy tracks vec for backward compat
                 for (i, pt) in playlist_tracks.iter().enumerate() {
@@ -1063,7 +1114,8 @@ async fn sync_tidal_library_to_user_library(
             provider_track_id: format!("playlist:{}", playlist.uuid),
             track_name: format!("[Playlist] {}", playlist_title),
             album_name: None,
-            artist_name: playlist.creator
+            artist_name: playlist
+                .creator
                 .and_then(|c| c.username)
                 .unwrap_or_else(|| "Unknown Creator".to_string()),
             source_type: Some("playlist".to_string()),
@@ -1073,7 +1125,9 @@ async fn sync_tidal_library_to_user_library(
     }
 
     // Remove playlists deleted since last sync
-    playlist_repo.delete_stale_playlists(user_id, "tidal", sync_ts).await?;
+    playlist_repo
+        .delete_stale_playlists(user_id, "tidal", sync_ts)
+        .await?;
 
     // ── Legacy table: delete-and-reimport ─────────────────────────────
     sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")

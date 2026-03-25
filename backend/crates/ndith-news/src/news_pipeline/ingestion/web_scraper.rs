@@ -193,10 +193,7 @@ impl WebScraper {
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == 3 {
-                    return Err(anyhow::anyhow!(
-                        "Rate limited on {} after 4 attempts",
-                        url
-                    ));
+                    return Err(anyhow::anyhow!("Rate limited on {} after 4 attempts", url));
                 }
                 let wait = response
                     .headers()

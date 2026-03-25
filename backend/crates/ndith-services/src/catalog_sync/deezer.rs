@@ -89,17 +89,22 @@ impl DeezerSyncWorker {
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == MAX_RETRIES {
                     return Err(anyhow::anyhow!(
-                        "Deezer API rate limit exceeded after {} retries", MAX_RETRIES
+                        "Deezer API rate limit exceeded after {} retries",
+                        MAX_RETRIES
                     ));
                 }
-                let wait = response.headers().get("retry-after")
+                let wait = response
+                    .headers()
+                    .get("retry-after")
                     .and_then(|h| h.to_str().ok())
                     .and_then(|s| s.parse::<u64>().ok())
                     .unwrap_or(2u64.pow(attempt + 1))
                     .min(MAX_RETRY_WAIT_SECS);
                 tracing::warn!(
                     "Deezer API rate limited, retry {}/{} after {}s",
-                    attempt + 1, MAX_RETRIES, wait
+                    attempt + 1,
+                    MAX_RETRIES,
+                    wait
                 );
                 sleep(Duration::from_secs(wait)).await;
                 continue;

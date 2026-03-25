@@ -286,8 +286,9 @@ impl RssFetcher {
             break;
         }
 
-        let response = final_response
-            .ok_or_else(|| anyhow::anyhow!("RSS feed {}: no response after retries", source.name))?;
+        let response = final_response.ok_or_else(|| {
+            anyhow::anyhow!("RSS feed {}: no response after retries", source.name)
+        })?;
 
         if !response.status().is_success() {
             return Err(anyhow::anyhow!(

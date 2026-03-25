@@ -278,8 +278,10 @@ impl<'a> PlaylistRepository<'a> {
         .await
         .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
-        let flagged_map: std::collections::HashMap<Uuid, i64> =
-            flagged_rows.into_iter().map(|r| (r.playlist_id, r.flagged_count)).collect();
+        let flagged_map: std::collections::HashMap<Uuid, i64> = flagged_rows
+            .into_iter()
+            .map(|r| (r.playlist_id, r.flagged_count))
+            .collect();
 
         // ── Pass 3: batch-fetch flagged artist names per playlist ──────
         #[derive(sqlx::FromRow)]

@@ -16,11 +16,11 @@ use uuid::Uuid;
 
 use crate::error::{AppError, Result};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
+use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
 use crate::services::oauth::OAuthProvider;
 use crate::services::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::services::OAuthTokenEncryption;
-use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
@@ -787,7 +787,10 @@ async fn sync_youtube_library_to_user_library(
             .filter(|t| t.source_type.as_deref() == Some("liked_video"))
             .enumerate()
             .map(|(i, t)| {
-                let raw_id = t.provider_track_id.strip_prefix("video:").unwrap_or(&t.provider_track_id);
+                let raw_id = t
+                    .provider_track_id
+                    .strip_prefix("video:")
+                    .unwrap_or(&t.provider_track_id);
                 UpsertPlaylistTrack {
                     provider_track_id: raw_id.to_string(),
                     track_name: t.track_name.clone(),
@@ -798,7 +801,9 @@ async fn sync_youtube_library_to_user_library(
                 }
             })
             .collect();
-        playlist_repo.replace_playlist_tracks(liked_pl_id, &liked_norm).await?;
+        playlist_repo
+            .replace_playlist_tracks(liked_pl_id, &liked_norm)
+            .await?;
     }
 
     for playlist in playlists {
@@ -877,7 +882,9 @@ async fn sync_youtube_library_to_user_library(
             }
         }
 
-        playlist_repo.replace_playlist_tracks(pl_id, &normalized_tracks).await?;
+        playlist_repo
+            .replace_playlist_tracks(pl_id, &normalized_tracks)
+            .await?;
     }
 
     let mut subscription_page_token: Option<String> = None;
@@ -943,7 +950,10 @@ async fn sync_youtube_library_to_user_library(
             .filter(|t| t.source_type.as_deref() == Some("subscription"))
             .enumerate()
             .map(|(i, t)| {
-                let raw_id = t.provider_track_id.strip_prefix("subscription:").unwrap_or(&t.provider_track_id);
+                let raw_id = t
+                    .provider_track_id
+                    .strip_prefix("subscription:")
+                    .unwrap_or(&t.provider_track_id);
                 UpsertPlaylistTrack {
                     provider_track_id: raw_id.to_string(),
                     track_name: t.track_name.clone(),
@@ -954,11 +964,15 @@ async fn sync_youtube_library_to_user_library(
                 }
             })
             .collect();
-        playlist_repo.replace_playlist_tracks(subs_pl_id, &sub_norm).await?;
+        playlist_repo
+            .replace_playlist_tracks(subs_pl_id, &sub_norm)
+            .await?;
     }
 
     // Remove playlists deleted since last sync
-    playlist_repo.delete_stale_playlists(user_id, "youtube_music", sync_ts).await?;
+    playlist_repo
+        .delete_stale_playlists(user_id, "youtube_music", sync_ts)
+        .await?;
 
     // ── Legacy table: delete-and-reimport ─────────────────────────────
     sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")

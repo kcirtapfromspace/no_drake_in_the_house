@@ -241,9 +241,7 @@ impl TwitterMonitor {
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == 3 {
-                    return Err(anyhow::anyhow!(
-                        "Twitter API rate limited after 4 attempts"
-                    ));
+                    return Err(anyhow::anyhow!("Twitter API rate limited after 4 attempts"));
                 }
                 let wait = response
                     .headers()

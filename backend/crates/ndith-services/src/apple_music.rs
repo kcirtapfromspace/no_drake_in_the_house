@@ -498,8 +498,7 @@ impl AppleMusicService {
                 ));
             }
 
-            let response_data: AppleMusicResponse<AppleMusicLibraryTrack> =
-                response.json().await?;
+            let response_data: AppleMusicResponse<AppleMusicLibraryTrack> = response.json().await?;
             tracks.extend(response_data.data);
 
             next_url = response_data.next;

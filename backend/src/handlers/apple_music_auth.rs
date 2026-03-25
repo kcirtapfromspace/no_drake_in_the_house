@@ -728,11 +728,10 @@ async fn perform_apple_music_library_sync(
             .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
     }
 
-    // Upsert actual Apple Music playlists (metadata only — individual track
-    // fetching via GET /v1/me/library/playlists/{id}/tracks is not yet implemented)
+    // Upsert Apple Music playlists + fetch individual tracks per playlist
     for playlist in &library.library_playlists {
         let attrs = &playlist.attributes;
-        playlist_repo
+        let pl_id = playlist_repo
             .upsert_playlist(user_id, "apple_music", &UpsertPlaylist {
                 provider_playlist_id: playlist.id.clone(),
                 name: attrs.name.clone(),
@@ -749,9 +748,53 @@ async fn perform_apple_music_library_sync(
             .await
             .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
 
-        // TODO: fetch individual playlist tracks via
-        // GET /v1/me/library/playlists/{id}/tracks
-        // and call playlist_repo.replace_playlist_tracks(pl_id, &tracks)
+        // Fetch individual playlist tracks from Apple Music API
+        match state
+            .apple_music_service
+            .get_playlist_tracks(&connection, &playlist.id)
+            .await
+        {
+            Ok(playlist_tracks) => {
+                let normalized: Vec<UpsertPlaylistTrack> = playlist_tracks
+                    .iter()
+                    .enumerate()
+                    .map(|(i, track)| UpsertPlaylistTrack {
+                        provider_track_id: track.id.clone(),
+                        track_name: track.attributes.name.clone(),
+                        album_name: clean_optional_string(&track.attributes.album_name),
+                        artist_name: track.attributes.artist_name.clone(),
+                        position: i as i32,
+                        added_at: None,
+                    })
+                    .collect();
+
+                playlist_repo.replace_playlist_tracks(pl_id, &normalized).await
+                    .map_err(|e| AppError::Internal { message: Some(e.to_string()) })?;
+
+                // Also add to legacy tracks for backward compat
+                for (i, track) in playlist_tracks.iter().enumerate() {
+                    import_tracks.push(ImportTrack {
+                        provider_track_id: format!(
+                            "playlist:{}:{}:{}",
+                            playlist.id, track.id, i
+                        ),
+                        track_name: track.attributes.name.clone(),
+                        album_name: clean_optional_string(&track.attributes.album_name),
+                        artist_name: track.attributes.artist_name.clone(),
+                        source_type: Some("playlist_track".to_string()),
+                        playlist_name: clean_optional_string(&attrs.name),
+                        added_at: None,
+                    });
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    playlist_id = %playlist.id,
+                    error = %e,
+                    "Failed to fetch Apple Music playlist tracks, storing metadata only"
+                );
+            }
+        }
     }
 
     // Remove playlists deleted since last sync

@@ -472,6 +472,47 @@ impl AppleMusicService {
         Ok(tracks)
     }
 
+    /// Get all tracks within a specific library playlist.
+    pub async fn get_playlist_tracks(
+        &self,
+        connection: &Connection,
+        playlist_id: &str,
+    ) -> Result<Vec<AppleMusicLibraryTrack>> {
+        let mut tracks = Vec::new();
+        let mut next_url: Option<String> = Some(format!(
+            "/v1/me/library/playlists/{}/tracks?limit=100",
+            playlist_id
+        ));
+
+        while let Some(url) = next_url {
+            let response = self.make_api_request(connection, "GET", &url, None).await?;
+
+            if !response.status().is_success() {
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_default();
+                return Err(anyhow!(
+                    "Failed to get playlist tracks for {}: {} - {}",
+                    playlist_id,
+                    status,
+                    error_text
+                ));
+            }
+
+            let response_data: AppleMusicResponse<AppleMusicLibraryTrack> =
+                response.json().await?;
+            tracks.extend(response_data.data);
+
+            next_url = response_data.next;
+        }
+
+        tracing::info!(
+            playlist_id = %playlist_id,
+            count = tracks.len(),
+            "Retrieved playlist tracks"
+        );
+        Ok(tracks)
+    }
+
     /// Get user's library albums
     pub async fn get_library_albums(
         &self,

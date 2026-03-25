@@ -22,8 +22,8 @@ use uuid::Uuid;
 use ndith_core::config::provider_callback_uri;
 use ndith_core::models::tidal::{
     TidalAlbum, TidalArtist, TidalFavoriteAlbum, TidalFavoriteArtist, TidalFavoriteTrack,
-    TidalLibrary, TidalLibraryScanResult, TidalPaginatedResponse, TidalPlaylist, TidalTrack,
-    TidalUser,
+    TidalLibrary, TidalLibraryScanResult, TidalPaginatedResponse, TidalPlaylist,
+    TidalPlaylistTrack, TidalTrack, TidalUser,
 };
 
 /// Tidal OAuth token response
@@ -1151,6 +1151,63 @@ impl TidalService {
         }
 
         Ok(all_playlists)
+    }
+
+    /// Get tracks within a specific playlist (single page).
+    pub async fn get_playlist_tracks(
+        &self,
+        access_token: &str,
+        playlist_uuid: &str,
+        country_code: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<TidalPaginatedResponse<TidalPlaylistTrack>> {
+        let limit_str = limit.to_string();
+        let offset_str = offset.to_string();
+
+        self.get(
+            access_token,
+            &format!("/playlists/{}/items", playlist_uuid),
+            &[
+                ("countryCode", country_code),
+                ("limit", &limit_str),
+                ("offset", &offset_str),
+            ],
+        )
+        .await
+    }
+
+    /// Get all tracks within a specific playlist (handles pagination).
+    pub async fn get_all_playlist_tracks(
+        &self,
+        access_token: &str,
+        playlist_uuid: &str,
+        country_code: &str,
+    ) -> Result<Vec<TidalPlaylistTrack>> {
+        let mut all_tracks = Vec::new();
+        let mut offset = 0;
+
+        loop {
+            let response = self
+                .get_playlist_tracks(
+                    access_token,
+                    playlist_uuid,
+                    country_code,
+                    DEFAULT_PAGE_SIZE,
+                    offset,
+                )
+                .await?;
+
+            all_tracks.extend(response.items);
+
+            if all_tracks.len() as u32 >= response.total_number_of_items {
+                break;
+            }
+
+            offset += DEFAULT_PAGE_SIZE;
+        }
+
+        Ok(all_tracks)
     }
 
     async fn send_json_api_request(

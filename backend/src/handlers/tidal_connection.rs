@@ -972,8 +972,7 @@ async fn sync_tidal_library_to_user_library(
         playlist_repo.replace_playlist_tracks(fav_artists_pl_id, &fav_artist_norm).await?;
     }
 
-    // Upsert actual Tidal playlists (metadata only — track items require
-    // a GET /playlists/{uuid}/items API call that is not yet implemented)
+    // Upsert actual Tidal playlists + fetch individual tracks per playlist
     for playlist in scan_result.library.playlists {
         let creator_name = playlist
             .creator
@@ -982,7 +981,7 @@ async fn sync_tidal_library_to_user_library(
             .unwrap_or_else(|| "Unknown Creator".to_string());
         let playlist_title = playlist.title.clone();
 
-        playlist_repo
+        let pl_id = playlist_repo
             .upsert_playlist(user_id, "tidal", &UpsertPlaylist {
                 provider_playlist_id: playlist.uuid.clone(),
                 name: playlist_title.clone(),
@@ -998,10 +997,68 @@ async fn sync_tidal_library_to_user_library(
             })
             .await?;
 
-        // TODO: fetch individual playlist tracks via GET /playlists/{uuid}/items
-        // and call playlist_repo.replace_playlist_tracks(pl_id, &tracks)
+        // Fetch individual playlist tracks from Tidal API
+        match tidal_service
+            .get_all_playlist_tracks(access_token, &playlist.uuid, "US")
+            .await
+        {
+            Ok(playlist_tracks) => {
+                let normalized: Vec<UpsertPlaylistTrack> = playlist_tracks
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pt)| {
+                        let artist_name = pt
+                            .item
+                            .artists
+                            .first()
+                            .map(|a| a.name.clone())
+                            .unwrap_or_else(|| "Unknown Artist".to_string());
+                        UpsertPlaylistTrack {
+                            provider_track_id: pt.item.id.to_string(),
+                            track_name: pt.item.title.clone(),
+                            album_name: Some(pt.item.album.title.clone()),
+                            artist_name,
+                            position: i as i32,
+                            added_at: Some(pt.date_added),
+                        }
+                    })
+                    .collect();
 
-        // Legacy table — store playlist header entry
+                // Write to normalized table
+                playlist_repo.replace_playlist_tracks(pl_id, &normalized).await?;
+
+                // Also add to legacy tracks vec for backward compat
+                for (i, pt) in playlist_tracks.iter().enumerate() {
+                    let artist_name = pt
+                        .item
+                        .artists
+                        .first()
+                        .map(|a| a.name.clone())
+                        .unwrap_or_else(|| "Unknown Artist".to_string());
+                    tracks.push(ImportTrack {
+                        provider_track_id: format!(
+                            "playlist:{}:{}:{}",
+                            playlist.uuid, pt.item.id, i
+                        ),
+                        track_name: pt.item.title.clone(),
+                        album_name: Some(pt.item.album.title.clone()),
+                        artist_name,
+                        source_type: Some("playlist_track".to_string()),
+                        playlist_name: Some(playlist_title.clone()),
+                        added_at: Some(pt.date_added),
+                    });
+                }
+            }
+            Err(e) => {
+                tracing::warn!(
+                    playlist_uuid = %playlist.uuid,
+                    error = %e,
+                    "Failed to fetch Tidal playlist tracks, storing metadata only"
+                );
+            }
+        }
+
+        // Legacy table — store playlist header entry (always, for backward compat)
         tracks.push(ImportTrack {
             provider_track_id: format!("playlist:{}", playlist.uuid),
             track_name: format!("[Playlist] {}", playlist_title),

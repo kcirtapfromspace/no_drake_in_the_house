@@ -175,16 +175,46 @@ export const triggerProviderSync = action({
     provider: v.string(),
   },
   handler: async (ctx, args) => {
-    const runId = await ctx.runMutation(
-      "sync:_createRun" as any,
-      { platform: args.provider },
-    );
+    const provider = args.provider;
+
+    // Create the sync run record and get the user ID in one mutation
+    const { runId, userId } = (await ctx.runMutation(
+      "sync:_createRunWithUser" as any,
+      { platform: provider },
+    )) as { runId: string; userId: string };
+
+    // Schedule the appropriate provider-specific sync action
+    switch (provider) {
+      case "spotify":
+        await ctx.scheduler.runAfter(
+          0,
+          "librarySyncActions:syncSpotifyLibrary" as any,
+          { runId, userId },
+        );
+        break;
+      case "tidal":
+        await ctx.scheduler.runAfter(
+          0,
+          "librarySyncActions:syncTidalLibrary" as any,
+          { runId, userId },
+        );
+        break;
+      case "youtube":
+        await ctx.scheduler.runAfter(
+          0,
+          "librarySyncActions:syncYouTubeLibrary" as any,
+          { runId, userId },
+        );
+        break;
+      default:
+        throw new ConvexError(`Unsupported provider for library sync: ${provider}`);
+    }
 
     return {
       run_id: runId,
-      provider: args.provider,
+      provider,
       status: "running",
-      message: `Library sync triggered for ${args.provider}`,
+      message: `Library sync triggered for ${provider}`,
     };
   },
 });
@@ -207,5 +237,32 @@ export const _createRun = mutation({
       updatedAt: now,
     });
     return runId;
+  },
+});
+
+/**
+ * Creates a sync run record AND returns the current user's ID so the
+ * calling action can pass it to a scheduled internal action (which has
+ * no auth context of its own).
+ */
+export const _createRunWithUser = mutation({
+  args: {
+    platform: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    const now = nowIso();
+    const runId = await ctx.db.insert("platformSyncRuns", {
+      legacyKey: `runtime:sync:${args.platform}:${Date.now()}`,
+      platform: args.platform,
+      status: "running",
+      startedAt: now,
+      errorLog: [],
+      checkpointData: {},
+      metadata: { userId: user._id },
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { runId, userId: user._id };
   },
 });

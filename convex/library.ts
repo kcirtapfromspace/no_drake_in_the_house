@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 const severityWeight: Record<string, number> = {
@@ -399,10 +399,26 @@ export const importTracks = mutation({
         playlistName: v.optional(v.string()),
       }),
     ),
+    clearExisting: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const now = nowIso();
+
+    // Optionally clear all existing tracks for this user + provider first
+    if (args.clearExisting) {
+      const existing = await ctx.db
+        .query("userLibraryTracks")
+        .withIndex("by_user_provider", (q) =>
+          q.eq("userId", user._id).eq("provider", args.provider),
+        )
+        .collect();
+
+      for (const track of existing) {
+        await ctx.db.delete(track._id);
+      }
+    }
+
     let imported = 0;
 
     for (const track of args.tracks) {
@@ -433,5 +449,32 @@ export const importTracks = mutation({
     }
 
     return { imported, total: args.tracks.length };
+  },
+});
+
+/**
+ * Internal mutation: delete all userLibraryTracks for a given user + provider.
+ * Called once at the start of a full library sync (from scheduled sync actions).
+ */
+export const _clearProviderTracks = internalMutation({
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const tracks = await ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )
+      .collect();
+
+    let deleted = 0;
+    for (const track of tracks) {
+      await ctx.db.delete(track._id);
+      deleted++;
+    }
+
+    return { deleted };
   },
 });

@@ -902,6 +902,7 @@ impl SpotifyService {
     }
 
     /// Get track recommendations with rate-limit backoff.
+    #[allow(clippy::too_many_arguments)]
     pub async fn get_recommendations_with_backoff(
         &self,
         connection: &Connection,
@@ -1030,6 +1031,7 @@ impl SpotifyService {
     }
 
     /// Create a new playlist with rate-limit backoff.
+    #[allow(clippy::too_many_arguments)]
     pub async fn create_playlist_with_backoff(
         &self,
         connection: &Connection,

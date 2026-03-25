@@ -2,12 +2,22 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
+import {
+  decryptToken,
+  encryptToken,
+  getEncryptionKey,
+  isEncrypted,
+} from "./lib/crypto";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Retrieve the stored access token for a provider connection. */
+/**
+ * Retrieve the stored access token for a provider connection.
+ * Transparently decrypts the token if it was encrypted, or returns it as-is
+ * for backward-compatible plaintext legacy tokens.
+ */
 async function getAccessToken(
   ctx: any,
   provider: string,
@@ -21,7 +31,23 @@ async function getAccessToken(
       `No active ${provider} connection found. Please connect your account first.`,
     );
   }
-  return connection;
+
+  const encryptionKey = getEncryptionKey();
+
+  // Decrypt the access token (or use as-is for legacy plaintext)
+  const accessToken = isEncrypted(connection.accessToken)
+    ? await decryptToken(connection.accessToken, encryptionKey)
+    : connection.accessToken;
+
+  // Decrypt the refresh token if present
+  let refreshToken: string | undefined;
+  if (connection.refreshToken) {
+    refreshToken = isEncrypted(connection.refreshToken)
+      ? await decryptToken(connection.refreshToken, encryptionKey)
+      : connection.refreshToken;
+  }
+
+  return { accessToken, refreshToken, connection };
 }
 
 /**
@@ -84,14 +110,21 @@ async function spotifyFetch(
       Date.now() + refreshed.expires_in * 1000,
     ).toISOString();
 
-    // Persist the new token
+    // Encrypt the new token before persisting
+    const encryptionKey = getEncryptionKey();
+    const encryptedNewToken = await encryptToken(
+      refreshed.access_token,
+      encryptionKey,
+    );
+
+    // Persist the encrypted token
     await ctx.runMutation("enforcement:_updateConnectionToken" as any, {
       provider,
-      accessToken: refreshed.access_token,
+      accessToken: encryptedNewToken,
       expiresAt,
     });
 
-    // Retry the original request
+    // Retry the original request with the plaintext token
     headers.Authorization = `Bearer ${refreshed.access_token}`;
     resp = await fetch(url, { ...opts, headers });
   }

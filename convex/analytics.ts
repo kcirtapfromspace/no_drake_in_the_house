@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 const severityWeight: Record<string, number> = {
@@ -226,17 +226,51 @@ export const risingArtists = query({
       );
     }
 
-    const sorted = [...artistScores.entries()]
-      .sort((a, b) => b[1] - a[1])
+    // Fetch the most recent trouble_scores snapshot for delta comparison
+    const snapshots = await ctx.db
+      .query("derivedSnapshots")
+      .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "trouble_scores"))
+      .collect();
+    const latestSnapshot = snapshots.sort((a, b) =>
+      b.computedAt.localeCompare(a.computedAt),
+    )[0];
+    const previousScores: Record<string, number> =
+      latestSnapshot?.payload?.scores ?? {};
+
+    // Compute delta (current - previous) for each artist
+    const deltas: Array<{
+      artistId: string;
+      score: number;
+      delta: number | null;
+    }> = [];
+    for (const [artistId, score] of artistScores) {
+      const prev = previousScores[artistId];
+      deltas.push({
+        artistId,
+        score,
+        delta: prev !== undefined ? score - prev : null,
+      });
+    }
+
+    // Sort by delta descending (new artists without a previous snapshot go last)
+    const sorted = deltas
+      .sort((a, b) => {
+        if (a.delta === null && b.delta === null) return b.score - a.score;
+        if (a.delta === null) return 1;
+        if (b.delta === null) return -1;
+        return b.delta - a.delta;
+      })
       .slice(0, args.limit ?? 10);
 
     const results = await Promise.all(
-      sorted.map(async ([artistId, score]) => {
+      sorted.map(async ({ artistId, score, delta }) => {
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
           artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
+          delta,
+          is_new: delta === null,
         };
       }),
     );
@@ -261,17 +295,43 @@ export const fallingArtists = query({
       );
     }
 
-    const sorted = [...artistScores.entries()]
-      .sort((a, b) => a[1] - b[1])
+    // Fetch the most recent trouble_scores snapshot for delta comparison
+    const snapshots = await ctx.db
+      .query("derivedSnapshots")
+      .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "trouble_scores"))
+      .collect();
+    const latestSnapshot = snapshots.sort((a, b) =>
+      b.computedAt.localeCompare(a.computedAt),
+    )[0];
+    const previousScores: Record<string, number> =
+      latestSnapshot?.payload?.scores ?? {};
+
+    // Compute delta (current - previous) for each artist; exclude new artists
+    const deltas: Array<{
+      artistId: string;
+      score: number;
+      delta: number;
+    }> = [];
+    for (const [artistId, score] of artistScores) {
+      const prev = previousScores[artistId];
+      if (prev !== undefined) {
+        deltas.push({ artistId, score, delta: score - prev });
+      }
+    }
+
+    // Sort by delta ascending (most negative = biggest fall)
+    const sorted = deltas
+      .sort((a, b) => a.delta - b.delta)
       .slice(0, args.limit ?? 10);
 
     const results = await Promise.all(
-      sorted.map(async ([artistId, score]) => {
+      sorted.map(async ({ artistId, score, delta }) => {
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
           artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
+          delta,
         };
       }),
     );
@@ -759,5 +819,38 @@ export const userExposure = query({
         ]),
       ),
     };
+  },
+});
+
+// --- Phase 4: Time-series trend tracking ---
+
+export const snapshotTroubleScores = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const offenses = await ctx.db.query("artistOffenses").collect();
+    const artistScores = new Map<string, number>();
+
+    for (const o of offenses) {
+      const id = o.artistId as string;
+      artistScores.set(
+        id,
+        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
+      );
+    }
+
+    const scores: Record<string, number> = Object.fromEntries(artistScores);
+    const now = nowIso();
+
+    await ctx.db.insert("derivedSnapshots", {
+      legacyKey: `runtime:trouble_scores:${Date.now()}`,
+      kind: "trouble_scores",
+      subjectKey: "global",
+      payload: { scores, artist_count: artistScores.size },
+      computedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { snapshotted: artistScores.size, computedAt: now };
   },
 });

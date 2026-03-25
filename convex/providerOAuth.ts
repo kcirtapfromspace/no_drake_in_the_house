@@ -1,6 +1,19 @@
 import { ConvexError, v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
+import {
+  decryptToken,
+  encryptToken,
+  getEncryptionKey,
+  isEncrypted,
+} from "./lib/crypto";
 
 export const status = query({
   args: {
@@ -239,15 +252,25 @@ export const callback = action({
 
     const scopes = tokenData.scope ? tokenData.scope.split(" ") : [];
 
-    // --- Persist the connection with tokens ---
+    // --- Encrypt tokens before persisting ---
+    const encryptionKey = getEncryptionKey();
+    const encryptedAccess = await encryptToken(
+      tokenData.access_token,
+      encryptionKey,
+    );
+    const encryptedRefresh = tokenData.refresh_token
+      ? await encryptToken(tokenData.refresh_token, encryptionKey)
+      : undefined;
+
+    // --- Persist the connection with encrypted tokens ---
     const connectionId = await ctx.runMutation(
       "providerOAuth:_upsertConnection" as any,
       {
         provider: args.provider,
         status: "active",
         providerUserId,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
+        accessToken: encryptedAccess,
+        refreshToken: encryptedRefresh,
         expiresAt,
         scopes,
       },
@@ -322,5 +345,155 @@ export const _upsertConnection = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Token refresh: internal functions called by the cron job
+// ---------------------------------------------------------------------------
+
+/**
+ * Internal query: find all active provider connections whose token expires
+ * within the next 10 minutes. Returns the fields needed by the refresh action.
+ */
+export const _getExpiringConnections = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const tenMinutesFromNow = new Date(
+      Date.now() + 10 * 60 * 1000,
+    ).toISOString();
+
+    const allConnections = await ctx.db
+      .query("providerConnections")
+      .collect();
+
+    return allConnections
+      .filter(
+        (c) =>
+          c.status === "active" &&
+          c.expiresAt != null &&
+          c.expiresAt <= tenMinutesFromNow &&
+          c.encryptedRefreshToken != null,
+      )
+      .map((c) => ({
+        connectionId: c._id,
+        provider: c.provider,
+        encryptedRefreshToken: c.encryptedRefreshToken!,
+      }));
+  },
+});
+
+/**
+ * Internal mutation: update the token fields on a connection without requiring
+ * user auth context (used by the cron refresh action).
+ */
+export const _updateConnectionTokenInternal = internalMutation({
+  args: {
+    connectionId: v.id("providerConnections"),
+    encryptedAccessToken: v.string(),
+    expiresAt: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.connectionId, {
+      encryptedAccessToken: args.encryptedAccessToken,
+      expiresAt: args.expiresAt,
+      updatedAt: nowIso(),
+    });
+  },
+});
+
+/**
+ * Internal action: refresh all expiring OAuth tokens.
+ * Called on a 30-minute cron schedule.
+ */
+export const refreshExpiringTokens = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const expiring: Array<{
+      connectionId: string;
+      provider: string;
+      encryptedRefreshToken: string;
+    }> = await ctx.runQuery(
+      "providerOAuth:_getExpiringConnections" as any,
+    );
+
+    if (expiring.length === 0) return;
+
+    const encryptionKey = getEncryptionKey();
+
+    for (const conn of expiring) {
+      try {
+        // Decrypt the stored refresh token (or use as-is for legacy plaintext)
+        const refreshToken = isEncrypted(conn.encryptedRefreshToken)
+          ? await decryptToken(conn.encryptedRefreshToken, encryptionKey)
+          : conn.encryptedRefreshToken;
+
+        // Exchange the refresh token for a new access token
+        const { clientId, clientSecret } = getProviderCredentials(
+          conn.provider,
+        );
+        if (!clientId || !clientSecret) continue;
+
+        const tokenUrl = getTokenEndpoint(conn.provider);
+        const body = new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        });
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/x-www-form-urlencoded",
+        };
+
+        if (conn.provider === "youtube") {
+          body.set("client_id", clientId);
+          body.set("client_secret", clientSecret);
+        } else {
+          headers["Authorization"] = `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
+        }
+
+        const resp = await fetch(tokenUrl, {
+          method: "POST",
+          headers,
+          body: body.toString(),
+        });
+
+        if (!resp.ok) {
+          console.error(
+            `Token refresh failed for ${conn.provider} connection ${conn.connectionId}: ${resp.status}`,
+          );
+          continue;
+        }
+
+        const tokenData = (await resp.json()) as {
+          access_token: string;
+          expires_in?: number;
+        };
+
+        // Encrypt the new access token
+        const encryptedNewAccess = await encryptToken(
+          tokenData.access_token,
+          encryptionKey,
+        );
+
+        const expiresAt = tokenData.expires_in
+          ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
+          : undefined;
+
+        // Persist the encrypted token
+        await ctx.runMutation(
+          "providerOAuth:_updateConnectionTokenInternal" as any,
+          {
+            connectionId: conn.connectionId,
+            encryptedAccessToken: encryptedNewAccess,
+            expiresAt,
+          },
+        );
+      } catch (err: any) {
+        console.error(
+          `Token refresh error for connection ${conn.connectionId}:`,
+          err.message ?? err,
+        );
+      }
+    }
   },
 });

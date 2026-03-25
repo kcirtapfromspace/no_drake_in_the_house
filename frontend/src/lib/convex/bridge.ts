@@ -947,6 +947,57 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    // =============================================
+    // News / Research Pipeline (Phase 5 - read layer)
+    // =============================================
+
+    if (method === 'GET' && pathname === '/api/v1/news/articles') {
+      const status = url.searchParams.get('status') ?? undefined;
+      const sourceType = url.searchParams.get('source_type') ?? url.searchParams.get('sourceType') ?? undefined;
+      const limit = parseIntParam(url, 'limit', 20);
+      const cursor = url.searchParams.get('cursor') ?? undefined;
+      const result = await convexQuery<any>(anyApi.news.listArticles, {
+        status,
+        sourceType,
+        limit,
+        cursor,
+      });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    const newsArticleMatch = matchPath(pathname, /^\/api\/v1\/news\/articles\/([^/]+)$/);
+    if (newsArticleMatch && method === 'GET') {
+      const articleId = parseId(newsArticleMatch[1]);
+      const result = await convexQuery<any>(anyApi.news.getArticle, { articleId });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    const newsArtistMatch = matchPath(pathname, /^\/api\/v1\/news\/artist\/([^/]+)$/);
+    if (newsArtistMatch && method === 'GET') {
+      const artistId = parseId(newsArtistMatch[1]);
+      const limit = parseIntParam(url, 'limit', 20);
+      const result = await convexQuery<any>(anyApi.news.listArticlesByArtist, {
+        artistId,
+        limit,
+      });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/news/classifications') {
+      const limit = parseIntParam(url, 'limit', 30);
+      const category = url.searchParams.get('category') ?? undefined;
+      const result = await convexQuery<any>(anyApi.news.recentClassifications, {
+        limit,
+        category,
+      });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/news/pipeline/stats') {
+      const result = await convexQuery<any>(anyApi.news.pipelineStats, {});
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Convex bridge request failed.';
     return fail(message, 'HTTP_500') as BridgedApiResponse<T>;

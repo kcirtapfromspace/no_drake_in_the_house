@@ -11,6 +11,7 @@ use crate::kms::{create_kms_provider, KmsProvider};
 use crate::metrics::MetricsCollector;
 use crate::oauth::OAuthProvider;
 use crate::oauth_spotify::SpotifyOAuthProvider;
+use crate::tidal::TidalService;
 use crate::token_vault_repository::TokenVaultRepository;
 use aes_gcm::{
     aead::{Aead, KeyInit},
@@ -339,6 +340,10 @@ impl TokenVaultService {
                 self.refresh_apple_music_token(connection_id, &connection, correlation_id)
                     .await
             }
+            StreamingProvider::Tidal => {
+                self.refresh_tidal_token(connection_id, &connection, correlation_id)
+                    .await
+            }
             _ => {
                 warn!(
                     connection_id = %connection_id,
@@ -522,6 +527,186 @@ impl TokenVaultService {
 
                 self.mark_connection_needs_reauth(connection_id, format!("Refresh failed: {}", e))
                     .await?;
+
+                Ok(TokenRefreshResult {
+                    connection_id,
+                    success: false,
+                    new_access_token: None,
+                    new_refresh_token: None,
+                    new_expires_at: None,
+                    error_message: Some(format!("Token refresh failed: {}", e)),
+                })
+            }
+        }
+    }
+
+    /// Refresh Tidal token using OAuth refresh_token flow.
+    ///
+    /// Uses the stored refresh_token to obtain a new access_token from the
+    /// Tidal OAuth2 token endpoint (POST https://auth.tidal.com/v1/oauth2/token).
+    #[instrument(skip(self, connection), fields(correlation_id = %correlation_id))]
+    async fn refresh_tidal_token(
+        &self,
+        connection_id: Uuid,
+        connection: &Connection,
+        correlation_id: Uuid,
+    ) -> Result<TokenRefreshResult> {
+        // Create a TidalService from environment config
+        let tidal_service = match TidalService::from_env() {
+            Ok(svc) => svc,
+            Err(e) => {
+                error!(
+                    connection_id = %connection_id,
+                    correlation_id = %correlation_id,
+                    error = %e,
+                    "Tidal service not configured"
+                );
+                return Ok(TokenRefreshResult {
+                    connection_id,
+                    success: false,
+                    new_access_token: None,
+                    new_refresh_token: None,
+                    new_expires_at: None,
+                    error_message: Some(format!("Tidal service not configured: {}", e)),
+                });
+            }
+        };
+
+        // Get the decrypted refresh token
+        let decrypted = self.decrypt_connection_tokens(connection).await;
+        let refresh_token_value = match decrypted {
+            Ok(token) => match token.refresh_token {
+                Some(rt) => rt,
+                None => {
+                    warn!(
+                        connection_id = %connection_id,
+                        correlation_id = %correlation_id,
+                        "No refresh token available for Tidal connection"
+                    );
+                    self.mark_connection_needs_reauth(
+                        connection_id,
+                        "No refresh token available".to_string(),
+                    )
+                    .await?;
+                    return Ok(TokenRefreshResult {
+                        connection_id,
+                        success: false,
+                        new_access_token: None,
+                        new_refresh_token: None,
+                        new_expires_at: None,
+                        error_message: Some("No refresh token available".to_string()),
+                    });
+                }
+            },
+            Err(e) => {
+                error!(
+                    connection_id = %connection_id,
+                    correlation_id = %correlation_id,
+                    error = %e,
+                    "Failed to decrypt Tidal refresh token"
+                );
+                self.mark_connection_needs_reauth(
+                    connection_id,
+                    format!("Failed to decrypt token: {}", e),
+                )
+                .await?;
+                return Ok(TokenRefreshResult {
+                    connection_id,
+                    success: false,
+                    new_access_token: None,
+                    new_refresh_token: None,
+                    new_expires_at: None,
+                    error_message: Some(format!("Failed to decrypt refresh token: {}", e)),
+                });
+            }
+        };
+
+        info!(
+            connection_id = %connection_id,
+            correlation_id = %correlation_id,
+            "Calling Tidal token refresh endpoint"
+        );
+
+        match tidal_service.refresh_token(&refresh_token_value).await {
+            Ok(new_tokens) => {
+                info!(
+                    connection_id = %connection_id,
+                    correlation_id = %correlation_id,
+                    has_new_refresh_token = new_tokens.refresh_token.is_some(),
+                    expires_in = new_tokens.expires_in,
+                    "Tidal token refresh successful"
+                );
+
+                let new_expires_at =
+                    Some(Utc::now() + Duration::seconds(new_tokens.expires_in as i64));
+
+                // Handle refresh token rotation
+                let final_refresh_token = new_tokens
+                    .refresh_token
+                    .unwrap_or(refresh_token_value);
+
+                // Get data key for encryption
+                let key_id = format!(
+                    "user-{}-{}",
+                    connection.user_id,
+                    connection.provider.as_str()
+                );
+                let data_key = self.get_or_create_data_key(&key_id).await?;
+
+                // Encrypt new tokens
+                let encrypted_access_token =
+                    self.encrypt_token(&new_tokens.access_token, &data_key)?;
+                let encrypted_refresh_token =
+                    self.encrypt_token(&final_refresh_token, &data_key)?;
+
+                // Update the connection with new tokens
+                let mut updated_connection = connection.clone();
+                updated_connection.update_tokens(
+                    serde_json::to_string(&encrypted_access_token)?,
+                    Some(serde_json::to_string(&encrypted_refresh_token)?),
+                    new_expires_at,
+                );
+
+                // Persist the update
+                if let Some(ref repo) = self.repository {
+                    repo.update_connection(&updated_connection).await?;
+                } else if let Some(mut conn_ref) = self.connections.get_mut(&connection_id) {
+                    conn_ref.update_tokens(
+                        serde_json::to_string(&encrypted_access_token)?,
+                        Some(serde_json::to_string(&encrypted_refresh_token)?),
+                        new_expires_at,
+                    );
+                }
+
+                info!(
+                    connection_id = %connection_id,
+                    correlation_id = %correlation_id,
+                    new_expires_at = ?new_expires_at,
+                    "Tidal token refresh completed and stored"
+                );
+
+                Ok(TokenRefreshResult {
+                    connection_id,
+                    success: true,
+                    new_access_token: Some(new_tokens.access_token),
+                    new_refresh_token: Some(final_refresh_token),
+                    new_expires_at,
+                    error_message: None,
+                })
+            }
+            Err(e) => {
+                error!(
+                    connection_id = %connection_id,
+                    correlation_id = %correlation_id,
+                    error = %e,
+                    "Tidal token refresh failed"
+                );
+
+                self.mark_connection_needs_reauth(
+                    connection_id,
+                    format!("Refresh failed: {}", e),
+                )
+                .await?;
 
                 Ok(TokenRefreshResult {
                     connection_id,

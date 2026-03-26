@@ -145,11 +145,24 @@ pub async fn tidal_authorize_handler(
     // Generate state for CSRF protection
     let oauth_state = Uuid::new_v4().to_string();
 
-    // Determine redirect URI: prefer explicit query param, then the value from TidalConfig
-    // (which honours TIDAL_REDIRECT_URI env var), and finally the auto-derived callback URL.
-    let redirect_uri = query
-        .redirect_uri
-        .unwrap_or_else(|| tidal_config.redirect_uri.clone());
+    // Determine redirect URI: validate against the configured callback URL.
+    let default_redirect_uri = tidal_config.redirect_uri.clone();
+    let redirect_uri = match query.redirect_uri {
+        Some(ref uri) if uri != &default_redirect_uri => {
+            tracing::warn!(
+                user_id = %authenticated_user.id,
+                requested_uri = %uri,
+                expected_uri = %default_redirect_uri,
+                "Rejected non-allowlisted Tidal redirect_uri"
+            );
+            return Err(AppError::InvalidFieldValue {
+                field: "redirect_uri".to_string(),
+                message: "Provided redirect_uri does not match the configured callback URL"
+                    .to_string(),
+            });
+        }
+        _ => default_redirect_uri,
+    };
     let requested_scopes = TidalService::configured_oauth_scopes();
 
     let tidal_service = TidalService::new(TidalConfig {
@@ -246,8 +259,8 @@ pub async fn tidal_callback_handler(
         });
     }
 
-    // Delete state from Redis to prevent replay attacks
-    delete_oauth_state(&state.redis_pool, &request.state).await?;
+    // NOTE: State is deleted from Redis after successful connection storage (below)
+    // to allow retries if the token exchange or user info fetch fails transiently.
 
     // Create Tidal service
     let tidal_config = TidalConfig::from_env().map_err(|e| {
@@ -377,6 +390,11 @@ pub async fn tidal_callback_handler(
         Some(expires_at),
     )
     .await?;
+
+    // Now that the connection is stored, delete the OAuth state to prevent replay attacks.
+    if let Err(e) = delete_oauth_state(&state.redis_pool, &request.state).await {
+        tracing::warn!("Failed to delete Tidal OAuth state: {}", e);
+    }
 
     let (sync_summary, sync_warning) = match sync_tidal_library_to_user_library(
         &state.db_pool,

@@ -421,6 +421,61 @@ impl AppleMusicService {
         .await
     }
 
+    /// Make an API request with retry-on-rate-limit for pagination.
+    ///
+    /// When `make_api_request` returns a rate-limit error (429), this method waits
+    /// for the Retry-After duration (default 60s) and retries up to 3 times before
+    /// propagating the error.
+    async fn make_api_request_with_rate_limit_retry(
+        &self,
+        connection: &Connection,
+        method: &str,
+        endpoint: &str,
+        body: Option<serde_json::Value>,
+    ) -> Result<reqwest::Response> {
+        const MAX_RETRIES: u32 = 3;
+        const DEFAULT_RETRY_AFTER_SECS: u64 = 60;
+
+        for attempt in 0..=MAX_RETRIES {
+            match self
+                .make_api_request(connection, method, endpoint, body.clone())
+                .await
+            {
+                Ok(response) => return Ok(response),
+                Err(e) => {
+                    let err_msg = e.to_string();
+                    let is_rate_limit = err_msg.contains("Rate limited")
+                        || err_msg.contains("rate limit")
+                        || err_msg.contains("429");
+
+                    if !is_rate_limit || attempt == MAX_RETRIES {
+                        return Err(e);
+                    }
+
+                    // Parse retry-after seconds from the error message if present
+                    let retry_secs = err_msg
+                        .split("retry after ")
+                        .nth(1)
+                        .and_then(|s| s.split(' ').next())
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(DEFAULT_RETRY_AFTER_SECS);
+
+                    tracing::warn!(
+                        endpoint = %endpoint,
+                        attempt = attempt + 1,
+                        retry_after_secs = retry_secs,
+                        "Apple Music rate limited during pagination, waiting before retry"
+                    );
+
+                    tokio::time::sleep(Duration::from_secs(retry_secs)).await;
+                }
+            }
+        }
+
+        // Unreachable due to loop logic, but satisfy the compiler
+        Err(anyhow!("Apple Music rate limit retries exhausted"))
+    }
+
     /// Scan user's Apple Music library
     pub async fn scan_library(&self, connection: &Connection) -> Result<AppleMusicLibrary> {
         let mut library =
@@ -450,7 +505,9 @@ impl AppleMusicService {
         let mut next_url: Option<String> = Some("/v1/me/library/songs?limit=100".to_string());
 
         while let Some(url) = next_url {
-            let response = self.make_api_request(connection, "GET", &url, None).await?;
+            let response = self
+                .make_api_request_with_rate_limit_retry(connection, "GET", &url, None)
+                .await?;
 
             if !response.status().is_success() {
                 let status = response.status();
@@ -485,7 +542,9 @@ impl AppleMusicService {
         ));
 
         while let Some(url) = next_url {
-            let response = self.make_api_request(connection, "GET", &url, None).await?;
+            let response = self
+                .make_api_request_with_rate_limit_retry(connection, "GET", &url, None)
+                .await?;
 
             if !response.status().is_success() {
                 let status = response.status();
@@ -521,7 +580,9 @@ impl AppleMusicService {
         let mut next_url: Option<String> = Some("/v1/me/library/albums?limit=100".to_string());
 
         while let Some(url) = next_url {
-            let response = self.make_api_request(connection, "GET", &url, None).await?;
+            let response = self
+                .make_api_request_with_rate_limit_retry(connection, "GET", &url, None)
+                .await?;
 
             if !response.status().is_success() {
                 let status = response.status();
@@ -552,7 +613,9 @@ impl AppleMusicService {
         let mut next_url: Option<String> = Some("/v1/me/library/playlists?limit=100".to_string());
 
         while let Some(url) = next_url {
-            let response = self.make_api_request(connection, "GET", &url, None).await?;
+            let response = self
+                .make_api_request_with_rate_limit_retry(connection, "GET", &url, None)
+                .await?;
 
             if !response.status().is_success() {
                 let status = response.status();

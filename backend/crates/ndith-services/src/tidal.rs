@@ -215,7 +215,14 @@ impl TidalOAuthMode {
     }
 }
 
-/// Rate limit tracking for Tidal API
+/// Rate limit tracking for Tidal API.
+///
+/// NOTE: Each `TidalService::from_env()` call creates a fresh `RateLimitState`.
+/// This means rate limit state is NOT shared across multiple service instances
+/// (e.g. different request handlers or background tasks). Properly sharing state
+/// would require storing it in `AppState` and passing it into `TidalService`.
+/// For now this is acceptable because Tidal's rate limits are generous (100 req/min)
+/// and the window resets quickly.
 #[derive(Debug, Clone)]
 struct RateLimitState {
     requests_made: u32,

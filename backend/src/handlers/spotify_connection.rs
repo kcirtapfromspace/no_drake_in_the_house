@@ -172,9 +172,23 @@ pub async fn spotify_authorize_handler(
     })?;
 
     // Determine redirect URI (override if provided in query)
-    let redirect_uri = query
-        .redirect_uri
-        .unwrap_or_else(|| provider_callback_uri("spotify"));
+    let default_redirect_uri = provider_callback_uri("spotify");
+    let redirect_uri = match query.redirect_uri {
+        Some(ref uri) if uri != &default_redirect_uri => {
+            tracing::warn!(
+                user_id = %authenticated_user.id,
+                requested_uri = %uri,
+                expected_uri = %default_redirect_uri,
+                "Rejected non-allowlisted Spotify redirect_uri"
+            );
+            return Err(AppError::InvalidFieldValue {
+                field: "redirect_uri".to_string(),
+                message: "Provided redirect_uri does not match the configured callback URL"
+                    .to_string(),
+            });
+        }
+        _ => default_redirect_uri,
+    };
 
     // Initiate OAuth flow
     let flow_response = spotify_provider
@@ -289,20 +303,10 @@ pub async fn spotify_callback_handler(
         })
         .await
     {
-        Ok(info) => info,
+        Ok(info) => Some(info),
         Err(e) => {
-            tracing::warn!(error = %e, "Failed to fetch Spotify user info (will use fallback); tokens are valid");
-            ndith_core::models::oauth::OAuthUserInfo {
-                provider_user_id: format!("pending_{}", uuid::Uuid::new_v4()),
-                email: None,
-                email_verified: None,
-                display_name: None,
-                first_name: None,
-                last_name: None,
-                avatar_url: None,
-                locale: None,
-                provider_data: std::collections::HashMap::new(),
-            }
+            tracing::warn!(error = %e, "Failed to fetch Spotify user info (storing None); tokens are valid");
+            None
         }
     };
 
@@ -340,18 +344,22 @@ pub async fn spotify_callback_handler(
         .map(|secs| Utc::now() + Duration::seconds(secs));
 
     // Store connection in database
+    let provider_user_id = user_info.as_ref().map(|info| info.provider_user_id.as_str());
     let connection_id = store_spotify_connection(
         &state.db_pool,
         state_data.user_id,
-        &user_info.provider_user_id,
+        provider_user_id,
         &access_token_encrypted,
         refresh_token_encrypted.as_deref(),
         expires_at,
     )
     .await?;
 
-    // Now that the connection is stored, delete the OAuth state to prevent replay attacks
-    delete_oauth_state(&state.redis_pool, &request.state).await?;
+    // Now that the connection is stored, delete the OAuth state to prevent replay attacks.
+    // Non-fatal: the connection is already saved, so a Redis failure shouldn't abort the flow.
+    if let Err(e) = delete_oauth_state(&state.redis_pool, &request.state).await {
+        tracing::warn!("Failed to delete OAuth state: {}", e);
+    }
 
     // Spawn library sync as a background task to avoid Cloudflare 524 timeouts.
     // The sync involves many paginated Spotify API calls and can take minutes.
@@ -383,10 +391,14 @@ pub async fn spotify_callback_handler(
     let sync_summary = None;
     let sync_warning = Some("Library sync started in background. Refresh to see progress.".to_string());
 
+    let provider_user_id_display = provider_user_id
+        .unwrap_or("unknown")
+        .to_string();
+
     tracing::info!(
         user_id = %state_data.user_id,
         connection_id = %connection_id,
-        provider_user_id = %user_info.provider_user_id,
+        provider_user_id = %provider_user_id_display,
         "Spotify connection created successfully"
     );
 
@@ -395,7 +407,7 @@ pub async fn spotify_callback_handler(
         Json(SpotifyCallbackResponse {
             success: true,
             connection_id,
-            provider_user_id: user_info.provider_user_id,
+            provider_user_id: provider_user_id_display,
             status: "active".to_string(),
             message: "Spotify account connected successfully".to_string(),
             sync_summary,
@@ -602,7 +614,7 @@ async fn get_user_spotify_connection(
 async fn store_spotify_connection(
     pool: &PgPool,
     user_id: Uuid,
-    provider_user_id: &str,
+    provider_user_id: Option<&str>,
     access_token_encrypted: &[u8],
     refresh_token_encrypted: Option<&[u8]>,
     expires_at: Option<chrono::DateTime<Utc>>,

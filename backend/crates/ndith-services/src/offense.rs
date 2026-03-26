@@ -166,7 +166,7 @@ impl<'a> OffenseService<'a> {
 
     /// Verify an offense (moderator action)
     pub async fn verify_offense(&self, offense_id: Uuid, verified_by: Uuid) -> Result<()> {
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE artist_offenses
             SET status = 'verified', verified_at = NOW(), verified_by = $2
@@ -178,6 +178,12 @@ impl<'a> OffenseService<'a> {
         .execute(self.db)
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
+
+        if result.rows_affected() == 0 {
+            return Err(AppError::NotFound {
+                resource: "Offense".to_string(),
+            });
+        }
 
         Ok(())
     }

@@ -542,6 +542,16 @@ pub async fn spotify_library_sync_handler(
                     artists = summary.followed_artists_synced,
                     "Spotify library sync completed successfully"
                 );
+                // Update connection to reflect successful sync
+                if let Err(e) = sqlx::query(
+                    "UPDATE connections SET last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'spotify'",
+                )
+                .bind(user_id)
+                .execute(&db_pool)
+                .await
+                {
+                    tracing::warn!(error = %e, "Failed to update connection after sync");
+                }
             }
             Err(e) => {
                 tracing::error!(
@@ -549,6 +559,14 @@ pub async fn spotify_library_sync_handler(
                     error = %e,
                     "Spotify library sync failed in background"
                 );
+                // Record the error on the connection
+                let _ = sqlx::query(
+                    "UPDATE connections SET error_code = $1 WHERE user_id = $2 AND provider = 'spotify'",
+                )
+                .bind(format!("sync_error: {}", e))
+                .bind(user_id)
+                .execute(&db_pool)
+                .await;
             }
         }
     });

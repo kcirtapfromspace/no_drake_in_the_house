@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
@@ -2035,7 +2035,7 @@ export const _getBatch = query({
     batchId: v.string(),
   },
   handler: async (ctx, args) => {
-    const batch = await ctx.db.get(args.batchId as any);
+    const batch = await ctx.db.get(args.batchId as Id<"actionBatches">);
     if (!batch) return null;
     return { provider: batch.provider };
   },

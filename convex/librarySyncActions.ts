@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import {
   decryptToken,
   encryptToken,
@@ -769,6 +770,13 @@ export const syncSpotifyLibrary = internalAction({
           durationMs: Date.now() - startTime,
         },
       });
+
+      // ── Trigger offense summary recompute ─────────────────────────────
+      await ctx.scheduler.runAfter(
+        0,
+        internal.offensePipeline.recomputeUserOffenseSummary,
+        { userId, triggerReason: "sync_complete" },
+      );
     } catch (err: any) {
       // Flush whatever we have so far before marking as failed
       try {
@@ -918,6 +926,12 @@ export const syncTidalLibrary = internalAction({
         completedAt: new Date().toISOString(),
         metadata: { tracksImported },
       });
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.offensePipeline.recomputeUserOffenseSummary,
+        { userId, triggerReason: "sync_complete" },
+      );
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
@@ -1080,6 +1094,12 @@ export const syncYouTubeLibrary = internalAction({
         completedAt: new Date().toISOString(),
         metadata: { tracksImported },
       });
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.offensePipeline.recomputeUserOffenseSummary,
+        { userId, triggerReason: "sync_complete" },
+      );
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 

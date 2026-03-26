@@ -219,6 +219,33 @@ export const triggerProviderSync = action({
   },
 });
 
+/**
+ * Trigger a proactive evidence investigation for the current user's library.
+ * Resolves unlinked artist names, researches each artist via the Rust backend,
+ * promotes new classifications to offenses, and rebuilds the index.
+ */
+export const triggerInvestigation = action({
+  args: {},
+  handler: async (ctx) => {
+    const { runId, userId } = (await ctx.runMutation(
+      "sync:_createRunWithUser" as any,
+      { platform: "evidence_finder" },
+    )) as { runId: string; userId: string };
+
+    await ctx.scheduler.runAfter(
+      0,
+      "evidenceFinder:investigateLibraryArtists" as any,
+      { runId, userId },
+    );
+
+    return {
+      run_id: runId,
+      status: "running",
+      message: "Evidence investigation started for your library artists.",
+    };
+  },
+});
+
 export const _createRun = mutation({
   args: {
     platform: v.string(),

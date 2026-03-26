@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 
 /**
@@ -209,7 +210,7 @@ export const listArticlesByArtist = query({
     // Fetch articles (up to limit)
     const articles = [];
     for (const articleId of articleIds.slice(0, limit)) {
-      const article = await ctx.db.get(articleId as any);
+      const article = await ctx.db.get(articleId as Id<"newsArticles">);
       if (article) {
         const source = article.sourceId
           ? await ctx.db.get(article.sourceId)

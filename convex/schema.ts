@@ -522,4 +522,47 @@ export default defineSchema({
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_kind_subjectKey", ["kind", "subjectKey"]),
+
+  subscriptions: defineTable({
+    ...legacyFields,
+    ...lifecycleFields,
+    userId: v.optional(v.id("users")),
+    stripeCustomerId: v.string(),
+    stripeSubscriptionId: v.string(),
+    stripePriceId: v.string(),
+    plan: v.union(
+      v.literal("free"),
+      v.literal("pro"),
+      v.literal("team"),
+    ),
+    status: v.union(
+      v.literal("active"),
+      v.literal("past_due"),
+      v.literal("canceled"),
+      v.literal("trialing"),
+      v.literal("incomplete"),
+    ),
+    currentPeriodStart: v.string(),
+    currentPeriodEnd: v.string(),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+    seats: v.optional(v.number()),
+    metadata: blob,
+  })
+    .index("by_legacyKey", ["legacyKey"])
+    .index("by_userId", ["userId"])
+    .index("by_stripeCustomerId", ["stripeCustomerId"])
+    .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  billingEvents: defineTable({
+    ...legacyFields,
+    ...lifecycleFields,
+    userId: v.optional(v.id("users")),
+    stripeEventId: v.string(),
+    eventType: v.string(),
+    payload: v.any(),
+    processedAt: v.optional(v.string()),
+  })
+    .index("by_legacyKey", ["legacyKey"])
+    .index("by_stripeEventId", ["stripeEventId"])
+    .index("by_userId", ["userId"]),
 });

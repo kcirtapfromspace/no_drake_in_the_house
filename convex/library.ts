@@ -3,13 +3,6 @@ import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
-const severityWeight: Record<string, number> = {
-  minor: 1,
-  moderate: 3,
-  severe: 7,
-  egregious: 12,
-};
-
 export const scanLibrary = query({
   args: {},
   handler: async (ctx) => {
@@ -132,45 +125,36 @@ export const tasteGrade = query({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
+
+    // Single indexed read from precomputed summary
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+      .unique();
 
-    const artistIds = new Set(
-      tracks.map((t) => t.artistId).filter(Boolean) as string[],
-    );
-
-    let totalOffenses = 0;
-    let totalSeverity = 0;
-    for (const artistId of artistIds) {
-      const offenses = await ctx.db
-        .query("artistOffenses")
-        .withIndex("by_artistId", (q) => q.eq("artistId", artistId as any))
-        .collect();
-      totalOffenses += offenses.length;
-      totalSeverity += offenses.reduce(
-        (sum, o) => sum + (severityWeight[o.severity] ?? 2),
-        0,
-      );
+    if (!summary) {
+      return {
+        grade: "pending",
+        total_artists: 0,
+        total_tracks: 0,
+        total_offenses: 0,
+        total_severity: 0,
+        offender_ratio: 0,
+      };
     }
 
-    const offenderRatio =
-      artistIds.size > 0 ? totalOffenses / artistIds.size : 0;
-    let grade = "A+";
-    if (offenderRatio > 0.5) grade = "F";
-    else if (offenderRatio > 0.3) grade = "D";
-    else if (offenderRatio > 0.2) grade = "C";
-    else if (offenderRatio > 0.1) grade = "B";
-    else if (offenderRatio > 0.05) grade = "A";
+    const totalSeverity = summary.offenders.reduce(
+      (sum, o) => sum + o.severityTotal,
+      0,
+    );
 
     return {
-      grade,
-      total_artists: artistIds.size,
-      total_tracks: tracks.length,
-      total_offenses: totalOffenses,
+      grade: summary.grade,
+      total_artists: summary.totalArtists,
+      total_tracks: summary.totalTracks,
+      total_offenses: summary.flaggedArtistCount,
       total_severity: totalSeverity,
-      offender_ratio: offenderRatio,
+      offender_ratio: summary.offenderRatio,
     };
   },
 });
@@ -179,48 +163,25 @@ export const listOffenders = query({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
+
+    // Single indexed read from precomputed summary
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+      .unique();
 
-    const artistIds = [
-      ...new Set(tracks.map((t) => t.artistId).filter(Boolean)),
-    ] as string[];
-
-    const offenders: Array<{
-      artist_id: string;
-      artist_name: string;
-      offense_count: number;
-      track_count: number;
-      severity_total: number;
-    }> = [];
-
-    for (const artistId of artistIds) {
-      const offenses = await ctx.db
-        .query("artistOffenses")
-        .withIndex("by_artistId", (q) => q.eq("artistId", artistId as any))
-        .collect();
-
-      if (offenses.length > 0) {
-        const artistTracks = tracks.filter(
-          (t) => t.artistId === (artistId as any),
-        );
-        const artist = await ctx.db.get(artistId as any);
-        offenders.push({
-          artist_id: artistId,
-          artist_name: (artist as any)?.canonicalName ?? "Unknown",
-          offense_count: offenses.length,
-          track_count: artistTracks.length,
-          severity_total: offenses.reduce(
-            (sum, o) => sum + (severityWeight[o.severity] ?? 2),
-            0,
-          ),
-        });
-      }
+    if (!summary) {
+      return { offenders: [], total: 0 };
     }
 
-    offenders.sort((a, b) => b.severity_total - a.severity_total);
+    // Already sorted by severity in the pipeline
+    const offenders = summary.offenders.map((o) => ({
+      artist_id: o.artistId as string,
+      artist_name: o.artistName,
+      offense_count: o.categories.length,
+      track_count: o.trackCount,
+      severity_total: o.severityTotal,
+    }));
 
     return { offenders, total: offenders.length };
   },
@@ -245,9 +206,28 @@ export const listPlaylists = query({
           .withIndex("by_userId", (q) => q.eq("userId", user._id))
           .collect();
 
-    const allOffenses = await ctx.db.query("artistOffenses").collect();
+    // Collect unique artist IDs from playlist tracks, then batch-lookup
+    const playlistArtistIds = new Set<string>();
+    for (const track of tracks) {
+      if (track.playlistName && track.artistId) {
+        playlistArtistIds.add(track.artistId as string);
+      }
+    }
+
+    // Parallel indexed lookups against offendingArtistIndex
+    const offenseResults = await Promise.all(
+      [...playlistArtistIds].map(async (artistId) => {
+        const row = await ctx.db
+          .query("offendingArtistIndex")
+          .withIndex("by_artistId", (q) =>
+            q.eq("artistId", artistId as any),
+          )
+          .unique();
+        return { artistId, offending: row !== null };
+      }),
+    );
     const offendingArtistIds = new Set(
-      allOffenses.map((o) => o.artistId as string),
+      offenseResults.filter((r) => r.offending).map((r) => r.artistId),
     );
 
     const userBlocks = await ctx.db
@@ -350,9 +330,25 @@ export const getPlaylistTracks = query({
       (t) => t.playlistName === args.playlistName,
     );
 
-    const allOffenses = await ctx.db.query("artistOffenses").collect();
+    // Collect unique artist IDs and batch-lookup offending index
+    const uniqueArtistIds = new Set<string>();
+    for (const t of playlistTracks) {
+      if (t.artistId) uniqueArtistIds.add(t.artistId as string);
+    }
+
+    const offenseResults = await Promise.all(
+      [...uniqueArtistIds].map(async (artistId) => {
+        const row = await ctx.db
+          .query("offendingArtistIndex")
+          .withIndex("by_artistId", (q) =>
+            q.eq("artistId", artistId as any),
+          )
+          .unique();
+        return { artistId, offending: row !== null };
+      }),
+    );
     const offendingArtistIds = new Set(
-      allOffenses.map((o) => o.artistId as string),
+      offenseResults.filter((r) => r.offending).map((r) => r.artistId),
     );
 
     const userBlocks = await ctx.db

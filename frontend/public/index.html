@@ -4,10 +4,29 @@
 	<meta charset='utf-8'>
 	<meta name='viewport' content='width=device-width,initial-scale=1'>
 
-	<title>No Drake in the House</title>
+	<title>No Drake in the House — Protect Your Playlists from Problematic Artists</title>
+	<meta name="description" content="Automatically block problematic artists across Spotify, Apple Music, Tidal, YouTube Music, and Deezer. Create Do-Not-Play lists, scan your library, and enforce your values.">
 	<meta name="build" content="2026-03-24">
+	<meta name="theme-color" content="#09090b">
 
-	<link rel='icon' type='image/svg+xml' href='/favicon.svg'>
+	<!-- Canonical -->
+	<link rel="canonical" href="https://nodrakeinthe.house">
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website">
+	<meta property="og:title" content="No Drake in the House — Protect Your Playlists from Problematic Artists">
+	<meta property="og:description" content="Automatically block problematic artists across Spotify, Apple Music, Tidal, YouTube Music, and Deezer. Create Do-Not-Play lists, scan your library, and enforce your values.">
+	<meta property="og:url" content="https://nodrakeinthe.house">
+	<meta property="og:site_name" content="No Drake in the House">
+	<meta property="og:image" content="https://nodrakeinthe.house/og-image.png">
+
+	<!-- Twitter Card -->
+	<meta name="twitter:card" content="summary_large_image">
+	<meta name="twitter:title" content="No Drake in the House — Protect Your Playlists from Problematic Artists">
+	<meta name="twitter:description" content="Automatically block problematic artists across Spotify, Apple Music, Tidal, YouTube Music, and Deezer. Create Do-Not-Play lists, scan your library, and enforce your values.">
+
+	<!-- Favicon -->
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 
 	<!-- Preload DM Sans for fast rendering -->
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +34,31 @@
 
 	<link rel='stylesheet' href='/global.css'>
 	<link rel='stylesheet' href='/build/bundle.css'>
+
+	<!-- JSON-LD Structured Data -->
+	<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "SoftwareApplication",
+		"name": "No Drake in the House",
+		"description": "Automatically block problematic artists across Spotify, Apple Music, Tidal, YouTube Music, and Deezer.",
+		"applicationCategory": "MusicApplication",
+		"operatingSystem": "Web",
+		"offers": [
+			{ "@type": "Offer", "price": "0", "priceCurrency": "USD", "name": "Free" },
+			{ "@type": "Offer", "price": "5.00", "priceCurrency": "USD", "name": "Pro", "billingIncrement": "P1M" },
+			{ "@type": "Offer", "price": "12.00", "priceCurrency": "USD", "name": "Team", "billingIncrement": "P1M" }
+		],
+		"featureList": [
+			"Personal blocklist management",
+			"Multi-platform library scanning",
+			"Automatic playlist sanitization",
+			"Community-curated blocklists",
+			"Artist offense database",
+			"Revenue impact analysis"
+		]
+	}
+	</script>
 
 	<!-- FOUC prevention: set data-theme before first paint -->
 	<script>

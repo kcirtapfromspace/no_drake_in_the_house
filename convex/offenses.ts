@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 export const listByArtist = query({
@@ -197,5 +198,44 @@ export const addEvidence = mutation({
     });
 
     return await ctx.db.get(evidenceId);
+  },
+});
+
+export const verifyOffense = mutation({
+  args: {
+    offenseId: v.id("artistOffenses"),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    const offense = await ctx.db.get(args.offenseId);
+    if (!offense) {
+      throw new ConvexError("Offense not found.");
+    }
+
+    const now = nowIso();
+
+    // Mark offense as verified
+    await ctx.db.patch(offense._id, {
+      status: "verified",
+      verifiedAt: now,
+      verifiedByUserId: user._id,
+      updatedAt: now,
+    });
+
+    // Rebuild offending artist index for this artist
+    await ctx.scheduler.runAfter(
+      0,
+      internal.offensePipeline.rebuildOffendingArtistIndex,
+      {},
+    );
+
+    // Fan out to recompute affected users
+    await ctx.scheduler.runAfter(
+      100,
+      internal.offensePipeline.recomputeAffectedUsers,
+      { artistId: offense.artistId },
+    );
+
+    return await ctx.db.get(offense._id);
   },
 });

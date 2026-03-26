@@ -482,7 +482,7 @@
   async function buildLibraryStatsRow(platform: Platform): Promise<ProviderLibraryStatsRow> {
     try {
       if (platform.id === 'apple') {
-        const preview = await loadAppleLibraryPreview(true);
+        // Cache-first: try imported tracks before hitting live API
         let importedTracks: ImportedLibraryTrack[] = [];
         try {
           importedTracks = await fetchImportedLibraryTracks('apple_music');
@@ -494,42 +494,18 @@
           return summarizeImportedLibrary(platform, importedTracks);
         }
 
-        if (!preview) {
-          return {
-            provider: platform.connectionProvider || platform.id,
-            providerName: platform.name,
-            songs: null,
-            albums: null,
-            artists: null,
-            playlists: null,
-            totalItems: null,
-            source: 'live_api',
-            status: 'error',
-            message: appleLibraryError || 'Apple Music library is unavailable',
-          };
-        }
-
-        const uniqueArtists = new Set(
-          preview.tracks
-            .map(track => track.artist?.trim())
-            .filter((artist): artist is string => Boolean(artist))
-        ).size;
-
+        // No cached data — show a placeholder without calling live API
         return {
           provider: platform.connectionProvider || platform.id,
           providerName: platform.name,
-          songs: preview.tracksCount,
-          albums: preview.albumsCount,
-          artists: preview.artistsCount > 0 ? preview.artistsCount : uniqueArtists,
-          playlists: preview.playlistsCount,
-          totalItems: preview.tracksCount + preview.albumsCount + preview.playlistsCount,
-          lastSynced: preview.scannedAt,
-          source: 'live_api',
-          status: 'ready',
-          message:
-            appleLibrarySyncStatus?.state === 'running'
-              ? 'Apple Music preview is loaded and the cached import is still running. The sections below will populate when the import finishes.'
-              : 'Preview loaded from Apple Music. Use "Sync Library" or "Sync All" to import items into the cached library views.',
+          songs: null,
+          albums: null,
+          artists: null,
+          playlists: null,
+          totalItems: null,
+          source: 'imported_cache',
+          status: 'error',
+          message: 'No library data synced yet. Click "Sync Library" to import your Apple Music library, or use "Preview" to check counts via the live API.',
         };
       }
 
@@ -962,19 +938,19 @@
   }
 
   onMount(async () => {
-    await Promise.all([
-      refreshAppleLibrarySyncStatus(),
-      syncActions.fetchStatus(),
-      syncActions.fetchRuns(),
-      syncActions.fetchHealth(),
-      connectionActions.fetchConnections(),
-    ]);
+    // Stage 1: fetch connection state (needed for UI routing)
+    await connectionActions.fetchConnections();
+
+    // Stage 2: all data fetches in parallel — taste grade + offenders are
+    // now single indexed reads (<10ms) so no need to waterfall them.
     await Promise.all([
       refreshLibraryStats(),
       refreshTasteGrade(),
+      refreshLibraryOffenders(),
+      refreshLibraryExplorer(true),
+      syncActions.fetchStatus(),
+      syncActions.fetchRuns(),
     ]);
-    void refreshLibraryOffenders();
-    await refreshLibraryExplorer(true);
   });
 
   function getStatusColor(status: string): string {

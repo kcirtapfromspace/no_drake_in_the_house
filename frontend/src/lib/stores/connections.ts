@@ -188,8 +188,33 @@ export const connectionActions = {
       if (response.data.state) {
         sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
       }
-      window.location.href = response.data.authorization_url;
-      return { success: true };
+      // Popup OAuth — user stays on current page
+      const popup = window.open(
+        response.data.authorization_url,
+        'spotify-auth',
+        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
+      );
+      if (!popup) {
+        // Popup blocked — fall back to redirect
+        window.location.href = response.data.authorization_url;
+        return { success: true };
+      }
+      // Poll for popup closure (callback page will close the popup)
+      return new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(interval);
+            connectionActions.fetchConnections();
+            resolve({ success: true });
+          }
+        }, 500);
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(interval);
+          if (!popup.closed) popup.close();
+          resolve({ success: false, message: 'OAuth timed out' });
+        }, 300000);
+      });
     } else {
       const message =
         response.data?.message || response.message || 'Failed to initiate Spotify auth';
@@ -344,8 +369,26 @@ export const connectionActions = {
       if (response.data.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
-      window.location.href = response.data.authorization_url;
-      return { success: true };
+      // Popup OAuth
+      const popup = window.open(
+        response.data.authorization_url,
+        'tidal-auth',
+        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
+      );
+      if (!popup) {
+        window.location.href = response.data.authorization_url;
+        return { success: true };
+      }
+      return new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(interval);
+            connectionActions.fetchConnections();
+            resolve({ success: true });
+          }
+        }, 500);
+        setTimeout(() => { clearInterval(interval); if (!popup.closed) popup.close(); resolve({ success: false, message: 'OAuth timed out' }); }, 300000);
+      });
     }
 
     const message =
@@ -446,8 +489,26 @@ export const connectionActions = {
 
     if (response.success && response.data?.authorization_url) {
       sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
-      window.location.href = response.data.authorization_url;
-      return { success: true };
+      // Popup OAuth
+      const popup = window.open(
+        response.data.authorization_url,
+        'youtube-auth',
+        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
+      );
+      if (!popup) {
+        window.location.href = response.data.authorization_url;
+        return { success: true };
+      }
+      return new Promise((resolve) => {
+        const interval = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(interval);
+            connectionActions.fetchConnections();
+            resolve({ success: true });
+          }
+        }, 500);
+        setTimeout(() => { clearInterval(interval); if (!popup.closed) popup.close(); resolve({ success: false, message: 'OAuth timed out' }); }, 300000);
+      });
     }
 
     connectionsStore.update(state => ({

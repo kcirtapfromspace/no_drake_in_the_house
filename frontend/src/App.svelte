@@ -260,7 +260,7 @@
 				<SyncDashboard />
 			{:else if $currentRoute === 'library-scan'}
 				<LibraryScan />
-			{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
+			{:else if $currentRoute === 'revenue-impact'}
 				<AnalyticsDashboard />
 			{:else if $currentRoute === 'graph'}
 				<GraphExplorer />

@@ -56,7 +56,6 @@
     { route: 'home', label: 'Home', icon: 'home' },
     { route: 'sync', label: 'Library', icon: 'library' },
     { route: 'playlist-sanitizer', label: 'Playlists', icon: 'playlist' },
-    { route: 'analytics', label: 'Analytics', icon: 'chart' },
   ];
 
   function handleNavigation(route: Route) {

@@ -4,6 +4,12 @@
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import { blockingStore, type Platform } from '../stores/blocking';
   import { spotifyConnection, appleMusicConnection, connectionActions } from '../stores/connections';
+  import {
+    analyticsStore,
+    analyticsActions,
+    risingArtists,
+    fallingArtists,
+  } from '../stores/analytics';
   import EnforcementBadges from './EnforcementBadges.svelte';
 
   interface CategoryList {
@@ -55,6 +61,46 @@
 
   let dnpList: Set<string> = new Set();
   let exceptedArtists: Set<string> = new Set();
+
+  // Analytics
+  $: dashboard = $analyticsStore.dashboard;
+  $: trendSummary = $analyticsStore.trends.summary;
+  let topBlockedTab: 'trending' | 'alltime' = 'trending';
+
+  function formatNumber(num: number | undefined | null): string {
+    if (typeof num !== 'number' || !Number.isFinite(num)) return '0';
+    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+    return num.toString();
+  }
+
+  function formatTrendPercent(value: number | undefined): string {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return '0.0';
+    return Math.abs(value).toFixed(1);
+  }
+
+  function getTrendBarHeight(value: number | undefined, points: Array<{ value: number }>): number {
+    const finiteValues = points.map(p => p.value).filter(v => Number.isFinite(v));
+    const maxValue = finiteValues.length > 0 ? Math.max(...finiteValues) : 0;
+    if (!Number.isFinite(value) || maxValue <= 0) return 0;
+    return (value! / maxValue) * 100;
+  }
+
+  function getTrendIcon(trend: 'up' | 'down' | 'stable' | 'rising' | 'falling'): string {
+    switch (trend) {
+      case 'up': case 'rising': return '\u2197';
+      case 'down': case 'falling': return '\u2198';
+      default: return '\u2192';
+    }
+  }
+
+  function getTrendColor(trend: 'up' | 'down' | 'stable' | 'rising' | 'falling'): string {
+    switch (trend) {
+      case 'up': case 'rising': return 'text-green-400';
+      case 'down': case 'falling': return 'text-red-400';
+      default: return 'text-zinc-300';
+    }
+  }
 
   function extractArray<T>(value: unknown, keys: string[] = []): T[] {
     if (Array.isArray(value)) {
@@ -160,6 +206,10 @@
       loadBlockedArtists(),
       loadDnpList(),
       connectionActions.fetchConnections(),
+      analyticsActions.fetchDashboard('last7days'),
+      analyticsActions.fetchTrendSummary(7),
+      analyticsActions.fetchRisingArtists(10),
+      analyticsActions.fetchFallingArtists(10),
     ]);
   });
 
@@ -693,6 +743,176 @@
             {/each}
           </div>
         {/if}
+      </section>
+
+      <!-- ===== ANALYTICS: STAT CARDS ===== -->
+      <section class="analytics-section" aria-label="Platform stats">
+        <div class="analytics-stat-row">
+          <div class="analytics-stat">
+            <div class="analytics-stat__icon analytics-stat__icon--red">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+            </div>
+            <div>
+              <span class="analytics-stat__value">{formatNumber(dashboard?.total_blocked_artists)}</span>
+              <span class="analytics-stat__label">Blocked Artists</span>
+            </div>
+          </div>
+
+          <div class="analytics-stat">
+            <div class="analytics-stat__icon analytics-stat__icon--purple">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </div>
+            <div>
+              <span class="analytics-stat__value">{formatNumber(dashboard?.offense_detections_today)}</span>
+              <span class="analytics-stat__label">Offenses Today</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ANALYTICS: TREND SUMMARY ===== -->
+      {#if trendSummary}
+        <section class="analytics-section" aria-label="Trend summary">
+          <div class="analytics-card">
+            <div class="analytics-card__header">
+              <h2 class="analytics-card__title">Trend Summary</h2>
+              <span class={getTrendColor(trendSummary.trend)}>
+                {getTrendIcon(trendSummary.trend)} {formatTrendPercent(trendSummary.change_percent)}%
+              </span>
+            </div>
+            <p class="analytics-card__sub">Period: {trendSummary.period || 'Last 7 days vs previous 7 days'}</p>
+            {#if trendSummary.data_points?.length > 0}
+              <div class="analytics-bars">
+                {#each trendSummary.data_points as point}
+                  {@const height = getTrendBarHeight(point.value, trendSummary.data_points)}
+                  <div
+                    class="analytics-bar"
+                    style="height: {height}%"
+                    title="{point.date}: {point.value}"
+                  ></div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </section>
+      {/if}
+
+      <!-- ===== ANALYTICS: RISING / FALLING ARTISTS ===== -->
+      <section class="analytics-section" aria-label="Artist trends">
+        <div class="analytics-trend-grid">
+          <div class="analytics-card">
+            <h2 class="analytics-card__title analytics-card__title--icon">
+              <svg class="w-5 h-5" style="color: #4ade80;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              Rising Artists
+            </h2>
+            {#if $risingArtists.length === 0}
+              <p class="analytics-card__empty">No rising artists detected.</p>
+            {:else}
+              <div class="analytics-artist-list">
+                {#each $risingArtists.slice(0, 5) as artist}
+                  <div class="analytics-artist analytics-artist--rising">
+                    <div>
+                      <span class="analytics-artist__name">{artist.artist_name}</span>
+                      <span class="analytics-artist__meta">{artist.mentions} mentions</span>
+                    </div>
+                    <div class="analytics-artist__stat">
+                      <span class="analytics-artist__count analytics-artist__count--green">+{artist.offense_count}</span>
+                      <span class="analytics-artist__meta">offenses</span>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <div class="analytics-card">
+            <h2 class="analytics-card__title analytics-card__title--icon">
+              <svg class="w-5 h-5" style="color: #f87171;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+              Falling Artists
+            </h2>
+            {#if $fallingArtists.length === 0}
+              <p class="analytics-card__empty">No falling artists detected.</p>
+            {:else}
+              <div class="analytics-artist-list">
+                {#each $fallingArtists.slice(0, 5) as artist}
+                  <div class="analytics-artist analytics-artist--falling">
+                    <div>
+                      <span class="analytics-artist__name">{artist.artist_name}</span>
+                      <span class="analytics-artist__meta">{artist.mentions} mentions</span>
+                    </div>
+                    <div class="analytics-artist__stat">
+                      <span class="analytics-artist__count analytics-artist__count--red">{artist.offense_count}</span>
+                      <span class="analytics-artist__meta">offenses</span>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== TOP BLOCKED ARTISTS ===== -->
+      <section class="analytics-section" aria-label="Top blocked artists">
+        <div class="analytics-card">
+          <div class="analytics-card__header">
+            <h2 class="analytics-card__title">Top Blocked Artists</h2>
+            <div class="analytics-tab-toggle">
+              <button
+                type="button"
+                class="analytics-tab-btn {topBlockedTab === 'trending' ? 'analytics-tab-btn--active' : ''}"
+                on:click={() => topBlockedTab = 'trending'}
+              >Trending</button>
+              <button
+                type="button"
+                class="analytics-tab-btn {topBlockedTab === 'alltime' ? 'analytics-tab-btn--active' : ''}"
+                on:click={() => topBlockedTab = 'alltime'}
+              >All Time</button>
+            </div>
+          </div>
+
+          {#if topBlockedTab === 'trending'}
+            {#if $risingArtists.length === 0 && uniqueBlockedArtists.length === 0}
+              <p class="analytics-card__empty">No trending blocked artists yet.</p>
+            {:else}
+              <div class="top-blocked-list">
+                {#each ($risingArtists.length > 0 ? $risingArtists : [...$risingArtists, ...$fallingArtists]).slice(0, 8) as artist, i}
+                  <div class="top-blocked-row">
+                    <span class="top-blocked-rank">#{i + 1}</span>
+                    <div class="top-blocked-info">
+                      <span class="top-blocked-name">{artist.artist_name}</span>
+                      <span class="top-blocked-meta">{artist.offense_count} offense{artist.offense_count !== 1 ? 's' : ''} · {artist.mentions} mentions</span>
+                    </div>
+                    <span class="top-blocked-trend top-blocked-trend--{artist.trend}">
+                      {getTrendIcon(artist.trend)}
+                    </span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {:else}
+            {#if uniqueBlockedArtists.length === 0}
+              <p class="analytics-card__empty">No blocked artists yet.</p>
+            {:else}
+              <div class="top-blocked-list">
+                {#each uniqueBlockedArtists.slice(0, 10) as artist, i}
+                  <button
+                    type="button"
+                    class="top-blocked-row top-blocked-row--clickable"
+                    on:click={() => goToArtist(artist.id, artist.name)}
+                  >
+                    <span class="top-blocked-rank">#{i + 1}</span>
+                    <div class="top-blocked-info">
+                      <span class="top-blocked-name">{artist.name}</span>
+                      <span class="top-blocked-meta">{artist.category ? getSeverityStyle(artist.severity).label : 'Blocked'}</span>
+                    </div>
+                    <svg class="top-blocked-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        </div>
       </section>
     </div>
   </div>
@@ -1381,5 +1601,249 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  /* ===== ANALYTICS SECTIONS ===== */
+  .analytics-section {
+    margin-top: 2rem;
+  }
+
+  .analytics-stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .analytics-stat {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    background: var(--color-surface-secondary, #27272a);
+    border: 1px solid var(--color-border, #3f3f46);
+  }
+
+  .analytics-stat__icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .analytics-stat__icon--red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+  .analytics-stat__icon--purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+
+  .analytics-stat__value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-primary, #fafafa);
+    line-height: 1.2;
+  }
+
+  .analytics-stat__label {
+    display: block;
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+  }
+
+  .analytics-card {
+    background: var(--color-surface-secondary, #27272a);
+    border: 1px solid var(--color-border, #3f3f46);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+  }
+
+  .analytics-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .analytics-card__title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-text-primary, #fafafa);
+    margin: 0;
+  }
+
+  .analytics-card__title--icon {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .analytics-card__sub {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+    margin: 0 0 1rem;
+  }
+
+  .analytics-card__empty {
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+    margin: 0;
+  }
+
+  .analytics-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    height: 6rem;
+  }
+
+  .analytics-bar {
+    flex: 1;
+    background: #6366f1;
+    border-radius: 0.25rem 0.25rem 0 0;
+    transition: background 0.15s;
+    min-height: 2px;
+  }
+  .analytics-bar:hover { background: #818cf8; }
+
+  .analytics-trend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .analytics-artist-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .analytics-artist {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+  }
+  .analytics-artist--rising { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.25); }
+  .analytics-artist--falling { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); }
+
+  .analytics-artist__name {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-primary, #fafafa);
+  }
+
+  .analytics-artist__meta {
+    font-size: 0.6875rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+  }
+
+  .analytics-artist__stat { text-align: right; }
+  .analytics-artist__count { display: block; font-weight: 600; font-size: 0.875rem; }
+  .analytics-artist__count--green { color: #4ade80; }
+  .analytics-artist__count--red { color: #f87171; }
+
+  /* Tab toggle for Top Blocked */
+  .analytics-tab-toggle {
+    display: flex;
+    gap: 0.25rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+    padding: 0.125rem;
+  }
+
+  .analytics-tab-btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-tertiary, #a1a1aa);
+    background: transparent;
+    border: none;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .analytics-tab-btn:hover { color: var(--color-text-secondary, #d4d4d8); }
+  .analytics-tab-btn--active {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary, #fafafa);
+  }
+
+  /* Top Blocked Artists list */
+  .top-blocked-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+  }
+
+  .top-blocked-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.5rem;
+    border-radius: 0.5rem;
+    transition: background 0.15s;
+  }
+  .top-blocked-row--clickable {
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+    color: inherit;
+    font: inherit;
+  }
+  .top-blocked-row--clickable:hover { background: rgba(255, 255, 255, 0.04); }
+
+  .top-blocked-rank {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-tertiary, #a1a1aa);
+    width: 1.75rem;
+    flex-shrink: 0;
+  }
+
+  .top-blocked-info { flex: 1; min-width: 0; }
+
+  .top-blocked-name {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-primary, #fafafa);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-blocked-meta {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+  }
+
+  .top-blocked-trend {
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .top-blocked-trend--rising { color: #4ade80; }
+  .top-blocked-trend--falling { color: #f87171; }
+  .top-blocked-trend--stable { color: #a1a1aa; }
+
+  .top-blocked-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-text-tertiary, #a1a1aa);
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 640px) {
+    .analytics-stat-row,
+    .analytics-trend-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

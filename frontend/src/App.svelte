@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
 	import { isAuthenticated, authActions } from "./lib/stores/auth";
-	import { initRouter, currentRoute, routeParams, navigateTo } from "./lib/utils/simple-router";
+	import { initRouter, currentRoute, routeParams } from "./lib/utils/simple-router";
 	import { theme } from "./lib/stores/theme";
 	import Login from "./lib/components/Login.svelte";
 	import Home from "./lib/components/Home.svelte";
@@ -17,13 +17,7 @@
 	import OffenseDatabase from "./lib/components/OffenseDatabase.svelte";
 	import ServiceHealthDashboard from "./lib/components/ServiceHealthDashboard.svelte";
 	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
-	import Pricing from "./lib/components/Pricing.svelte";
-	import FAQ from "./lib/components/FAQ.svelte";
 	import Layout from "./lib/components/Layout.svelte";
-	import BlocklistPage from "./lib/components/BlocklistPage.svelte";
-	import DnpManager from "./lib/components/DnpManager.svelte";
-	import EnforcementPlanning from "./lib/components/EnforcementPlanning.svelte";
-	import UserProfile from "./lib/components/UserProfile.svelte";
 	import config from "./lib/utils/config";
 
 	let isInitialized = false;
@@ -266,7 +260,7 @@
 				<SyncDashboard />
 			{:else if $currentRoute === 'library-scan'}
 				<LibraryScan />
-			{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
+			{:else if $currentRoute === 'revenue-impact'}
 				<AnalyticsDashboard />
 			{:else if $currentRoute === 'graph'}
 				<GraphExplorer />
@@ -278,54 +272,13 @@
 				<ServiceHealthDashboard />
 			{:else if $currentRoute === 'playlist-sanitizer'}
 				<PlaylistSanitizer />
-			{:else if $currentRoute === 'pricing'}
-				<Pricing />
-			{:else if $currentRoute === 'profile'}
-				<UserProfile />
-			{:else if $currentRoute === 'blocklist'}
-				<BlocklistPage />
-			{:else if $currentRoute === 'dnp'}
-				<DnpManager />
-			{:else if $currentRoute === 'enforcement'}
-				<EnforcementPlanning />
-			{:else if $currentRoute === 'dashboard' || $currentRoute === 'overview'}
-				<Home />
 			{:else}
 				<Home />
 			{/if}
 		{/key}
 	</Layout>
 {:else}
-	<!-- Public shell: offense database as homepage with sign-in bar -->
-	<div class="public-shell">
-		<nav class="public-bar">
-			<div class="public-bar__inner">
-				<button type="button" class="public-bar__brand" on:click={() => navigateTo('home')}>
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="public-bar__logo" aria-hidden="true">
-						<circle cx="12" cy="12" r="10" />
-						<line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-					</svg>
-					<span class="public-bar__title">No Drake in the House</span>
-				</button>
-				<div class="public-bar__links">
-					<button type="button" class="public-bar__link" on:click={() => navigateTo('pricing')}>Pricing</button>
-					<button type="button" class="public-bar__link" on:click={() => navigateTo('faq')}>FAQ</button>
-					<button type="button" class="public-bar__link public-bar__link--cta" on:click={() => navigateTo('login')}>Sign In</button>
-				</div>
-			</div>
-		</nav>
-		<main class="public-content">
-			{#if $currentRoute === 'login'}
-				<Login />
-			{:else if $currentRoute === 'pricing'}
-				<Pricing />
-			{:else if $currentRoute === 'faq'}
-				<FAQ />
-			{:else}
-				<OffenseDatabase />
-			{/if}
-		</main>
-	</div>
+	<Login />
 {/if}
 
 <style>
@@ -353,85 +306,5 @@
 	.app-state__btn-icon {
 		width: 1rem;
 		height: 1rem;
-	}
-
-	/* Public shell for unauthenticated visitors */
-	.public-shell {
-		min-height: 100vh;
-		background: var(--color-bg-page, #09090b);
-		color: var(--color-text-primary, #fafafa);
-	}
-	.public-bar {
-		position: sticky;
-		top: 0;
-		z-index: 50;
-		background: var(--color-bg-elevated, #111113);
-		border-bottom: 1px solid var(--color-border-default, #27272a);
-	}
-	.public-bar__inner {
-		max-width: 80rem;
-		margin: 0 auto;
-		padding: 0.75rem 1.5rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-	}
-	.public-bar__brand {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		background: none;
-		border: none;
-		color: inherit;
-		cursor: pointer;
-		padding: 0;
-	}
-	.public-bar__logo {
-		width: 1.5rem;
-		height: 1.5rem;
-		color: var(--color-brand-primary, #10b981);
-	}
-	.public-bar__title {
-		font-weight: 600;
-		font-size: 0.9375rem;
-		letter-spacing: -0.01em;
-	}
-	.public-bar__links {
-		display: flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
-	.public-bar__link {
-		background: none;
-		border: none;
-		color: var(--color-text-secondary, #a1a1aa);
-		cursor: pointer;
-		padding: 0.375rem 0.75rem;
-		font-size: 0.875rem;
-		border-radius: 0.375rem;
-		transition: color 0.15s;
-	}
-	.public-bar__link:hover {
-		color: var(--color-text-primary, #fafafa);
-	}
-	.public-bar__link--cta {
-		background: var(--color-brand-primary, #10b981);
-		color: var(--color-text-inverse, #fff);
-		font-weight: 500;
-		border-radius: 0.5rem;
-		margin-left: 0.5rem;
-	}
-	.public-bar__link--cta:hover {
-		opacity: 0.9;
-	}
-	.public-bar__link:focus-visible,
-	.public-bar__brand:focus-visible {
-		outline: 2px solid var(--color-brand-primary, #10b981);
-		outline-offset: 2px;
-	}
-	.public-content {
-		max-width: 80rem;
-		margin: 0 auto;
-		padding: 1.5rem;
 	}
 </style>

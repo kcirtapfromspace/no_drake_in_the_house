@@ -20,6 +20,10 @@
 	import Pricing from "./lib/components/Pricing.svelte";
 	import LandingPage from "./lib/components/LandingPage.svelte";
 	import Layout from "./lib/components/Layout.svelte";
+	import BlocklistPage from "./lib/components/BlocklistPage.svelte";
+	import DnpManager from "./lib/components/DnpManager.svelte";
+	import EnforcementPlanning from "./lib/components/EnforcementPlanning.svelte";
+	import UserProfile from "./lib/components/UserProfile.svelte";
 	import config from "./lib/utils/config";
 
 	let isInitialized = false;
@@ -262,7 +266,7 @@
 				<SyncDashboard />
 			{:else if $currentRoute === 'library-scan'}
 				<LibraryScan />
-			{:else if $currentRoute === 'revenue-impact'}
+			{:else if $currentRoute === 'analytics' || $currentRoute === 'revenue-impact'}
 				<AnalyticsDashboard />
 			{:else if $currentRoute === 'graph'}
 				<GraphExplorer />
@@ -276,6 +280,16 @@
 				<PlaylistSanitizer />
 			{:else if $currentRoute === 'pricing'}
 				<Pricing />
+			{:else if $currentRoute === 'profile'}
+				<UserProfile />
+			{:else if $currentRoute === 'blocklist'}
+				<BlocklistPage />
+			{:else if $currentRoute === 'dnp'}
+				<DnpManager />
+			{:else if $currentRoute === 'enforcement'}
+				<EnforcementPlanning />
+			{:else if $currentRoute === 'dashboard' || $currentRoute === 'overview'}
+				<Home />
 			{:else}
 				<Home />
 			{/if}

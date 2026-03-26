@@ -31,7 +31,7 @@
   }
 
   .skeleton {
-    background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+    background: linear-gradient(90deg, var(--color-bg-hover) 25%, var(--color-border-hover) 50%, var(--color-bg-hover) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 0.375rem;

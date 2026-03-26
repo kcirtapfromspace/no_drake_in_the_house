@@ -39,7 +39,7 @@
   {:else if sub && sub.error}
     <!-- Error state -->
     <div data-testid="billing-error" class="billing-error">
-      <svg class="billing-error__icon" viewBox="0 0 20 20" fill="currentColor">
+      <svg aria-hidden="true" class="billing-error__icon" viewBox="0 0 20 20" fill="currentColor">
         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
       </svg>
       <p class="billing-error__text">{sub.error}</p>
@@ -84,7 +84,7 @@
       <!-- Cancel Notice -->
       {#if sub && sub.cancelAtPeriodEnd}
         <div data-testid="cancel-notice" class="cancel-notice">
-          <svg class="cancel-notice__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="cancel-notice__icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
           <p>Your subscription will cancel at the end of the current billing period.</p>
@@ -139,7 +139,7 @@
   }
 
   .billing-skeleton {
-    background: linear-gradient(90deg, #27272a 25%, #3f3f46 50%, #27272a 75%);
+    background: linear-gradient(90deg, var(--color-bg-hover) 25%, var(--color-border-hover) 50%, var(--color-bg-hover) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.5s infinite;
     border-radius: 0.375rem;
@@ -171,21 +171,21 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1rem;
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: var(--color-error-muted);
+    border: 1px solid #5c1d1d;
     border-radius: 0.5rem;
   }
 
   .billing-error__icon {
     width: 1.25rem;
     height: 1.25rem;
-    color: #ef4444;
+    color: var(--color-error);
     flex-shrink: 0;
   }
 
   .billing-error__text {
     font-size: 0.875rem;
-    color: #fca5a5;
+    color: var(--color-error);
   }
 
   .billing-content {
@@ -224,18 +224,18 @@
   }
 
   .plan-badge--active {
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
+    background: var(--color-success-muted);
+    color: var(--color-success);
   }
 
   .plan-badge--canceled {
-    background: rgba(239, 68, 68, 0.15);
-    color: #fca5a5;
+    background: var(--color-error-muted);
+    color: var(--color-error);
   }
 
   .plan-badge--past-due {
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
+    background: var(--color-warning-muted);
+    color: var(--color-warning);
   }
 
   .billing-period__dates {
@@ -248,21 +248,21 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
+    background: var(--color-warning-muted);
+    border: 1px solid #5c4a1d;
     border-radius: 0.5rem;
   }
 
   .cancel-notice__icon {
     width: 1.25rem;
     height: 1.25rem;
-    color: #f59e0b;
+    color: var(--color-warning);
     flex-shrink: 0;
   }
 
   .cancel-notice p {
     font-size: 0.875rem;
-    color: #fbbf24;
+    color: var(--color-warning);
   }
 
   .billing-actions {
@@ -282,9 +282,9 @@
   }
 
   .billing-btn--primary {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
+    background: var(--color-success);
+    color: var(--color-text-inverse);
+    border-color: var(--color-success);
   }
 
   .billing-btn--primary:hover {
@@ -310,5 +310,10 @@
   .billing-btn--outline:hover {
     color: var(--color-text-primary, white);
     border-color: var(--color-border-hover, #52525b);
+  }
+
+  .billing-btn:focus-visible {
+    outline: 2px solid var(--color-brand-primary, #10b981);
+    outline-offset: 2px;
   }
 </style>

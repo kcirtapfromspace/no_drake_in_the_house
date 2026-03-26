@@ -203,7 +203,7 @@
         <ul class="tier-features">
           {#each tier.features as feature}
             <li class="tier-feature">
-              <svg class="tier-feature__icon" viewBox="0 0 20 20" fill="currentColor">
+              <svg aria-hidden="true" class="tier-feature__icon" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
               </svg>
               {feature}
@@ -255,6 +255,7 @@
           >
             <span>{faq.question}</span>
             <svg
+              aria-hidden="true"
               class="faq-chevron"
               class:faq-chevron--open={expandedFaq === i}
               viewBox="0 0 20 20"
@@ -318,8 +319,8 @@
 
   .toggle-save {
     display: inline-block;
-    background: rgba(16, 185, 129, 0.15);
-    color: #34d399;
+    background: #0f4434;
+    color: var(--color-success);
     font-size: 0.7rem;
     padding: 0.125rem 0.5rem;
     border-radius: 9999px;
@@ -340,8 +341,8 @@
   }
 
   .billing-toggle--annual {
-    background: #10b981;
-    border-color: #10b981;
+    background: var(--color-success);
+    border-color: var(--color-success);
   }
 
   .billing-toggle__thumb {
@@ -389,13 +390,13 @@
   }
 
   .tier-card--highlight {
-    border-color: #10b981;
-    box-shadow: 0 0 0 1px #10b981;
+    border-color: var(--color-success);
+    box-shadow: 0 0 0 1px var(--color-success);
   }
 
   .tier-card--highlight:hover {
-    border-color: #34d399;
-    box-shadow: 0 0 0 1px #34d399;
+    border-color: var(--color-success);
+    box-shadow: 0 0 0 1px var(--color-success);
   }
 
   .tier-badge {
@@ -403,8 +404,8 @@
     top: -0.75rem;
     left: 50%;
     transform: translateX(-50%);
-    background: #10b981;
-    color: white;
+    background: var(--color-success);
+    color: var(--color-text-inverse);
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.25rem 0.75rem;
@@ -460,9 +461,9 @@
   }
 
   .tier-btn--primary {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
+    background: var(--color-success);
+    color: var(--color-text-inverse);
+    border-color: var(--color-success);
   }
 
   .tier-btn--primary:hover {
@@ -498,7 +499,7 @@
   .tier-feature__icon {
     width: 1rem;
     height: 1rem;
-    color: #10b981;
+    color: var(--color-success);
     flex-shrink: 0;
   }
 
@@ -538,11 +539,11 @@
   }
 
   .comparison-th--highlight {
-    color: #34d399;
+    color: var(--color-success);
   }
 
   .comparison-row:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: var(--color-bg-elevated);
   }
 
   .comparison-td {
@@ -550,7 +551,7 @@
     text-align: center;
     font-size: 0.875rem;
     color: var(--color-text-secondary, #a1a1aa);
-    border-bottom: 1px solid rgba(63, 63, 70, 0.5);
+    border-bottom: 1px solid var(--color-border-hover);
   }
 
   .comparison-td--feature {
@@ -560,7 +561,7 @@
   }
 
   .comparison-td--highlight {
-    color: #d4d4d8;
+    color: var(--color-text-secondary);
     font-weight: 500;
   }
 
@@ -608,7 +609,7 @@
   }
 
   .faq-question:hover {
-    color: #34d399;
+    color: var(--color-success);
   }
 
   .faq-chevron {
@@ -631,5 +632,12 @@
     font-size: 0.875rem;
     color: var(--color-text-secondary, #a1a1aa);
     line-height: 1.625;
+  }
+
+  .billing-toggle:focus-visible,
+  .tier-btn:focus-visible,
+  .faq-question:focus-visible {
+    outline: 2px solid var(--color-brand-primary, #10b981);
+    outline-offset: 2px;
   }
 </style>

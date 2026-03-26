@@ -64,23 +64,23 @@
     <div class="upgrade-prompt__content">
       <div class="upgrade-prompt__icon-wrapper">
         {#if message.icon === 'link'}
-          <svg class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd" />
           </svg>
         {:else if message.icon === 'search'}
-          <svg class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" />
           </svg>
         {:else if message.icon === 'shield'}
-          <svg class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
           </svg>
         {:else if message.icon === 'download'}
-          <svg class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
             <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
           </svg>
         {:else}
-          <svg class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
+          <svg aria-hidden="true" class="upgrade-prompt__icon" viewBox="0 0 20 20" fill="currentColor">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
         {/if}
@@ -120,7 +120,7 @@
   .upgrade-prompt {
     background: var(--color-bg-elevated, #18181b);
     border: 1px solid var(--color-border-default, #3f3f46);
-    border-left: 3px solid #10b981;
+    border-left: 3px solid var(--color-success);
     border-radius: 0.75rem;
     padding: 1.25rem 1.5rem;
     display: flex;
@@ -149,14 +149,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(16, 185, 129, 0.1);
+    background: #0d3b2e;
     border-radius: 0.5rem;
   }
 
   .upgrade-prompt__icon {
     width: 1.25rem;
     height: 1.25rem;
-    color: #34d399;
+    color: var(--color-success);
   }
 
   .upgrade-prompt__text {
@@ -204,9 +204,9 @@
   }
 
   .upgrade-prompt__btn--primary {
-    background: #10b981;
-    color: white;
-    border-color: #10b981;
+    background: var(--color-success);
+    color: var(--color-text-inverse);
+    border-color: var(--color-success);
   }
 
   .upgrade-prompt__btn--primary:hover {
@@ -221,6 +221,12 @@
 
   .upgrade-prompt__btn--ghost:hover {
     color: var(--color-text-secondary, #a1a1aa);
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-hover);
+  }
+
+  .upgrade-prompt__btn:focus-visible,
+  .upgrade-prompt__dismiss:focus-visible {
+    outline: 2px solid var(--color-brand-primary, #10b981);
+    outline-offset: 2px;
   }
 </style>

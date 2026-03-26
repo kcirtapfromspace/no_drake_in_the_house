@@ -8,6 +8,7 @@
   import { apiClient } from '../utils/api-client';
   import { blockingStore } from '../stores/blocking';
   import { timeAgo } from '../utils/time-ago';
+  import ServiceConnector from './ServiceConnector.svelte';
 
   let selectedPlatforms: string[] = [];
   let syncType: 'full' | 'incremental' = 'incremental';
@@ -1485,8 +1486,14 @@
       </div>
     {/if}
 
-    <!-- Platform Status Grid -->
+    <!-- Service Connector Grid -->
     <div class="mb-8">
+      <h2 class="text-xl font-semibold text-white mb-4">Connect Your Services</h2>
+      <ServiceConnector />
+    </div>
+
+    <!-- Legacy Platform Status Grid (hidden — replaced by ServiceConnector above) -->
+    <div class="mb-8 hidden">
       <h2 class="text-xl font-semibold text-white mb-4">Your Music Services</h2>
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {#each platforms as platform}

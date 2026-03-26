@@ -18,7 +18,6 @@
   $: stats = $trackStats;
   $: images = playlist.cover_images || [];
   $: heroImage = images[0] || '';
-  $: gradeColor = getGradeColor(playlist.grade);
 
   // Gradient fallback
   function hashStr(s: string): number {
@@ -29,16 +28,6 @@
   $: hue1 = hashStr(playlist.playlist_name) % 360;
   $: hue2 = (hue1 + 40 + (hashStr(playlist.provider) % 60)) % 360;
 
-  function getGradeColor(g: string): string {
-    switch (g) {
-      case 'A+': return '#4ade80';
-      case 'A': return '#22c55e';
-      case 'B': return '#3b82f6';
-      case 'C': return '#eab308';
-      case 'D': return '#f97316';
-      default: return '#ef4444';
-    }
-  }
 </script>
 
 <div class="tl">
@@ -102,7 +91,18 @@
       <p>Loading tracks...</p>
     </div>
   {:else if tracks.length === 0}
-    <p class="tl__empty">No tracks found in this playlist.</p>
+    {#if playlist.tracks_out_of_sync}
+      <div class="tl__empty tl__empty--warning">
+        <p>This playlist needs a re-sync before its tracks can be shown.</p>
+        <p>
+          The provider reports
+          {playlist.provider_track_count ?? playlist.total_tracks}
+          track{(playlist.provider_track_count ?? playlist.total_tracks) === 1 ? '' : 's'}, but the imported detail rows are still empty.
+        </p>
+      </div>
+    {:else}
+      <p class="tl__empty">No tracks found in this playlist.</p>
+    {/if}
   {:else}
     <!-- Column header -->
     <div class="tl__col-header">
@@ -398,6 +398,18 @@
     text-align: center;
     color: var(--color-text-tertiary);
     padding: 3rem 1rem;
+  }
+
+  .tl__empty--warning {
+    max-width: 34rem;
+    margin: 0 auto;
+    border: 1px solid color-mix(in srgb, var(--color-warning, #f59e0b) 30%, transparent);
+    border-radius: 0.875rem;
+    background: color-mix(in srgb, var(--color-warning, #f59e0b) 10%, transparent);
+  }
+
+  .tl__empty--warning p {
+    margin: 0.35rem 0;
   }
 
   /* ---- Track rows ---- */

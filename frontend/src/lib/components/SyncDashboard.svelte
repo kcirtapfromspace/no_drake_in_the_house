@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { get } from 'svelte/store';
   import { syncStore, syncActions, isAnySyncRunning, platformsStatus, recentRuns } from '../stores/sync';
   import type { TriggerSyncRequest } from '../stores/sync';
@@ -8,7 +8,9 @@
   import { apiClient } from '../utils/api-client';
   import { blockingStore } from '../stores/blocking';
   import { timeAgo } from '../utils/time-ago';
+  import { HEAVY_LIBRARY_GROUP_TTL_MS, syncDashboardHeavyCache } from '../utils/sync-dashboard-cache';
   import ServiceConnector from './ServiceConnector.svelte';
+  import { billingActions } from '../stores/billing';
 
   let selectedPlatforms: string[] = [];
   let syncType: 'full' | 'incremental' = 'incremental';
@@ -54,6 +56,20 @@
   }
 
   let appleLibrarySyncStatus: AppleLibrarySyncStatus | null = null;
+
+  type ProviderSyncPlatform = 'spotify' | 'tidal' | 'youtube';
+
+  interface ProviderLibrarySyncStatus {
+    state: 'idle' | 'running' | 'completed' | 'failed';
+    message: string;
+    started_at: string;
+    completed_at?: string;
+    tracks_count?: number;
+    albums_count?: number;
+    artists_count?: number;
+    playlists_count?: number;
+    imported_items_count?: number;
+  }
 
   interface ImportedLibraryTrack {
     id?: string;
@@ -215,6 +231,29 @@
   ];
 
   let libraryQueryDebounce: ReturnType<typeof setTimeout> | null = null;
+  const GENERIC_SYNC_POLL_INTERVAL_MS = 4_000;
+  const GENERIC_SYNC_SETTLE_WINDOW_MS = 12_000;
+  const PROVIDER_SYNC_POLL_INTERVAL_MS = 4_000;
+  const PROVIDER_SYNC_MAX_WAIT_MS = 1_200_000;
+  const POLLED_SYNC_PLATFORMS = new Set(['spotify', 'tidal', 'youtube', 'youtube_music']);
+  const PROVIDER_SYNC_ENDPOINTS: Record<ProviderSyncPlatform, string> = {
+    spotify: '/api/v1/connections/spotify/library/sync-status',
+    tidal: '/api/v1/connections/tidal/library/sync-status',
+    youtube: '/api/v1/connections/youtube/library/sync-status',
+  };
+
+  let heavyLibraryGroupRefreshedAt = syncDashboardHeavyCache.refreshedAt;
+  let genericSyncPolling = false;
+  let genericSyncPollTimer: ReturnType<typeof setTimeout> | null = null;
+  let genericSyncPollDeadline = 0;
+  let genericSyncRefreshPending = false;
+  let activeGenericSyncProviders: string[] = [];
+  let providerSyncStatusByPlatform: Partial<Record<ProviderSyncPlatform, ProviderLibrarySyncStatus | null>> = {};
+  let providerSyncPolling = false;
+  let providerSyncPollTimer: ReturnType<typeof setTimeout> | null = null;
+  let providerSyncPollDeadline = 0;
+  let providerSyncRefreshPending = false;
+  let polledProviderSyncs = new Set<ProviderSyncPlatform>();
 
   type PlatformStatus = 'ready' | 'paused' | 'catalog-only';
 
@@ -261,6 +300,14 @@
     const provider = platform.connectionProvider;
     return provider != null && !platform.disabled && activeProviders.has(provider);
   });
+
+  $: activeGenericSyncProviders = $platformsStatus
+    .filter((status) => POLLED_SYNC_PLATFORMS.has((status.platform || '').toLowerCase()) && status.status === 'running')
+    .map((status) => status.platform);
+
+  $: if (activeGenericSyncProviders.length > 0) {
+    queueGenericSyncPolling();
+  }
 
   $: libraryStatsByProvider = new Map<string, ProviderLibraryStatsRow>(
     (libraryStatsRows ?? []).map((row) => [row.provider, row])
@@ -324,6 +371,307 @@
       case 'moderate': return 'border-orange-500/30 bg-orange-500/10 text-orange-300';
       case 'minor': return 'border-amber-500/30 bg-amber-500/10 text-amber-300';
       default: return 'border-zinc-500/30 bg-zinc-500/10 text-zinc-300';
+    }
+  }
+
+  function hasRunningGenericSync(): boolean {
+    return get(platformsStatus).some(
+      (status) => POLLED_SYNC_PLATFORMS.has((status.platform || '').toLowerCase()) && status.status === 'running'
+    );
+  }
+
+  function getProviderSyncPlatform(platformId: string): ProviderSyncPlatform | null {
+    if (platformId === 'spotify' || platformId === 'tidal' || platformId === 'youtube') {
+      return platformId;
+    }
+
+    return null;
+  }
+
+  function getConnectedProviderSyncPlatforms(): ProviderSyncPlatform[] {
+    return platforms
+      .filter((platform) => {
+        const providerSyncPlatform = getProviderSyncPlatform(platform.id);
+        return (
+          providerSyncPlatform !== null &&
+          platform.connectionProvider != null &&
+          hasActiveConnection(platform.connectionProvider)
+        );
+      })
+      .map((platform) => getProviderSyncPlatform(platform.id))
+      .filter((platform): platform is ProviderSyncPlatform => platform !== null);
+  }
+
+  function hasRunningProviderSync(): boolean {
+    if (polledProviderSyncs.size > 0) return true;
+
+    return Object.values(providerSyncStatusByPlatform).some(
+      (status) => status?.state === 'running'
+    );
+  }
+
+  function clearGenericSyncPollTimer(): void {
+    if (genericSyncPollTimer) {
+      clearTimeout(genericSyncPollTimer);
+      genericSyncPollTimer = null;
+    }
+  }
+
+  function scheduleGenericSyncPoll(delayMs: number): void {
+    clearGenericSyncPollTimer();
+    genericSyncPollTimer = setTimeout(() => {
+      void runGenericSyncPoll();
+    }, delayMs);
+  }
+
+  function queueGenericSyncPolling(): void {
+    genericSyncRefreshPending = true;
+    genericSyncPollDeadline = Date.now() + GENERIC_SYNC_SETTLE_WINDOW_MS;
+
+    if (genericSyncPolling || genericSyncPollTimer) return;
+
+    scheduleGenericSyncPoll(0);
+  }
+
+  function clearProviderSyncPollTimer(): void {
+    if (providerSyncPollTimer) {
+      clearTimeout(providerSyncPollTimer);
+      providerSyncPollTimer = null;
+    }
+  }
+
+  function scheduleProviderSyncPoll(delayMs: number): void {
+    clearProviderSyncPollTimer();
+    providerSyncPollTimer = setTimeout(() => {
+      void runProviderSyncPoll();
+    }, delayMs);
+  }
+
+  async function refreshProviderLibrarySyncStatus(
+    platform: ProviderSyncPlatform
+  ): Promise<ProviderLibrarySyncStatus | null> {
+    try {
+      const result = await apiClient.authenticatedRequest<ProviderLibrarySyncStatus>(
+        'GET',
+        PROVIDER_SYNC_ENDPOINTS[platform],
+        undefined
+      );
+
+      const status = result.success && result.data ? result.data : null;
+      providerSyncStatusByPlatform = {
+        ...providerSyncStatusByPlatform,
+        [platform]: status,
+      };
+
+      return status;
+    } catch {
+      providerSyncStatusByPlatform = {
+        ...providerSyncStatusByPlatform,
+        [platform]: null,
+      };
+      return null;
+    }
+  }
+
+  async function refreshConnectedProviderSyncStatuses(
+    options: { queueRunning?: boolean } = {}
+  ): Promise<void> {
+    const providerSyncPlatforms = getConnectedProviderSyncPlatforms();
+    if (providerSyncPlatforms.length === 0) return;
+
+    const statuses = await Promise.all(
+      providerSyncPlatforms.map((platform) => refreshProviderLibrarySyncStatus(platform))
+    );
+
+    if (options.queueRunning !== true) return;
+
+    const runningProviders = providerSyncPlatforms.filter(
+      (_, index) => statuses[index]?.state === 'running'
+    );
+
+    if (runningProviders.length > 0) {
+      queueProviderSyncPolling(runningProviders, true);
+    }
+  }
+
+  function queueProviderSyncPolling(
+    platformsToPoll: ProviderSyncPlatform[],
+    refreshAfterCompletion = true
+  ): void {
+    if (platformsToPoll.length === 0) return;
+
+    polledProviderSyncs = new Set([...polledProviderSyncs, ...platformsToPoll]);
+    if (refreshAfterCompletion) {
+      providerSyncRefreshPending = true;
+      providerSyncPollDeadline = Date.now() + PROVIDER_SYNC_MAX_WAIT_MS;
+    }
+
+    if (providerSyncPolling || providerSyncPollTimer) return;
+
+    scheduleProviderSyncPoll(0);
+  }
+
+  function buildLibraryItemsCacheKey(): string {
+    return buildLibraryItemsEndpoint(0, libraryItemsLimit);
+  }
+
+  function buildLibraryGroupsCacheKey(): string {
+    return buildLibraryGroupsEndpoint(0, libraryGroupsLimit);
+  }
+
+  function hydrateHeavyLibraryViewsFromCache(options: { allowStale?: boolean } = {}): boolean {
+    const { allowStale = false } = options;
+
+    if (syncDashboardHeavyCache.refreshedAt <= 0) return false;
+    if (
+      !allowStale &&
+      Date.now() - syncDashboardHeavyCache.refreshedAt >= HEAVY_LIBRARY_GROUP_TTL_MS
+    ) {
+      return false;
+    }
+    if (syncDashboardHeavyCache.libraryItemsKey !== buildLibraryItemsCacheKey()) return false;
+    if (syncDashboardHeavyCache.libraryGroupsKey !== buildLibraryGroupsCacheKey()) return false;
+    if (syncDashboardHeavyCache.libraryOffendersScope !== libraryOffendersScope) return false;
+    if (syncDashboardHeavyCache.libraryOffendersDays !== libraryOffendersDays) return false;
+
+    libraryStatsRows = (syncDashboardHeavyCache.libraryStatsRows ?? []) as ProviderLibraryStatsRow[];
+    tasteGrade = (syncDashboardHeavyCache.tasteGrade ?? null) as TasteGradeResponse | null;
+    libraryOffenders = (syncDashboardHeavyCache.libraryOffenders ?? null) as LibraryOffendersResponse | null;
+    libraryItems = (syncDashboardHeavyCache.libraryItems ?? []) as ImportedLibraryTrack[];
+    libraryItemsTotal = syncDashboardHeavyCache.libraryItemsTotal;
+    libraryItemsOffset = syncDashboardHeavyCache.libraryItemsOffset;
+    libraryGroups = (syncDashboardHeavyCache.libraryGroups ?? []) as LibraryGroup[];
+    libraryGroupsTotal = syncDashboardHeavyCache.libraryGroupsTotal;
+    libraryGroupsOffset = syncDashboardHeavyCache.libraryGroupsOffset;
+    heavyLibraryGroupRefreshedAt = syncDashboardHeavyCache.refreshedAt;
+
+    libraryStatsError = null;
+    tasteGradeError = null;
+    libraryOffendersError = null;
+    libraryItemsError = null;
+    libraryGroupsError = null;
+
+    return true;
+  }
+
+  function persistHeavyLibraryViewsToCache(): void {
+    syncDashboardHeavyCache.refreshedAt = heavyLibraryGroupRefreshedAt;
+    syncDashboardHeavyCache.libraryStatsRows = libraryStatsRows;
+    syncDashboardHeavyCache.tasteGrade = tasteGrade;
+    syncDashboardHeavyCache.libraryOffenders = libraryOffenders;
+    syncDashboardHeavyCache.libraryOffendersScope = libraryOffendersScope;
+    syncDashboardHeavyCache.libraryOffendersDays = libraryOffendersDays;
+    syncDashboardHeavyCache.libraryItems = libraryItems;
+    syncDashboardHeavyCache.libraryItemsTotal = libraryItemsTotal;
+    syncDashboardHeavyCache.libraryItemsOffset = libraryItemsOffset;
+    syncDashboardHeavyCache.libraryItemsKey = buildLibraryItemsCacheKey();
+    syncDashboardHeavyCache.libraryGroups = libraryGroups;
+    syncDashboardHeavyCache.libraryGroupsTotal = libraryGroupsTotal;
+    syncDashboardHeavyCache.libraryGroupsOffset = libraryGroupsOffset;
+    syncDashboardHeavyCache.libraryGroupsKey = buildLibraryGroupsCacheKey();
+  }
+
+  async function runProviderSyncPoll(): Promise<void> {
+    if (providerSyncPolling) return;
+
+    clearProviderSyncPollTimer();
+    providerSyncPolling = true;
+
+    try {
+      const platformsToPoll = [...polledProviderSyncs];
+      if (platformsToPoll.length === 0) {
+        providerSyncRefreshPending = false;
+        return;
+      }
+
+      const statuses = await Promise.all(
+        platformsToPoll.map((platform) => refreshProviderLibrarySyncStatus(platform))
+      );
+      const runningProviders = platformsToPoll.filter(
+        (_, index) => statuses[index]?.state === 'running'
+      );
+      const failedStatus = statuses.find((status) => status?.state === 'failed');
+
+      polledProviderSyncs = new Set(runningProviders);
+
+      if (failedStatus?.message) {
+        showConnectionError(failedStatus.message);
+      }
+
+      if (runningProviders.length > 0 && Date.now() < providerSyncPollDeadline) {
+        scheduleProviderSyncPoll(PROVIDER_SYNC_POLL_INTERVAL_MS);
+        return;
+      }
+
+      await connectionActions.fetchConnections();
+
+      if (providerSyncRefreshPending) {
+        providerSyncRefreshPending = false;
+        await refreshHeavyLibraryViews({ force: true });
+      }
+    } finally {
+      providerSyncPolling = false;
+    }
+  }
+
+  function shouldSkipHeavyLibraryGroupRefresh(force = false): boolean {
+    if (force) return false;
+    if (hasRunningGenericSync() || hasRunningProviderSync()) return true;
+    return (
+      heavyLibraryGroupRefreshedAt > 0 &&
+      Date.now() - heavyLibraryGroupRefreshedAt < HEAVY_LIBRARY_GROUP_TTL_MS
+    );
+  }
+
+  async function refreshHeavyLibraryViews(options: { force?: boolean } = {}): Promise<void> {
+    if (!options.force && hydrateHeavyLibraryViewsFromCache()) {
+      return;
+    }
+
+    if (!options.force && (hasRunningGenericSync() || hasRunningProviderSync())) {
+      hydrateHeavyLibraryViewsFromCache({ allowStale: true });
+      return;
+    }
+
+    if (shouldSkipHeavyLibraryGroupRefresh(options.force === true)) {
+      return;
+    }
+
+    await Promise.all([
+      refreshLibraryStats(),
+      refreshTasteGrade(),
+      refreshLibraryOffenders(),
+      refreshLibraryExplorer(true),
+    ]);
+    heavyLibraryGroupRefreshedAt = Date.now();
+    persistHeavyLibraryViewsToCache();
+  }
+
+  async function runGenericSyncPoll(): Promise<void> {
+    if (genericSyncPolling) return;
+
+    clearGenericSyncPollTimer();
+    genericSyncPolling = true;
+
+    try {
+      await syncActions.fetchStatus();
+
+      if (hasRunningGenericSync()) {
+        scheduleGenericSyncPoll(GENERIC_SYNC_POLL_INTERVAL_MS);
+        return;
+      }
+
+      if (genericSyncRefreshPending && Date.now() < genericSyncPollDeadline) {
+        scheduleGenericSyncPoll(1500);
+        return;
+      }
+
+      if (genericSyncRefreshPending) {
+        genericSyncRefreshPending = false;
+        await refreshHeavyLibraryViews({ force: true });
+      }
+    } finally {
+      genericSyncPolling = false;
     }
   }
 
@@ -482,7 +830,6 @@
   async function buildLibraryStatsRow(platform: Platform): Promise<ProviderLibraryStatsRow> {
     try {
       if (platform.id === 'apple') {
-        const preview = await loadAppleLibraryPreview(true);
         let importedTracks: ImportedLibraryTrack[] = [];
         try {
           importedTracks = await fetchImportedLibraryTracks('apple_music');
@@ -493,6 +840,8 @@
         if (importedTracks.length > 0) {
           return summarizeImportedLibrary(platform, importedTracks);
         }
+
+        const preview = appleLibrary;
 
         if (!preview) {
           return {
@@ -751,7 +1100,7 @@
         await connectionActions.initiateSpotifyAuth();
       } else if (platform.id === 'youtube') {
         // YouTube Music OAuth flow
-        const result = await connectionActions.initiateYouTubeAuth();
+        const result: any = await connectionActions.initiateYouTubeAuth();
         if (!result.success && isAlreadyConnectedError(result.message, platform)) {
           await connectionActions.fetchConnections();
           showAlreadyConnectedMessage(platform.name);
@@ -789,10 +1138,7 @@
         showConnectionError(errorMessage);
       }
     } finally {
-      await refreshLibraryStats();
-      void refreshTasteGrade();
-      void refreshLibraryOffenders();
-      void refreshLibraryExplorer(true);
+      await refreshHeavyLibraryViews({ force: true });
       connectingPlatform = null;
     }
   }
@@ -821,10 +1167,7 @@
     } catch (error) {
       console.error(`Failed to disconnect ${platform.name}:`, error);
     } finally {
-      await refreshLibraryStats();
-      void refreshTasteGrade();
-      void refreshLibraryOffenders();
-      void refreshLibraryExplorer(true);
+      await refreshHeavyLibraryViews({ force: true });
       connectingPlatform = null;
     }
   }
@@ -834,9 +1177,18 @@
     if (!platform.connectionProvider) return;
     if (!hasActiveConnection(platform.connectionProvider)) return;
 
+    // Check scan limit before syncing
+    const scanAccess = await billingActions.checkFeature('scans');
+    if (!scanAccess.allowed) {
+      showConnectionError(scanAccess.reason || 'Scan limit reached. Upgrade your plan in Settings.');
+      return;
+    }
+
     syncingLibrary = platform.id;
     connectionError = null;
     connectionSuccess = null;
+    let shouldQueueGenericSyncRefresh = false;
+    const providerSyncPlatform = getProviderSyncPlatform(platform.id);
 
     try {
       const triggerGenericSync = async () => {
@@ -849,6 +1201,7 @@
         showConnectionSuccess(
           `${platform.name} sync started. Provider-specific sync endpoint unavailable, using catalog pipeline.`
         );
+        shouldQueueGenericSyncRefresh = true;
       };
 
       // Use platform-specific library sync endpoints
@@ -880,7 +1233,6 @@
               duration: 6000,
             });
             await refreshAppleLibrarySyncStatus();
-            await loadAppleLibraryPreview(true);
 
             const completedStatus = await waitForAppleLibraryImport();
             if (completedStatus?.state === 'completed') {
@@ -953,10 +1305,23 @@
       await connectionActions.fetchConnections();
       // Refresh status after sync
       await syncActions.fetchStatus();
-      await refreshLibraryStats();
-      void refreshTasteGrade();
-      void refreshLibraryOffenders();
-      void refreshLibraryExplorer(true);
+      if (platform.id !== 'apple' && providerSyncPlatform) {
+        const providerStatus = await refreshProviderLibrarySyncStatus(providerSyncPlatform);
+
+        if (providerStatus?.state === 'running') {
+          queueProviderSyncPolling([providerSyncPlatform], true);
+        } else if (providerStatus?.state === 'completed') {
+          await refreshHeavyLibraryViews({ force: true });
+        } else if (providerStatus?.state === 'failed') {
+          showConnectionError(
+            providerStatus.message || `Failed to sync ${platform.name} library`
+          );
+        } else {
+          await refreshHeavyLibraryViews({ force: true });
+        }
+      } else if (platform.id !== 'apple' && shouldQueueGenericSyncRefresh) {
+        queueGenericSyncPolling();
+      }
       syncingLibrary = null;
     }
   }
@@ -969,12 +1334,16 @@
       syncActions.fetchHealth(),
       connectionActions.fetchConnections(),
     ]);
-    await Promise.all([
-      refreshLibraryStats(),
-      refreshTasteGrade(),
-    ]);
-    void refreshLibraryOffenders();
-    await refreshLibraryExplorer(true);
+    await refreshConnectedProviderSyncStatuses({ queueRunning: true });
+    await refreshHeavyLibraryViews();
+  });
+
+  onDestroy(() => {
+    clearGenericSyncPollTimer();
+    clearProviderSyncPollTimer();
+    if (libraryQueryDebounce) {
+      clearTimeout(libraryQueryDebounce);
+    }
   });
 
   function getStatusColor(status: string): string {
@@ -1090,6 +1459,8 @@
       const result = await syncActions.triggerSync(request);
       if (!result.success && result.message) {
         showConnectionError(result.message);
+      } else if (result.success) {
+        queueGenericSyncPolling();
       }
     }
   }

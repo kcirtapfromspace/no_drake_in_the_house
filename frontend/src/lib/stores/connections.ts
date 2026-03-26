@@ -18,6 +18,7 @@ export interface ServiceConnection {
   provider_user_id?: string;
   scopes: string[];
   status: 'active' | 'expired' | 'error';
+  health_status?: 'active' | 'expiring_soon' | 'needs_reauth' | 'error';
   expires_at?: string;
   last_health_check?: string;
   created_at: string;
@@ -86,11 +87,24 @@ function mapConnectionStatus(
   }
 }
 
+export function isConnectionActive(connection: Pick<ServiceConnection, 'status'> | null | undefined): boolean {
+  return connection?.status === 'active';
+}
+
+export function countActiveConnections(connections: ServiceConnection[]): number {
+  return connections.filter((connection) => isConnectionActive(connection)).length;
+}
+
 export const connectionsStore = writable<ConnectionsState>(initialState);
 
 export const connectedServices = derived(
   connectionsStore,
-  ($connections) => $connections.connections.filter(conn => conn.status === 'active')
+  ($connections) => $connections.connections.filter((connection) => isConnectionActive(connection))
+);
+
+export const activeConnectionCount = derived(
+  connectionsStore,
+  ($connections) => countActiveConnections($connections.connections)
 );
 
 export const spotifyConnection = derived(
@@ -165,6 +179,7 @@ export const connectionActions = {
         provider_user_id: connection.provider_user_id,
         scopes: connection.scopes ?? [],
         status: mapConnectionStatus(connection.health_status),
+        health_status: connection.health_status,
         expires_at: connection.expires_at,
         last_health_check: connection.last_used_at,
         created_at: connection.last_used_at ?? connection.expires_at ?? new Date().toISOString(),
@@ -177,16 +192,19 @@ export const connectionActions = {
         isLoading: false,
       }));
     } else {
+      const shouldClearConnections =
+        response.error_code === 'HTTP_401' || response.error_code === 'HTTP_403';
+
       connectionsStore.update(state => ({
         ...state,
-        connections: [], // Reset to empty array on error
+        connections: shouldClearConnections ? [] : state.connections,
         error: response.message || 'Failed to fetch connections',
         isLoading: false,
       }));
     }
   },
 
-  initiateSpotifyAuth: async () => {
+  initiateSpotifyAuth: async (): Promise<{ success: boolean; message?: string }> => {
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       state?: string;
@@ -480,7 +498,7 @@ export const connectionActions = {
   },
 
   // YouTube Music actions
-  initiateYouTubeAuth: async () => {
+  initiateYouTubeAuth: async (): Promise<{ success: boolean; message?: string }> => {
     const response = await apiClient.authenticatedRequest<{
       authorization_url: string;
       state: string;

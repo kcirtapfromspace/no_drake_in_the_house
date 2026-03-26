@@ -204,6 +204,7 @@ impl<'a> PlaylistRepository<'a> {
             owner_name: Option<String>,
             is_public: Option<bool>,
             source_type: String,
+            provider_track_count: Option<i32>,
             last_synced: Option<DateTime<Utc>>,
             total_tracks: i64,
             unique_artists: i64,
@@ -215,7 +216,7 @@ impl<'a> PlaylistRepository<'a> {
                 SELECT
                     p.id, p.provider, p.provider_playlist_id, p.name,
                     p.description, p.image_url, p.owner_name, p.is_public,
-                    p.source_type, p.last_synced,
+                    p.source_type, p.provider_track_count, p.last_synced,
                     COUNT(pt.id)::bigint AS total_tracks,
                     COUNT(DISTINCT pt.artist_name) FILTER (
                         WHERE pt.artist_name IS NOT NULL AND TRIM(pt.artist_name) <> ''
@@ -237,7 +238,7 @@ impl<'a> PlaylistRepository<'a> {
                 SELECT
                     p.id, p.provider, p.provider_playlist_id, p.name,
                     p.description, p.image_url, p.owner_name, p.is_public,
-                    p.source_type, p.last_synced,
+                    p.source_type, p.provider_track_count, p.last_synced,
                     COUNT(pt.id)::bigint AS total_tracks,
                     COUNT(DISTINCT pt.artist_name) FILTER (
                         WHERE pt.artist_name IS NOT NULL AND TRIM(pt.artist_name) <> ''
@@ -360,6 +361,8 @@ impl<'a> PlaylistRepository<'a> {
             } else {
                 1.0
             };
+            let tracks_out_of_sync =
+                r.provider_track_count.unwrap_or_default() > 0 && r.total_tracks == 0;
 
             summaries.push(PlaylistSummary {
                 id: r.id,
@@ -372,6 +375,8 @@ impl<'a> PlaylistRepository<'a> {
                 is_public: r.is_public,
                 source_type: r.source_type,
                 total_tracks: r.total_tracks,
+                provider_track_count: r.provider_track_count,
+                tracks_out_of_sync,
                 flagged_tracks,
                 clean_ratio,
                 grade: grade_from_ratio(clean_ratio),

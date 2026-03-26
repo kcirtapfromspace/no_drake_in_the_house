@@ -16,6 +16,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
+use crate::handlers::provider_library_sync_status::{
+    get_provider_library_sync_status, imported_items_count, store_provider_library_sync_status,
+    ProviderLibrarySyncCounts, ProviderLibrarySyncStatus,
+    PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS, PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+};
 use crate::models::oauth::{OAuthConfig, OAuthProviderType};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
 use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
@@ -28,6 +33,9 @@ use crate::services::PlaylistRepository;
 use crate::AppState;
 use ndith_core::config::provider_callback_uri;
 use std::collections::HashMap;
+
+const SPOTIFY_SYNC_STATUS_KEY: &str = "spotify";
+const SPOTIFY_PROVIDER_LABEL: &str = "Spotify";
 
 /// Required Spotify scopes for DNP enforcement
 pub const SPOTIFY_CONNECTION_SCOPES: &[&str] = &[
@@ -117,6 +125,7 @@ pub struct SpotifyLibrarySyncSummary {
     pub imported_tracks: i32,
     pub liked_tracks_synced: usize,
     pub playlist_tracks_synced: usize,
+    pub playlists_synced: usize,
     pub saved_albums_synced: usize,
     pub followed_artists_synced: usize,
 }
@@ -508,6 +517,25 @@ pub async fn spotify_library_sync_handler(
 ) -> Result<(StatusCode, Json<SpotifyLibrarySyncResponse>)> {
     tracing::info!(user_id = %authenticated_user.id, "Spotify library sync requested");
 
+    if let Some(status) = get_provider_library_sync_status(
+        &state.redis_pool,
+        SPOTIFY_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    {
+        if status.state == "running" {
+            return Ok((
+                StatusCode::ACCEPTED,
+                Json(SpotifyLibrarySyncResponse {
+                    success: true,
+                    message: "Spotify library sync is already running. The sync status endpoint will update when imports finish.".to_string(),
+                    summary: zero_spotify_sync_summary(),
+                }),
+            ));
+        }
+    }
+
     let connection = get_user_spotify_connection(&state.db_pool, authenticated_user.id)
         .await?
         .ok_or_else(|| AppError::NotFound {
@@ -526,25 +554,46 @@ pub async fn spotify_library_sync_handler(
     let access_token = decrypt_connection_access_token(&encrypted_access_token).await?;
     tracing::info!("Token decrypted, starting background library sync");
 
+    let started_at = Utc::now();
+    store_provider_library_sync_status(
+        &state.redis_pool,
+        SPOTIFY_SYNC_STATUS_KEY,
+        authenticated_user.id,
+        &ProviderLibrarySyncStatus::running("Spotify library sync is in progress.", started_at),
+        PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS,
+    )
+    .await?;
+
     // Run sync in background to avoid Cloudflare 524 timeouts.
     // The sync makes many paginated Spotify API calls that can take minutes.
     let db_pool = state.db_pool.clone();
+    let redis_pool = state.redis_pool.clone();
     let user_id = authenticated_user.id;
     tokio::spawn(async move {
         match sync_spotify_library_to_user_library(&db_pool, user_id, &access_token).await {
             Ok(summary) => {
+                let success_message = format!(
+                    "Synced Spotify library: {} imported items ({} liked songs, {} playlist tracks across {} playlists, {} saved albums, {} followed artists)",
+                    summary.imported_tracks,
+                    summary.liked_tracks_synced,
+                    summary.playlist_tracks_synced,
+                    summary.playlists_synced,
+                    summary.saved_albums_synced,
+                    summary.followed_artists_synced
+                );
                 tracing::info!(
                     user_id = %user_id,
                     imported = summary.imported_tracks,
                     liked = summary.liked_tracks_synced,
                     playlists = summary.playlist_tracks_synced,
+                    playlists_synced = summary.playlists_synced,
                     albums = summary.saved_albums_synced,
                     artists = summary.followed_artists_synced,
                     "Spotify library sync completed successfully"
                 );
                 // Update connection to reflect successful sync
                 if let Err(e) = sqlx::query(
-                    "UPDATE connections SET last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'spotify'",
+                    "UPDATE connections SET status = 'active', last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'spotify'",
                 )
                 .bind(user_id)
                 .execute(&db_pool)
@@ -552,43 +601,153 @@ pub async fn spotify_library_sync_handler(
                 {
                     tracing::warn!(error = %e, "Failed to update connection after sync");
                 }
+
+                if let Err(error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    SPOTIFY_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::completed(
+                        success_message,
+                        started_at,
+                        Utc::now(),
+                        spotify_sync_status_counts(&summary),
+                    ),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %error,
+                        "Failed to persist Spotify sync completion status"
+                    );
+                }
             }
-            Err(e) => {
+            Err(error) => {
+                let (message, needs_reauth) = map_spotify_sync_error(&error);
                 tracing::error!(
                     user_id = %user_id,
-                    error = %e,
+                    error = %message,
                     "Spotify library sync failed in background"
                 );
-                // Record the error on the connection
-                let _ = sqlx::query(
-                    "UPDATE connections SET error_code = $1 WHERE user_id = $2 AND provider = 'spotify'",
+
+                let failure_query = if needs_reauth {
+                    "UPDATE connections SET status = 'needs_reauth', error_code = $1 WHERE user_id = $2 AND provider = 'spotify'"
+                } else {
+                    "UPDATE connections SET error_code = $1 WHERE user_id = $2 AND provider = 'spotify'"
+                };
+
+                if let Err(update_error) = sqlx::query(failure_query)
+                    .bind(&message)
+                    .bind(user_id)
+                    .execute(&db_pool)
+                    .await
+                {
+                    tracing::warn!(
+                        user_id = %user_id,
+                        error = %update_error,
+                        "Failed to update Spotify connection after sync failure"
+                    );
+                }
+
+                if let Err(status_error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    SPOTIFY_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::failed(message, started_at, Utc::now()),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
                 )
-                .bind(format!("sync_error: {}", e))
-                .bind(user_id)
-                .execute(&db_pool)
-                .await;
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %status_error,
+                        "Failed to persist Spotify sync failure status"
+                    );
+                }
             }
         }
     });
 
     Ok((
-        StatusCode::OK,
+        StatusCode::ACCEPTED,
         Json(SpotifyLibrarySyncResponse {
             success: true,
-            message: "Spotify library sync started in background. Refresh to see progress."
+            message: "Spotify library sync started. Poll the sync status endpoint for completion before refreshing heavy library views."
                 .to_string(),
-            summary: SpotifyLibrarySyncSummary {
-                imported_tracks: 0,
-                liked_tracks_synced: 0,
-                playlist_tracks_synced: 0,
-                saved_albums_synced: 0,
-                followed_artists_synced: 0,
-            },
+            summary: zero_spotify_sync_summary(),
         }),
     ))
 }
 
+pub async fn spotify_library_sync_status_handler(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<Json<ProviderLibrarySyncStatus>> {
+    let status = get_provider_library_sync_status(
+        &state.redis_pool,
+        SPOTIFY_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    .unwrap_or_else(|| ProviderLibrarySyncStatus::idle(SPOTIFY_PROVIDER_LABEL));
+
+    Ok(Json(status))
+}
+
 // Database helper functions
+
+fn zero_spotify_sync_summary() -> SpotifyLibrarySyncSummary {
+    SpotifyLibrarySyncSummary {
+        imported_tracks: 0,
+        liked_tracks_synced: 0,
+        playlist_tracks_synced: 0,
+        playlists_synced: 0,
+        saved_albums_synced: 0,
+        followed_artists_synced: 0,
+    }
+}
+
+fn spotify_sync_status_counts(summary: &SpotifyLibrarySyncSummary) -> ProviderLibrarySyncCounts {
+    ProviderLibrarySyncCounts {
+        tracks_count: Some(summary.liked_tracks_synced + summary.playlist_tracks_synced),
+        albums_count: Some(summary.saved_albums_synced),
+        artists_count: Some(summary.followed_artists_synced),
+        playlists_count: Some(summary.playlists_synced),
+        imported_items_count: imported_items_count(summary.imported_tracks),
+    }
+}
+
+fn map_spotify_sync_error(error: &AppError) -> (String, bool) {
+    let raw = error.to_string();
+    let lowered = raw.to_ascii_lowercase();
+
+    if lowered.contains("insufficient client scope")
+        || lowered.contains("missing required scope")
+        || lowered.contains("playlist-read-private")
+        || lowered.contains("playlist-read-collaborative")
+        || lowered.contains("user-library-read")
+        || lowered.contains("user-follow-read")
+    {
+        (
+            "Spotify token is missing required library scopes. Disconnect and reconnect Spotify, then sync again.".to_string(),
+            true,
+        )
+    } else if lowered.contains("401")
+        || lowered.contains("403")
+        || lowered.contains("unauthorized")
+        || lowered.contains("forbidden")
+        || lowered.contains("expired")
+    {
+        (
+            "Spotify authorization failed. Disconnect and reconnect Spotify, then sync again."
+                .to_string(),
+            true,
+        )
+    } else {
+        (raw, false)
+    }
+}
 
 #[derive(Debug, sqlx::FromRow)]
 struct ConnectionRecord {
@@ -943,6 +1102,7 @@ async fn sync_spotify_library_to_user_library(
     let mut tracks: Vec<ImportTrack> = Vec::with_capacity(2048);
     let mut liked_count = 0usize;
     let mut playlist_track_count = 0usize;
+    let mut playlists_synced = 0usize;
     let mut saved_album_count = 0usize;
     let mut followed_artist_count = 0usize;
 
@@ -1042,67 +1202,6 @@ async fn sync_spotify_library_to_user_library(
     let playlist_repo = PlaylistRepository::new(pool);
     let sync_ts = Utc::now();
 
-    // Virtual playlists for non-playlist library items
-    let liked_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "spotify",
-            &UpsertPlaylist {
-                provider_playlist_id: "__liked_songs__".to_string(),
-                name: "Liked Songs".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "liked_songs".to_string(),
-                provider_track_count: Some(liked_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
-    let saved_albums_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "spotify",
-            &UpsertPlaylist {
-                provider_playlist_id: "__saved_albums__".to_string(),
-                name: "Saved Albums".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "saved_albums".to_string(),
-                provider_track_count: Some(saved_album_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
-    let followed_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "spotify",
-            &UpsertPlaylist {
-                provider_playlist_id: "__followed_artists__".to_string(),
-                name: "Followed Artists".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "followed_artists".to_string(),
-                provider_track_count: Some(followed_artist_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
     // ── Fetch playlists and their tracks, writing to both old and new tables ─
     let mut playlists_url = Some("https://api.spotify.com/v1/me/playlists?limit=50".to_string());
     while let Some(url) = playlists_url {
@@ -1110,31 +1209,6 @@ async fn sync_spotify_library_to_user_library(
             spotify_get_json(&client, access_token, &url).await?;
 
         for playlist in &page.items {
-            // Upsert playlist entity into normalized table
-            let pl_id = playlist_repo
-                .upsert_playlist(
-                    user_id,
-                    "spotify",
-                    &UpsertPlaylist {
-                        provider_playlist_id: playlist.id.clone(),
-                        name: playlist.name.clone(),
-                        description: playlist.description.clone(),
-                        image_url: playlist
-                            .images
-                            .as_ref()
-                            .and_then(|imgs| imgs.first())
-                            .map(|img| img.url.clone()),
-                        owner_name: playlist.owner.as_ref().and_then(|o| o.display_name.clone()),
-                        owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
-                        is_public: playlist.public,
-                        is_collaborative: playlist.collaborative.unwrap_or(false),
-                        source_type: "playlist".to_string(),
-                        provider_track_count: playlist.tracks.as_ref().and_then(|t| t.total),
-                        snapshot_id: playlist.snapshot_id.clone(),
-                    },
-                )
-                .await?;
-
             // Fetch playlist tracks
             let estimated_count = playlist
                 .tracks
@@ -1192,10 +1266,35 @@ async fn sync_spotify_library_to_user_library(
                 playlist_tracks_url = track_page.next;
             }
 
+            let pl_id = playlist_repo
+                .upsert_playlist(
+                    user_id,
+                    "spotify",
+                    &UpsertPlaylist {
+                        provider_playlist_id: playlist.id.clone(),
+                        name: playlist.name.clone(),
+                        description: playlist.description.clone(),
+                        image_url: playlist
+                            .images
+                            .as_ref()
+                            .and_then(|imgs| imgs.first())
+                            .map(|img| img.url.clone()),
+                        owner_name: playlist.owner.as_ref().and_then(|o| o.display_name.clone()),
+                        owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
+                        is_public: playlist.public,
+                        is_collaborative: playlist.collaborative.unwrap_or(false),
+                        source_type: "playlist".to_string(),
+                        provider_track_count: playlist.tracks.as_ref().and_then(|t| t.total),
+                        snapshot_id: playlist.snapshot_id.clone(),
+                    },
+                )
+                .await?;
+
             // Write tracks to normalized table
             playlist_repo
                 .replace_playlist_tracks(pl_id, &normalized_tracks)
                 .await?;
+            playlists_synced += 1;
         }
 
         playlists_url = page.next;
@@ -1262,6 +1361,64 @@ async fn sync_spotify_library_to_user_library(
             }
         }
 
+        let liked_pl_id = playlist_repo
+            .upsert_playlist(
+                user_id,
+                "spotify",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__liked_songs__".to_string(),
+                    name: "Liked Songs".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "liked_songs".to_string(),
+                    provider_track_count: Some(liked_count as i32),
+                    snapshot_id: None,
+                },
+            )
+            .await?;
+        let saved_albums_pl_id = playlist_repo
+            .upsert_playlist(
+                user_id,
+                "spotify",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__saved_albums__".to_string(),
+                    name: "Saved Albums".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "saved_albums".to_string(),
+                    provider_track_count: Some(saved_album_count as i32),
+                    snapshot_id: None,
+                },
+            )
+            .await?;
+        let followed_pl_id = playlist_repo
+            .upsert_playlist(
+                user_id,
+                "spotify",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__followed_artists__".to_string(),
+                    name: "Followed Artists".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "followed_artists".to_string(),
+                    provider_track_count: Some(followed_artist_count as i32),
+                    snapshot_id: None,
+                },
+            )
+            .await?;
+
         playlist_repo
             .replace_playlist_tracks(liked_pl_id, &liked_norm)
             .await?;
@@ -1295,6 +1452,7 @@ async fn sync_spotify_library_to_user_library(
         imported_tracks,
         liked_tracks_synced: liked_count,
         playlist_tracks_synced: playlist_track_count,
+        playlists_synced,
         saved_albums_synced: saved_album_count,
         followed_artists_synced: followed_artist_count,
     })

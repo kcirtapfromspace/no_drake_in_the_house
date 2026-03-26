@@ -535,6 +535,10 @@ pub fn create_router(state: AppState) -> Router {
             post(handlers::spotify_connection::spotify_library_sync_handler),
         )
         .route(
+            "/connections/spotify/library/sync-status",
+            get(handlers::spotify_connection::spotify_library_sync_status_handler),
+        )
+        .route(
             "/connections/spotify",
             delete(handlers::spotify_connection::spotify_disconnect_handler),
         )
@@ -556,6 +560,10 @@ pub fn create_router(state: AppState) -> Router {
             post(handlers::tidal_connection::tidal_library_sync_handler),
         )
         .route(
+            "/connections/tidal/library/sync-status",
+            get(handlers::tidal_connection::tidal_library_sync_status_handler),
+        )
+        .route(
             "/connections/tidal",
             delete(handlers::tidal_connection::tidal_disconnect_handler),
         )
@@ -575,6 +583,10 @@ pub fn create_router(state: AppState) -> Router {
         .route(
             "/connections/youtube/library/sync",
             post(handlers::youtube_connection::youtube_library_sync_handler),
+        )
+        .route(
+            "/connections/youtube/library/sync-status",
+            get(handlers::youtube_connection::youtube_library_sync_status_handler),
         )
         .route(
             "/connections/youtube",

@@ -158,6 +158,10 @@
       {/if}
     </div>
 
+    {#if playlist.tracks_out_of_sync}
+      <p class="pc__resync-note">Track details missing. Run Library Sync to refresh this playlist.</p>
+    {/if}
+
     <!-- Clean ratio bar -->
     <div class="pc__bar-wrap">
       <div class="pc__bar-track">
@@ -405,6 +409,13 @@
 
   .pc__flagged-count {
     color: var(--color-error);
+  }
+
+  .pc__resync-note {
+    margin: 0;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: color-mix(in srgb, var(--color-warning, #f59e0b) 78%, white);
   }
 
   .pc__bar-wrap {

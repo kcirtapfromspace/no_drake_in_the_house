@@ -15,6 +15,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
+use crate::handlers::provider_library_sync_status::{
+    get_provider_library_sync_status, imported_items_count, store_provider_library_sync_status,
+    ProviderLibrarySyncCounts, ProviderLibrarySyncStatus,
+    PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS, PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
 use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
@@ -25,6 +30,9 @@ use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
 use ndith_core::config::provider_callback_uri;
+
+const YOUTUBE_SYNC_STATUS_KEY: &str = "youtube";
+const YOUTUBE_PROVIDER_LABEL: &str = "YouTube Music";
 
 /// Query parameters for the authorize endpoint
 #[derive(Debug, Deserialize)]
@@ -406,6 +414,25 @@ pub async fn youtube_library_sync_handler(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
 ) -> Result<(StatusCode, Json<YouTubeLibrarySyncResponse>)> {
+    if let Some(status) = get_provider_library_sync_status(
+        &state.redis_pool,
+        YOUTUBE_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    {
+        if status.state == "running" {
+            return Ok((
+                StatusCode::ACCEPTED,
+                Json(YouTubeLibrarySyncResponse {
+                    success: true,
+                    message: "YouTube Music library sync is already running. Check sync status for completion.".to_string(),
+                    summary: zero_youtube_sync_summary(),
+                }),
+            ));
+        }
+    }
+
     let connection = get_user_youtube_connection(&state.db_pool, authenticated_user.id)
         .await?
         .ok_or_else(|| AppError::NotFound {
@@ -419,31 +446,190 @@ pub async fn youtube_library_sync_handler(
         )
     })?;
 
+    let started_at = Utc::now();
+    store_provider_library_sync_status(
+        &state.redis_pool,
+        YOUTUBE_SYNC_STATUS_KEY,
+        authenticated_user.id,
+        &ProviderLibrarySyncStatus::running(
+            "YouTube Music library sync is in progress.",
+            started_at,
+        ),
+        PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS,
+    )
+    .await?;
+
     let access_token = decrypt_connection_access_token(&encrypted_access_token).await?;
-    let summary =
-        sync_youtube_library_to_user_library(&state.db_pool, authenticated_user.id, &access_token)
-            .await?;
+    let summary = match sync_youtube_library_to_user_library(
+        &state.db_pool,
+        authenticated_user.id,
+        &access_token,
+    )
+    .await
+    {
+        Ok(summary) => summary,
+        Err(error) => {
+            let (message, needs_reauth) = map_youtube_sync_error(&error);
+            if let Err(update_error) = update_youtube_connection_sync_failure(
+                &state.db_pool,
+                authenticated_user.id,
+                &message,
+                needs_reauth,
+            )
+            .await
+            {
+                tracing::warn!(
+                    user_id = %authenticated_user.id,
+                    error = %update_error,
+                    "Failed to update YouTube Music connection after sync failure"
+                );
+            }
+
+            if let Err(status_error) = store_provider_library_sync_status(
+                &state.redis_pool,
+                YOUTUBE_SYNC_STATUS_KEY,
+                authenticated_user.id,
+                &ProviderLibrarySyncStatus::failed(message.clone(), started_at, Utc::now()),
+                PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+            )
+            .await
+            {
+                tracing::error!(
+                    user_id = %authenticated_user.id,
+                    error = %status_error,
+                    "Failed to persist YouTube Music sync failure status"
+                );
+            }
+
+            return Err(AppError::ExternalServiceError(message));
+        }
+    };
+
+    update_youtube_connection_sync_success(&state.db_pool, authenticated_user.id).await?;
+    let success_message = format!(
+        "Synced YouTube Music library: {} imported items ({} liked videos, {} playlist items, {} subscriptions across {} playlists)",
+        summary.imported_tracks,
+        summary.liked_videos_synced,
+        summary.playlist_items_synced,
+        summary.subscriptions_synced,
+        summary.playlists_scanned
+    );
+    store_provider_library_sync_status(
+        &state.redis_pool,
+        YOUTUBE_SYNC_STATUS_KEY,
+        authenticated_user.id,
+        &ProviderLibrarySyncStatus::completed(
+            success_message.clone(),
+            started_at,
+            Utc::now(),
+            youtube_sync_status_counts(&summary),
+        ),
+        PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+    )
+    .await?;
 
     Ok((
         StatusCode::OK,
         Json(YouTubeLibrarySyncResponse {
             success: true,
-            message: format!(
-                "Synced YouTube Music library: {} imported items ({} liked videos, {} playlist items, {} subscriptions across {} playlists)",
-                summary.imported_tracks,
-                summary.liked_videos_synced,
-                summary.playlist_items_synced,
-                summary.subscriptions_synced,
-                summary.playlists_scanned
-            ),
+            message: success_message,
             summary,
         }),
     ))
 }
 
+pub async fn youtube_library_sync_status_handler(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<Json<ProviderLibrarySyncStatus>> {
+    let status = get_provider_library_sync_status(
+        &state.redis_pool,
+        YOUTUBE_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    .unwrap_or_else(|| ProviderLibrarySyncStatus::idle(YOUTUBE_PROVIDER_LABEL));
+
+    Ok(Json(status))
+}
+
 // ============================================================================
 // Database helper functions
 // ============================================================================
+
+fn zero_youtube_sync_summary() -> YouTubeLibrarySyncSummary {
+    YouTubeLibrarySyncSummary {
+        imported_tracks: 0,
+        liked_videos_synced: 0,
+        playlist_items_synced: 0,
+        subscriptions_synced: 0,
+        playlists_scanned: 0,
+    }
+}
+
+fn youtube_sync_status_counts(summary: &YouTubeLibrarySyncSummary) -> ProviderLibrarySyncCounts {
+    ProviderLibrarySyncCounts {
+        tracks_count: Some(summary.liked_videos_synced + summary.playlist_items_synced),
+        albums_count: None,
+        artists_count: Some(summary.subscriptions_synced),
+        playlists_count: Some(summary.playlists_scanned),
+        imported_items_count: imported_items_count(summary.imported_tracks),
+    }
+}
+
+fn map_youtube_sync_error(error: &AppError) -> (String, bool) {
+    let raw = error.to_string();
+    let lowered = raw.to_ascii_lowercase();
+
+    if lowered.contains("401")
+        || lowered.contains("403")
+        || lowered.contains("unauthorized")
+        || lowered.contains("forbidden")
+        || lowered.contains("invalid_grant")
+        || lowered.contains("expired")
+    {
+        (
+            "YouTube Music authorization failed. Disconnect and reconnect YouTube Music, then sync again.".to_string(),
+            true,
+        )
+    } else {
+        (raw, false)
+    }
+}
+
+async fn update_youtube_connection_sync_success(pool: &PgPool, user_id: Uuid) -> Result<()> {
+    sqlx::query(
+        "UPDATE connections SET status = 'active', last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'youtube_music'",
+    )
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::DatabaseQueryFailed)?;
+
+    Ok(())
+}
+
+async fn update_youtube_connection_sync_failure(
+    pool: &PgPool,
+    user_id: Uuid,
+    message: &str,
+    needs_reauth: bool,
+) -> Result<()> {
+    let query = if needs_reauth {
+        "UPDATE connections SET status = 'needs_reauth', error_code = $1 WHERE user_id = $2 AND provider = 'youtube_music'"
+    } else {
+        "UPDATE connections SET error_code = $1 WHERE user_id = $2 AND provider = 'youtube_music'"
+    };
+
+    sqlx::query(query)
+        .bind(message)
+        .bind(user_id)
+        .execute(pool)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?;
+
+    Ok(())
+}
 
 #[derive(Debug, sqlx::FromRow)]
 struct ConnectionRecord {

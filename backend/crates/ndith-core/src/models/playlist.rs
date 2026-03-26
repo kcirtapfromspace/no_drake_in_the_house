@@ -79,6 +79,8 @@ pub struct PlaylistSummary {
     pub is_public: Option<bool>,
     pub source_type: String,
     pub total_tracks: i64,
+    pub provider_track_count: Option<i32>,
+    pub tracks_out_of_sync: bool,
     pub flagged_tracks: i64,
     pub clean_ratio: f64,
     pub grade: String,

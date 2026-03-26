@@ -8,6 +8,12 @@
     type ServiceConnection,
   } from '../stores/connections';
   import { theme, resolvedTheme } from '../stores/theme';
+  import {
+    billingStore,
+    billingActions,
+    currentPlan,
+    isFreePlan,
+  } from '../stores/billing';
 
   type ServiceId = 'spotify' | 'apple' | 'youtube' | 'tidal' | 'deezer';
 
@@ -92,6 +98,7 @@
   let blockFeatured = true;
   let blockProducers = false;
   let notifications = true;
+  let checkoutAction: string | null = null;
 
   let connectionsByProvider = new Map<string, ServiceConnection>();
 
@@ -103,9 +110,52 @@
   );
 
   onMount(async () => {
-    await connectionActions.prepareAppleMusic();
-    await loadConnections();
+    const connectionsPromise = loadConnections();
+    const billingPromise = billingActions.fetchSubscription();
+
+    // Apple Music prewarm is best-effort and should not block connection state rendering.
+    void connectionActions.prepareAppleMusic();
+
+    await Promise.all([connectionsPromise, billingPromise]);
   });
+
+  function planStatusLabel(status: string | undefined): string {
+    if (!status) return 'Free';
+    switch (status) {
+      case 'active': return 'Active';
+      case 'trialing': return 'Trialing';
+      case 'past_due': return 'Past Due';
+      case 'canceled': return 'Canceled';
+      default: return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  }
+
+  function planStatusTone(status: string | undefined): string {
+    if (!status) return 'settings__status-pill--idle';
+    switch (status) {
+      case 'active':
+      case 'trialing':
+        return 'settings__status-pill--connected';
+      case 'past_due':
+        return 'settings__status-pill--warning';
+      case 'canceled':
+        return 'settings__status-pill--error';
+      default:
+        return 'settings__status-pill--idle';
+    }
+  }
+
+  async function handleUpgrade(plan: 'pro' | 'team') {
+    checkoutAction = plan;
+    await billingActions.initiateCheckout(plan);
+    checkoutAction = null;
+  }
+
+  async function handleManageSubscription() {
+    checkoutAction = 'portal';
+    await billingActions.openPortal();
+    checkoutAction = null;
+  }
 
   async function loadConnections() {
     isLoadingConnections = true;
@@ -166,7 +216,7 @@
   ): string {
     if (service.disabled) return service.statusLabel;
     if (service.catalogOnly) return service.statusLabel;
-    if (isLoadingConnections) return 'Checking...';
+    if (isLoadingConnections && !connection) return 'Checking...';
     if (connection?.status === 'active') return 'Connected';
     if (connection?.status === 'expired') return 'Needs Reconnect';
     if (connection?.status === 'error') return 'Action Required';
@@ -198,6 +248,13 @@
 
     const provider = service.connectionProvider;
     if (!provider) return;
+
+    // Check connection limit before connecting
+    const access = await billingActions.checkFeature('connections');
+    if (!access.allowed) {
+      showConnectionError(access.reason || 'Connection limit reached. Upgrade your plan.');
+      return;
+    }
 
     connectingProvider = provider;
     connectionError = null;
@@ -578,6 +635,177 @@
               <span class="toggle__knob"></span>
             </button>
           </div>
+        </div>
+      </section>
+
+      <section class="settings__section">
+        <div class="settings__section-header">
+          <h2 class="settings__section-title">Plan & Billing</h2>
+          <p class="settings__section-desc">Manage your subscription and feature limits</p>
+        </div>
+
+        <div class="settings__row settings__row--border">
+          <div class="settings__row-text">
+            <p class="settings__row-label">
+              {$billingStore.subscription
+                ? $billingStore.subscription.activePlan.charAt(0).toUpperCase() + $billingStore.subscription.activePlan.slice(1) + ' Plan'
+                : 'Free Plan'}
+            </p>
+            <p class="settings__row-desc">
+              {#if $billingStore.subscription?.currentPeriodEnd}
+                {$billingStore.subscription.cancelAtPeriodEnd
+                  ? 'Cancels'
+                  : 'Renews'} {new Date($billingStore.subscription.currentPeriodEnd).toLocaleDateString()}
+              {:else}
+                No active subscription
+              {/if}
+            </p>
+          </div>
+          <span class={`settings__status-pill ${planStatusTone($billingStore.subscription?.status)}`}>
+            {planStatusLabel($billingStore.subscription?.status)}
+          </span>
+        </div>
+
+        <div class="settings__row settings__row--border">
+          <div class="settings__row-text" style="width:100%">
+            <div class="brand-stat-grid brand-stat-grid--compact" aria-label="Usage overview" style="grid-template-columns:repeat(3,1fr);">
+              <div class="brand-stat">
+                <span class="brand-stat__value">
+                  {$isFreePlan ? '1' : '5'}/{$isFreePlan ? '1' : '5'}
+                </span>
+                <span class="brand-stat__label">Connections</span>
+              </div>
+              <div class="brand-stat">
+                <span class="brand-stat__value">
+                  {$isFreePlan ? '1' : '∞'}
+                </span>
+                <span class="brand-stat__label">Monthly Scans</span>
+              </div>
+              <div class="brand-stat">
+                <span class="brand-stat__value">
+                  {$currentPlan === 'free' ? 'Free' : $currentPlan === 'pro' ? 'Pro' : 'Team'}
+                </span>
+                <span class="brand-stat__label">Current Plan</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {#if $billingStore.subscription?.cancelAtPeriodEnd}
+          <div class="brand-alert brand-alert--warning" style="margin:1rem 1.25rem 0;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="width:1.1rem;height:1.1rem;flex-shrink:0;">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>Your subscription is set to cancel at the end of the current period. You'll lose access to Pro features.</span>
+          </div>
+        {/if}
+
+        {#if $billingStore.error}
+          <div class="brand-alert brand-alert--error" style="margin:1rem 1.25rem 0;">
+            <span aria-hidden="true">✕</span>
+            <span>{$billingStore.error}</span>
+          </div>
+        {/if}
+
+        <div class="settings__row">
+          {#if $isFreePlan}
+            <button
+              type="button"
+              class="settings__service-btn settings__service-btn--primary"
+              on:click={() => handleUpgrade('pro')}
+              disabled={checkoutAction !== null}
+            >
+              {checkoutAction === 'pro' ? 'Redirecting...' : 'Upgrade to Pro'}
+            </button>
+          {:else}
+            <button
+              type="button"
+              class="settings__service-btn settings__service-btn--secondary"
+              on:click={handleManageSubscription}
+              disabled={checkoutAction !== null}
+            >
+              {checkoutAction === 'portal' ? 'Redirecting...' : 'Manage Subscription'}
+            </button>
+          {/if}
+        </div>
+
+        <div class="settings__plan-grid">
+          <article class="settings__service-card" class:settings__plan-card--active={$currentPlan === 'free'}>
+            <div class="settings__service-top">
+              <div class="settings__service-copy">
+                <h3 class="settings__service-name">Free</h3>
+                <p class="settings__service-desc" style="margin-top:0.25rem;">$0 / month</p>
+              </div>
+            </div>
+            <ul class="settings__plan-features">
+              <li>1 music service connection</li>
+              <li>1 library scan per month</li>
+              <li>3 playlist grades</li>
+              <li>1 community list subscription</li>
+            </ul>
+            {#if $currentPlan === 'free'}
+              <span class="settings__service-btn settings__service-btn--secondary" style="text-align:center;cursor:default;">Current Plan</span>
+            {:else}
+              <span class="settings__service-btn settings__service-btn--secondary" style="text-align:center;opacity:0.5;cursor:default;">—</span>
+            {/if}
+          </article>
+
+          <article class="settings__service-card" class:settings__plan-card--active={$currentPlan === 'pro'}>
+            <div class="settings__service-top">
+              <div class="settings__service-copy">
+                <h3 class="settings__service-name">Pro</h3>
+                <p class="settings__service-desc" style="margin-top:0.25rem;">$5 / month</p>
+              </div>
+            </div>
+            <ul class="settings__plan-features">
+              <li>5 music service connections</li>
+              <li>Unlimited library scans</li>
+              <li>Unlimited playlist grades</li>
+              <li>Unlimited community list subscriptions</li>
+              <li>Create community lists</li>
+              <li>Auto-enforcement</li>
+              <li>Data export</li>
+            </ul>
+            {#if $currentPlan === 'pro'}
+              <span class="settings__service-btn settings__service-btn--secondary" style="text-align:center;cursor:default;">Current Plan</span>
+            {:else}
+              <button
+                type="button"
+                class="settings__service-btn settings__service-btn--primary"
+                on:click={() => handleUpgrade('pro')}
+                disabled={checkoutAction !== null}
+              >
+                {checkoutAction === 'pro' ? 'Redirecting...' : 'Upgrade'}
+              </button>
+            {/if}
+          </article>
+
+          <article class="settings__service-card" class:settings__plan-card--active={$currentPlan === 'team'}>
+            <div class="settings__service-top">
+              <div class="settings__service-copy">
+                <h3 class="settings__service-name">Team</h3>
+                <p class="settings__service-desc" style="margin-top:0.25rem;">$12 / month</p>
+              </div>
+            </div>
+            <ul class="settings__plan-features">
+              <li>Everything in Pro</li>
+              <li>Up to 5 team seats</li>
+              <li>Shared blocklists</li>
+              <li>Team management</li>
+            </ul>
+            {#if $currentPlan === 'team'}
+              <span class="settings__service-btn settings__service-btn--secondary" style="text-align:center;cursor:default;">Current Plan</span>
+            {:else}
+              <button
+                type="button"
+                class="settings__service-btn settings__service-btn--primary"
+                on:click={() => handleUpgrade('team')}
+                disabled={checkoutAction !== null}
+              >
+                {checkoutAction === 'team' ? 'Redirecting...' : 'Upgrade'}
+              </button>
+            {/if}
+          </article>
         </div>
       </section>
 
@@ -1083,6 +1311,49 @@
     text-align: center;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+  }
+
+  .settings__plan-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .settings__plan-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .settings__plan-card--active {
+    border-color: rgba(244, 63, 94, 0.4);
+  }
+
+  .settings__plan-features {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    flex: 1;
+  }
+
+  .settings__plan-features li {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    padding-left: 1rem;
+    position: relative;
+  }
+
+  .settings__plan-features li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #4ade80;
+    font-size: 0.7rem;
+    font-weight: 700;
   }
 
   @keyframes spin {

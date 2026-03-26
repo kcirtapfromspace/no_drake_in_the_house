@@ -7,12 +7,15 @@
   import PlaylistGradeGauge from './PlaylistGradeGauge.svelte';
   import ReplacementPicker from './ReplacementPicker.svelte';
   import BatchScrubProgress from './BatchScrubProgress.svelte';
+  import { billingActions } from '../stores/billing';
+  import { navigateTo } from '../utils/simple-router';
 
   let topView: 'browse' | 'sanitize' = 'browse';
   let showConfetti = false;
   let urlInput = '';
   let urlError = '';
   let isExternalPlaylist = false;
+  let gradeGateReason: string | null = null;
 
   onMount(() => {
     playlistBrowserActions.fetchPlaylists();
@@ -37,6 +40,7 @@
 
     urlError = '';
     isExternalPlaylist = true;
+    gradeGateReason = null;
     topView = 'sanitize';
     sanitizerActions.reset();
     sanitizerActions.suggestReplacements(trimmed, 'spotify');
@@ -51,7 +55,13 @@
     if (urlError) urlError = '';
   }
 
-  function handleSelectPlaylist(e: CustomEvent<PlaylistSummary>) {
+  async function handleSelectPlaylist(e: CustomEvent<PlaylistSummary>) {
+    gradeGateReason = null;
+    const access = await billingActions.checkFeature('playlistGrades');
+    if (!access.allowed) {
+      gradeGateReason = access.reason || 'Playlist grade limit reached. Upgrade your plan in Settings.';
+      return;
+    }
     playlistBrowserActions.selectPlaylist(e.detail);
   }
 
@@ -60,6 +70,7 @@
   }
 
   function handleSanitize(e: CustomEvent<{ provider: string; playlistName: string }>) {
+    gradeGateReason = null;
     topView = 'sanitize';
     sanitizerActions.reset();
     sanitizerActions.suggestReplacements(e.detail.playlistName, e.detail.provider);
@@ -70,6 +81,7 @@
     isExternalPlaylist = false;
     urlInput = '';
     urlError = '';
+    gradeGateReason = null;
     sanitizerActions.reset();
   }
 
@@ -86,6 +98,7 @@
     isExternalPlaylist = false;
     urlInput = '';
     urlError = '';
+    gradeGateReason = null;
     playlistBrowserActions.backToGrid();
   }
 
@@ -107,6 +120,7 @@
 
   function handleQuickScrubSingle(e: CustomEvent<PlaylistSummary>) {
     const p = e.detail;
+    gradeGateReason = null;
     topView = 'sanitize';
     isExternalPlaylist = false;
     sanitizerActions.reset();
@@ -120,6 +134,7 @@
     const playlists = $selectedPlaylists;
     if (playlists.length === 0) return;
     playlistBrowserActions.exitSelectionMode();
+    gradeGateReason = null;
     topView = 'sanitize';
     isExternalPlaylist = false;
     sanitizerActions.reset();
@@ -130,6 +145,7 @@
     const playlists = $filteredPlaylists;
     if (playlists.length === 0) return;
     playlistBrowserActions.exitSelectionMode();
+    gradeGateReason = null;
     topView = 'sanitize';
     isExternalPlaylist = false;
     sanitizerActions.reset();
@@ -157,14 +173,11 @@
     topView = 'browse';
   }
 
-  // Detect playlists that need a re-sync: metadata says tracks exist but we haven't fetched them yet.
-  // Since provider_track_count isn't in the summary, heuristic: some playlists have 0 tracks
-  // while others do have tracks, indicating an incomplete sync.
+  // Detect playlists that need a re-sync when provider metadata says tracks exist
+  // but normalized playlist detail rows were not imported successfully.
   $: needsResyncPlaylists = (() => {
     const all = $playlistBrowserStore.playlists;
-    const hasPopulated = all.some(p => p.total_tracks > 0);
-    const hasEmpty = all.some(p => p.total_tracks === 0);
-    return hasPopulated && hasEmpty;
+    return all.some((playlist) => playlist.tracks_out_of_sync);
   })();
 
   $: stepIndex = $sanitizerStore.step === 'grade' ? 0 : $sanitizerStore.step === 'replace' ? 1 : 2;
@@ -307,6 +320,16 @@
             </svg>
             Scrub All
           </button>
+        </div>
+      {/if}
+
+      {#if gradeGateReason}
+        <div class="brand-alert brand-alert--warning" style="margin-bottom:1rem;">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" style="width:1.1rem;height:1.1rem;flex-shrink:0;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span>{gradeGateReason}</span>
+          <button type="button" class="brand-alert__dismiss" on:click={() => navigateTo('settings')}>Upgrade</button>
         </div>
       {/if}
 
@@ -647,7 +670,7 @@
           <!-- Confetti -->
           {#if showConfetti}
             <div class="confetti" aria-hidden="true">
-              {#each Array(20) as _, i}
+              {#each Array(20) as _}
                 <div
                   class="confetti__piece"
                   style="

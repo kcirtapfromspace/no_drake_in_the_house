@@ -197,11 +197,38 @@ fn determine_health_status(conn: &ConnectionRecord) -> ConnectionHealthStatus {
 
 fn missing_required_scopes(conn: &ConnectionRecord) -> Option<&'static str> {
     let provider = conn.provider.to_ascii_lowercase();
+    let scopes = conn.scopes.as_deref().unwrap_or(&[]);
+
+    if provider == "spotify" {
+        let has_library_scope = scopes.iter().any(|scope| scope == "user-library-read");
+        if !has_library_scope {
+            return Some(
+                "Spotify connection is missing required scope user-library-read. Reconnect Spotify to restore library sync.",
+            );
+        }
+
+        let has_follow_scope = scopes.iter().any(|scope| scope == "user-follow-read");
+        if !has_follow_scope {
+            return Some(
+                "Spotify connection is missing required scope user-follow-read. Reconnect Spotify to restore followed artist sync.",
+            );
+        }
+
+        let has_private_playlist_scope =
+            scopes.iter().any(|scope| scope == "playlist-read-private");
+        let has_collaborative_scope = scopes
+            .iter()
+            .any(|scope| scope == "playlist-read-collaborative");
+        if !has_private_playlist_scope || !has_collaborative_scope {
+            return Some(
+                "Spotify connection is missing required playlist scopes (playlist-read-private, playlist-read-collaborative). Reconnect Spotify to restore playlist imports.",
+            );
+        }
+    }
 
     // Tidal Web API (openapi.tidal.com/v2) uses modern scopes like `user.read`, `collection.read`,
     // `playlists.read`. Older connections may have legacy names (r_usr, r_collection, r_playlist).
     if provider == "tidal" {
-        let scopes = conn.scopes.as_deref().unwrap_or(&[]);
         let has_user_scope = scopes
             .iter()
             .any(|scope| scope == "user.read" || scope == "r_usr");

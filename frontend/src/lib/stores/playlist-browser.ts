@@ -16,6 +16,8 @@ export interface PlaylistSummary {
   is_public?: boolean;
   source_type: string;
   total_tracks: number;
+  provider_track_count?: number;
+  tracks_out_of_sync?: boolean;
   flagged_tracks: number;
   clean_ratio: number;
   grade: string;

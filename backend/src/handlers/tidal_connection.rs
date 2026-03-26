@@ -20,6 +20,11 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::error::{AppError, Result};
+use crate::handlers::provider_library_sync_status::{
+    get_provider_library_sync_status, imported_items_count, store_provider_library_sync_status,
+    ProviderLibrarySyncCounts, ProviderLibrarySyncStatus,
+    PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS, PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+};
 use crate::models::offense::{ImportLibraryRequest, ImportTrack};
 use crate::models::playlist::{UpsertPlaylist, UpsertPlaylistTrack};
 use crate::models::user::AuthenticatedUser;
@@ -28,6 +33,9 @@ use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
+
+const TIDAL_SYNC_STATUS_KEY: &str = "tidal";
+const TIDAL_PROVIDER_LABEL: &str = "Tidal";
 
 /// Query parameters for the authorize endpoint
 #[derive(Debug, Deserialize)]
@@ -538,11 +546,42 @@ pub async fn tidal_library_sync_handler(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
 ) -> Result<(StatusCode, Json<TidalLibrarySyncResponse>)> {
+    if let Some(status) = get_provider_library_sync_status(
+        &state.redis_pool,
+        TIDAL_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    {
+        if status.state == "running" {
+            return Ok((
+                StatusCode::ACCEPTED,
+                Json(TidalLibrarySyncResponse {
+                    success: true,
+                    message:
+                        "Tidal library sync is already running. Check sync status for completion."
+                            .to_string(),
+                    summary: zero_tidal_sync_summary(),
+                }),
+            ));
+        }
+    }
+
     let connection = get_user_tidal_connection(&state.db_pool, authenticated_user.id)
         .await?
         .ok_or_else(|| AppError::NotFound {
             resource: "Tidal connection".to_string(),
         })?;
+
+    let started_at = Utc::now();
+    store_provider_library_sync_status(
+        &state.redis_pool,
+        TIDAL_SYNC_STATUS_KEY,
+        authenticated_user.id,
+        &ProviderLibrarySyncStatus::running("Tidal library sync is in progress.", started_at),
+        PROVIDER_LIBRARY_SYNC_RUNNING_TTL_SECONDS,
+    )
+    .await?;
 
     let Some(encrypted_access_token) = connection.access_token_encrypted else {
         // Connection row exists but the token payload is missing. Mark it so the UI prompts a reconnect.
@@ -566,6 +605,19 @@ pub async fn tidal_library_sync_handler(
                 "Failed to mark Tidal connection as needs_reauth after missing token"
             );
         }
+
+        let _ = store_provider_library_sync_status(
+            &state.redis_pool,
+            TIDAL_SYNC_STATUS_KEY,
+            authenticated_user.id,
+            &ProviderLibrarySyncStatus::failed(
+                "Tidal access token is unavailable. Disconnect and reconnect Tidal.".to_string(),
+                started_at,
+                Utc::now(),
+            ),
+            PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+        )
+        .await;
 
         return Err(AppError::ExternalServiceError(
             "Tidal access token is unavailable. Disconnect and reconnect Tidal, then try again."
@@ -591,11 +643,20 @@ pub async fn tidal_library_sync_handler(
             .await
             {
                 tracing::warn!(
-                    user_id = %authenticated_user.id,
-                    error = %e,
+                        user_id = %authenticated_user.id,
+                        error = %e,
                     "Failed to mark Tidal connection as needs_reauth after decrypt failure"
                 );
             }
+
+            let _ = store_provider_library_sync_status(
+                &state.redis_pool,
+                TIDAL_SYNC_STATUS_KEY,
+                authenticated_user.id,
+                &ProviderLibrarySyncStatus::failed(err.to_string(), started_at, Utc::now()),
+                PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+            )
+            .await;
 
             return Err(err);
         }
@@ -623,35 +684,132 @@ pub async fn tidal_library_sync_handler(
             );
         }
 
+        let _ = store_provider_library_sync_status(
+            &state.redis_pool,
+            TIDAL_SYNC_STATUS_KEY,
+            authenticated_user.id,
+            &ProviderLibrarySyncStatus::failed(
+                "Tidal access token is missing or empty. Reconnect Tidal.".to_string(),
+                started_at,
+                Utc::now(),
+            ),
+            PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+        )
+        .await;
+
         return Err(AppError::ExternalServiceError(
             "Tidal access token is missing or empty. Disconnect and reconnect Tidal, then try again."
                 .to_string(),
         ));
     }
-    let summary =
-        sync_tidal_library_to_user_library(&state.db_pool, authenticated_user.id, &access_token)
-            .await?;
+    let summary = match sync_tidal_library_to_user_library(
+        &state.db_pool,
+        authenticated_user.id,
+        &access_token,
+    )
+    .await
+    {
+        Ok(summary) => summary,
+        Err(error) => {
+            let message = error.to_string();
+            if let Err(status_error) = store_provider_library_sync_status(
+                &state.redis_pool,
+                TIDAL_SYNC_STATUS_KEY,
+                authenticated_user.id,
+                &ProviderLibrarySyncStatus::failed(message, started_at, Utc::now()),
+                PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+            )
+            .await
+            {
+                tracing::error!(
+                    user_id = %authenticated_user.id,
+                    error = %status_error,
+                    "Failed to persist Tidal sync failure status"
+                );
+            }
+
+            return Err(error);
+        }
+    };
+
+    sqlx::query(
+        "UPDATE connections SET status = 'active', last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'tidal'",
+    )
+    .bind(authenticated_user.id)
+    .execute(&state.db_pool)
+    .await
+    .map_err(AppError::DatabaseQueryFailed)?;
+
+    let success_message = format!(
+        "Synced Tidal library: {} imported items ({} favorite tracks, {} favorite artists, {} favorite albums, {} playlists)",
+        summary.imported_tracks,
+        summary.favorite_tracks_synced,
+        summary.favorite_artists_synced,
+        summary.favorite_albums_synced,
+        summary.playlists_synced
+    );
+    store_provider_library_sync_status(
+        &state.redis_pool,
+        TIDAL_SYNC_STATUS_KEY,
+        authenticated_user.id,
+        &ProviderLibrarySyncStatus::completed(
+            success_message.clone(),
+            started_at,
+            Utc::now(),
+            tidal_sync_status_counts(&summary),
+        ),
+        PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+    )
+    .await?;
 
     Ok((
         StatusCode::OK,
         Json(TidalLibrarySyncResponse {
             success: true,
-            message: format!(
-                "Synced Tidal library: {} imported items ({} favorite tracks, {} favorite artists, {} favorite albums, {} playlists)",
-                summary.imported_tracks,
-                summary.favorite_tracks_synced,
-                summary.favorite_artists_synced,
-                summary.favorite_albums_synced,
-                summary.playlists_synced
-            ),
+            message: success_message,
             summary,
         }),
     ))
 }
 
+pub async fn tidal_library_sync_status_handler(
+    State(state): State<AppState>,
+    authenticated_user: AuthenticatedUser,
+) -> Result<Json<ProviderLibrarySyncStatus>> {
+    let status = get_provider_library_sync_status(
+        &state.redis_pool,
+        TIDAL_SYNC_STATUS_KEY,
+        authenticated_user.id,
+    )
+    .await?
+    .unwrap_or_else(|| ProviderLibrarySyncStatus::idle(TIDAL_PROVIDER_LABEL));
+
+    Ok(Json(status))
+}
+
 // ============================================================================
 // Database helper functions
 // ============================================================================
+
+fn zero_tidal_sync_summary() -> TidalLibrarySyncSummary {
+    TidalLibrarySyncSummary {
+        imported_tracks: 0,
+        favorite_tracks_synced: 0,
+        favorite_artists_synced: 0,
+        favorite_albums_synced: 0,
+        playlists_synced: 0,
+    }
+}
+
+fn tidal_sync_status_counts(summary: &TidalLibrarySyncSummary) -> ProviderLibrarySyncCounts {
+    ProviderLibrarySyncCounts {
+        tracks_count: Some(summary.favorite_tracks_synced),
+        albums_count: Some(summary.favorite_albums_synced),
+        artists_count: Some(summary.favorite_artists_synced),
+        playlists_count: Some(summary.playlists_synced),
+        imported_items_count: imported_items_count(summary.imported_tracks),
+    }
+}
 
 #[derive(Debug, sqlx::FromRow)]
 struct ConnectionRecord {

@@ -1,9 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { apiClient } from '../utils/api-client';
-  import { navigateTo, navigateToArtist } from '../utils/simple-router';
+  import { navigateToArtist } from '../utils/simple-router';
   import { blockingStore, type Platform } from '../stores/blocking';
-  import { spotifyConnection, appleMusicConnection, connectionActions } from '../stores/connections';
+  import {
+    spotifyConnection,
+    appleMusicConnection,
+    activeConnectionCount,
+    connectionActions,
+  } from '../stores/connections';
   import {
     analyticsStore,
     analyticsActions,
@@ -159,15 +164,7 @@
     return acc;
   }, [] as BlockedArtist[]);
   $: activeCategoryCount = (Array.isArray(categoryLists) ? categoryLists : []).filter(category => category.subscribed).length;
-  $: connectedPlatformCount = getConnectedPlatforms().length;
-
-  $: exceptedFromCategories = (Array.isArray(blockedArtists) ? blockedArtists : []).filter(a => exceptedArtists.has(a.id))
-    .reduce((acc, artist) => {
-      if (!acc.some(a => a.id === artist.id)) {
-        acc.push(artist);
-      }
-      return acc;
-    }, [] as BlockedArtist[]);
+  $: connectedPlatformCount = $activeConnectionCount;
 
   const categoryColors: Record<string, { icon: string; bg: string }> = {
     domestic_violence: { icon: '#F43F5E', bg: 'rgba(244, 63, 94, 0.15)' },
@@ -344,7 +341,7 @@
     }
   }
 
-  async function goToArtist(artistId: string, artistName: string) {
+  async function goToArtist(artistId: string) {
     navigateToArtist(artistId);
   }
 
@@ -480,11 +477,11 @@
         <div class="search__dropdown">
           {#if searchResults.length > 0}
             <div class="search__results">
-              {#each searchResults as artist, i}
+              {#each searchResults as artist}
                 <button
                   type="button"
                   class="search__result"
-                  on:click={() => goToArtist(artist.id, artist.canonical_name)}
+                  on:click={() => goToArtist(artist.id)}
                 >
                   <div class="search__result-info">
                     <span class="search__result-name">{artist.canonical_name}</span>
@@ -626,7 +623,7 @@
                         {#each blockedInCategory as artist}
                           {@const sev = getSeverityStyle(artist.severity)}
                           <div class="artist-tile group">
-                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id, artist.name)}>
+                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id)}>
                               <span class="artist-tile__name">{artist.name}</span>
                               <EnforcementBadges artistId={artist.id} compact={true} />
                               <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
@@ -651,7 +648,7 @@
                       <div class="artist-grid">
                         {#each exceptedInCategory as artist}
                           <div class="artist-tile artist-tile--excepted group">
-                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id, artist.name)}>
+                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id)}>
                               <span class="artist-tile__name">{artist.name}</span>
                               <span class="artist-tile__severity">Excepted</span>
                             </button>
@@ -673,7 +670,7 @@
                     <div class="artist-grid">
                       {#each categoryArtists as artist}
                         {@const sev = getSeverityStyle(artist.severity)}
-                        <button type="button" class="artist-tile" on:click={() => goToArtist(artist.id, artist.name)}>
+                        <button type="button" class="artist-tile" on:click={() => goToArtist(artist.id)}>
                           <span class="artist-tile__name">{artist.name}</span>
                           <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
                         </button>
@@ -726,7 +723,7 @@
                   type="button"
                   class="blocked-chip__name"
                   data-testid="blocked-artist-name"
-                  on:click={() => goToArtist(artist.id, artist.name)}
+                  on:click={() => goToArtist(artist.id)}
                   title="View artist profile"
                 >{artist.name}</button>
                 <EnforcementBadges artistId={artist.id} compact={true} />
@@ -899,7 +896,7 @@
                   <button
                     type="button"
                     class="top-blocked-row top-blocked-row--clickable"
-                    on:click={() => goToArtist(artist.id, artist.name)}
+                    on:click={() => goToArtist(artist.id)}
                   >
                     <span class="top-blocked-rank">#{i + 1}</span>
                     <div class="top-blocked-info">

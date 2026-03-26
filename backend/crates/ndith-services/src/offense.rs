@@ -217,26 +217,45 @@ impl<'a> OffenseService<'a> {
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
-        let mut flagged_artists = Vec::new();
-        for (artist_id, artist_name, severity, _) in rows {
-            let offenses = self.get_offense_summaries(artist_id).await?;
-            flagged_artists.push(FlaggedArtist {
+        // Batch-fetch all offense summaries in a single query
+        let artist_ids: Vec<Uuid> = rows.iter().map(|(id, _, _, _)| *id).collect();
+        let mut summaries_map = self.get_offense_summaries_batch(&artist_ids).await?;
+
+        let flagged_artists = rows
+            .into_iter()
+            .map(|(artist_id, artist_name, severity, _)| FlaggedArtist {
                 id: artist_id,
                 name: artist_name,
                 track_count: 0, // Will be filled by library scan
                 severity,
-                offenses,
-            });
-        }
+                offenses: summaries_map.remove(&artist_id).unwrap_or_default(),
+            })
+            .collect();
 
         Ok(flagged_artists)
     }
 
-    /// Get offense summaries for an artist
+    /// Get offense summaries for a single artist (convenience wrapper over batch)
+    #[allow(dead_code)]
     async fn get_offense_summaries(&self, artist_id: Uuid) -> Result<Vec<OffenseSummary>> {
+        let map = self.get_offense_summaries_batch(&[artist_id]).await?;
+        Ok(map.into_values().next().unwrap_or_default())
+    }
+
+    /// Batch-fetch offense summaries for multiple artists in a single query.
+    /// Returns a map from artist_id to their offense summaries.
+    async fn get_offense_summaries_batch(
+        &self,
+        artist_ids: &[Uuid],
+    ) -> Result<std::collections::HashMap<Uuid, Vec<OffenseSummary>>> {
+        if artist_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
         let rows = sqlx::query_as::<
             _,
             (
+                Uuid,
                 ndith_core::models::offense::OffenseCategory,
                 String,
                 Option<chrono::NaiveDate>,
@@ -244,90 +263,216 @@ impl<'a> OffenseService<'a> {
             ),
         >(
             r#"
-            SELECT ao.category, ao.title, ao.incident_date,
+            SELECT ao.artist_id, ao.category, ao.title, ao.incident_date,
                    COUNT(oe.id) as evidence_count
             FROM artist_offenses ao
             LEFT JOIN offense_evidence oe ON ao.id = oe.offense_id
-            WHERE ao.artist_id = $1 AND ao.status = 'verified'
-            GROUP BY ao.id, ao.category, ao.title, ao.incident_date
+            WHERE ao.artist_id = ANY($1) AND ao.status = 'verified'
+            GROUP BY ao.id, ao.artist_id, ao.category, ao.title, ao.incident_date
             ORDER BY ao.severity DESC
             "#,
         )
-        .bind(artist_id)
+        .bind(artist_ids)
         .fetch_all(self.db)
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
-        Ok(rows
-            .into_iter()
-            .map(|(category, title, date, evidence_count)| OffenseSummary {
+        let mut map: std::collections::HashMap<Uuid, Vec<OffenseSummary>> =
+            std::collections::HashMap::new();
+        for (artist_id, category, title, date, evidence_count) in rows {
+            map.entry(artist_id).or_default().push(OffenseSummary {
                 category,
                 title,
                 date: date
                     .map(|d| d.format("%Y").to_string())
                     .unwrap_or_else(|| "Unknown".to_string()),
                 evidence_count: evidence_count as i32,
-            })
-            .collect())
+            });
+        }
+
+        Ok(map)
     }
 
-    /// Import user library tracks from streaming service export
+    /// Import user library tracks from streaming service export.
+    ///
+    /// Uses batch artist lookups and chunked bulk upserts (500 rows per chunk)
+    /// wrapped in a transaction for atomicity.
     pub async fn import_library(
         &self,
         user_id: Uuid,
         request: ImportLibraryRequest,
     ) -> Result<i32> {
-        let mut imported = 0;
-
-        for track in request.tracks {
-            // Try to find artist in our database
-            let artist_id: Option<Uuid> = sqlx::query_scalar(
-                r#"
-                SELECT id FROM artists
-                WHERE LOWER(canonical_name) = LOWER($1)
-                LIMIT 1
-                "#,
-            )
-            .bind(&track.artist_name)
-            .fetch_optional(self.db)
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
-
-            // Insert or update the track
-            sqlx::query(
-                r#"
-                INSERT INTO user_library_tracks (
-                    user_id, provider, provider_track_id, track_name, album_name,
-                    artist_id, artist_name, source_type, playlist_name, added_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                ON CONFLICT (user_id, provider, provider_track_id)
-                DO UPDATE SET
-                    track_name = EXCLUDED.track_name,
-                    album_name = EXCLUDED.album_name,
-                    artist_id = EXCLUDED.artist_id,
-                    artist_name = EXCLUDED.artist_name,
-                    last_synced = NOW()
-                "#,
-            )
-            .bind(user_id)
-            .bind(&request.provider)
-            .bind(&track.provider_track_id)
-            .bind(&track.track_name)
-            .bind(&track.album_name)
-            .bind(artist_id)
-            .bind(&track.artist_name)
-            .bind(&track.source_type)
-            .bind(&track.playlist_name)
-            .bind(track.added_at)
-            .execute(self.db)
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
-
-            imported += 1;
+        if request.tracks.is_empty() {
+            return Ok(0);
         }
 
-        Ok(imported)
+        // Batch-resolve all unique artist names in ONE query
+        let artist_names_lower: Vec<String> = request
+            .tracks
+            .iter()
+            .map(|t| t.artist_name.to_lowercase())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let artist_map: std::collections::HashMap<String, Uuid> = sqlx::query_as::<_, (Uuid, String)>(
+            "SELECT id, LOWER(canonical_name) AS lname FROM artists WHERE LOWER(canonical_name) = ANY($1)",
+        )
+        .bind(&artist_names_lower)
+        .fetch_all(self.db)
+        .await
+        .map_err(AppError::DatabaseQueryFailed)?
+        .into_iter()
+        .map(|(id, lname)| (lname, id))
+        .collect();
+
+        // Chunked bulk upsert inside a transaction
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
+
+        const CHUNK_SIZE: usize = 500;
+        let total = request.tracks.len() as i32;
+
+        for chunk in request.tracks.chunks(CHUNK_SIZE) {
+            let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+                "INSERT INTO user_library_tracks (user_id, provider, provider_track_id, track_name, album_name, artist_id, artist_name, source_type, playlist_name, added_at) ",
+            );
+
+            qb.push_values(chunk, |mut b, track| {
+                let artist_id = artist_map.get(&track.artist_name.to_lowercase()).copied();
+                b.push_bind(user_id)
+                    .push_bind(&request.provider)
+                    .push_bind(&track.provider_track_id)
+                    .push_bind(&track.track_name)
+                    .push_bind(&track.album_name)
+                    .push_bind(artist_id)
+                    .push_bind(&track.artist_name)
+                    .push_bind(&track.source_type)
+                    .push_bind(&track.playlist_name)
+                    .push_bind(track.added_at);
+            });
+
+            qb.push(
+                " ON CONFLICT (user_id, provider, provider_track_id) DO UPDATE SET \
+                  track_name = EXCLUDED.track_name, \
+                  album_name = EXCLUDED.album_name, \
+                  artist_id = EXCLUDED.artist_id, \
+                  artist_name = EXCLUDED.artist_name, \
+                  last_synced = NOW()",
+            );
+
+            qb.build()
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?;
+        }
+
+        tx.commit()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
+
+        Ok(total)
+    }
+
+    /// Atomically delete-and-reimport a provider's library tracks in a single transaction.
+    ///
+    /// This prevents a race condition where a crash between DELETE and reimport
+    /// would leave the user with an empty library.
+    pub async fn delete_and_import_library(
+        &self,
+        user_id: Uuid,
+        request: ImportLibraryRequest,
+    ) -> Result<i32> {
+        // Batch-resolve all unique artist names in ONE query (outside tx for read perf)
+        let artist_map: std::collections::HashMap<String, Uuid> = if request.tracks.is_empty() {
+            std::collections::HashMap::new()
+        } else {
+            let artist_names_lower: Vec<String> = request
+                .tracks
+                .iter()
+                .map(|t| t.artist_name.to_lowercase())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect();
+
+            sqlx::query_as::<_, (Uuid, String)>(
+                "SELECT id, LOWER(canonical_name) AS lname FROM artists WHERE LOWER(canonical_name) = ANY($1)",
+            )
+            .bind(&artist_names_lower)
+            .fetch_all(self.db)
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?
+            .into_iter()
+            .map(|(id, lname)| (lname, id))
+            .collect()
+        };
+
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
+
+        // DELETE inside the transaction so rollback restores the old rows on failure
+        sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
+            .bind(user_id)
+            .bind(&request.provider)
+            .execute(&mut *tx)
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
+
+        if request.tracks.is_empty() {
+            tx.commit()
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?;
+            return Ok(0);
+        }
+
+        const CHUNK_SIZE: usize = 500;
+        let total = request.tracks.len() as i32;
+
+        for chunk in request.tracks.chunks(CHUNK_SIZE) {
+            let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+                "INSERT INTO user_library_tracks (user_id, provider, provider_track_id, track_name, album_name, artist_id, artist_name, source_type, playlist_name, added_at) ",
+            );
+
+            qb.push_values(chunk, |mut b, track| {
+                let artist_id = artist_map.get(&track.artist_name.to_lowercase()).copied();
+                b.push_bind(user_id)
+                    .push_bind(&request.provider)
+                    .push_bind(&track.provider_track_id)
+                    .push_bind(&track.track_name)
+                    .push_bind(&track.album_name)
+                    .push_bind(artist_id)
+                    .push_bind(&track.artist_name)
+                    .push_bind(&track.source_type)
+                    .push_bind(&track.playlist_name)
+                    .push_bind(track.added_at);
+            });
+
+            qb.push(
+                " ON CONFLICT (user_id, provider, provider_track_id) DO UPDATE SET \
+                  track_name = EXCLUDED.track_name, \
+                  album_name = EXCLUDED.album_name, \
+                  artist_id = EXCLUDED.artist_id, \
+                  artist_name = EXCLUDED.artist_name, \
+                  last_synced = NOW()",
+            );
+
+            qb.build()
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?;
+        }
+
+        tx.commit()
+            .await
+            .map_err(AppError::DatabaseQueryFailed)?;
+
+        Ok(total)
     }
 
     /// Scan user's library against offense database
@@ -369,18 +514,21 @@ impl<'a> OffenseService<'a> {
         .await
         .map_err(AppError::DatabaseQueryFailed)?;
 
+        // Batch-fetch all offense summaries in a single query
+        let artist_ids: Vec<Uuid> = flagged_rows.iter().map(|(id, _, _, _)| *id).collect();
+        let mut summaries_map = self.get_offense_summaries_batch(&artist_ids).await?;
+
         let mut flagged_artists = Vec::new();
         let mut flagged_tracks = 0i64;
 
         for (artist_id, artist_name, track_count, severity) in flagged_rows {
             flagged_tracks += track_count;
-            let offenses = self.get_offense_summaries(artist_id).await?;
             flagged_artists.push(FlaggedArtist {
                 id: artist_id,
                 name: artist_name,
                 track_count: track_count as i32,
                 severity,
-                offenses,
+                offenses: summaries_map.remove(&artist_id).unwrap_or_default(),
             });
         }
 

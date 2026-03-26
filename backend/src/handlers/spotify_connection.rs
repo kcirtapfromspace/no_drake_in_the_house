@@ -918,7 +918,10 @@ async fn sync_spotify_library_to_user_library(
             AppError::ExternalServiceError(format!("Failed to create Spotify client: {}", e))
         })?;
 
-    let mut tracks: Vec<ImportTrack> = Vec::new();
+    // NOTE: This Vec grows unboundedly as we page through the user's entire Spotify library.
+    // A very large library (100k+ tracks) could use significant memory. Consider streaming
+    // to the DB in batches if this becomes a problem in production.
+    let mut tracks: Vec<ImportTrack> = Vec::with_capacity(2048);
     let mut liked_count = 0usize;
     let mut playlist_track_count = 0usize;
     let mut saved_album_count = 0usize;
@@ -1114,7 +1117,8 @@ async fn sync_spotify_library_to_user_library(
                 .await?;
 
             // Fetch playlist tracks
-            let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::new();
+            let estimated_count = playlist.tracks.as_ref().and_then(|t| t.total).unwrap_or(100) as usize;
+            let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::with_capacity(estimated_count);
             let mut playlist_tracks_url = Some(format!(
                 "https://api.spotify.com/v1/playlists/{}/tracks?limit=100&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))",
                 playlist.id
@@ -1176,9 +1180,9 @@ async fn sync_spotify_library_to_user_library(
     // Write virtual playlist tracks to normalized tables
     // (liked songs, saved albums, followed artists collected earlier)
     {
-        let mut liked_norm: Vec<UpsertPlaylistTrack> = Vec::new();
-        let mut album_norm: Vec<UpsertPlaylistTrack> = Vec::new();
-        let mut artist_norm: Vec<UpsertPlaylistTrack> = Vec::new();
+        let mut liked_norm: Vec<UpsertPlaylistTrack> = Vec::with_capacity(liked_count);
+        let mut album_norm: Vec<UpsertPlaylistTrack> = Vec::with_capacity(saved_album_count);
+        let mut artist_norm: Vec<UpsertPlaylistTrack> = Vec::with_capacity(followed_artist_count);
         let mut liked_pos = 0i32;
         let mut album_pos = 0i32;
         let mut artist_pos = 0i32;
@@ -1250,19 +1254,10 @@ async fn sync_spotify_library_to_user_library(
         .delete_stale_playlists(user_id, "spotify", sync_ts)
         .await?;
 
-    // ── Legacy table: delete-and-reimport ─────────────────────────────
-    sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
-        .bind(user_id)
-        .bind("spotify")
-        .execute(pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-    let imported_tracks = if tracks.is_empty() {
-        0
-    } else {
+    // ── Legacy table: atomic delete-and-reimport in a single transaction ─
+    let imported_tracks = {
         OffenseService::new(pool)
-            .import_library(
+            .delete_and_import_library(
                 user_id,
                 ImportLibraryRequest {
                     provider: "spotify".to_string(),

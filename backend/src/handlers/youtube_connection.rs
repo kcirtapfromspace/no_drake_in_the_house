@@ -693,7 +693,9 @@ async fn sync_youtube_library_to_user_library(
             AppError::ExternalServiceError(format!("Failed to create YouTube client: {}", e))
         })?;
 
-    let mut tracks: Vec<ImportTrack> = Vec::new();
+    // NOTE: This Vec grows unboundedly as we page through the user's entire YouTube library.
+    // Consider streaming to the DB in batches if memory becomes a concern.
+    let mut tracks: Vec<ImportTrack> = Vec::with_capacity(1024);
     let mut liked_videos_count = 0usize;
     let mut playlist_items_count = 0usize;
     let mut subscriptions_count = 0usize;
@@ -974,27 +976,16 @@ async fn sync_youtube_library_to_user_library(
         .delete_stale_playlists(user_id, "youtube_music", sync_ts)
         .await?;
 
-    // ── Legacy table: delete-and-reimport ─────────────────────────────
-    sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
-        .bind(user_id)
-        .bind("youtube_music")
-        .execute(pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-    let imported_tracks = if tracks.is_empty() {
-        0
-    } else {
-        OffenseService::new(pool)
-            .import_library(
-                user_id,
-                ImportLibraryRequest {
-                    provider: "youtube_music".to_string(),
-                    tracks,
-                },
-            )
-            .await?
-    };
+    // ── Legacy table: atomic delete-and-reimport in a single transaction ─
+    let imported_tracks = OffenseService::new(pool)
+        .delete_and_import_library(
+            user_id,
+            ImportLibraryRequest {
+                provider: "youtube_music".to_string(),
+                tracks,
+            },
+        )
+        .await?;
 
     Ok(YouTubeLibrarySyncSummary {
         imported_tracks,

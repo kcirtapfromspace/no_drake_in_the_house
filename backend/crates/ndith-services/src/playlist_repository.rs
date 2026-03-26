@@ -3,6 +3,7 @@ use ndith_core::models::{
     PlaylistSummary, PlaylistTrackWithStatus, UpsertPlaylist, UpsertPlaylistTrack,
 };
 use sqlx::PgPool;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 type Result<T> = std::result::Result<T, ndith_core::error::AppError>;
@@ -93,36 +94,60 @@ impl<'a> PlaylistRepository<'a> {
             return Ok(0);
         }
 
-        // Try to resolve artist_id for each track
-        for track in tracks {
-            let artist_id: Option<Uuid> = sqlx::query_scalar(
-                "SELECT id FROM artists WHERE LOWER(canonical_name) = LOWER($1) LIMIT 1",
-            )
-            .bind(&track.artist_name)
-            .fetch_optional(&mut *tx)
-            .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+        // Batch-resolve all artist names in ONE query
+        let artist_names_lower: Vec<String> = tracks
+            .iter()
+            .map(|t| t.artist_name.to_lowercase())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
 
-            sqlx::query(
-                r#"
-                INSERT INTO playlist_tracks (
-                    playlist_id, provider_track_id, track_name, album_name,
-                    artist_id, artist_name, position, added_at
-                )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                "#,
+        let artist_map: HashMap<String, Uuid> = if artist_names_lower.is_empty() {
+            HashMap::new()
+        } else {
+            sqlx::query_as::<_, (Uuid, String)>(
+                "SELECT id, LOWER(canonical_name) AS lname FROM artists WHERE LOWER(canonical_name) = ANY($1)",
             )
-            .bind(playlist_id)
-            .bind(&track.provider_track_id)
-            .bind(&track.track_name)
-            .bind(&track.album_name)
-            .bind(artist_id)
-            .bind(&track.artist_name)
-            .bind(track.position)
-            .bind(track.added_at)
-            .execute(&mut *tx)
+            .bind(&artist_names_lower)
+            .fetch_all(&mut *tx)
             .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?
+            .into_iter()
+            .map(|(id, lname)| (lname, id))
+            .collect()
+        };
+
+        // Bulk INSERT all tracks in chunks of 500
+        const CHUNK_SIZE: usize = 500;
+        for chunk in tracks.chunks(CHUNK_SIZE) {
+            let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, album_name, artist_id, artist_name, position, added_at) ",
+            );
+
+            qb.push_values(chunk, |mut b, track| {
+                let artist_id = artist_map.get(&track.artist_name.to_lowercase()).copied();
+                b.push_bind(playlist_id)
+                    .push_bind(&track.provider_track_id)
+                    .push_bind(&track.track_name)
+                    .push_bind(&track.album_name)
+                    .push_bind(artist_id)
+                    .push_bind(&track.artist_name)
+                    .push_bind(track.position)
+                    .push_bind(track.added_at);
+            });
+
+            qb.push(
+                " ON CONFLICT (playlist_id, provider_track_id, position) DO UPDATE SET \
+                  track_name = EXCLUDED.track_name, \
+                  album_name = EXCLUDED.album_name, \
+                  artist_id = EXCLUDED.artist_id, \
+                  artist_name = EXCLUDED.artist_name",
+            );
+
+            qb.build()
+                .execute(&mut *tx)
+                .await
+                .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
         }
 
         tx.commit()
@@ -235,13 +260,13 @@ impl<'a> PlaylistRepository<'a> {
 
         let playlist_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
 
-        // ── Pass 2: batch-compute flagged tracks for ALL playlists at once ─
-        // Precompute the set of offending artist IDs (verified offenses)
-        // and the user's blocked artist IDs, then join once.
+        // ── Pass 2: batch-compute flagged track counts AND flagged artist names
+        //    in a single query (merged from two separate identical-CTE passes) ─
         #[derive(sqlx::FromRow)]
         struct FlaggedRow {
             playlist_id: Uuid,
             flagged_count: i64,
+            flagged_artist_names: Vec<String>,
         }
 
         let flagged_rows: Vec<FlaggedRow> = sqlx::query_as(
@@ -261,7 +286,12 @@ impl<'a> PlaylistRepository<'a> {
             )
             SELECT
                 pt.playlist_id,
-                COUNT(*)::bigint AS flagged_count
+                COUNT(*)::bigint AS flagged_count,
+                COALESCE(
+                    ARRAY_AGG(DISTINCT pt.artist_name)
+                    FILTER (WHERE pt.artist_name IS NOT NULL AND TRIM(pt.artist_name) <> ''),
+                    ARRAY[]::text[]
+                ) AS flagged_artist_names
             FROM playlist_tracks pt
             WHERE pt.playlist_id = ANY($2)
               AND (
@@ -278,58 +308,13 @@ impl<'a> PlaylistRepository<'a> {
         .await
         .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
-        let flagged_map: std::collections::HashMap<Uuid, i64> = flagged_rows
-            .into_iter()
-            .map(|r| (r.playlist_id, r.flagged_count))
-            .collect();
-
-        // ── Pass 3: batch-fetch flagged artist names per playlist ──────
-        #[derive(sqlx::FromRow)]
-        struct FlaggedArtistRow {
-            playlist_id: Uuid,
-            artist_name: String,
-        }
-
-        let flagged_artist_rows: Vec<FlaggedArtistRow> = sqlx::query_as(
-            r#"
-            WITH offending_ids AS (
-                SELECT DISTINCT a.id
-                FROM artists a
-                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-            ),
-            offending_names AS (
-                SELECT DISTINCT LOWER(a.canonical_name) AS lname
-                FROM artists a
-                JOIN artist_offenses ao ON ao.artist_id = a.id AND ao.status = 'verified'
-            ),
-            blocked_ids AS (
-                SELECT artist_id FROM user_artist_blocks WHERE user_id = $1
-            )
-            SELECT DISTINCT pt.playlist_id, pt.artist_name
-            FROM playlist_tracks pt
-            WHERE pt.playlist_id = ANY($2)
-              AND pt.artist_name IS NOT NULL
-              AND TRIM(pt.artist_name) <> ''
-              AND (
-                  pt.artist_id IN (SELECT id FROM offending_ids)
-                  OR LOWER(pt.artist_name) IN (SELECT lname FROM offending_names)
-                  OR pt.artist_id IN (SELECT artist_id FROM blocked_ids)
-              )
-            "#,
-        )
-        .bind(user_id)
-        .bind(&playlist_ids)
-        .fetch_all(self.db)
-        .await
-        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
-
-        let mut flagged_artists_map: std::collections::HashMap<Uuid, Vec<String>> =
-            std::collections::HashMap::new();
-        for row in flagged_artist_rows {
-            flagged_artists_map
-                .entry(row.playlist_id)
-                .or_default()
-                .push(row.artist_name);
+        let mut flagged_map: HashMap<Uuid, i64> = HashMap::new();
+        let mut flagged_artists_map: HashMap<Uuid, Vec<String>> = HashMap::new();
+        for row in flagged_rows {
+            flagged_map.insert(row.playlist_id, row.flagged_count);
+            if !row.flagged_artist_names.is_empty() {
+                flagged_artists_map.insert(row.playlist_id, row.flagged_artist_names);
+            }
         }
 
         // ── Pass 4: batch-fetch cover images ──────────────────────────
@@ -358,8 +343,7 @@ impl<'a> PlaylistRepository<'a> {
         .await
         .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
-        let mut cover_map: std::collections::HashMap<Uuid, Vec<String>> =
-            std::collections::HashMap::new();
+        let mut cover_map: HashMap<Uuid, Vec<String>> = HashMap::new();
         for row in cover_rows {
             let images = cover_map.entry(row.playlist_id).or_default();
             if images.len() < 4 {

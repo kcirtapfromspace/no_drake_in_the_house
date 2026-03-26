@@ -846,12 +846,15 @@ async fn sync_tidal_library_to_user_library(
         });
     }
 
-    let mut tracks: Vec<ImportTrack> = Vec::new();
-
     let favorite_tracks_synced = scan_result.library.favorite_tracks.len();
     let favorite_artists_synced = scan_result.library.favorite_artists.len();
     let favorite_albums_synced = scan_result.library.favorite_albums.len();
     let playlists_synced = scan_result.library.playlists.len();
+
+    // NOTE: This Vec grows as we process the user's entire Tidal library.
+    // Consider streaming to the DB in batches if memory becomes a concern.
+    let estimated_size = favorite_tracks_synced + favorite_artists_synced + favorite_albums_synced + playlists_synced;
+    let mut tracks: Vec<ImportTrack> = Vec::with_capacity(estimated_size);
 
     for favorite in scan_result.library.favorite_tracks {
         let track = favorite.item;
@@ -1153,27 +1156,16 @@ async fn sync_tidal_library_to_user_library(
         .delete_stale_playlists(user_id, "tidal", sync_ts)
         .await?;
 
-    // ── Legacy table: delete-and-reimport ─────────────────────────────
-    sqlx::query("DELETE FROM user_library_tracks WHERE user_id = $1 AND provider = $2")
-        .bind(user_id)
-        .bind("tidal")
-        .execute(pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
-
-    let imported_tracks = if tracks.is_empty() {
-        0
-    } else {
-        OffenseService::new(pool)
-            .import_library(
-                user_id,
-                ImportLibraryRequest {
-                    provider: "tidal".to_string(),
-                    tracks,
-                },
-            )
-            .await?
-    };
+    // ── Legacy table: atomic delete-and-reimport in a single transaction ─
+    let imported_tracks = OffenseService::new(pool)
+        .delete_and_import_library(
+            user_id,
+            ImportLibraryRequest {
+                provider: "tidal".to_string(),
+                tracks,
+            },
+        )
+        .await?;
 
     Ok(TidalLibrarySyncSummary {
         imported_tracks,

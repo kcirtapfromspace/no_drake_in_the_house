@@ -43,12 +43,10 @@ export const config = {
     appleMusicToken: import.meta.env.VITE_APPLE_MUSIC_DEVELOPER_TOKEN,
   },
 
-  // PostHog Analytics (runtime-injected via window.__ENV__, falls back to build-time for local dev)
+  // PostHog Analytics (runtime-injected via window.__ENV__ by render-entrypoint.sh)
   posthog: {
-    apiKey: (typeof window !== 'undefined' && (window as any).__ENV__?.VITE_POSTHOG_API_KEY)
-      || import.meta.env.VITE_POSTHOG_API_KEY || '',
-    apiHost: (typeof window !== 'undefined' && (window as any).__ENV__?.VITE_POSTHOG_HOST)
-      || import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
+    apiKey: (typeof window !== 'undefined' && (window as any).__ENV__ && (window as any).__ENV__.VITE_POSTHOG_API_KEY) || '',
+    apiHost: (typeof window !== 'undefined' && (window as any).__ENV__ && (window as any).__ENV__.VITE_POSTHOG_HOST) || 'https://us.i.posthog.com',
   },
 
   auth: {

@@ -43,6 +43,12 @@ export const config = {
     appleMusicToken: import.meta.env.VITE_APPLE_MUSIC_DEVELOPER_TOKEN,
   },
 
+  // PostHog Analytics
+  posthog: {
+    apiKey: import.meta.env.VITE_POSTHOG_API_KEY || '',
+    apiHost: import.meta.env.VITE_POSTHOG_HOST || 'https://us.i.posthog.com',
+  },
+
   auth: {
     mode: 'legacy' as const,
   },

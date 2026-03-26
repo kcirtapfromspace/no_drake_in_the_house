@@ -70,6 +70,9 @@ jobs:
           provenance: false
           sbom: false
           tags: ${{ steps.vars.outputs.tags }}
+          build-args: |
+            VITE_POSTHOG_API_KEY=${{ secrets.VITE_POSTHOG_API_KEY }}
+            VITE_POSTHOG_HOST=${{ secrets.VITE_POSTHOG_HOST }}
           cache-from: type=gha,scope=render-frontend-image
           cache-to: type=gha,mode=max,scope=render-frontend-image
 

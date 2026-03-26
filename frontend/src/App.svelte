@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from "svelte";
-	import { isAuthenticated, authActions } from "./lib/stores/auth";
+	import { isAuthenticated, authActions, currentUser } from "./lib/stores/auth";
 	import { initRouter, currentRoute, routeParams } from "./lib/utils/simple-router";
 	import { theme } from "./lib/stores/theme";
 	import Login from "./lib/components/Login.svelte";
@@ -19,6 +19,7 @@
 	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
 	import Layout from "./lib/components/Layout.svelte";
 	import config from "./lib/utils/config";
+	import { initPostHog, capturePageView, identifyUser, resetUser } from "./lib/utils/posthog";
 
 	let isInitialized = false;
 	let initError = false;
@@ -117,12 +118,34 @@
 		initializeApp();
 	}
 
+	// Track page views on route changes
+	const unsubRoute = currentRoute.subscribe((route) => {
+		if (isInitialized) {
+			capturePageView(route);
+		}
+	});
+
+	// Identify/reset user in PostHog when auth state changes
+	const unsubUser = currentUser.subscribe((user) => {
+		if (user) {
+			identifyUser(user.id, {
+				email: user.email,
+				name: user.display_name,
+			});
+		} else {
+			resetUser();
+		}
+	});
+
 	onMount(() => {
+		initPostHog();
 		initializeApp();
 	});
 
 	onDestroy(() => {
 		stopMaintenancePolling();
+		unsubRoute();
+		unsubUser();
 	});
 </script>
 

@@ -440,12 +440,14 @@ function normalizeDashboardMetrics(data: unknown): DashboardMetrics {
 
 function normalizeUserQuickStats(data: unknown): UserQuickStats {
   const root = asRecord(data);
+  // The backend wraps the payload in { success, data: { ... } } — unwrap if present.
+  const inner = getNestedRecord(data, ['data']) ?? root;
 
   return {
-    blocked_artists: getNumber(root, ['blocked_artists']),
-    subscriptions: getNumber(root, ['subscriptions', 'list_subscriptions']),
-    manual_blocks: getNumber(root, ['manual_blocks', 'blocked_tracks']),
-    last_sync: getString(root, ['last_sync', 'last_activity'], ''),
+    blocked_artists: getNumber(inner, ['blocked_artists']),
+    subscriptions: getNumber(inner, ['subscriptions', 'list_subscriptions']),
+    manual_blocks: getNumber(inner, ['manual_blocks', 'blocked_tracks']),
+    last_sync: getString(inner, ['last_sync', 'last_activity'], ''),
   };
 }
 

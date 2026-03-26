@@ -58,6 +58,16 @@
     );
   }
 
+  // Detect playlists that need a re-sync: metadata says tracks exist but we haven't fetched them yet.
+  // Since provider_track_count isn't in the summary, heuristic: some playlists have 0 tracks
+  // while others do have tracks, indicating an incomplete sync.
+  $: needsResyncPlaylists = (() => {
+    const all = $playlistBrowserStore.playlists;
+    const hasPopulated = all.some(p => p.total_tracks > 0);
+    const hasEmpty = all.some(p => p.total_tracks === 0);
+    return hasPopulated && hasEmpty;
+  })();
+
   $: stepIndex = $sanitizerStore.step === 'grade' ? 0 : $sanitizerStore.step === 'replace' ? 1 : 2;
 </script>
 
@@ -77,6 +87,13 @@
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3M8 10.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
           <span>{$playlistBrowserStore.error}</span>
           <button type="button" on:click={playlistBrowserActions.clearError} class="sanitizer__error-dismiss">&times;</button>
+        </div>
+      {/if}
+
+      {#if needsResyncPlaylists}
+        <div class="sanitizer__resync-banner">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zM8.75 7.5a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 1.5 0v3z" fill="currentColor"/></svg>
+          <span>Some playlists need a re-sync to load tracks. Go to Library &gt; Sync to update.</span>
         </div>
       {/if}
 
@@ -537,6 +554,22 @@
   }
 
   .sanitizer__error-dismiss:hover { opacity: 1; }
+
+  .sanitizer__resync-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.625rem;
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    color: #eab308;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    animation: slideDown 0.25s ease-out;
+  }
+
+  .sanitizer__resync-banner svg { flex-shrink: 0; }
 
   /* ---- Back button ---- */
   .sanitizer__back-btn {

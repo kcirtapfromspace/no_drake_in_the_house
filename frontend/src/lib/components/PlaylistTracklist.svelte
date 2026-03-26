@@ -121,7 +121,7 @@
           class:tl__row--blocked={track.status === 'blocked'}
           style="--ri: {i}; animation-delay: {Math.min(i * 20, 600)}ms;"
         >
-          <span class="tl__num">{track.position}</span>
+          <span class="tl__num">{track.position + 1}</span>
 
           <div class="tl__title-cell">
             {#if track.artist_image_url}

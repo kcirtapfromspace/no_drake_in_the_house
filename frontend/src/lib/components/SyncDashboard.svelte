@@ -7,6 +7,7 @@
   import { connectionsStore, connectionActions, type ServiceConnection } from '../stores/connections';
   import { apiClient } from '../utils/api-client';
   import { blockingStore } from '../stores/blocking';
+  import { timeAgo } from '../utils/time-ago';
 
   let selectedPlatforms: string[] = [];
   let syncType: 'full' | 'incremental' = 'incremental';
@@ -337,9 +338,7 @@
     try {
       const result = await apiClient.authenticatedRequest<any>(
         'GET',
-        '/api/v1/apple-music/library?limit=100',
-        undefined,
-        { retries: 0 }
+        '/api/v1/apple-music/library?limit=100'
       );
       if (result.success) {
         const payload = (result.data ?? result) as any;
@@ -363,7 +362,10 @@
         };
         return appleLibrary;
       } else {
-        appleLibraryError = result.message || 'Failed to load Apple Music library';
+        const isServerError = result.error_code?.startsWith('HTTP_5');
+        appleLibraryError = isServerError
+          ? 'Apple Music connection may need to be refreshed. Try disconnecting and reconnecting.'
+          : (result.message || 'Failed to load Apple Music library');
         return null;
       }
     } catch (error) {
@@ -1002,15 +1004,7 @@
   }
 
   function formatDate(dateStr?: string): string {
-    if (!dateStr) return 'Never';
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-
-    if (diff < 60000) return 'Just now';
-    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-    return date.toLocaleDateString();
+    return timeAgo(dateStr);
   }
 
   function formatMetric(value: number | null): string {
@@ -1742,10 +1736,10 @@
               </div>
               <button
                 type="button"
-                disabled
-                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-400 bg-zinc-800 border border-zinc-700 cursor-not-allowed"
+                on:click={() => navigateTo('home')}
+                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
               >
-                Catalog Search Only
+                No account needed &mdash; search from Home
               </button>
             {:else}
               <!-- Not connected state -->

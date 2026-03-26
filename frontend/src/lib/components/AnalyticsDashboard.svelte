@@ -12,6 +12,7 @@
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import CategoryRevenueBreakdown from './CategoryRevenueBreakdown.svelte';
   import { Skeleton } from './ui';
+  import { timeAgo } from '../utils/time-ago';
 
   // Tab state
   type Tab = 'overview' | 'revenue' | 'sync';
@@ -857,7 +858,7 @@
                 </div>
                 {#if status?.last_sync}
                   <div class="text-xs text-zinc-400 mt-1">
-                    Last: {new Date(status.last_sync).toLocaleDateString()}
+                    Last: {timeAgo(status.last_sync)}
                   </div>
                 {/if}
               </div>
@@ -960,7 +961,7 @@
                     <div>
                       <div class="font-medium text-white capitalize">{run.platform}</div>
                       <div class="text-xs text-zinc-400">
-                        {run.sync_type} sync • {new Date(run.started_at).toLocaleString()}
+                        {run.sync_type} sync • {timeAgo(run.started_at)}
                       </div>
                     </div>
                   </div>

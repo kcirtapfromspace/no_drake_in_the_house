@@ -253,10 +253,10 @@ pub async fn get_library_offenders(
 
     if songs_only {
         qb.push(
-            " AND ult.provider_track_id NOT LIKE 'album:%'
+            " AND COALESCE(ult.source_type, '') NOT IN ('saved_album', 'followed_artist')
+              AND ult.provider_track_id NOT LIKE 'album:%'
               AND ult.provider_track_id NOT LIKE 'artist:%'
-              AND ult.provider_track_id NOT LIKE 'subscription:%'
-              AND ult.provider_track_id NOT LIKE 'playlist:%'",
+              AND ult.provider_track_id NOT LIKE 'subscription:%'",
         );
     }
 

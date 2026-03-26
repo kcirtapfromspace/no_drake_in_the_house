@@ -3,7 +3,7 @@
   import { apiClient } from '../utils/api-client';
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import { blockingStore, type Platform } from '../stores/blocking';
-  import { spotifyConnection, appleMusicConnection } from '../stores/connections';
+  import { spotifyConnection, appleMusicConnection, connectionActions } from '../stores/connections';
   import EnforcementBadges from './EnforcementBadges.svelte';
 
   interface CategoryList {
@@ -159,6 +159,7 @@
       loadCategories(),
       loadBlockedArtists(),
       loadDnpList(),
+      connectionActions.fetchConnections(),
     ]);
   });
 

@@ -326,7 +326,7 @@
               <span class="brand-stat__label">Artists listed</span>
             </div>
             <div class="brand-stat">
-              <span class="brand-stat__value">{severityFilter ? severityConfig[severityFilter].label : 'All'}</span>
+              <span class="brand-stat__value">{severityFilter ? (severityConfig[severityFilter] || severityConfig.minor).label : 'All'}</span>
               <span class="brand-stat__label">Current filter</span>
             </div>
           </div>
@@ -428,8 +428,8 @@
                         </p>
                       </div>
                     </div>
-                    <span class="px-3 py-1 {severityConfig[artist.severity].color} text-white text-xs font-medium rounded-full">
-                      {severityConfig[artist.severity].label}
+                    <span class="px-3 py-1 {(severityConfig[artist.severity] || severityConfig.minor).color} text-white text-xs font-medium rounded-full">
+                      {(severityConfig[artist.severity] || severityConfig.minor).label}
                     </span>
                   </div>
 
@@ -500,8 +500,8 @@
                 <h2 class="text-xl font-bold text-white mt-1">{selectedOffense.offense.title}</h2>
                 <p class="text-zinc-400">Artist: {selectedOffense.artist_name}</p>
               </div>
-              <span class="px-3 py-1 {severityConfig[selectedOffense.offense.severity].color} text-white text-xs font-medium rounded-full">
-                {severityConfig[selectedOffense.offense.severity].label}
+              <span class="px-3 py-1 {(severityConfig[selectedOffense.offense.severity] || severityConfig.minor).color} text-white text-xs font-medium rounded-full">
+                {(severityConfig[selectedOffense.offense.severity] || severityConfig.minor).label}
               </span>
             </div>
 

@@ -13,6 +13,9 @@
   let errorMessage = '';
   let provider = '';
 
+  // Detect if we're running inside an OAuth popup (opened by window.open)
+  const isPopup = !!window.opener && window.opener !== window;
+
   onMount(async () => {
     provider = getProviderFromPath(window.location.pathname);
 
@@ -25,6 +28,12 @@
     provider = result.provider;
 
     if (result.status === 'success') {
+      // If running in a popup, close it — the parent window polls popup.closed
+      // and will refresh connections automatically.
+      if (isPopup && isConnectionProvider(result.provider)) {
+        window.close();
+        return;
+      }
       status = 'success';
       setTimeout(() => {
         navigateTo(isConnectionProvider(result.provider) ? 'sync' : 'settings');

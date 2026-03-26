@@ -3,9 +3,9 @@ import { writable, derived } from 'svelte/store';
 // Route definitions
 export type Route =
   | 'home'
-  | 'landing'
   | 'login'
   | 'pricing'
+  | 'faq'
   | 'dashboard'
   | 'settings'
   | 'service-health'
@@ -33,6 +33,7 @@ const pathToRoute: Record<string, Route> = {
   '/home': 'home',
   '/login': 'login',
   '/pricing': 'pricing',
+  '/faq': 'faq',
   '/dashboard': 'dashboard',
   '/settings': 'settings',
   '/service-health': 'service-health',
@@ -54,9 +55,9 @@ const pathToRoute: Record<string, Route> = {
 
 const routeToPath: Record<Route, string> = {
   'home': '/',
-  'landing': '/',
   'login': '/login',
   'pricing': '/pricing',
+  'faq': '/faq',
   'dashboard': '/dashboard',
   'settings': '/settings',
   'service-health': '/service-health',
@@ -82,9 +83,9 @@ const routeToPath: Record<Route, string> = {
 // Route metadata
 const routeMeta: Record<Route, { title: string; description: string }> = {
   'home': { title: 'Home', description: 'Your music blocklist dashboard' },
-  'landing': { title: 'No Drake in the House', description: 'Protect your playlists from problematic artists' },
   'login': { title: 'Sign In', description: 'Sign in to No Drake in the House' },
   'pricing': { title: 'Pricing', description: 'Plans and pricing for No Drake in the House' },
+  'faq': { title: 'FAQ', description: 'Frequently asked questions about No Drake in the House' },
   'dashboard': { title: 'Dashboard', description: 'Your music blocklist dashboard' },
   'settings': { title: 'Settings', description: 'Account and connection settings' },
   'service-health': { title: 'Service Health', description: 'Backend and service health' },

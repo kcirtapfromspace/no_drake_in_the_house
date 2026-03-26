@@ -295,8 +295,6 @@
 			{/if}
 		{/key}
 	</Layout>
-{:else if $currentRoute === 'login'}
-	<Login />
 {:else}
 	<!-- Public shell: offense database as homepage with sign-in bar -->
 	<div class="public-shell">
@@ -317,7 +315,9 @@
 			</div>
 		</nav>
 		<main class="public-content">
-			{#if $currentRoute === 'pricing'}
+			{#if $currentRoute === 'login'}
+				<Login />
+			{:else if $currentRoute === 'pricing'}
 				<Pricing />
 			{:else if $currentRoute === 'faq'}
 				<FAQ />

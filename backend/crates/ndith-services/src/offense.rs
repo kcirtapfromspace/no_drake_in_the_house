@@ -370,9 +370,7 @@ impl<'a> OffenseService<'a> {
                 .map_err(AppError::DatabaseQueryFailed)?;
         }
 
-        tx.commit()
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
+        tx.commit().await.map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(total)
     }
@@ -425,9 +423,7 @@ impl<'a> OffenseService<'a> {
             .map_err(AppError::DatabaseQueryFailed)?;
 
         if request.tracks.is_empty() {
-            tx.commit()
-                .await
-                .map_err(AppError::DatabaseQueryFailed)?;
+            tx.commit().await.map_err(AppError::DatabaseQueryFailed)?;
             return Ok(0);
         }
 
@@ -468,9 +464,7 @@ impl<'a> OffenseService<'a> {
                 .map_err(AppError::DatabaseQueryFailed)?;
         }
 
-        tx.commit()
-            .await
-            .map_err(AppError::DatabaseQueryFailed)?;
+        tx.commit().await.map_err(AppError::DatabaseQueryFailed)?;
 
         Ok(total)
     }

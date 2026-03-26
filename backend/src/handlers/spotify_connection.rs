@@ -344,7 +344,9 @@ pub async fn spotify_callback_handler(
         .map(|secs| Utc::now() + Duration::seconds(secs));
 
     // Store connection in database
-    let provider_user_id = user_info.as_ref().map(|info| info.provider_user_id.as_str());
+    let provider_user_id = user_info
+        .as_ref()
+        .map(|info| info.provider_user_id.as_str());
     let connection_id = store_spotify_connection(
         &state.db_pool,
         state_data.user_id,
@@ -389,11 +391,10 @@ pub async fn spotify_callback_handler(
         }
     });
     let sync_summary = None;
-    let sync_warning = Some("Library sync started in background. Refresh to see progress.".to_string());
+    let sync_warning =
+        Some("Library sync started in background. Refresh to see progress.".to_string());
 
-    let provider_user_id_display = provider_user_id
-        .unwrap_or("unknown")
-        .to_string();
+    let provider_user_id_display = provider_user_id.unwrap_or("unknown").to_string();
 
     tracing::info!(
         user_id = %state_data.user_id,
@@ -1117,8 +1118,13 @@ async fn sync_spotify_library_to_user_library(
                 .await?;
 
             // Fetch playlist tracks
-            let estimated_count = playlist.tracks.as_ref().and_then(|t| t.total).unwrap_or(100) as usize;
-            let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::with_capacity(estimated_count);
+            let estimated_count = playlist
+                .tracks
+                .as_ref()
+                .and_then(|t| t.total)
+                .unwrap_or(100) as usize;
+            let mut normalized_tracks: Vec<UpsertPlaylistTrack> =
+                Vec::with_capacity(estimated_count);
             let mut playlist_tracks_url = Some(format!(
                 "https://api.spotify.com/v1/playlists/{}/tracks?limit=100&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))",
                 playlist.id

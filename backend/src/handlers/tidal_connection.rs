@@ -853,7 +853,10 @@ async fn sync_tidal_library_to_user_library(
 
     // NOTE: This Vec grows as we process the user's entire Tidal library.
     // Consider streaming to the DB in batches if memory becomes a concern.
-    let estimated_size = favorite_tracks_synced + favorite_artists_synced + favorite_albums_synced + playlists_synced;
+    let estimated_size = favorite_tracks_synced
+        + favorite_artists_synced
+        + favorite_albums_synced
+        + playlists_synced;
     let mut tracks: Vec<ImportTrack> = Vec::with_capacity(estimated_size);
 
     for favorite in scan_result.library.favorite_tracks {

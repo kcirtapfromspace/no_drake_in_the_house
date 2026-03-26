@@ -641,9 +641,7 @@ impl TokenVaultService {
                     Some(Utc::now() + Duration::seconds(new_tokens.expires_in as i64));
 
                 // Handle refresh token rotation
-                let final_refresh_token = new_tokens
-                    .refresh_token
-                    .unwrap_or(refresh_token_value);
+                let final_refresh_token = new_tokens.refresh_token.unwrap_or(refresh_token_value);
 
                 // Get data key for encryption
                 let key_id = format!(
@@ -702,11 +700,8 @@ impl TokenVaultService {
                     "Tidal token refresh failed"
                 );
 
-                self.mark_connection_needs_reauth(
-                    connection_id,
-                    format!("Refresh failed: {}", e),
-                )
-                .await?;
+                self.mark_connection_needs_reauth(connection_id, format!("Refresh failed: {}", e))
+                    .await?;
 
                 Ok(TokenRefreshResult {
                     connection_id,

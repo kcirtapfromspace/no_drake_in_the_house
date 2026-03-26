@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
+import config from '../utils/config';
 import * as musicKit from '../utils/musickit';
 
 /** Open a centered popup window over the current browser window. */
@@ -53,6 +54,13 @@ interface ConnectionsHealthPayload {
   connections?: ConnectionHealthRecord[];
 }
 
+interface ConnectionsFetchResponse {
+  success: boolean;
+  data?: ConnectionsHealthPayload;
+  message?: string;
+  error_code?: string;
+}
+
 const initialState: ConnectionsState = {
   connections: [],
   isLoading: false,
@@ -85,6 +93,112 @@ function mapConnectionStatus(
     default:
       return 'error';
   }
+}
+
+function mapConnectionRecord(connection: ConnectionHealthRecord): ServiceConnection {
+  return {
+    id: connection.id,
+    provider: normalizeProvider(connection.provider),
+    provider_user_id: connection.provider_user_id,
+    scopes: connection.scopes ?? [],
+    status: mapConnectionStatus(connection.health_status),
+    health_status: connection.health_status,
+    expires_at: connection.expires_at,
+    last_health_check: connection.last_used_at,
+    created_at: connection.last_used_at ?? connection.expires_at ?? new Date().toISOString(),
+    error_code: connection.error_message,
+  };
+}
+
+function normalizeConnectionsPayload(payload?: ConnectionsHealthPayload | null): ServiceConnection[] {
+  const records = Array.isArray(payload?.connections) ? payload.connections : [];
+  return records.map(mapConnectionRecord);
+}
+
+function emitAuthLogout(): void {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('auth:logout', {
+      detail: { reason: 'token_refresh_failed' },
+    })
+  );
+}
+
+async function parseConnectionsResponse(response: Response): Promise<ConnectionsFetchResponse> {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    const payload = (await response.json().catch(() => null)) as
+      | ConnectionsHealthPayload
+      | { message?: string }
+      | null;
+
+    if (response.ok) {
+      return {
+        success: true,
+        data: payload && typeof payload === 'object' ? (payload as ConnectionsHealthPayload) : undefined,
+      };
+    }
+
+    return {
+      success: false,
+      message:
+        payload && typeof payload === 'object' && 'message' in payload
+          ? payload.message || `HTTP ${response.status}`
+          : `HTTP ${response.status}`,
+      error_code: `HTTP_${response.status}`,
+    };
+  }
+
+  const message = await response.text().catch(() => '');
+  return {
+    success: response.ok,
+    message: message || `HTTP ${response.status}`,
+    error_code: response.ok ? undefined : `HTTP_${response.status}`,
+  };
+}
+
+async function fetchConnectionsDirect(): Promise<ConnectionsFetchResponse> {
+  const requestConnections = async (): Promise<ConnectionsFetchResponse> => {
+    const token = apiClient.getAuthToken();
+    const headers: Record<string, string> = {};
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(config.resolveUrl('/api/v1/connections'), {
+        method: 'GET',
+        headers,
+      });
+
+      return await parseConnectionsResponse(response);
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fetch connections',
+        error_code: 'NETWORK_ERROR',
+      };
+    }
+  };
+
+  let result = await requestConnections();
+
+  if (!result.success && result.error_code === 'HTTP_401') {
+    const refreshed = await apiClient.handleAuthError();
+
+    if (refreshed) {
+      result = await requestConnections();
+    } else {
+      apiClient.clearAuthToken();
+      localStorage.removeItem('refresh_token');
+      emitAuthLogout();
+    }
+  }
+
+  return result;
 }
 
 export function isConnectionActive(connection: Pick<ServiceConnection, 'status'> | null | undefined): boolean {
@@ -165,26 +279,10 @@ export const connectionActions = {
   fetchConnections: async () => {
     connectionsStore.update(state => ({ ...state, isLoading: true, error: null }));
 
-    const response = await apiClient.authenticatedRequest<ConnectionsHealthPayload>(
-      'GET',
-      '/api/v1/connections'
-    );
+    const response = await fetchConnectionsDirect();
 
     if (response.success && response.data) {
-      const payload = response.data as ConnectionsHealthPayload;
-      const records = Array.isArray(payload.connections) ? payload.connections : [];
-      const connections: ServiceConnection[] = records.map((connection) => ({
-        id: connection.id,
-        provider: normalizeProvider(connection.provider),
-        provider_user_id: connection.provider_user_id,
-        scopes: connection.scopes ?? [],
-        status: mapConnectionStatus(connection.health_status),
-        health_status: connection.health_status,
-        expires_at: connection.expires_at,
-        last_health_check: connection.last_used_at,
-        created_at: connection.last_used_at ?? connection.expires_at ?? new Date().toISOString(),
-        error_code: connection.error_message,
-      }));
+      const connections = normalizeConnectionsPayload(response.data);
 
       connectionsStore.update(state => ({
         ...state,

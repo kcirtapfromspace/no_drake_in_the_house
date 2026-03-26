@@ -9,10 +9,46 @@
 
   let topView: 'browse' | 'sanitize' = 'browse';
   let showConfetti = false;
+  let urlInput = '';
+  let urlError = '';
+  let isExternalPlaylist = false;
 
   onMount(() => {
     playlistBrowserActions.fetchPlaylists();
   });
+
+  function isValidSpotifyUrl(input: string): boolean {
+    return (
+      input.includes('open.spotify.com/playlist/') ||
+      input.startsWith('spotify:playlist:') ||
+      /^[a-zA-Z0-9]{22}$/.test(input.trim())
+    );
+  }
+
+  function handleUrlSubmit() {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+
+    if (!isValidSpotifyUrl(trimmed)) {
+      urlError = 'Paste a Spotify playlist URL, URI, or ID';
+      return;
+    }
+
+    urlError = '';
+    isExternalPlaylist = true;
+    topView = 'sanitize';
+    sanitizerActions.reset();
+    sanitizerActions.suggestReplacements(trimmed, 'spotify');
+  }
+
+  function handleUrlKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') handleUrlSubmit();
+  }
+
+  function handleUrlInput(e: Event) {
+    urlInput = (e.target as HTMLInputElement).value;
+    if (urlError) urlError = '';
+  }
 
   function handleSelectPlaylist(e: CustomEvent<PlaylistSummary>) {
     playlistBrowserActions.selectPlaylist(e.detail);
@@ -30,6 +66,9 @@
 
   function handleBackToPlaylists() {
     topView = 'browse';
+    isExternalPlaylist = false;
+    urlInput = '';
+    urlError = '';
     sanitizerActions.reset();
   }
 
@@ -43,6 +82,9 @@
   function handleReset() {
     sanitizerActions.reset();
     topView = 'browse';
+    isExternalPlaylist = false;
+    urlInput = '';
+    urlError = '';
     playlistBrowserActions.backToGrid();
   }
 
@@ -79,8 +121,44 @@
       <!-- Grid View -->
       <header class="sanitizer__header">
         <h1 class="sanitizer__title">Your Playlists</h1>
-        <p class="sanitizer__subtitle">Browse, grade, and sanitize your synced playlists</p>
+        <p class="sanitizer__subtitle">Browse your synced playlists, or paste any Spotify playlist URL to scrub &amp; clone</p>
       </header>
+
+      <!-- Paste URL bar -->
+      <div class="url-bar">
+        <div class="url-bar__icon">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M8.5 11.5l3-3m-1.1-2.4L12.3 4.2a2.83 2.83 0 1 1 4 4l-1.9 1.9m-4.8 0L7.7 12a2.83 2.83 0 1 1-4-4l1.9-1.9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <input
+          type="text"
+          class="url-bar__input"
+          placeholder="Paste a Spotify playlist URL to scrub & clone..."
+          value={urlInput}
+          on:input={handleUrlInput}
+          on:keydown={handleUrlKeydown}
+          on:paste={() => setTimeout(handleUrlSubmit, 0)}
+        />
+        <button
+          type="button"
+          class="url-bar__btn"
+          disabled={!urlInput.trim()}
+          on:click={handleUrlSubmit}
+        >
+          Scrub It
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8m0 0L8 4m3 3L8 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+      {#if urlError}
+        <p class="url-bar__error">{urlError}</p>
+      {/if}
+
+      <div class="url-bar__divider">
+        <span class="url-bar__divider-line"></span>
+        <span class="url-bar__divider-text">or browse your library</span>
+        <span class="url-bar__divider-line"></span>
+      </div>
 
       {#if $playlistBrowserStore.error}
         <div class="sanitizer__error">
@@ -182,8 +260,12 @@
     </button>
 
     <header class="sanitizer__header">
-      <h1 class="sanitizer__title">Playlist Sanitizer</h1>
-      <p class="sanitizer__subtitle">Grade, replace, and publish a clean version of your playlist</p>
+      <h1 class="sanitizer__title">{isExternalPlaylist ? 'Scrub & Clone' : 'Playlist Sanitizer'}</h1>
+      <p class="sanitizer__subtitle">
+        {isExternalPlaylist
+          ? 'Scrub blocked artists and clone a clean version to your account'
+          : 'Grade, replace, and publish a clean version of your playlist'}
+      </p>
     </header>
 
     <!-- Error banner -->
@@ -392,9 +474,9 @@
             >
               {#if $sanitizerStore.isPublishing}
                 <span class="brand-button__spinner"></span>
-                Publishing...
+                {isExternalPlaylist ? 'Cloning...' : 'Publishing...'}
               {:else}
-                Create Sanitized Playlist
+                {isExternalPlaylist ? 'Scrub & Clone to My Account' : 'Create Sanitized Playlist'}
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
               {/if}
             </button>
@@ -411,7 +493,9 @@
             <div class="publish-status__vinyl">
               <div class="publish-status__disc"></div>
             </div>
-            <p class="publish-status__text">Creating your sanitized playlist...</p>
+            <p class="publish-status__text">
+              {isExternalPlaylist ? 'Cloning scrubbed playlist...' : 'Creating your sanitized playlist...'}
+            </p>
             <p class="publish-status__sub">Adding tracks to Spotify</p>
           </div>
         {:else if $sanitizerStore.publishResult}
@@ -443,8 +527,12 @@
               </svg>
             </div>
 
-            <h2 class="publish-success__title">Playlist Created!</h2>
-            <p class="publish-success__subtitle">Your sanitized playlist is live on Spotify</p>
+            <h2 class="publish-success__title">{isExternalPlaylist ? 'Playlist Cloned!' : 'Playlist Created!'}</h2>
+            <p class="publish-success__subtitle">
+              {isExternalPlaylist
+                ? 'The scrubbed playlist is now in your Spotify library'
+                : 'Your sanitized playlist is live on Spotify'}
+            </p>
 
             <div class="publish-success__stats">
               <div class="publish-success__stat">
@@ -870,6 +958,107 @@
   .sanitizer__empty-hint {
     font-size: 0.8125rem;
     color: var(--color-text-muted);
+  }
+
+  /* ---- URL bar ---- */
+
+  .url-bar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border: 1px solid var(--color-border-default, #27272a);
+    border-radius: 0.75rem;
+    background: var(--color-bg-elevated, #111113);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    margin-bottom: 0.5rem;
+  }
+
+  .url-bar:focus-within {
+    border-color: var(--color-brand-primary, #f43f5e);
+    box-shadow: 0 0 0 3px rgba(244,63,94,0.08);
+  }
+
+  .url-bar__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.25rem 0 0.875rem;
+    color: var(--color-text-muted, #52525b);
+    flex-shrink: 0;
+  }
+
+  .url-bar__input {
+    flex: 1;
+    padding: 0.75rem 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary, #fff);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    outline: none;
+    min-width: 0;
+  }
+
+  .url-bar__input::placeholder {
+    color: var(--color-text-muted, #52525b);
+  }
+
+  .url-bar__btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1.125rem;
+    margin: 0.375rem;
+    border: none;
+    border-radius: 0.5rem;
+    background: var(--color-brand-primary, #f43f5e);
+    color: white;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, opacity 0.15s, box-shadow 0.15s;
+  }
+
+  .url-bar__btn:hover:not(:disabled) {
+    background: var(--color-brand-primary-hover, #e11d48);
+    box-shadow: 0 0 16px rgba(244,63,94,0.25);
+  }
+
+  .url-bar__btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  .url-bar__error {
+    color: var(--color-error, #ef4444);
+    font-size: 0.8125rem;
+    margin: 0.25rem 0 0;
+    padding-left: 0.25rem;
+  }
+
+  .url-bar__divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1.25rem 0 1.5rem;
+  }
+
+  .url-bar__divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-border-subtle, #1f1f22);
+  }
+
+  .url-bar__divider-text {
+    font-size: 0.75rem;
+    color: var(--color-text-muted, #52525b);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   /* ---- Analyzing animation ---- */
@@ -1328,6 +1517,9 @@
 
   @media (max-width: 640px) {
     .sanitizer { padding: 1rem; }
+
+    .url-bar__btn span { display: none; }
+    .url-bar__input { font-size: 0.8125rem; padding: 0.625rem 0.5rem; }
 
     .browser__filters {
       flex-direction: column;

@@ -61,6 +61,25 @@ export interface PublishResult {
   total_tracks: number;
 }
 
+export type BatchJobStatus = 'pending' | 'grading' | 'completed' | 'failed' | 'skipped';
+
+export interface BatchPlaylistJob {
+  playlistId: string;
+  playlistName: string;
+  provider: string;
+  status: BatchJobStatus;
+  error?: string;
+  gradeLetter?: string;
+}
+
+export type BatchStatus = 'running' | 'completed' | 'cancelled';
+
+export interface BatchScrubState {
+  status: BatchStatus;
+  jobs: BatchPlaylistJob[];
+  currentIndex: number;
+}
+
 export interface SanitizerState {
   currentGrade: PlaylistGrade | null;
   currentPlanId: string | null;
@@ -73,6 +92,7 @@ export interface SanitizerState {
   isPublishing: boolean;
   error: string | null;
   step: 'grade' | 'replace' | 'publish';
+  batchScrub: BatchScrubState | null;
 }
 
 const initialState: SanitizerState = {
@@ -87,6 +107,7 @@ const initialState: SanitizerState = {
   isPublishing: false,
   error: null,
   step: 'grade',
+  batchScrub: null,
 };
 
 // ---- Store ----
@@ -319,5 +340,151 @@ export const sanitizerActions = {
   /** Clear error */
   clearError: () => {
     sanitizerStore.update((s) => ({ ...s, error: null }));
+  },
+
+  // ---- Batch scrub actions ----
+
+  /** Start a batch scrub for multiple playlists */
+  startBatchScrub: async (playlists: Array<{ id: string; name?: string; playlist_name?: string; provider: string; provider_playlist_id?: string }>) => {
+    const jobs: BatchPlaylistJob[] = playlists.map((p) => ({
+      playlistId: p.provider_playlist_id || p.id,
+      playlistName: p.name || p.playlist_name || p.id,
+      provider: p.provider,
+      status: 'pending' as BatchJobStatus,
+    }));
+
+    sanitizerStore.update((s) => ({
+      ...s,
+      batchScrub: { status: 'running', jobs, currentIndex: 0 },
+      error: null,
+    }));
+
+    for (let i = 0; i < jobs.length; i++) {
+      // Check if batch was cancelled
+      let cancelled = false;
+      sanitizerStore.update((s) => {
+        if (s.batchScrub?.status === 'cancelled') cancelled = true;
+        return s;
+      });
+      if (cancelled) break;
+
+      // Mark current job as grading
+      sanitizerStore.update((s) => ({
+        ...s,
+        batchScrub: s.batchScrub
+          ? {
+              ...s.batchScrub,
+              currentIndex: i,
+              jobs: s.batchScrub.jobs.map((j, idx) =>
+                idx === i ? { ...j, status: 'grading' as BatchJobStatus } : j
+              ),
+            }
+          : null,
+      }));
+
+      try {
+        // Grade + suggest replacements
+        const response = await apiClient.post<{
+          plan_id: string | null;
+          grade: PlaylistGrade;
+          replacements: ReplacementSuggestion[];
+        }>('/api/v1/sanitizer/suggest', {
+          playlist_id: jobs[i].playlistId,
+          provider: jobs[i].provider,
+        });
+
+        if (response.success && response.data) {
+          const { plan_id, grade, replacements } = response.data;
+
+          // Auto-accept first candidate for each replacement
+          if (plan_id && replacements.length > 0) {
+            const autoSelected: Record<string, string> = {};
+            for (const r of replacements) {
+              if (r.candidates.length > 0) {
+                autoSelected[r.original_track_id] = r.candidates[0].track_id;
+              }
+            }
+
+            await apiClient.put(`/api/v1/sanitizer/plan/${plan_id}`, {
+              target_playlist_name: `${grade.playlist_name} (Sanitized)`,
+              selected_replacements: autoSelected,
+            });
+            await apiClient.post(`/api/v1/sanitizer/publish/${plan_id}`);
+          }
+
+          sanitizerStore.update((s) => ({
+            ...s,
+            batchScrub: s.batchScrub
+              ? {
+                  ...s.batchScrub,
+                  jobs: s.batchScrub.jobs.map((j, idx) =>
+                    idx === i ? { ...j, status: 'completed', gradeLetter: grade.grade_letter } : j
+                  ),
+                }
+              : null,
+          }));
+        } else {
+          sanitizerStore.update((s) => ({
+            ...s,
+            batchScrub: s.batchScrub
+              ? {
+                  ...s.batchScrub,
+                  jobs: s.batchScrub.jobs.map((j, idx) =>
+                    idx === i ? { ...j, status: 'failed', error: response.message || 'Failed' } : j
+                  ),
+                }
+              : null,
+          }));
+        }
+      } catch (err) {
+        sanitizerStore.update((s) => ({
+          ...s,
+          batchScrub: s.batchScrub
+            ? {
+                ...s.batchScrub,
+                jobs: s.batchScrub.jobs.map((j, idx) =>
+                  idx === i
+                    ? { ...j, status: 'failed', error: err instanceof Error ? err.message : 'Unknown error' }
+                    : j
+                ),
+              }
+            : null,
+        }));
+      }
+
+      // Small delay between jobs to avoid rate limits
+      if (i < jobs.length - 1) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+
+    // Mark batch as completed (if not already cancelled)
+    sanitizerStore.update((s) => ({
+      ...s,
+      batchScrub: s.batchScrub && s.batchScrub.status !== 'cancelled'
+        ? { ...s.batchScrub, status: 'completed' }
+        : s.batchScrub,
+    }));
+  },
+
+  /** Cancel the current batch scrub */
+  cancelBatch: () => {
+    sanitizerStore.update((s) => ({
+      ...s,
+      batchScrub: s.batchScrub
+        ? {
+            ...s.batchScrub,
+            status: 'cancelled',
+            jobs: s.batchScrub.jobs.map((j) =>
+              j.status === 'pending' ? { ...j, status: 'skipped' } : j
+            ),
+          }
+        : null,
+    }));
+  },
+
+  /** Clear batch scrub state */
+  clearBatch: () => {
+    sanitizerStore.update((s) => ({ ...s, batchScrub: null }));
   },
 };

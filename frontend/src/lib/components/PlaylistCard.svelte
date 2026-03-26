@@ -4,8 +4,32 @@
 
   export let playlist: PlaylistSummary;
   export let index: number = 0;
+  export let selectionMode: boolean = false;
+  export let selected: boolean = false;
 
-  const dispatch = createEventDispatcher<{ select: PlaylistSummary }>();
+  const dispatch = createEventDispatcher<{
+    select: PlaylistSummary;
+    toggleSelect: PlaylistSummary;
+    quickScrub: PlaylistSummary;
+  }>();
+
+  function handleClick() {
+    if (selectionMode) {
+      dispatch('toggleSelect', playlist);
+    } else {
+      dispatch('select', playlist);
+    }
+  }
+
+  function handleCheckbox(e: Event) {
+    e.stopPropagation();
+    dispatch('toggleSelect', playlist);
+  }
+
+  function handleQuickScrub(e: Event) {
+    e.stopPropagation();
+    dispatch('quickScrub', playlist);
+  }
 
   $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
   $: providerLabel = playlist.provider === 'spotify' ? 'Spotify' : 'Apple';
@@ -54,8 +78,10 @@
 <button
   type="button"
   class="pc"
+  class:pc--selected={selected}
+  class:pc--selection-mode={selectionMode}
   style="--stagger: {index * 60}ms; --grade-color: {gradeColor}; --grade-glow: {gradeGlow};"
-  on:click={() => dispatch('select', playlist)}
+  on:click={handleClick}
 >
   <!-- Cover art area -->
   <div class="pc__cover">
@@ -81,6 +107,38 @@
 
     <!-- Provider pill -->
     <span class="pc__provider" style="--pc: {providerColor};">{providerLabel}</span>
+
+    <!-- Selection checkbox (visible in selection mode) -->
+    {#if selectionMode}
+      <label class="pc__checkbox" on:click|stopPropagation>
+        <input
+          type="checkbox"
+          checked={selected}
+          on:change={handleCheckbox}
+          class="pc__checkbox-input"
+        />
+        <span class="pc__checkbox-box" class:pc__checkbox-box--checked={selected}>
+          {#if selected}
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2.5 6l2.5 2.5 4.5-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          {/if}
+        </span>
+      </label>
+    {/if}
+
+    <!-- Quick scrub button (visible on hover, hidden in selection mode) -->
+    {#if !selectionMode && playlist.flagged_tracks > 0}
+      <button
+        type="button"
+        class="pc__quick-scrub"
+        title="Scrub this playlist"
+        on:click|stopPropagation={handleQuickScrub}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Scrub
+      </button>
+    {/if}
 
     <!-- Hover vinyl peek -->
     <div class="pc__vinyl-peek">
@@ -405,5 +463,104 @@
 
   .pc__more {
     color: var(--color-text-tertiary);
+  }
+
+  /* ---- Selection mode ---- */
+  .pc--selected {
+    border-color: #e11d48;
+    box-shadow: 0 0 0 1px #e11d48, 0 0 16px rgba(225,29,72,0.15);
+  }
+
+  .pc--selected::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(225,29,72,0.06);
+    pointer-events: none;
+    border-radius: inherit;
+    z-index: 1;
+  }
+
+  .pc--selection-mode {
+    cursor: pointer;
+  }
+
+  .pc--selection-mode:hover {
+    border-color: rgba(225,29,72,0.5);
+  }
+
+  /* Checkbox */
+  .pc__checkbox {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 5;
+    cursor: pointer;
+    display: flex;
+  }
+
+  .pc__checkbox-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .pc__checkbox-box {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    border: 2px solid rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    transition: background 0.15s, border-color 0.15s, transform 0.15s;
+  }
+
+  .pc__checkbox-box--checked {
+    background: #e11d48;
+    border-color: #e11d48;
+    transform: scale(1.05);
+  }
+
+  /* Quick scrub button */
+  .pc__quick-scrub {
+    position: absolute;
+    bottom: 0.5rem;
+    right: 0.5rem;
+    z-index: 4;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border: none;
+    border-radius: 0.375rem;
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.2s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  .pc:hover .pc__quick-scrub {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .pc__quick-scrub:hover {
+    filter: brightness(1.1);
+  }
+
+  .pc__quick-scrub:active {
+    transform: scale(0.96);
   }
 </style>

@@ -52,6 +52,8 @@ export interface PlaylistBrowserState {
   isLoadingPlaylists: boolean;
   isLoadingTracks: boolean;
   error: string | null;
+  selectedPlaylistIds: Set<string>;
+  selectionMode: boolean;
 }
 
 const initialState: PlaylistBrowserState = {
@@ -64,6 +66,8 @@ const initialState: PlaylistBrowserState = {
   isLoadingPlaylists: false,
   isLoadingTracks: false,
   error: null,
+  selectedPlaylistIds: new Set(),
+  selectionMode: false,
 };
 
 // ---- Store ----
@@ -100,6 +104,22 @@ export const trackStats = derived(
     }
     return stats;
   }
+);
+
+export const selectedPlaylistCount = derived(
+  playlistBrowserStore,
+  ($s) => $s.selectedPlaylistIds.size
+);
+
+export const allFilteredSelected = derived(
+  [playlistBrowserStore, filteredPlaylists],
+  ([$s, $filtered]) =>
+    $filtered.length > 0 && $filtered.every((p) => $s.selectedPlaylistIds.has(p.id))
+);
+
+export const selectedPlaylists = derived(
+  playlistBrowserStore,
+  ($s) => $s.playlists.filter((p) => $s.selectedPlaylistIds.has(p.id))
 );
 
 // ---- Actions ----
@@ -225,5 +245,47 @@ export const playlistBrowserActions = {
 
   reset: () => {
     playlistBrowserStore.set(initialState);
+  },
+
+  // ---- Selection actions ----
+
+  enterSelectionMode: () => {
+    playlistBrowserStore.update((s) => ({ ...s, selectionMode: true }));
+  },
+
+  exitSelectionMode: () => {
+    playlistBrowserStore.update((s) => ({
+      ...s,
+      selectionMode: false,
+      selectedPlaylistIds: new Set(),
+    }));
+  },
+
+  togglePlaylistSelection: (playlistId: string) => {
+    playlistBrowserStore.update((s) => {
+      const next = new Set(s.selectedPlaylistIds);
+      if (next.has(playlistId)) next.delete(playlistId);
+      else next.add(playlistId);
+      return {
+        ...s,
+        selectedPlaylistIds: next,
+        selectionMode: next.size > 0 ? true : s.selectionMode,
+      };
+    });
+  },
+
+  selectAllFiltered: (filteredIds: string[]) => {
+    playlistBrowserStore.update((s) => {
+      const next = new Set(s.selectedPlaylistIds);
+      for (const id of filteredIds) next.add(id);
+      return { ...s, selectedPlaylistIds: next, selectionMode: true };
+    });
+  },
+
+  deselectAll: () => {
+    playlistBrowserStore.update((s) => ({
+      ...s,
+      selectedPlaylistIds: new Set(),
+    }));
   },
 };

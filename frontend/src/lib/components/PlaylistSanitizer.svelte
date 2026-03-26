@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { sanitizerStore, sanitizerActions, hasGrade, hasPlan, allReplacementsSelected } from '../stores/sanitizer';
-  import { playlistBrowserStore, filteredPlaylists, playlistBrowserActions, type PlaylistSummary } from '../stores/playlist-browser';
+  import { playlistBrowserStore, filteredPlaylists, selectedPlaylistCount, allFilteredSelected, selectedPlaylists, playlistBrowserActions, type PlaylistSummary } from '../stores/playlist-browser';
   import PlaylistCard from './PlaylistCard.svelte';
   import PlaylistTracklist from './PlaylistTracklist.svelte';
   import PlaylistGradeGauge from './PlaylistGradeGauge.svelte';
   import ReplacementPicker from './ReplacementPicker.svelte';
+  import BatchScrubProgress from './BatchScrubProgress.svelte';
 
   let topView: 'browse' | 'sanitize' = 'browse';
   let showConfetti = false;
@@ -98,6 +99,62 @@
     playlistBrowserActions.setProviderFilter(
       $playlistBrowserStore.providerFilter === provider ? '' : provider
     );
+  }
+
+  function handleToggleSelect(e: CustomEvent<PlaylistSummary>) {
+    playlistBrowserActions.togglePlaylistSelection(e.detail.id);
+  }
+
+  function handleQuickScrubSingle(e: CustomEvent<PlaylistSummary>) {
+    const p = e.detail;
+    topView = 'sanitize';
+    isExternalPlaylist = false;
+    sanitizerActions.reset();
+    sanitizerActions.suggestReplacements(
+      p.provider_playlist_id || p.playlist_name || p.name,
+      p.provider
+    );
+  }
+
+  function handleScrubSelected() {
+    const playlists = $selectedPlaylists;
+    if (playlists.length === 0) return;
+    playlistBrowserActions.exitSelectionMode();
+    topView = 'sanitize';
+    isExternalPlaylist = false;
+    sanitizerActions.reset();
+    sanitizerActions.startBatchScrub(playlists);
+  }
+
+  function handleScrubAll() {
+    const playlists = $filteredPlaylists;
+    if (playlists.length === 0) return;
+    playlistBrowserActions.exitSelectionMode();
+    topView = 'sanitize';
+    isExternalPlaylist = false;
+    sanitizerActions.reset();
+    sanitizerActions.startBatchScrub(playlists);
+  }
+
+  function handleToggleSelectionMode() {
+    if ($playlistBrowserStore.selectionMode) {
+      playlistBrowserActions.exitSelectionMode();
+    } else {
+      playlistBrowserActions.enterSelectionMode();
+    }
+  }
+
+  function handleSelectAll() {
+    if ($allFilteredSelected) {
+      playlistBrowserActions.deselectAll();
+    } else {
+      playlistBrowserActions.selectAllFiltered($filteredPlaylists.map((p) => p.id));
+    }
+  }
+
+  function handleBatchBack() {
+    sanitizerActions.clearBatch();
+    topView = 'browse';
   }
 
   // Detect playlists that need a re-sync: metadata says tracks exist but we haven't fetched them yet.
@@ -212,6 +269,47 @@
         </div>
       </div>
 
+      <!-- Toolbar: selection controls + Scrub All -->
+      {#if !$playlistBrowserStore.isLoadingPlaylists && $filteredPlaylists.length > 0}
+        <div class="browser__toolbar">
+          <div class="browser__toolbar-left">
+            <button
+              type="button"
+              class="browser__select-toggle"
+              class:browser__select-toggle--active={$playlistBrowserStore.selectionMode}
+              on:click={handleToggleSelectionMode}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+                <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+              </svg>
+              {$playlistBrowserStore.selectionMode ? 'Cancel' : 'Select'}
+            </button>
+            {#if $playlistBrowserStore.selectionMode}
+              <button
+                type="button"
+                class="browser__select-all"
+                on:click={handleSelectAll}
+              >
+                {$allFilteredSelected ? 'Deselect All' : 'Select All'}
+              </button>
+            {/if}
+          </div>
+          <button
+            type="button"
+            class="browser__scrub-all"
+            on:click={handleScrubAll}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Scrub All
+          </button>
+        </div>
+      {/if}
+
       {#if $playlistBrowserStore.isLoadingPlaylists}
         <div class="browser__loading">
           <div class="browser__loading-bars">
@@ -233,9 +331,45 @@
       {:else}
         <div class="browser__grid">
           {#each $filteredPlaylists as playlist, i (playlist.id || (playlist.provider + '::' + playlist.playlist_name))}
-            <PlaylistCard {playlist} index={i} on:select={handleSelectPlaylist} />
+            <PlaylistCard
+              {playlist}
+              index={i}
+              selectionMode={$playlistBrowserStore.selectionMode}
+              selected={$playlistBrowserStore.selectedPlaylistIds.has(playlist.id)}
+              on:select={handleSelectPlaylist}
+              on:toggleSelect={handleToggleSelect}
+              on:quickScrub={handleQuickScrubSingle}
+            />
           {/each}
         </div>
+
+        <!-- Sticky action bar when playlists are selected -->
+        {#if $selectedPlaylistCount > 0}
+          <div class="browser__sticky-bar">
+            <div class="browser__sticky-inner">
+              <span class="browser__sticky-count">
+                {$selectedPlaylistCount} playlist{$selectedPlaylistCount !== 1 ? 's' : ''} selected
+              </span>
+              <div class="browser__sticky-actions">
+                <button
+                  type="button"
+                  class="browser__sticky-clear"
+                  on:click={() => playlistBrowserActions.deselectAll()}
+                >Clear</button>
+                <button
+                  type="button"
+                  class="browser__sticky-scrub"
+                  on:click={handleScrubSelected}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  Scrub Selected
+                </button>
+              </div>
+            </div>
+          </div>
+        {/if}
       {/if}
 
     {:else}
@@ -253,6 +387,15 @@
 
   {:else}
     <!-- ======================== SANITIZE MODE ======================== -->
+
+    {#if $sanitizerStore.batchScrub}
+      <!-- Batch scrub progress view -->
+      <button type="button" class="sanitizer__back-btn" on:click={handleBatchBack}>
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to Playlists
+      </button>
+      <BatchScrubProgress on:back={handleBatchBack} />
+    {:else}
 
     <button type="button" class="sanitizer__back-btn" on:click={handleBackToPlaylists}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -578,6 +721,7 @@
           </div>
         {/if}
       </section>
+    {/if}
     {/if}
   {/if}
 </div>
@@ -1556,5 +1700,186 @@
 
     .publish-success__stats { gap: 1.25rem; }
     .publish-success__stat-val { font-size: 1.5rem; }
+
+    .browser__toolbar { flex-direction: column; gap: 0.5rem; }
+    .browser__toolbar-left { width: 100%; }
+    .browser__scrub-all { width: 100%; justify-content: center; }
+  }
+
+  /* ---- Toolbar ---- */
+  .browser__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .browser__toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .browser__select-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-elevated);
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+  }
+
+  .browser__select-toggle:hover {
+    border-color: var(--color-border-hover);
+    color: var(--color-text-primary);
+  }
+
+  .browser__select-toggle--active {
+    background: rgba(225,29,72,0.1);
+    border-color: rgba(225,29,72,0.3);
+    color: #e11d48;
+  }
+
+  .browser__select-all {
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .browser__select-all:hover {
+    color: var(--color-text-primary);
+  }
+
+  .browser__scrub-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.4rem 0.875rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s;
+    box-shadow: 0 2px 8px rgba(225,29,72,0.25);
+  }
+
+  .browser__scrub-all:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+  }
+
+  .browser__scrub-all:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  /* ---- Sticky action bar ---- */
+  .browser__sticky-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
+    padding: 0.75rem 0;
+    margin-top: 1rem;
+  }
+
+  .browser__sticky-bar::before {
+    content: '';
+    position: absolute;
+    inset: -1.5rem 0 0;
+    background: linear-gradient(to top, var(--color-bg-base) 60%, transparent);
+    pointer-events: none;
+  }
+
+  .browser__sticky-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(39,39,42,0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(225,29,72,0.2);
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.3);
+    animation: slideUp 0.25s cubic-bezier(.22,1,.36,1);
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .browser__sticky-count {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  .browser__sticky-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .browser__sticky-clear {
+    padding: 0.375rem 0.75rem;
+    border: none;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: color 0.15s;
+  }
+
+  .browser__sticky-clear:hover {
+    color: var(--color-text-primary);
+  }
+
+  .browser__sticky-scrub {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    border: none;
+    background: linear-gradient(135deg, #e11d48, #be123c);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.15s, filter 0.15s;
+    box-shadow: 0 2px 8px rgba(225,29,72,0.3);
+  }
+
+  .browser__sticky-scrub:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+  }
+
+  .browser__sticky-scrub:active {
+    transform: translateY(0) scale(0.98);
   }
 </style>

@@ -4,6 +4,7 @@ import { writable, derived } from 'svelte/store';
 export type Route =
   | 'home'
   | 'landing'
+  | 'login'
   | 'pricing'
   | 'dashboard'
   | 'settings'
@@ -30,6 +31,7 @@ export type Route =
 const pathToRoute: Record<string, Route> = {
   '/': 'home',
   '/home': 'home',
+  '/login': 'login',
   '/pricing': 'pricing',
   '/dashboard': 'dashboard',
   '/settings': 'settings',
@@ -53,6 +55,7 @@ const pathToRoute: Record<string, Route> = {
 const routeToPath: Record<Route, string> = {
   'home': '/',
   'landing': '/',
+  'login': '/login',
   'pricing': '/pricing',
   'dashboard': '/dashboard',
   'settings': '/settings',
@@ -80,6 +83,7 @@ const routeToPath: Record<Route, string> = {
 const routeMeta: Record<Route, { title: string; description: string }> = {
   'home': { title: 'Home', description: 'Your music blocklist dashboard' },
   'landing': { title: 'No Drake in the House', description: 'Protect your playlists from problematic artists' },
+  'login': { title: 'Sign In', description: 'Sign in to No Drake in the House' },
   'pricing': { title: 'Pricing', description: 'Plans and pricing for No Drake in the House' },
   'dashboard': { title: 'Dashboard', description: 'Your music blocklist dashboard' },
   'settings': { title: 'Settings', description: 'Account and connection settings' },

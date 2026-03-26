@@ -295,10 +295,12 @@
 			{/if}
 		{/key}
 	</Layout>
-{:else if $currentRoute === 'home' || $currentRoute === 'landing' || $currentRoute === 'pricing'}
-	<LandingPage />
-{:else}
+{:else if $currentRoute === 'pricing'}
+	<Pricing />
+{:else if $currentRoute === 'login'}
 	<Login />
+{:else}
+	<LandingPage />
 {/if}
 
 <style>

@@ -27,7 +27,7 @@
         <button type="button" class="landing-nav__link" on:click={() => scrollToSection('features')}>Features</button>
         <button type="button" class="landing-nav__link" on:click={() => scrollToSection('how-it-works')}>How It Works</button>
         <button type="button" class="landing-nav__link" on:click={() => navigateTo('pricing')}>Pricing</button>
-        <button type="button" class="landing-nav__link landing-nav__link--cta" on:click={() => navigateTo('home')}>Sign In</button>
+        <button type="button" class="landing-nav__link landing-nav__link--cta" on:click={() => navigateTo('login')}>Sign In</button>
       </div>
     </div>
   </nav>
@@ -39,7 +39,7 @@
         <h1 class="hero__headline">Take Control of Your Music Library</h1>
         <p class="hero__subhead">Automatically block problematic artists across all your streaming platforms. Create Do-Not-Play lists, scan your library, and enforce your values.</p>
         <div class="hero__actions">
-          <button type="button" class="btn btn--primary btn--lg" on:click={() => navigateTo('home')}>Get Started Free</button>
+          <button type="button" class="btn btn--primary btn--lg" on:click={() => navigateTo('login')}>Get Started Free</button>
           <button type="button" class="btn btn--outline btn--lg" on:click={() => scrollToSection('how-it-works')}>See How It Works</button>
         </div>
       </div>
@@ -252,7 +252,7 @@
     <div class="section__inner">
       <h2 class="cta__heading">Ready to Clean Up Your Library?</h2>
       <p class="cta__subheading">Join thousands of listeners who take an active stand with their streaming choices.</p>
-      <button type="button" class="btn btn--primary btn--lg" on:click={() => navigateTo('home')}>Sign Up Free</button>
+      <button type="button" class="btn btn--primary btn--lg" on:click={() => navigateTo('login')}>Sign Up Free</button>
     </div>
   </section>
 

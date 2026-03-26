@@ -2,6 +2,16 @@ import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
 import * as musicKit from '../utils/musickit';
 
+/** Open a centered popup window over the current browser window. */
+function openCenteredPopup(url: string, name: string, w = 500, h = 700): Window | null {
+  const left = window.screenX + Math.round((window.outerWidth - w) / 2);
+  const top = window.screenY + Math.round((window.outerHeight - h) / 2);
+  return window.open(
+    url, name,
+    `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,status=no`
+  );
+}
+
 export interface ServiceConnection {
   id: string;
   provider: string;
@@ -189,11 +199,7 @@ export const connectionActions = {
         sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
       }
       // Popup OAuth — user stays on current page
-      const popup = window.open(
-        response.data.authorization_url,
-        'spotify-auth',
-        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
-      );
+      const popup = openCenteredPopup(response.data.authorization_url, 'spotify-auth');
       if (!popup) {
         // Popup blocked — fall back to redirect
         window.location.href = response.data.authorization_url;
@@ -370,11 +376,7 @@ export const connectionActions = {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
       // Popup OAuth
-      const popup = window.open(
-        response.data.authorization_url,
-        'tidal-auth',
-        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
-      );
+      const popup = openCenteredPopup(response.data.authorization_url, 'tidal-auth');
       if (!popup) {
         window.location.href = response.data.authorization_url;
         return { success: true };
@@ -490,11 +492,7 @@ export const connectionActions = {
     if (response.success && response.data?.authorization_url) {
       sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
       // Popup OAuth
-      const popup = window.open(
-        response.data.authorization_url,
-        'youtube-auth',
-        'width=500,height=700,menubar=no,toolbar=no,location=yes,status=no'
-      );
+      const popup = openCenteredPopup(response.data.authorization_url, 'youtube-auth');
       if (!popup) {
         window.location.href = response.data.authorization_url;
         return { success: true };

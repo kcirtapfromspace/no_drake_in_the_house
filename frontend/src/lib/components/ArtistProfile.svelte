@@ -20,6 +20,7 @@
   } from '../stores/artist';
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import { apiClient } from '../utils/api-client';
+  import { validateLinks, type LinkCheckResult } from '../utils/link-validator';
   import ArtistDiscographyRevenue from './ArtistDiscographyRevenue.svelte';
 
   export let artistId: string;
@@ -46,6 +47,27 @@
   let catalogSubTab: 'main' | 'featured' | 'behind' = 'main';
   let featuredShowCount = 20;
   let behindShowCount = 20;
+
+  // Link validation state
+  let linkStatuses: Map<string, LinkCheckResult> = new Map();
+  let linksValidating = false;
+
+  async function runLinkValidation() {
+    if (!profile?.offenses?.length) return;
+    linksValidating = true;
+    const urls: { url: string; archivedUrl?: string }[] = [];
+    for (const offense of profile.offenses) {
+      for (const ev of offense.evidence) {
+        if (ev.source.url) {
+          urls.push({ url: ev.source.url, archivedUrl: ev.source.archived_url });
+        }
+      }
+    }
+    if (urls.length > 0) {
+      linkStatuses = await validateLinks(urls);
+    }
+    linksValidating = false;
+  }
 
   // Connections tab state
   let connectionsLoading = false;
@@ -759,10 +781,85 @@
         ];
       }
 
+      // Derive connections from credits when the collaborations API returns empty
+      if (profile && profile.collaborators.length === 0 && profile.credits) {
+        const creditsCollabs: typeof profile.collaborators = [];
+        const seen = new Set<string>();
+
+        for (const writer of profile.credits.writers || []) {
+          if (!seen.has(writer.id)) {
+            seen.add(writer.id);
+            creditsCollabs.push({
+              id: writer.id,
+              name: writer.name,
+              image_url: writer.image_url || undefined,
+              collaboration_count: writer.track_count,
+              is_flagged: writer.is_flagged,
+              status: writer.is_flagged ? 'flagged' : 'clean',
+              collaboration_type: 'writer',
+              recent_tracks: [],
+            });
+          }
+        }
+
+        for (const producer of profile.credits.producers || []) {
+          if (!seen.has(producer.id)) {
+            seen.add(producer.id);
+            creditsCollabs.push({
+              id: producer.id,
+              name: producer.name,
+              image_url: producer.image_url || undefined,
+              collaboration_count: producer.track_count,
+              is_flagged: producer.is_flagged,
+              status: producer.is_flagged ? 'flagged' : 'clean',
+              collaboration_type: 'producer',
+              recent_tracks: [],
+            });
+          } else {
+            // Already added as writer — bump count
+            const existing = creditsCollabs.find(c => c.id === producer.id);
+            if (existing) {
+              existing.collaboration_count += producer.track_count;
+            }
+          }
+        }
+
+        // Also extract unique collaborators from catalog tracks
+        const catalogCollabs = new Map<string, { name: string; count: number }>();
+        for (const track of catalog) {
+          for (const name of track.collaborators || []) {
+            const entry = catalogCollabs.get(name);
+            if (entry) {
+              entry.count++;
+            } else {
+              catalogCollabs.set(name, { name, count: 1 });
+            }
+          }
+        }
+        for (const [name, entry] of catalogCollabs) {
+          if (!creditsCollabs.some(c => c.name === name)) {
+            creditsCollabs.push({
+              id: `catalog-${name.toLowerCase().replace(/\s+/g, '-')}`,
+              name: entry.name,
+              collaboration_count: entry.count,
+              is_flagged: false,
+              status: 'clean',
+              collaboration_type: 'featured',
+              recent_tracks: [],
+            });
+          }
+        }
+
+        creditsCollabs.sort((a, b) => b.collaboration_count - a.collaboration_count);
+        profile.collaborators = creditsCollabs;
+      }
+
     } catch (e: any) {
       error = e.message || 'Failed to load artist';
     } finally {
       isLoading = false;
+      // Validate evidence links in the background
+      runLinkValidation();
     }
   }
 
@@ -849,20 +946,21 @@
       incident_date: data.incident_date,
       procedural_state: data.procedural_state || data.status || 'alleged',
       evidence: (data.evidence || []).map((e: any) => ({
-        id: e.id,
+        id: e._id || e.id,
         offense_id: data.id,
         source: {
-          id: e.id,
-          url: e.source_url,
-          title: e.title || e.source_name,
-          source_name: e.source_name,
-          source_type: e.source_type || 'news',
+          id: e._id || e.id,
+          url: e.url || e.source_url,
+          title: e.title || e.sourceName || e.source_name,
+          source_name: e.sourceName || e.source_name,
+          source_type: e.sourceType || e.source_type || 'news',
           tier: determineSourceTier(e),
-          published_date: e.published_date,
+          published_date: e.publishedDate || e.published_date,
           excerpt: e.excerpt,
-          credibility_score: e.credibility_score,
+          archived_url: e.archivedUrl || e.archived_url,
+          credibility_score: e.credibilityScore || e.credibility_score,
         },
-        date_added: e.date_added || new Date().toISOString(),
+        date_added: e.createdAt || e.date_added || new Date().toISOString(),
         verified: e.verified || false,
       })),
       evidence_strength: determineEvidenceStrength(data.evidence || []),
@@ -1276,14 +1374,34 @@
                     {:else}
                       {#each offense.evidence as evidence}
                         {@const tierInfo = getSourceTierLabel(evidence.source.tier)}
-                        <a href={evidence.source.url} target="_blank" rel="noopener noreferrer" class="ev-source">
+                        {@const linkCheck = linkStatuses.get(evidence.source.url)}
+                        {@const resolvedUrl = linkCheck?.resolvedUrl || evidence.source.archived_url || evidence.source.url}
+                        {@const linkBroken = linkCheck?.status === 'broken'}
+                        {@const linkArchived = linkCheck?.status === 'archived'}
+                        <a
+                          href={resolvedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="ev-source {linkBroken ? 'ev-source--broken' : ''} {linkArchived ? 'ev-source--archived' : ''}"
+                          title={linkArchived ? 'Original link unavailable — viewing archived version via Wayback Machine' : linkBroken ? 'This link appears to be broken — no archived version found' : ''}
+                        >
                           <div class="ev-source__tier" style="background: {hexToRgba(tierInfo.color, 0.2)}; color: {tierInfo.color};">
                             {tierInfo.label.replace('Tier ', '')}
                           </div>
                           <div class="ev-source__info">
-                            <p class="ev-source__title">{evidence.source.title || evidence.source.source_name}</p>
+                            <p class="ev-source__title">
+                              {evidence.source.title || evidence.source.source_name}
+                              {#if linkArchived}
+                                <span class="ev-source__badge ev-source__badge--archived" title="Archived via Wayback Machine">archived</span>
+                              {:else if linkBroken}
+                                <span class="ev-source__badge ev-source__badge--broken" title="Link broken, no archive found">broken link</span>
+                              {:else if linksValidating}
+                                <span class="ev-source__badge ev-source__badge--checking">checking...</span>
+                              {/if}
+                            </p>
                             <p class="ev-source__meta">
                               {evidence.source.source_name}{#if evidence.source.published_date} · {formatDate(evidence.source.published_date)}{/if}
+                              {#if linkArchived} · <span style="color: #F59E0B;">Wayback Machine</span>{/if}
                             </p>
                             {#if evidence.source.excerpt}
                               <p class="ev-source__excerpt">"{evidence.source.excerpt}"</p>
@@ -1685,17 +1803,6 @@
           </p>
         </div>
 
-        <!-- View Full Network Link -->
-        <button
-          type="button"
-          on:click={() => { navigateTo('graph'); window.history.replaceState(window.history.state, '', `/graph?artist=${artistId}`); }}
-          class="conn-explore"
-        >
-          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-          </svg>
-          View Full Network
-        </button>
       {/if}
     </main>
     </div><!-- end profile__content-card -->
@@ -2555,9 +2662,27 @@
   }
 
   .ev-source__info { flex: 1; min-width: 0; }
-  .ev-source__title { font-size: 0.8125rem; font-weight: 500; color: #d4d4d8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ev-source__title { font-size: 0.8125rem; font-weight: 500; color: #d4d4d8; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 0.375rem; }
   .ev-source__meta { font-size: 0.6875rem; color: #52525b; margin: 0.125rem 0 0; }
   .ev-source__excerpt { font-size: 0.6875rem; color: #52525b; margin: 0.25rem 0 0; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .ev-source--broken { opacity: 0.55; }
+  .ev-source--broken .ev-source__title { text-decoration: line-through; text-decoration-color: rgba(239, 68, 68, 0.5); }
+  .ev-source--archived { border-left: 2px solid rgba(245, 158, 11, 0.5); }
+
+  .ev-source__badge {
+    flex-shrink: 0;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.375rem;
+    border-radius: 0.25rem;
+    line-height: 1.2;
+  }
+  .ev-source__badge--archived { background: rgba(245, 158, 11, 0.2); color: #F59E0B; }
+  .ev-source__badge--broken { background: rgba(239, 68, 68, 0.2); color: #EF4444; }
+  .ev-source__badge--checking { background: rgba(161, 161, 170, 0.15); color: #71717a; }
 
   /* Evidence summary strip */
   .ev-summary {
@@ -3103,25 +3228,4 @@
   }
 
   .conn-warning strong { color: #fafafa; }
-
-  .conn-explore {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    width: 100%;
-    margin-top: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    background: #4f46e5;
-    color: #fff;
-    font-weight: 600;
-    font-size: 0.875rem;
-    border: none;
-    cursor: pointer;
-    transition: background-color 0.15s;
-  }
-
-  .conn-explore:hover { background: #4338ca; }
-  .conn-explore svg { width: 1.25rem; height: 1.25rem; }
 </style>

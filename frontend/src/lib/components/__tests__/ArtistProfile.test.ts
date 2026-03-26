@@ -332,3 +332,325 @@ describe('ArtistProfile Data Types', () => {
     expect(profile.status).toBe('flagged');
   });
 });
+
+describe('Evidence URL Mapping', () => {
+  // This mirrors the transformOffense evidence mapping logic
+  const mapEvidence = (e: any) => ({
+    id: e._id || e.id,
+    offense_id: 'offense-1',
+    source: {
+      id: e._id || e.id,
+      url: e.url || e.source_url,
+      title: e.title || e.sourceName || e.source_name,
+      source_name: e.sourceName || e.source_name,
+      source_type: e.sourceType || e.source_type || 'news',
+      published_date: e.publishedDate || e.published_date,
+      excerpt: e.excerpt,
+      archived_url: e.archivedUrl || e.archived_url,
+      credibility_score: e.credibilityScore || e.credibility_score,
+    },
+    date_added: e.createdAt || e.date_added || new Date().toISOString(),
+    verified: e.verified || false,
+  });
+
+  it('should map Convex camelCase fields correctly (url, sourceName, etc.)', () => {
+    const convexRow = {
+      _id: 'ev-abc123',
+      url: 'https://www.cnn.com/article/drake-case',
+      sourceName: 'CNN',
+      sourceType: 'news',
+      title: 'Drake Investigation',
+      publishedDate: '2020-06-15',
+      excerpt: 'According to reports...',
+      archivedUrl: 'https://web.archive.org/web/2020/https://www.cnn.com/article/drake-case',
+      credibilityScore: 0.85,
+      createdAt: '2024-01-01T00:00:00Z',
+    };
+
+    const result = mapEvidence(convexRow);
+
+    expect(result.id).toBe('ev-abc123');
+    expect(result.source.url).toBe('https://www.cnn.com/article/drake-case');
+    expect(result.source.source_name).toBe('CNN');
+    expect(result.source.source_type).toBe('news');
+    expect(result.source.title).toBe('Drake Investigation');
+    expect(result.source.published_date).toBe('2020-06-15');
+    expect(result.source.excerpt).toBe('According to reports...');
+    expect(result.source.archived_url).toBe(
+      'https://web.archive.org/web/2020/https://www.cnn.com/article/drake-case',
+    );
+    expect(result.source.credibility_score).toBe(0.85);
+    expect(result.date_added).toBe('2024-01-01T00:00:00Z');
+  });
+
+  it('should map legacy snake_case fields as fallback', () => {
+    const legacyRow = {
+      id: 'ev-legacy',
+      source_url: 'https://legacy-source.com/page',
+      source_name: 'Legacy Source',
+      source_type: 'investigation',
+      published_date: '2019-03-01',
+      archived_url: 'https://archive.org/saved',
+      credibility_score: 0.7,
+      date_added: '2023-06-01T00:00:00Z',
+    };
+
+    const result = mapEvidence(legacyRow);
+
+    expect(result.id).toBe('ev-legacy');
+    expect(result.source.url).toBe('https://legacy-source.com/page');
+    expect(result.source.source_name).toBe('Legacy Source');
+    expect(result.source.source_type).toBe('investigation');
+    expect(result.source.published_date).toBe('2019-03-01');
+    expect(result.source.archived_url).toBe('https://archive.org/saved');
+    expect(result.source.credibility_score).toBe(0.7);
+  });
+
+  it('should prefer Convex url over legacy source_url', () => {
+    const mixed = {
+      _id: 'ev-mixed',
+      url: 'https://correct-url.com',
+      source_url: 'https://old-url.com',
+      sourceName: 'Source',
+    };
+
+    const result = mapEvidence(mixed);
+    expect(result.source.url).toBe('https://correct-url.com');
+  });
+
+  it('should handle evidence with no URL gracefully', () => {
+    const noUrl = {
+      id: 'ev-nourl',
+      source_name: 'Anonymous tip',
+      source_type: 'social_media',
+    };
+
+    const result = mapEvidence(noUrl);
+    expect(result.source.url).toBeUndefined();
+    expect(result.source.source_name).toBe('Anonymous tip');
+  });
+
+  it('should default source_type to news when missing', () => {
+    const noType = {
+      id: 'ev-notype',
+      url: 'https://example.com',
+    };
+
+    const result = mapEvidence(noType);
+    expect(result.source.source_type).toBe('news');
+  });
+
+  it('should map archivedUrl for Wayback Machine references', () => {
+    const withArchive = {
+      _id: 'ev-archived',
+      url: 'https://dead-link.example.com',
+      archivedUrl: 'https://web.archive.org/web/20230101/https://dead-link.example.com',
+      sourceName: 'Archived Source',
+    };
+
+    const result = mapEvidence(withArchive);
+    expect(result.source.archived_url).toBe(
+      'https://web.archive.org/web/20230101/https://dead-link.example.com',
+    );
+  });
+});
+
+describe('Connections from Credits Derivation', () => {
+  // This mirrors the logic in loadArtist that derives collaborators from credits
+  interface Credit {
+    id: string;
+    name: string;
+    role: string;
+    track_count: number;
+    is_flagged: boolean;
+    image_url: string | null;
+    note?: string;
+  }
+
+  interface CatalogTrack {
+    id: string;
+    title: string;
+    role: string;
+    collaborators?: string[];
+  }
+
+  function deriveCollaboratorsFromCredits(
+    writers: Credit[],
+    producers: Credit[],
+    catalog: CatalogTrack[],
+  ) {
+    const creditsCollabs: any[] = [];
+    const seen = new Set<string>();
+
+    for (const writer of writers) {
+      if (!seen.has(writer.id)) {
+        seen.add(writer.id);
+        creditsCollabs.push({
+          id: writer.id,
+          name: writer.name,
+          image_url: writer.image_url || undefined,
+          collaboration_count: writer.track_count,
+          is_flagged: writer.is_flagged,
+          status: writer.is_flagged ? 'flagged' : 'clean',
+          collaboration_type: 'writer',
+          recent_tracks: [],
+        });
+      }
+    }
+
+    for (const producer of producers) {
+      if (!seen.has(producer.id)) {
+        seen.add(producer.id);
+        creditsCollabs.push({
+          id: producer.id,
+          name: producer.name,
+          image_url: producer.image_url || undefined,
+          collaboration_count: producer.track_count,
+          is_flagged: producer.is_flagged,
+          status: producer.is_flagged ? 'flagged' : 'clean',
+          collaboration_type: 'producer',
+          recent_tracks: [],
+        });
+      } else {
+        const existing = creditsCollabs.find((c) => c.id === producer.id);
+        if (existing) {
+          existing.collaboration_count += producer.track_count;
+        }
+      }
+    }
+
+    const catalogCollabs = new Map<string, { name: string; count: number }>();
+    for (const track of catalog) {
+      for (const name of track.collaborators || []) {
+        const entry = catalogCollabs.get(name);
+        if (entry) {
+          entry.count++;
+        } else {
+          catalogCollabs.set(name, { name, count: 1 });
+        }
+      }
+    }
+    for (const [name, entry] of catalogCollabs) {
+      if (!creditsCollabs.some((c) => c.name === name)) {
+        creditsCollabs.push({
+          id: `catalog-${name.toLowerCase().replace(/\s+/g, '-')}`,
+          name: entry.name,
+          collaboration_count: entry.count,
+          is_flagged: false,
+          status: 'clean',
+          collaboration_type: 'featured',
+          recent_tracks: [],
+        });
+      }
+    }
+
+    creditsCollabs.sort((a: any, b: any) => b.collaboration_count - a.collaboration_count);
+    return creditsCollabs;
+  }
+
+  const writers: Credit[] = [
+    { id: 'w1', name: 'Noah "40" Shebib', role: 'writer', track_count: 120, is_flagged: false, image_url: null },
+    { id: 'w2', name: 'PartyNextDoor', role: 'writer', track_count: 25, is_flagged: false, image_url: null },
+  ];
+
+  const producers: Credit[] = [
+    { id: 'w1', name: 'Noah "40" Shebib', role: 'producer', track_count: 150, is_flagged: false, image_url: null },
+    { id: 'p1', name: 'Metro Boomin', role: 'producer', track_count: 25, is_flagged: false, image_url: null },
+  ];
+
+  const catalogTracks: CatalogTrack[] = [
+    { id: 't1', title: 'Track 1', role: 'main', collaborators: ['21 Savage'] },
+    { id: 't2', title: 'Track 2', role: 'main', collaborators: ['21 Savage', 'SZA'] },
+    { id: 't3', title: 'Track 3', role: 'featured', collaborators: ['SZA'] },
+  ];
+
+  it('should combine writers and producers as connections', () => {
+    const result = deriveCollaboratorsFromCredits(writers, producers, []);
+
+    expect(result.length).toBe(3); // 40, PND, Metro
+    expect(result.find((c: any) => c.name === 'Noah "40" Shebib')).toBeDefined();
+    expect(result.find((c: any) => c.name === 'PartyNextDoor')).toBeDefined();
+    expect(result.find((c: any) => c.name === 'Metro Boomin')).toBeDefined();
+  });
+
+  it('should de-duplicate writer+producer entries and sum track counts', () => {
+    const result = deriveCollaboratorsFromCredits(writers, producers, []);
+
+    const fortyEntry = result.find((c: any) => c.name === 'Noah "40" Shebib');
+    // 120 (writer) + 150 (producer) = 270
+    expect(fortyEntry.collaboration_count).toBe(270);
+    // Should be listed as writer (first seen)
+    expect(fortyEntry.collaboration_type).toBe('writer');
+  });
+
+  it('should extract featured collaborators from catalog', () => {
+    const result = deriveCollaboratorsFromCredits([], [], catalogTracks);
+
+    expect(result.find((c: any) => c.name === '21 Savage')).toBeDefined();
+    expect(result.find((c: any) => c.name === 'SZA')).toBeDefined();
+  });
+
+  it('should count catalog appearances correctly', () => {
+    const result = deriveCollaboratorsFromCredits([], [], catalogTracks);
+
+    const twentyOne = result.find((c: any) => c.name === '21 Savage');
+    expect(twentyOne.collaboration_count).toBe(2); // t1, t2
+
+    const sza = result.find((c: any) => c.name === 'SZA');
+    expect(sza.collaboration_count).toBe(2); // t2, t3
+  });
+
+  it('should not duplicate catalog artists already in credits', () => {
+    const writersWithSza: Credit[] = [
+      { id: 'sza', name: 'SZA', role: 'writer', track_count: 5, is_flagged: false, image_url: null },
+    ];
+
+    const result = deriveCollaboratorsFromCredits(writersWithSza, [], catalogTracks);
+
+    // SZA should appear only once (from credits, not duplicated from catalog)
+    const szaEntries = result.filter((c: any) => c.name === 'SZA');
+    expect(szaEntries.length).toBe(1);
+    expect(szaEntries[0].collaboration_type).toBe('writer');
+  });
+
+  it('should sort by collaboration count descending', () => {
+    const result = deriveCollaboratorsFromCredits(writers, producers, catalogTracks);
+
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i].collaboration_count).toBeGreaterThanOrEqual(
+        result[i + 1].collaboration_count,
+      );
+    }
+  });
+
+  it('should return empty array when no credits or catalog', () => {
+    const result = deriveCollaboratorsFromCredits([], [], []);
+    expect(result).toEqual([]);
+  });
+
+  it('should set collaboration_type to featured for catalog-only artists', () => {
+    const result = deriveCollaboratorsFromCredits([], [], catalogTracks);
+
+    const twentyOne = result.find((c: any) => c.name === '21 Savage');
+    expect(twentyOne.collaboration_type).toBe('featured');
+  });
+
+  it('should handle flagged collaborators', () => {
+    const flaggedWriters: Credit[] = [
+      { id: 'fw1', name: 'Flagged Writer', role: 'writer', track_count: 10, is_flagged: true, image_url: null },
+    ];
+
+    const result = deriveCollaboratorsFromCredits(flaggedWriters, [], []);
+
+    const flagged = result.find((c: any) => c.name === 'Flagged Writer');
+    expect(flagged.is_flagged).toBe(true);
+    expect(flagged.status).toBe('flagged');
+  });
+
+  it('should generate stable IDs for catalog-derived collaborators', () => {
+    const result = deriveCollaboratorsFromCredits([], [], catalogTracks);
+
+    const twentyOne = result.find((c: any) => c.name === '21 Savage');
+    expect(twentyOne.id).toBe('catalog-21-savage');
+  });
+});

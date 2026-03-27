@@ -890,11 +890,21 @@ struct SpotifyAlbumPayload {
 }
 
 #[derive(Debug, Deserialize)]
+struct SpotifyShowPayload {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
 struct SpotifyTrackPayload {
     id: Option<String>,
+    uri: Option<String>,
+    #[serde(rename = "type")]
+    item_type: Option<String>,
+    is_local: Option<bool>,
     name: String,
-    artists: Vec<SpotifyArtistPayload>,
+    artists: Option<Vec<SpotifyArtistPayload>>,
     album: Option<SpotifyAlbumPayload>,
+    show: Option<SpotifyShowPayload>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -994,13 +1004,33 @@ fn parse_spotify_timestamp(value: Option<&str>) -> Option<chrono::DateTime<Utc>>
 fn spotify_primary_artist(track: &SpotifyTrackPayload) -> String {
     track
         .artists
-        .first()
+        .as_ref()
+        .and_then(|artists| artists.first())
         .map(|artist| artist.name.clone())
+        .or_else(|| track.show.as_ref().map(|show| show.name.clone()))
         .unwrap_or_else(|| "Unknown Artist".to_string())
 }
 
 fn spotify_album_name(track: &SpotifyTrackPayload) -> Option<String> {
-    track.album.as_ref().map(|album| album.name.clone())
+    track
+        .album
+        .as_ref()
+        .map(|album| album.name.clone())
+        .or_else(|| track.show.as_ref().map(|show| show.name.clone()))
+}
+
+fn spotify_playlist_item_id(
+    track: &SpotifyTrackPayload,
+    playlist_id: &str,
+    playlist_index: usize,
+) -> Option<String> {
+    track.id.clone().or_else(|| track.uri.clone()).or_else(|| {
+        if track.is_local.unwrap_or(false) {
+            Some(format!("spotify:local:{}:{}", playlist_id, playlist_index))
+        } else {
+            None
+        }
+    })
 }
 
 async fn spotify_get_json<T: serde::de::DeserializeOwned>(
@@ -1218,7 +1248,7 @@ async fn sync_spotify_library_to_user_library(
             let mut normalized_tracks: Vec<UpsertPlaylistTrack> =
                 Vec::with_capacity(estimated_count);
             let mut playlist_tracks_url = Some(format!(
-                "https://api.spotify.com/v1/playlists/{}/tracks?limit=100&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))",
+                "https://api.spotify.com/v1/playlists/{}/items?limit=100&additional_types=track,episode&fields=next,items(added_at,track(id,uri,is_local,type,name,artists(id,name),album(id,name),show(name)))",
                 playlist.id
             ));
             let mut playlist_index = 0usize;
@@ -1231,7 +1261,9 @@ async fn sync_spotify_library_to_user_library(
                     let Some(track) = playlist_item.track else {
                         continue;
                     };
-                    let Some(track_id) = track.id.clone() else {
+                    let Some(track_id) =
+                        spotify_playlist_item_id(&track, &playlist.id, playlist_index)
+                    else {
                         continue;
                     };
 

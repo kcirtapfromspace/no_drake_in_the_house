@@ -1,3 +1,4 @@
+use ndith_core::config::provider_callback_uri_with_override;
 use ndith_core::error::{AppError, Result};
 use ndith_core::models::oauth::OAuthProviderType;
 use std::collections::HashMap;
@@ -38,6 +39,7 @@ impl OAuthConfigValidator {
         self.validate_github_config();
         self.validate_spotify_config();
         self.validate_youtube_music_config();
+        self.validate_tidal_config();
 
         // Log summary
         self.log_validation_summary();
@@ -447,6 +449,19 @@ impl OAuthConfigValidator {
                 );
             }
 
+            let redirect_uri =
+                provider_callback_uri_with_override("spotify", &["SPOTIFY_REDIRECT_URI"]);
+            if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
+                validation
+                    .validation_errors
+                    .push("Spotify redirect URI must be a valid HTTP/HTTPS URL".to_string());
+            }
+            if !redirect_uri.contains("/auth/callback/spotify") {
+                validation.warnings.push(
+                    "Spotify redirect URI should point to /auth/callback/spotify".to_string(),
+                );
+            }
+
             // Configuration is valid if no validation errors
             validation.is_valid = validation.validation_errors.is_empty();
         }
@@ -487,6 +502,11 @@ impl OAuthConfigValidator {
         if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
             validation.is_configured = true;
 
+            if client_id.trim().is_empty() {
+                validation
+                    .validation_errors
+                    .push("YouTube Music client ID cannot be empty".to_string());
+            }
             if client_secret.trim().is_empty() {
                 validation
                     .validation_errors
@@ -500,11 +520,86 @@ impl OAuthConfigValidator {
                 );
             }
 
+            let redirect_uri = provider_callback_uri_with_override(
+                "youtube",
+                &["YOUTUBE_MUSIC_REDIRECT_URI", "GOOGLE_REDIRECT_URI"],
+            );
+            if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
+                validation.validation_errors.push(
+                    "YouTube Music redirect URI must be a valid HTTP/HTTPS URL".to_string(),
+                );
+            }
+            if !redirect_uri.contains("/auth/callback/youtube") {
+                validation.warnings.push(
+                    "YouTube Music redirect URI should point to /auth/callback/youtube"
+                        .to_string(),
+                );
+            }
+
             validation.is_valid = validation.validation_errors.is_empty();
         }
 
         self.validation_results
             .insert(OAuthProviderType::YouTubeMusic, validation);
+    }
+
+    /// Validate Tidal OAuth configuration
+    fn validate_tidal_config(&mut self) {
+        let mut validation = OAuthProviderValidation {
+            provider: OAuthProviderType::Tidal,
+            is_configured: false,
+            is_valid: false,
+            missing_variables: Vec::new(),
+            validation_errors: Vec::new(),
+            warnings: Vec::new(),
+        };
+
+        let client_id = env::var("TIDAL_CLIENT_ID");
+        let client_secret = env::var("TIDAL_CLIENT_SECRET");
+
+        if client_id.is_err() {
+            validation
+                .missing_variables
+                .push("TIDAL_CLIENT_ID".to_string());
+        }
+        if client_secret.is_err() {
+            validation
+                .missing_variables
+                .push("TIDAL_CLIENT_SECRET".to_string());
+        }
+
+        if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
+            validation.is_configured = true;
+
+            if client_id.trim().is_empty() {
+                validation
+                    .validation_errors
+                    .push("TIDAL_CLIENT_ID cannot be empty".to_string());
+            }
+            if client_secret.trim().is_empty() {
+                validation
+                    .validation_errors
+                    .push("TIDAL_CLIENT_SECRET cannot be empty".to_string());
+            }
+
+            let redirect_uri =
+                provider_callback_uri_with_override("tidal", &["TIDAL_REDIRECT_URI"]);
+            if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
+                validation
+                    .validation_errors
+                    .push("Tidal redirect URI must be a valid HTTP/HTTPS URL".to_string());
+            }
+            if !redirect_uri.contains("/auth/callback/tidal") {
+                validation.warnings.push(
+                    "Tidal redirect URI should point to /auth/callback/tidal".to_string(),
+                );
+            }
+
+            validation.is_valid = validation.validation_errors.is_empty();
+        }
+
+        self.validation_results
+            .insert(OAuthProviderType::Tidal, validation);
     }
 
     /// Log validation summary

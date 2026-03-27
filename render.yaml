@@ -36,16 +36,60 @@ services:
         sync: false
       - key: OAUTH_FRONTEND_BASE_URL
         value: https://nodrakeinthe.house
+      - key: OAUTH_BACKEND_BASE_URL
+        value: https://api.nodrakeinthe.house
       - key: CORS_ALLOWED_ORIGINS
         value: https://nodrakeinthe.house
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      - key: SPOTIFY_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/spotify
+      - key: APPLE_MUSIC_TEAM_ID
+        sync: false
+      - key: APPLE_MUSIC_KEY_ID
+        sync: false
+      - key: APPLE_MUSIC_PRIVATE_KEY
+        sync: false
+      - key: APPLE_MUSIC_BUNDLE_ID
+        value: com.nodrakeinthehouse
+      - key: APPLE_CLIENT_ID
+        sync: false
+      - key: APPLE_TEAM_ID
+        sync: false
+      - key: APPLE_KEY_ID
+        sync: false
+      - key: APPLE_PRIVATE_KEY
+        sync: false
+      - key: APPLE_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/apple
       - key: TIDAL_CLIENT_ID
         sync: false
       - key: TIDAL_CLIENT_SECRET
         sync: false
+      - key: TIDAL_CLIENT_UNIQUE_KEY
+        sync: false
+      - key: TIDAL_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/tidal
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/google
+      - key: YOUTUBE_MUSIC_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_MUSIC_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_MUSIC_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/youtube
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: GITHUB_REDIRECT_URI
+        value: https://api.nodrakeinthe.house/auth/callback/github
 
   - type: web
     name: ndith-analytics

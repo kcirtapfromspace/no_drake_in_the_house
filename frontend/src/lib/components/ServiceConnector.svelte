@@ -83,7 +83,7 @@
           await connectionActions.initiateSpotifyAuth();
           break;
         case 'apple':
-          await connectionActions.initiateAppleMusicAuth();
+          await connectionActions.connectAppleMusic();
           break;
         case 'tidal':
           await connectionActions.initiateTidalAuth();

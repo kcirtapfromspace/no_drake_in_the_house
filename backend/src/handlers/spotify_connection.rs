@@ -31,7 +31,7 @@ use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
-use ndith_core::config::provider_callback_uri;
+use ndith_core::config::provider_callback_uri_with_override;
 use std::collections::HashMap;
 
 const SPOTIFY_SYNC_STATUS_KEY: &str = "spotify";
@@ -58,7 +58,8 @@ fn create_connection_provider() -> Result<SpotifyOAuthProvider> {
         std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
             message: "SPOTIFY_CLIENT_SECRET environment variable is required".to_string(),
         })?;
-    let redirect_uri = provider_callback_uri("spotify");
+    let redirect_uri =
+        provider_callback_uri_with_override("spotify", &["SPOTIFY_REDIRECT_URI"]);
 
     let config = OAuthConfig {
         client_id,
@@ -181,7 +182,8 @@ pub async fn spotify_authorize_handler(
     })?;
 
     // Determine redirect URI (override if provided in query)
-    let default_redirect_uri = provider_callback_uri("spotify");
+    let default_redirect_uri =
+        provider_callback_uri_with_override("spotify", &["SPOTIFY_REDIRECT_URI"]);
     let redirect_uri = match query.redirect_uri {
         Some(ref uri) if uri != &default_redirect_uri => {
             tracing::warn!(

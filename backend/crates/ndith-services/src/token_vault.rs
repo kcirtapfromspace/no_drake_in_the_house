@@ -10,6 +10,7 @@
 use crate::kms::{create_kms_provider, KmsProvider};
 use crate::metrics::MetricsCollector;
 use crate::oauth::OAuthProvider;
+use crate::oauth_encryption::OAuthTokenEncryption;
 use crate::oauth_spotify::SpotifyOAuthProvider;
 use crate::tidal::TidalService;
 use crate::token_vault_repository::TokenVaultRepository;
@@ -18,7 +19,7 @@ use aes_gcm::{
     Aes256Gcm,
 };
 use anyhow::{anyhow, Result};
-use base64::Engine as _;
+use base64::{engine::general_purpose, Engine as _};
 use chrono::{Duration, Utc};
 use dashmap::DashMap;
 use moka::future::Cache;
@@ -1059,7 +1060,18 @@ impl TokenVaultService {
             .access_token_encrypted
             .as_ref()
             .ok_or_else(|| anyhow!("No access token stored for this connection"))?;
-        let encrypted_access_token: EncryptedToken = serde_json::from_str(access_token_str)?;
+        let encrypted_access_token: EncryptedToken = match serde_json::from_str(access_token_str) {
+            Ok(token) => token,
+            Err(error) => {
+                warn!(
+                    connection_id = %connection.id,
+                    provider = %connection.provider,
+                    error = %error,
+                    "Falling back to legacy OAuth token decryption for access token"
+                );
+                return self.decrypt_legacy_connection_tokens(connection).await;
+            }
+        };
         let key_id = connection
             .data_key_id
             .clone()
@@ -1079,7 +1091,18 @@ impl TokenVaultService {
         let refresh_token =
             if let Some(ref encrypted_refresh_str) = connection.refresh_token_encrypted {
                 let encrypted_refresh_token: EncryptedToken =
-                    serde_json::from_str(encrypted_refresh_str)?;
+                    match serde_json::from_str(encrypted_refresh_str) {
+                        Ok(token) => token,
+                        Err(error) => {
+                            warn!(
+                                connection_id = %connection.id,
+                                provider = %connection.provider,
+                                error = %error,
+                                "Falling back to legacy OAuth token decryption for refresh token"
+                            );
+                            return self.decrypt_legacy_connection_tokens(connection).await;
+                        }
+                    };
                 // Handle legacy rows where refresh token may carry a different envelope key ID.
                 if encrypted_refresh_token.key_id != data_key.key_id {
                     let refresh_key = self
@@ -1103,6 +1126,46 @@ impl TokenVaultService {
             expires_at: connection.expires_at,
             scopes: connection.scopes.clone(),
         })
+    }
+
+    async fn decrypt_legacy_connection_tokens(&self, connection: &Connection) -> Result<DecryptedToken> {
+        let encryption = OAuthTokenEncryption::new()
+            .map_err(|e| anyhow!("Failed to initialize legacy OAuth token decryption: {}", e))?;
+
+        let access_token_str = connection
+            .access_token_encrypted
+            .as_deref()
+            .ok_or_else(|| anyhow!("No access token stored for this connection"))?;
+        let access_token =
+            Self::decrypt_legacy_token_string(access_token_str, &encryption).await?;
+
+        let refresh_token = match connection.refresh_token_encrypted.as_deref() {
+            Some(encoded_refresh) => Some(
+                Self::decrypt_legacy_token_string(encoded_refresh, &encryption).await?,
+            ),
+            None => None,
+        };
+
+        Ok(DecryptedToken {
+            access_token,
+            refresh_token,
+            expires_at: connection.expires_at,
+            scopes: connection.scopes.clone(),
+        })
+    }
+
+    async fn decrypt_legacy_token_string(
+        encoded_token: &str,
+        encryption: &OAuthTokenEncryption,
+    ) -> Result<String> {
+        let encrypted_bytes = general_purpose::STANDARD
+            .decode(encoded_token)
+            .map_err(|e| anyhow!("Legacy token decode failed: {}", e))?;
+
+        encryption
+            .decrypt_token(&encrypted_bytes)
+            .await
+            .map_err(|e| anyhow!("Legacy token decryption failed: {}", e))
     }
 
     /// Get or create a data key for encryption.
@@ -1323,6 +1386,10 @@ impl Default for TokenVaultService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::engine::general_purpose;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[tokio::test]
     async fn test_store_and_retrieve_token() {
@@ -1407,5 +1474,40 @@ mod tests {
     async fn test_is_persistent() {
         let vault = TokenVaultService::new();
         assert!(!vault.is_persistent());
+    }
+
+    #[tokio::test]
+    async fn test_decrypt_connection_tokens_falls_back_to_legacy_oauth_format() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let key = OAuthTokenEncryption::generate_key_base64();
+        std::env::set_var("OAUTH_ENCRYPTION_KEY", key);
+
+        let encryption = OAuthTokenEncryption::new().unwrap();
+        let access_token = general_purpose::STANDARD.encode(
+            encryption.encrypt_token("legacy_access_token").unwrap(),
+        );
+        let refresh_token = general_purpose::STANDARD.encode(
+            encryption.encrypt_token("legacy_refresh_token").unwrap(),
+        );
+
+        let mut connection = Connection::new(
+            Uuid::new_v4(),
+            StreamingProvider::Spotify,
+            "legacy-user".to_string(),
+            vec!["user-library-read".to_string()],
+        );
+        connection.access_token_encrypted = Some(access_token);
+        connection.refresh_token_encrypted = Some(refresh_token);
+
+        let vault = TokenVaultService::new();
+        let decrypted = vault.decrypt_connection_tokens(&connection).await.unwrap();
+
+        assert_eq!(decrypted.access_token, "legacy_access_token");
+        assert_eq!(
+            decrypted.refresh_token,
+            Some("legacy_refresh_token".to_string())
+        );
+
+        std::env::remove_var("OAUTH_ENCRYPTION_KEY");
     }
 }

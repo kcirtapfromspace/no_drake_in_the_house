@@ -29,7 +29,7 @@ use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
 use crate::AppState;
-use ndith_core::config::provider_callback_uri;
+use ndith_core::config::provider_callback_uri_with_override;
 
 const YOUTUBE_SYNC_STATUS_KEY: &str = "youtube";
 const YOUTUBE_PROVIDER_LABEL: &str = "YouTube Music";
@@ -149,10 +149,27 @@ pub async fn youtube_authorize_handler(
         }
     })?;
 
-    // Determine redirect URI
-    let redirect_uri = query
-        .redirect_uri
-        .unwrap_or_else(|| provider_callback_uri("youtube"));
+    // Determine redirect URI: validate against the configured callback URL.
+    let default_redirect_uri = provider_callback_uri_with_override(
+        "youtube",
+        &["YOUTUBE_MUSIC_REDIRECT_URI", "GOOGLE_REDIRECT_URI"],
+    );
+    let redirect_uri = match query.redirect_uri {
+        Some(ref uri) if uri != &default_redirect_uri => {
+            tracing::warn!(
+                user_id = %authenticated_user.id,
+                requested_uri = %uri,
+                expected_uri = %default_redirect_uri,
+                "Rejected non-allowlisted YouTube Music redirect_uri"
+            );
+            return Err(AppError::InvalidFieldValue {
+                field: "redirect_uri".to_string(),
+                message: "Provided redirect_uri does not match the configured callback URL"
+                    .to_string(),
+            });
+        }
+        _ => default_redirect_uri,
+    };
 
     // Initiate OAuth flow
     let flow_response = youtube_provider.initiate_flow(&redirect_uri).await?;

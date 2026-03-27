@@ -801,6 +801,13 @@ pub fn provider_callback_uri(provider: &str) -> String {
     )
 }
 
+pub fn provider_callback_uri_with_override(provider: &str, override_env_keys: &[&str]) -> String {
+    override_env_keys
+        .iter()
+        .find_map(|key| non_empty_env(key))
+        .unwrap_or_else(|| provider_callback_uri(provider))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -831,6 +838,42 @@ mod tests {
         assert_eq!(
             provider_callback_uri("tidal"),
             "https://api.nodrakeinthe.house/auth/callback/tidal"
+        );
+
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
+    }
+
+    #[test]
+    fn test_provider_callback_uri_with_override_prefers_explicit_redirect() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var(
+            "SPOTIFY_REDIRECT_URI",
+            "https://api.nodrakeinthe.house/auth/callback/spotify",
+        );
+
+        assert_eq!(
+            provider_callback_uri_with_override("spotify", &["SPOTIFY_REDIRECT_URI"]),
+            "https://api.nodrakeinthe.house/auth/callback/spotify"
+        );
+
+        std::env::remove_var("SPOTIFY_REDIRECT_URI");
+    }
+
+    #[test]
+    fn test_provider_callback_uri_with_override_falls_back_to_derived_callback() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::set_var("RENDER_EXTERNAL_URL", "https://api.nodrakeinthe.house");
+        std::env::remove_var("YOUTUBE_MUSIC_REDIRECT_URI");
+        std::env::remove_var("GOOGLE_REDIRECT_URI");
+
+        assert_eq!(
+            provider_callback_uri_with_override(
+                "youtube",
+                &["YOUTUBE_MUSIC_REDIRECT_URI", "GOOGLE_REDIRECT_URI"]
+            ),
+            "https://api.nodrakeinthe.house/auth/callback/youtube"
         );
 
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");

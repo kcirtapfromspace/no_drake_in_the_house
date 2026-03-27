@@ -332,6 +332,56 @@ async fn test_replace_playlist_tracks_empty_clears_all() {
     assert_eq!(db_count.0, 0);
 }
 
+#[tokio::test]
+#[serial]
+async fn test_upsert_playlist_and_replace_tracks_is_atomic() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let pl_id = repo
+        .upsert_playlist_and_replace_tracks(
+            user_id,
+            "spotify",
+            &UpsertPlaylist {
+                provider_playlist_id: "pl_atomic_upsert".to_string(),
+                name: "Atomic Upsert".to_string(),
+                description: Some("first pass".to_string()),
+                image_url: None,
+                owner_name: Some("Tester".to_string()),
+                owner_id: None,
+                is_public: Some(true),
+                is_collaborative: false,
+                source_type: "playlist".to_string(),
+                provider_track_count: Some(2),
+                snapshot_id: None,
+            },
+            &[
+                make_track("track_1", "Song 1", "Artist A", 0),
+                make_track("track_2", "Song 2", "Artist B", 1),
+            ],
+        )
+        .await
+        .unwrap();
+
+    let (stored_name, stored_track_count): (String, i64) = sqlx::query_as(
+        r#"
+        SELECT p.name, COUNT(pt.id)::bigint
+        FROM playlists p
+        LEFT JOIN playlist_tracks pt ON pt.playlist_id = p.id
+        WHERE p.id = $1
+        GROUP BY p.id
+        "#,
+    )
+    .bind(pl_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(stored_name, "Atomic Upsert");
+    assert_eq!(stored_track_count, 2);
+}
+
 // ===========================================================================
 // delete_stale_playlists
 // ===========================================================================
@@ -397,6 +447,56 @@ async fn test_delete_stale_playlists() {
         .await
         .unwrap();
     assert!(!gone);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_touch_playlist_last_synced_preserves_playlist_from_stale_delete() {
+    let pool = get_pool().await;
+    let user_id = create_test_user(&pool).await;
+    let repo = PlaylistRepository::new(&pool);
+
+    let playlist = repo
+        .upsert_playlist(user_id, "spotify", &make_playlist("Keep Me", "pl_keep"))
+        .await
+        .unwrap();
+    repo.replace_playlist_tracks(
+        playlist,
+        &[make_track("keep_track", "Keep Song", "Artist", 0)],
+    )
+    .await
+    .unwrap();
+
+    sqlx::query("UPDATE playlists SET last_synced = NOW() - INTERVAL '1 hour' WHERE id = $1")
+        .bind(playlist)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let touched = repo
+        .touch_playlist_last_synced(user_id, "spotify", "pl_keep")
+        .await
+        .unwrap();
+    assert!(touched);
+
+    let cutoff: DateTime<Utc> = sqlx::query_scalar("SELECT NOW()")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    let deleted = repo
+        .delete_stale_playlists(user_id, "spotify", cutoff)
+        .await
+        .unwrap();
+    assert_eq!(deleted, 0);
+
+    let still_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM playlists WHERE id = $1)")
+            .bind(playlist)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(still_exists);
 }
 
 #[tokio::test]

@@ -1072,67 +1072,6 @@ async fn sync_tidal_library_to_user_library(
     let playlist_repo = PlaylistRepository::new(pool);
     let sync_ts = Utc::now();
 
-    // Virtual playlists for favorites
-    let fav_tracks_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "tidal",
-            &UpsertPlaylist {
-                provider_playlist_id: "__favorite_tracks__".to_string(),
-                name: "Favorite Tracks".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "favorite_tracks".to_string(),
-                provider_track_count: Some(favorite_tracks_synced as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
-    let fav_albums_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "tidal",
-            &UpsertPlaylist {
-                provider_playlist_id: "__favorite_albums__".to_string(),
-                name: "Favorite Albums".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "favorite_albums".to_string(),
-                provider_track_count: Some(favorite_albums_synced as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
-    let fav_artists_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "tidal",
-            &UpsertPlaylist {
-                provider_playlist_id: "__favorite_artists__".to_string(),
-                name: "Favorite Artists".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "favorite_artists".to_string(),
-                provider_track_count: Some(favorite_artists_synced as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
     // Write favorites to normalized tables
     {
         let fav_track_norm: Vec<UpsertPlaylistTrack> = tracks
@@ -1155,7 +1094,24 @@ async fn sync_tidal_library_to_user_library(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(fav_tracks_pl_id, &fav_track_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "tidal",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__favorite_tracks__".to_string(),
+                    name: "Favorite Tracks".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "favorite_tracks".to_string(),
+                    provider_track_count: Some(favorite_tracks_synced as i32),
+                    snapshot_id: None,
+                },
+                &fav_track_norm,
+            )
             .await?;
 
         let fav_album_norm: Vec<UpsertPlaylistTrack> = tracks
@@ -1178,7 +1134,24 @@ async fn sync_tidal_library_to_user_library(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(fav_albums_pl_id, &fav_album_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "tidal",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__favorite_albums__".to_string(),
+                    name: "Favorite Albums".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "favorite_albums".to_string(),
+                    provider_track_count: Some(favorite_albums_synced as i32),
+                    snapshot_id: None,
+                },
+                &fav_album_norm,
+            )
             .await?;
 
         let fav_artist_norm: Vec<UpsertPlaylistTrack> = tracks
@@ -1201,7 +1174,24 @@ async fn sync_tidal_library_to_user_library(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(fav_artists_pl_id, &fav_artist_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "tidal",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__favorite_artists__".to_string(),
+                    name: "Favorite Artists".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "favorite_artists".to_string(),
+                    provider_track_count: Some(favorite_artists_synced as i32),
+                    snapshot_id: None,
+                },
+                &fav_artist_norm,
+            )
             .await?;
     }
 
@@ -1213,26 +1203,19 @@ async fn sync_tidal_library_to_user_library(
             .and_then(|c| c.username.clone())
             .unwrap_or_else(|| "Unknown Creator".to_string());
         let playlist_title = playlist.title.clone();
-
-        let pl_id = playlist_repo
-            .upsert_playlist(
-                user_id,
-                "tidal",
-                &UpsertPlaylist {
-                    provider_playlist_id: playlist.uuid.clone(),
-                    name: playlist_title.clone(),
-                    description: playlist.description.clone(),
-                    image_url: playlist.image.clone(),
-                    owner_name: Some(creator_name.clone()),
-                    owner_id: None,
-                    is_public: Some(playlist.public_playlist),
-                    is_collaborative: false,
-                    source_type: "playlist".to_string(),
-                    provider_track_count: Some(playlist.number_of_tracks as i32),
-                    snapshot_id: None,
-                },
-            )
-            .await?;
+        let playlist_upsert = UpsertPlaylist {
+            provider_playlist_id: playlist.uuid.clone(),
+            name: playlist_title.clone(),
+            description: playlist.description.clone(),
+            image_url: playlist.image.clone(),
+            owner_name: Some(creator_name.clone()),
+            owner_id: None,
+            is_public: Some(playlist.public_playlist),
+            is_collaborative: false,
+            source_type: "playlist".to_string(),
+            provider_track_count: Some(playlist.number_of_tracks as i32),
+            snapshot_id: None,
+        };
 
         // Fetch individual playlist tracks from Tidal API
         match tidal_service
@@ -1261,10 +1244,30 @@ async fn sync_tidal_library_to_user_library(
                     })
                     .collect();
 
-                // Write to normalized table
-                playlist_repo
-                    .replace_playlist_tracks(pl_id, &normalized)
-                    .await?;
+                if playlist_upsert.provider_track_count.unwrap_or_default() > 0
+                    && normalized.is_empty()
+                {
+                    let preserved = playlist_repo
+                        .touch_playlist_last_synced(user_id, "tidal", &playlist.uuid)
+                        .await?;
+                    tracing::warn!(
+                        playlist_uuid = %playlist.uuid,
+                        playlist_name = %playlist_title,
+                        provider_track_count = playlist_upsert.provider_track_count,
+                        preserved_existing_playlist = preserved,
+                        "Tidal playlist returned no track rows despite a non-zero provider track count; preserving existing inventory"
+                    );
+                } else {
+                    // Write to normalized table
+                    playlist_repo
+                        .upsert_playlist_and_replace_tracks(
+                            user_id,
+                            "tidal",
+                            &playlist_upsert,
+                            &normalized,
+                        )
+                        .await?;
+                }
 
                 // Also add to legacy tracks vec for backward compat
                 for (i, pt) in playlist_tracks.iter().enumerate() {
@@ -1289,10 +1292,14 @@ async fn sync_tidal_library_to_user_library(
                 }
             }
             Err(e) => {
+                let preserved = playlist_repo
+                    .touch_playlist_last_synced(user_id, "tidal", &playlist.uuid)
+                    .await?;
                 tracing::warn!(
                     playlist_uuid = %playlist.uuid,
                     error = %e,
-                    "Failed to fetch Tidal playlist tracks, storing metadata only"
+                    preserved_existing_playlist = preserved,
+                    "Failed to fetch Tidal playlist tracks; preserving previously imported inventory"
                 );
             }
         }

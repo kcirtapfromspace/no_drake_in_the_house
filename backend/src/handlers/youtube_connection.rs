@@ -947,27 +947,6 @@ async fn sync_youtube_library_to_user_library(
     let playlist_repo = PlaylistRepository::new(pool);
     let sync_ts = Utc::now();
 
-    // Virtual playlist for liked videos
-    let liked_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "youtube_music",
-            &UpsertPlaylist {
-                provider_playlist_id: "__liked_videos__".to_string(),
-                name: "Liked Videos".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "liked_videos".to_string(),
-                provider_track_count: Some(liked_videos_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
-
     // Write liked videos to normalized table
     {
         let liked_norm: Vec<UpsertPlaylistTrack> = tracks
@@ -990,31 +969,41 @@ async fn sync_youtube_library_to_user_library(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(liked_pl_id, &liked_norm)
-            .await?;
-    }
-
-    for playlist in playlists {
-        // Upsert playlist entity
-        let pl_id = playlist_repo
-            .upsert_playlist(
+            .upsert_playlist_and_replace_tracks(
                 user_id,
                 "youtube_music",
                 &UpsertPlaylist {
-                    provider_playlist_id: playlist.id.clone(),
-                    name: playlist.snippet.title.clone(),
+                    provider_playlist_id: "__liked_videos__".to_string(),
+                    name: "Liked Videos".to_string(),
                     description: None,
                     image_url: None,
                     owner_name: None,
                     owner_id: None,
-                    is_public: None,
+                    is_public: Some(false),
                     is_collaborative: false,
-                    source_type: "playlist".to_string(),
-                    provider_track_count: None,
+                    source_type: "liked_videos".to_string(),
+                    provider_track_count: Some(liked_videos_count as i32),
                     snapshot_id: None,
                 },
+                &liked_norm,
             )
             .await?;
+    }
+
+    for playlist in playlists {
+        let playlist_upsert = UpsertPlaylist {
+            provider_playlist_id: playlist.id.clone(),
+            name: playlist.snippet.title.clone(),
+            description: None,
+            image_url: None,
+            owner_name: None,
+            owner_id: None,
+            is_public: None,
+            is_collaborative: false,
+            source_type: "playlist".to_string(),
+            provider_track_count: None,
+            snapshot_id: None,
+        };
 
         let mut normalized_tracks: Vec<UpsertPlaylistTrack> = Vec::new();
         let mut playlist_item_token: Option<String> = None;
@@ -1071,7 +1060,12 @@ async fn sync_youtube_library_to_user_library(
         }
 
         playlist_repo
-            .replace_playlist_tracks(pl_id, &normalized_tracks)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "youtube_music",
+                &playlist_upsert,
+                &normalized_tracks,
+            )
             .await?;
     }
 
@@ -1112,26 +1106,6 @@ async fn sync_youtube_library_to_user_library(
         }
     }
 
-    // Virtual playlist for subscriptions
-    let subs_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "youtube_music",
-            &UpsertPlaylist {
-                provider_playlist_id: "__subscriptions__".to_string(),
-                name: "Subscriptions".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "subscriptions".to_string(),
-                provider_track_count: Some(subscriptions_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await?;
     {
         let sub_norm: Vec<UpsertPlaylistTrack> = tracks
             .iter()
@@ -1153,7 +1127,24 @@ async fn sync_youtube_library_to_user_library(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(subs_pl_id, &sub_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "youtube_music",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__subscriptions__".to_string(),
+                    name: "Subscriptions".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "subscriptions".to_string(),
+                    provider_track_count: Some(subscriptions_count as i32),
+                    snapshot_id: None,
+                },
+                &sub_norm,
+            )
             .await?;
     }
 

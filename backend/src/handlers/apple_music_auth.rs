@@ -666,54 +666,6 @@ async fn perform_apple_music_library_sync(
     let playlist_repo = PlaylistRepository::new(&state.db_pool);
     let sync_ts = Utc::now();
 
-    // Virtual playlist for library songs
-    let songs_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "apple_music",
-            &UpsertPlaylist {
-                provider_playlist_id: "__library_songs__".to_string(),
-                name: "Library Songs".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "library_songs".to_string(),
-                provider_track_count: Some(tracks_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await
-        .map_err(|e| AppError::Internal {
-            message: Some(e.to_string()),
-        })?;
-
-    // Virtual playlist for library albums
-    let albums_pl_id = playlist_repo
-        .upsert_playlist(
-            user_id,
-            "apple_music",
-            &UpsertPlaylist {
-                provider_playlist_id: "__library_albums__".to_string(),
-                name: "Library Albums".to_string(),
-                description: None,
-                image_url: None,
-                owner_name: None,
-                owner_id: None,
-                is_public: Some(false),
-                is_collaborative: false,
-                source_type: "library_albums".to_string(),
-                provider_track_count: Some(albums_count as i32),
-                snapshot_id: None,
-            },
-        )
-        .await
-        .map_err(|e| AppError::Internal {
-            message: Some(e.to_string()),
-        })?;
-
     // Write library songs to normalized table
     {
         let song_norm: Vec<UpsertPlaylistTrack> = library
@@ -730,7 +682,24 @@ async fn perform_apple_music_library_sync(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(songs_pl_id, &song_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "apple_music",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__library_songs__".to_string(),
+                    name: "Library Songs".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "library_songs".to_string(),
+                    provider_track_count: Some(tracks_count as i32),
+                    snapshot_id: None,
+                },
+                &song_norm,
+            )
             .await
             .map_err(|e| AppError::Internal {
                 message: Some(e.to_string()),
@@ -753,7 +722,24 @@ async fn perform_apple_music_library_sync(
             })
             .collect();
         playlist_repo
-            .replace_playlist_tracks(albums_pl_id, &album_norm)
+            .upsert_playlist_and_replace_tracks(
+                user_id,
+                "apple_music",
+                &UpsertPlaylist {
+                    provider_playlist_id: "__library_albums__".to_string(),
+                    name: "Library Albums".to_string(),
+                    description: None,
+                    image_url: None,
+                    owner_name: None,
+                    owner_id: None,
+                    is_public: Some(false),
+                    is_collaborative: false,
+                    source_type: "library_albums".to_string(),
+                    provider_track_count: Some(albums_count as i32),
+                    snapshot_id: None,
+                },
+                &album_norm,
+            )
             .await
             .map_err(|e| AppError::Internal {
                 message: Some(e.to_string()),
@@ -763,31 +749,22 @@ async fn perform_apple_music_library_sync(
     // Upsert Apple Music playlists + fetch individual tracks per playlist
     for playlist in &library.library_playlists {
         let attrs = &playlist.attributes;
-        let pl_id = playlist_repo
-            .upsert_playlist(
-                user_id,
-                "apple_music",
-                &UpsertPlaylist {
-                    provider_playlist_id: playlist.id.clone(),
-                    name: attrs.name.clone(),
-                    description: attrs
-                        .description
-                        .as_ref()
-                        .map(|d| d.standard.clone().unwrap_or_default()),
-                    image_url: attrs.artwork.as_ref().map(|a| a.url.clone()),
-                    owner_name: attrs.curator_name.clone(),
-                    owner_id: None,
-                    is_public: None,
-                    is_collaborative: false,
-                    source_type: "playlist".to_string(),
-                    provider_track_count: attrs.track_count.map(|c| c as i32),
-                    snapshot_id: None,
-                },
-            )
-            .await
-            .map_err(|e| AppError::Internal {
-                message: Some(e.to_string()),
-            })?;
+        let playlist_upsert = UpsertPlaylist {
+            provider_playlist_id: playlist.id.clone(),
+            name: attrs.name.clone(),
+            description: attrs
+                .description
+                .as_ref()
+                .map(|d| d.standard.clone().unwrap_or_default()),
+            image_url: attrs.artwork.as_ref().map(|a| a.url.clone()),
+            owner_name: attrs.curator_name.clone(),
+            owner_id: None,
+            is_public: None,
+            is_collaborative: false,
+            source_type: "playlist".to_string(),
+            provider_track_count: attrs.track_count.map(|c| c as i32),
+            snapshot_id: None,
+        };
 
         // Fetch individual playlist tracks from Apple Music API
         match state
@@ -809,8 +786,32 @@ async fn perform_apple_music_library_sync(
                     })
                     .collect();
 
+                if playlist_upsert.provider_track_count.unwrap_or_default() > 0
+                    && normalized.is_empty()
+                {
+                    let preserved = playlist_repo
+                        .touch_playlist_last_synced(user_id, "apple_music", &playlist.id)
+                        .await
+                        .map_err(|e| AppError::Internal {
+                            message: Some(e.to_string()),
+                        })?;
+                    tracing::warn!(
+                        playlist_id = %playlist.id,
+                        playlist_name = %attrs.name,
+                        provider_track_count = playlist_upsert.provider_track_count,
+                        preserved_existing_playlist = preserved,
+                        "Apple Music playlist returned no track rows despite a non-zero provider track count; preserving existing inventory"
+                    );
+                    continue;
+                }
+
                 playlist_repo
-                    .replace_playlist_tracks(pl_id, &normalized)
+                    .upsert_playlist_and_replace_tracks(
+                        user_id,
+                        "apple_music",
+                        &playlist_upsert,
+                        &normalized,
+                    )
                     .await
                     .map_err(|e| AppError::Internal {
                         message: Some(e.to_string()),
@@ -830,10 +831,17 @@ async fn perform_apple_music_library_sync(
                 }
             }
             Err(e) => {
+                let preserved = playlist_repo
+                    .touch_playlist_last_synced(user_id, "apple_music", &playlist.id)
+                    .await
+                    .map_err(|touch_error| AppError::Internal {
+                        message: Some(touch_error.to_string()),
+                    })?;
                 tracing::warn!(
                     playlist_id = %playlist.id,
                     error = %e,
-                    "Failed to fetch Apple Music playlist tracks, storing metadata only"
+                    preserved_existing_playlist = preserved,
+                    "Failed to fetch Apple Music playlist tracks; preserving previously imported inventory"
                 );
             }
         }

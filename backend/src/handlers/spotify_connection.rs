@@ -1266,33 +1266,47 @@ async fn sync_spotify_library_to_user_library(
                 playlist_tracks_url = track_page.next;
             }
 
-            let pl_id = playlist_repo
-                .upsert_playlist(
+            let playlist_upsert = UpsertPlaylist {
+                provider_playlist_id: playlist.id.clone(),
+                name: playlist.name.clone(),
+                description: playlist.description.clone(),
+                image_url: playlist
+                    .images
+                    .as_ref()
+                    .and_then(|imgs| imgs.first())
+                    .map(|img| img.url.clone()),
+                owner_name: playlist.owner.as_ref().and_then(|o| o.display_name.clone()),
+                owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
+                is_public: playlist.public,
+                is_collaborative: playlist.collaborative.unwrap_or(false),
+                source_type: "playlist".to_string(),
+                provider_track_count: playlist.tracks.as_ref().and_then(|t| t.total),
+                snapshot_id: playlist.snapshot_id.clone(),
+            };
+
+            if playlist_upsert.provider_track_count.unwrap_or_default() > 0
+                && normalized_tracks.is_empty()
+            {
+                let preserved = playlist_repo
+                    .touch_playlist_last_synced(user_id, "spotify", &playlist.id)
+                    .await?;
+                tracing::warn!(
+                    playlist_id = %playlist.id,
+                    playlist_name = %playlist.name,
+                    provider_track_count = playlist_upsert.provider_track_count,
+                    preserved_existing_playlist = preserved,
+                    "Spotify playlist returned no importable track rows despite a non-zero provider track count; preserving existing inventory"
+                );
+                continue;
+            }
+
+            playlist_repo
+                .upsert_playlist_and_replace_tracks(
                     user_id,
                     "spotify",
-                    &UpsertPlaylist {
-                        provider_playlist_id: playlist.id.clone(),
-                        name: playlist.name.clone(),
-                        description: playlist.description.clone(),
-                        image_url: playlist
-                            .images
-                            .as_ref()
-                            .and_then(|imgs| imgs.first())
-                            .map(|img| img.url.clone()),
-                        owner_name: playlist.owner.as_ref().and_then(|o| o.display_name.clone()),
-                        owner_id: playlist.owner.as_ref().and_then(|o| o.id.clone()),
-                        is_public: playlist.public,
-                        is_collaborative: playlist.collaborative.unwrap_or(false),
-                        source_type: "playlist".to_string(),
-                        provider_track_count: playlist.tracks.as_ref().and_then(|t| t.total),
-                        snapshot_id: playlist.snapshot_id.clone(),
-                    },
+                    &playlist_upsert,
+                    &normalized_tracks,
                 )
-                .await?;
-
-            // Write tracks to normalized table
-            playlist_repo
-                .replace_playlist_tracks(pl_id, &normalized_tracks)
                 .await?;
             playlists_synced += 1;
         }
@@ -1361,8 +1375,8 @@ async fn sync_spotify_library_to_user_library(
             }
         }
 
-        let liked_pl_id = playlist_repo
-            .upsert_playlist(
+        playlist_repo
+            .upsert_playlist_and_replace_tracks(
                 user_id,
                 "spotify",
                 &UpsertPlaylist {
@@ -1378,10 +1392,11 @@ async fn sync_spotify_library_to_user_library(
                     provider_track_count: Some(liked_count as i32),
                     snapshot_id: None,
                 },
+                &liked_norm,
             )
             .await?;
-        let saved_albums_pl_id = playlist_repo
-            .upsert_playlist(
+        playlist_repo
+            .upsert_playlist_and_replace_tracks(
                 user_id,
                 "spotify",
                 &UpsertPlaylist {
@@ -1397,10 +1412,11 @@ async fn sync_spotify_library_to_user_library(
                     provider_track_count: Some(saved_album_count as i32),
                     snapshot_id: None,
                 },
+                &album_norm,
             )
             .await?;
-        let followed_pl_id = playlist_repo
-            .upsert_playlist(
+        playlist_repo
+            .upsert_playlist_and_replace_tracks(
                 user_id,
                 "spotify",
                 &UpsertPlaylist {
@@ -1416,17 +1432,8 @@ async fn sync_spotify_library_to_user_library(
                     provider_track_count: Some(followed_artist_count as i32),
                     snapshot_id: None,
                 },
+                &artist_norm,
             )
-            .await?;
-
-        playlist_repo
-            .replace_playlist_tracks(liked_pl_id, &liked_norm)
-            .await?;
-        playlist_repo
-            .replace_playlist_tracks(saved_albums_pl_id, &album_norm)
-            .await?;
-        playlist_repo
-            .replace_playlist_tracks(followed_pl_id, &artist_norm)
             .await?;
     }
 

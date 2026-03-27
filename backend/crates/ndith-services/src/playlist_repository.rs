@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use ndith_core::models::{
     PlaylistSummary, PlaylistTrackWithStatus, UpsertPlaylist, UpsertPlaylistTrack,
 };
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -68,6 +68,70 @@ impl<'a> PlaylistRepository<'a> {
         Ok(row.0)
     }
 
+    /// Atomically upsert a playlist header and replace its tracks in one transaction.
+    pub async fn upsert_playlist_and_replace_tracks(
+        &self,
+        user_id: Uuid,
+        provider: &str,
+        playlist: &UpsertPlaylist,
+        tracks: &[UpsertPlaylistTrack],
+    ) -> Result<Uuid> {
+        let mut tx = self
+            .db
+            .begin()
+            .await
+            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        let row: (Uuid,) = sqlx::query_as(
+            r#"
+            INSERT INTO playlists (
+                user_id, provider, provider_playlist_id, name, description,
+                image_url, owner_name, owner_id, is_public, is_collaborative,
+                source_type, provider_track_count, snapshot_id, last_synced
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+            ON CONFLICT (user_id, provider, provider_playlist_id)
+            DO UPDATE SET
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                image_url = EXCLUDED.image_url,
+                owner_name = EXCLUDED.owner_name,
+                owner_id = EXCLUDED.owner_id,
+                is_public = EXCLUDED.is_public,
+                is_collaborative = EXCLUDED.is_collaborative,
+                source_type = EXCLUDED.source_type,
+                provider_track_count = EXCLUDED.provider_track_count,
+                snapshot_id = EXCLUDED.snapshot_id,
+                last_synced = NOW()
+            RETURNING id
+            "#,
+        )
+        .bind(user_id)
+        .bind(provider)
+        .bind(&playlist.provider_playlist_id)
+        .bind(&playlist.name)
+        .bind(&playlist.description)
+        .bind(&playlist.image_url)
+        .bind(&playlist.owner_name)
+        .bind(&playlist.owner_id)
+        .bind(playlist.is_public)
+        .bind(playlist.is_collaborative)
+        .bind(&playlist.source_type)
+        .bind(playlist.provider_track_count)
+        .bind(&playlist.snapshot_id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        Self::replace_playlist_tracks_in_tx(&mut tx, row.0, tracks).await?;
+
+        tx.commit()
+            .await
+            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        Ok(row.0)
+    }
+
     /// Replace all tracks in a playlist (delete-then-insert in a transaction).
     pub async fn replace_playlist_tracks(
         &self,
@@ -80,81 +144,39 @@ impl<'a> PlaylistRepository<'a> {
             .await
             .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
-        // Delete existing tracks
-        sqlx::query("DELETE FROM playlist_tracks WHERE playlist_id = $1")
-            .bind(playlist_id)
-            .execute(&mut *tx)
-            .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
-
-        if tracks.is_empty() {
-            tx.commit()
-                .await
-                .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
-            return Ok(0);
-        }
-
-        // Batch-resolve all artist names in ONE query
-        let artist_names_lower: Vec<String> = tracks
-            .iter()
-            .map(|t| t.artist_name.to_lowercase())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
-
-        let artist_map: HashMap<String, Uuid> = if artist_names_lower.is_empty() {
-            HashMap::new()
-        } else {
-            sqlx::query_as::<_, (Uuid, String)>(
-                "SELECT id, LOWER(canonical_name) AS lname FROM artists WHERE LOWER(canonical_name) = ANY($1)",
-            )
-            .bind(&artist_names_lower)
-            .fetch_all(&mut *tx)
-            .await
-            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?
-            .into_iter()
-            .map(|(id, lname)| (lname, id))
-            .collect()
-        };
-
-        // Bulk INSERT all tracks in chunks of 500
-        const CHUNK_SIZE: usize = 500;
-        for chunk in tracks.chunks(CHUNK_SIZE) {
-            let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, album_name, artist_id, artist_name, position, added_at) ",
-            );
-
-            qb.push_values(chunk, |mut b, track| {
-                let artist_id = artist_map.get(&track.artist_name.to_lowercase()).copied();
-                b.push_bind(playlist_id)
-                    .push_bind(&track.provider_track_id)
-                    .push_bind(&track.track_name)
-                    .push_bind(&track.album_name)
-                    .push_bind(artist_id)
-                    .push_bind(&track.artist_name)
-                    .push_bind(track.position)
-                    .push_bind(track.added_at);
-            });
-
-            qb.push(
-                " ON CONFLICT (playlist_id, provider_track_id, position) DO UPDATE SET \
-                  track_name = EXCLUDED.track_name, \
-                  album_name = EXCLUDED.album_name, \
-                  artist_id = EXCLUDED.artist_id, \
-                  artist_name = EXCLUDED.artist_name",
-            );
-
-            qb.build()
-                .execute(&mut *tx)
-                .await
-                .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
-        }
+        let inserted = Self::replace_playlist_tracks_in_tx(&mut tx, playlist_id, tracks).await?;
 
         tx.commit()
             .await
             .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
 
-        Ok(tracks.len())
+        Ok(inserted)
+    }
+
+    /// Mark a playlist as seen during sync without mutating its existing inventory.
+    pub async fn touch_playlist_last_synced(
+        &self,
+        user_id: Uuid,
+        provider: &str,
+        provider_playlist_id: &str,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+            UPDATE playlists
+            SET last_synced = NOW()
+            WHERE user_id = $1
+              AND provider = $2
+              AND provider_playlist_id = $3
+            "#,
+        )
+        .bind(user_id)
+        .bind(provider)
+        .bind(provider_playlist_id)
+        .execute(self.db)
+        .await
+        .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        Ok(result.rows_affected() > 0)
     }
 
     /// Delete playlists not refreshed since `sync_ts` for a given user+provider.
@@ -478,6 +500,78 @@ impl<'a> PlaylistRepository<'a> {
             .collect();
 
         Ok(tracks)
+    }
+
+    async fn replace_playlist_tracks_in_tx(
+        tx: &mut Transaction<'_, Postgres>,
+        playlist_id: Uuid,
+        tracks: &[UpsertPlaylistTrack],
+    ) -> Result<usize> {
+        sqlx::query("DELETE FROM playlist_tracks WHERE playlist_id = $1")
+            .bind(playlist_id)
+            .execute(&mut **tx)
+            .await
+            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+
+        if tracks.is_empty() {
+            return Ok(0);
+        }
+
+        let artist_names_lower: Vec<String> = tracks
+            .iter()
+            .map(|t| t.artist_name.to_lowercase())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        let artist_map: HashMap<String, Uuid> = if artist_names_lower.is_empty() {
+            HashMap::new()
+        } else {
+            sqlx::query_as::<_, (Uuid, String)>(
+                "SELECT id, LOWER(canonical_name) AS lname FROM artists WHERE LOWER(canonical_name) = ANY($1)",
+            )
+            .bind(&artist_names_lower)
+            .fetch_all(&mut **tx)
+            .await
+            .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?
+            .into_iter()
+            .map(|(id, lname)| (lname, id))
+            .collect()
+        };
+
+        const CHUNK_SIZE: usize = 500;
+        for chunk in tracks.chunks(CHUNK_SIZE) {
+            let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+                "INSERT INTO playlist_tracks (playlist_id, provider_track_id, track_name, album_name, artist_id, artist_name, position, added_at) ",
+            );
+
+            qb.push_values(chunk, |mut b, track| {
+                let artist_id = artist_map.get(&track.artist_name.to_lowercase()).copied();
+                b.push_bind(playlist_id)
+                    .push_bind(&track.provider_track_id)
+                    .push_bind(&track.track_name)
+                    .push_bind(&track.album_name)
+                    .push_bind(artist_id)
+                    .push_bind(&track.artist_name)
+                    .push_bind(track.position)
+                    .push_bind(track.added_at);
+            });
+
+            qb.push(
+                " ON CONFLICT (playlist_id, provider_track_id, position) DO UPDATE SET \
+                  track_name = EXCLUDED.track_name, \
+                  album_name = EXCLUDED.album_name, \
+                  artist_id = EXCLUDED.artist_id, \
+                  artist_name = EXCLUDED.artist_name",
+            );
+
+            qb.build()
+                .execute(&mut **tx)
+                .await
+                .map_err(ndith_core::error::AppError::DatabaseQueryFailed)?;
+        }
+
+        Ok(tracks.len())
     }
 }
 

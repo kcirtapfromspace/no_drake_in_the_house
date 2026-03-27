@@ -18,6 +18,7 @@
 	import ServiceHealthDashboard from "./lib/components/ServiceHealthDashboard.svelte";
 	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
 	import BlocklistPage from "./lib/components/BlocklistPage.svelte";
+	import AdminDashboard from "./lib/components/AdminDashboard.svelte";
 	import Layout from "./lib/components/Layout.svelte";
 	import config from "./lib/utils/config";
 	import { initPostHog, capturePageView, identifyUser, resetUser } from "./lib/utils/posthog";
@@ -298,6 +299,8 @@
 				<ServiceHealthDashboard />
 			{:else if $currentRoute === 'playlist-sanitizer'}
 				<PlaylistSanitizer />
+			{:else if $currentRoute === 'admin'}
+				<AdminDashboard />
 			{:else}
 				<Home />
 			{/if}

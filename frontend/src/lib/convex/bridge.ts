@@ -59,6 +59,7 @@ function mapConvexUser(user: any, linkedAccounts: any[] = []) {
     display_name: user?.displayName,
     avatar_url: user?.avatarUrl,
     legacy_user_id: user?.legacyUserId,
+    roles: user?.roles ?? [],
   };
 }
 
@@ -740,6 +741,17 @@ export async function maybeHandleConvexRoute<T = unknown>(
 
     if (method === 'GET' && pathname === '/api/v1/analytics/category-revenue/user/exposure') {
       const result = await convexQuery<any>(anyApi.analytics.userExposure, {});
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/analytics/admin-metrics') {
+      const result = await convexQuery<any>(anyApi.analytics.adminMetrics, {});
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/analytics/catalog-metrics-history') {
+      const limit = parseIntParam(url, 'limit', 30);
+      const result = await convexQuery<any>(anyApi.analytics.catalogMetricsHistory, { limit });
       return ok(result) as BridgedApiResponse<T>;
     }
 

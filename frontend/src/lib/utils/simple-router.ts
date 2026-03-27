@@ -22,7 +22,8 @@ export type Route =
   | 'dnp'
   | 'enforcement'
   | 'playlist-sanitizer'
-  | 'artist-profile';
+  | 'artist-profile'
+  | 'admin';
 
 // Path mappings
 const pathToRoute: Record<string, Route> = {
@@ -45,6 +46,7 @@ const pathToRoute: Record<string, Route> = {
   '/dnp': 'dnp',
   '/enforcement': 'enforcement',
   '/playlist-sanitizer': 'playlist-sanitizer',
+  '/admin': 'admin',
 };
 
 const routeToPath: Record<Route, string> = {
@@ -69,6 +71,7 @@ const routeToPath: Record<Route, string> = {
   'enforcement': '/enforcement',
   'playlist-sanitizer': '/playlist-sanitizer',
   'artist-profile': '/artist',
+  'admin': '/admin',
 };
 
 // Route metadata
@@ -94,6 +97,7 @@ const routeMeta: Record<Route, { title: string; description: string }> = {
   'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
   'playlist-sanitizer': { title: 'Playlists', description: 'Browse, grade, and sanitize your playlists' },
   'artist-profile': { title: 'Artist Profile', description: 'View artist details and evidence' },
+  'admin': { title: 'Admin Dashboard', description: 'Owner metrics and catalog health' },
 };
 
 // Router store

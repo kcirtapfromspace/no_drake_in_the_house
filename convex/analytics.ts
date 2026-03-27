@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
-import { nowIso, requireCurrentUser } from "./lib/auth";
+import { nowIso, requireCurrentUser, requireOwner } from "./lib/auth";
+import { CATEGORY_COPY } from "./categories";
 
 const severityWeight: Record<string, number> = {
   minor: 1,
@@ -16,6 +17,7 @@ export const artistOverview = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const [offenses, evidence, collaborations, blocks] = await Promise.all([
       ctx.db
         .query("artistOffenses")
@@ -165,6 +167,8 @@ export const userStats = query({
 export const systemHealth = query({
   args: {},
   handler: async (ctx) => {
+    await requireOwner(ctx);
+
     const [artists, offenses, users, tracks, syncRuns] = await Promise.all([
       ctx.db.query("artists").collect(),
       ctx.db.query("artistOffenses").collect(),
@@ -190,6 +194,7 @@ export const systemHealth = query({
 export const trendSummary = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
 
     const byCategory = offenses.reduce<Record<string, number>>((acc, o) => {
@@ -215,6 +220,7 @@ export const risingArtists = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const artistScores = new Map<string, number>();
 
@@ -284,6 +290,7 @@ export const fallingArtists = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const artistScores = new Map<string, number>();
 
@@ -342,7 +349,8 @@ export const fallingArtists = query({
 
 export const reportTypes = query({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     return [
       { type: "library_scan", name: "Library Scan Report", description: "Full library analysis" },
       { type: "offense_summary", name: "Offense Summary", description: "All tracked offenses" },
@@ -380,8 +388,9 @@ export const getReport = query({
     reportId: v.id("derivedSnapshots"),
   },
   handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
     const report = await ctx.db.get(args.reportId);
-    if (!report) return null;
+    if (!report || report.subjectKey !== user._id) return null;
     return {
       id: report._id,
       kind: report.kind,
@@ -396,6 +405,7 @@ export const troubleLeaderboard = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const artistScores = new Map<string, number>();
 
@@ -430,6 +440,7 @@ export const troubleLeaderboard = query({
 export const troubleDistribution = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const artistScores = new Map<string, number>();
 
@@ -466,6 +477,7 @@ export const artistTroubleScore = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
@@ -495,6 +507,7 @@ export const artistTroubleScore = query({
 export const revenueDistribution = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const tracks = await ctx.db.query("userLibraryTracks").collect();
     const offenses = await ctx.db.query("artistOffenses").collect();
     const offendingArtistIds = new Set(offenses.map((o) => o.artistId as string));
@@ -533,6 +546,7 @@ export const topArtistsByRevenue = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const tracks = await ctx.db.query("userLibraryTracks").collect();
     const artistRevMap = new Map<string, number>();
 
@@ -565,6 +579,7 @@ export const topArtistsByRevenue = query({
 export const problematicRevenue = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const tracks = await ctx.db.query("userLibraryTracks").collect();
     const offenses = await ctx.db.query("artistOffenses").collect();
     const offendingArtistIds = new Set(offenses.map((o) => o.artistId as string));
@@ -596,7 +611,8 @@ export const problematicRevenue = query({
 
 export const payoutRates = query({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     return {
       spotify: { per_stream: 0.004, currency: "USD" },
       apple_music: { per_stream: 0.008, currency: "USD" },
@@ -611,6 +627,7 @@ export const artistRevenue = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
@@ -644,6 +661,7 @@ export const artistRevenue = query({
 export const globalCategoryRevenue = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const tracks = await ctx.db.query("userLibraryTracks").collect();
 
@@ -678,6 +696,7 @@ export const globalCategoryRevenue = query({
 export const offenseCategories = query({
   args: {},
   handler: async (ctx) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db.query("artistOffenses").collect();
     const categories = new Map<string, number>();
 
@@ -696,6 +715,7 @@ export const categoryRevenue = query({
     category: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const offenses = await ctx.db
       .query("artistOffenses")
       .withIndex("by_category", (q) => q.eq("category", args.category))
@@ -743,6 +763,7 @@ export const artistDiscography = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
+    await requireCurrentUser(ctx);
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
@@ -852,5 +873,235 @@ export const snapshotTroubleScores = internalMutation({
     });
 
     return { snapshotted: artistScores.size, computedAt: now };
+  },
+});
+
+// --- Phase 5: Admin / Owner metrics ---
+
+export const adminMetrics = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+
+    const [artists, offenses, evidence, newsArticles, classifications, syncRuns] =
+      await Promise.all([
+        ctx.db.query("artists").collect(),
+        ctx.db.query("artistOffenses").collect(),
+        ctx.db.query("offenseEvidence").collect(),
+        ctx.db.query("newsArticles").collect(),
+        ctx.db.query("newsOffenseClassifications").collect(),
+        ctx.db.query("platformSyncRuns").collect(),
+      ]);
+
+    // --- Catalog totals ---
+    const pendingClassifications = classifications.filter(
+      (c) => c.humanVerified !== true && (c.confidence ?? 0) < 0.7,
+    ).length;
+
+    const catalog = {
+      total_artists: artists.length,
+      total_offenses: offenses.length,
+      total_evidence: evidence.length,
+      total_news_articles: newsArticles.length,
+      total_classifications: classifications.length,
+      pending_classifications: pendingClassifications,
+    };
+
+    // --- Category coverage ---
+    const evidenceByOffense = new Map<string, number>();
+    for (const e of evidence) {
+      evidenceByOffense.set(
+        e.offenseId as string,
+        (evidenceByOffense.get(e.offenseId as string) ?? 0) + 1,
+      );
+    }
+
+    const allCategories = Object.keys(CATEGORY_COPY);
+    const categoryCoverage = allCategories.map((cat) => {
+      const catOffenses = offenses.filter((o) => o.category === cat);
+      const uniqueArtists = new Set(catOffenses.map((o) => o.artistId as string));
+      const withEvidence = catOffenses.filter((o) =>
+        evidenceByOffense.has(o._id as string),
+      ).length;
+
+      return {
+        category: cat,
+        offense_count: catOffenses.length,
+        unique_artist_count: uniqueArtists.size,
+        evidence_coverage_pct:
+          catOffenses.length > 0
+            ? Math.round((withEvidence / catOffenses.length) * 100)
+            : 0,
+      };
+    });
+
+    // --- Backfill pipeline health ---
+    const now = Date.now();
+    const staleCutoff = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const day1Cutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+    const day7Cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    let investigated = 0;
+    let neverInvestigated = 0;
+    let stale = 0;
+
+    for (const artist of artists) {
+      const lastInv = (artist as any).lastInvestigatedAt as string | undefined;
+      if (!lastInv) {
+        neverInvestigated++;
+      } else if (lastInv < staleCutoff) {
+        stale++;
+      } else {
+        investigated++;
+      }
+    }
+
+    const evidenceFinderRuns = syncRuns.filter(
+      (r) => r.platform === "evidence_finder",
+    );
+
+    function summarizeRuns(runs: typeof evidenceFinderRuns) {
+      let total = 0;
+      let success = 0;
+      let failed = 0;
+      let offensesFound = 0;
+      for (const r of runs) {
+        total++;
+        if (r.status === "completed") success++;
+        else if (r.status === "failed") failed++;
+        const meta = r.metadata as any;
+        offensesFound += meta?.offensesFound ?? 0;
+      }
+      return { total, success, failed, offenses_found: offensesFound };
+    }
+
+    const runs24h = evidenceFinderRuns.filter(
+      (r) => r.startedAt && r.startedAt > day1Cutoff,
+    );
+    const runs7d = evidenceFinderRuns.filter(
+      (r) => r.startedAt && r.startedAt > day7Cutoff,
+    );
+
+    const pipeline = {
+      investigated,
+      never_investigated: neverInvestigated,
+      stale,
+      recent_runs_24h: summarizeRuns(runs24h),
+      recent_runs_7d: summarizeRuns(runs7d),
+    };
+
+    // --- Growth deltas ---
+    const allSnapshots = await ctx.db
+      .query("derivedSnapshots")
+      .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "catalog_metrics"))
+      .collect();
+
+    const snapshots = allSnapshots.filter((s) => s.subjectKey === "global");
+
+    const latestSnapshot = snapshots.sort((a, b) =>
+      b.computedAt.localeCompare(a.computedAt),
+    )[0];
+
+    let growth: {
+      artists_delta: number;
+      offenses_delta: number;
+      evidence_delta: number;
+      snapshot_date: string;
+    } | null = null;
+
+    if (latestSnapshot?.payload) {
+      const prev = latestSnapshot.payload as any;
+      growth = {
+        artists_delta: catalog.total_artists - (prev.total_artists ?? 0),
+        offenses_delta: catalog.total_offenses - (prev.total_offenses ?? 0),
+        evidence_delta: catalog.total_evidence - (prev.total_evidence ?? 0),
+        snapshot_date: latestSnapshot.computedAt,
+      };
+    }
+
+    // --- Evidence density ---
+    const offensesWithZeroEvidence = offenses.filter(
+      (o) => !evidenceByOffense.has(o._id as string),
+    ).length;
+
+    const evidenceDensity = {
+      avg_per_offense:
+        offenses.length > 0
+          ? Math.round((evidence.length / offenses.length) * 100) / 100
+          : 0,
+      zero_evidence_count: offensesWithZeroEvidence,
+      zero_evidence_pct:
+        offenses.length > 0
+          ? Math.round((offensesWithZeroEvidence / offenses.length) * 100)
+          : 0,
+    };
+
+    return {
+      catalog,
+      category_coverage: categoryCoverage,
+      pipeline,
+      growth,
+      evidence_density: evidenceDensity,
+    };
+  },
+});
+
+export const snapshotCatalogMetrics = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const [artists, offenses, evidence, newsArticles, classifications] =
+      await Promise.all([
+        ctx.db.query("artists").collect(),
+        ctx.db.query("artistOffenses").collect(),
+        ctx.db.query("offenseEvidence").collect(),
+        ctx.db.query("newsArticles").collect(),
+        ctx.db.query("newsOffenseClassifications").collect(),
+      ]);
+
+    const now = nowIso();
+    const payload = {
+      total_artists: artists.length,
+      total_offenses: offenses.length,
+      total_evidence: evidence.length,
+      total_news_articles: newsArticles.length,
+      total_classifications: classifications.length,
+    };
+
+    await ctx.db.insert("derivedSnapshots", {
+      legacyKey: `runtime:catalog_metrics:${Date.now()}`,
+      kind: "catalog_metrics",
+      subjectKey: "global",
+      payload,
+      computedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { snapshotted: true, computedAt: now, ...payload };
+  },
+});
+
+export const catalogMetricsHistory = query({
+  args: {
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireOwner(ctx);
+
+    const allSnapshots = await ctx.db
+      .query("derivedSnapshots")
+      .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "catalog_metrics"))
+      .collect();
+
+    const snapshots = allSnapshots.filter((s) => s.subjectKey === "global");
+
+    return snapshots
+      .sort((a, b) => b.computedAt.localeCompare(a.computedAt))
+      .slice(0, args.limit ?? 30)
+      .reverse()
+      .map((s) => ({
+        date: s.computedAt,
+        ...(s.payload as Record<string, number>),
+      }));
   },
 });

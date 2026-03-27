@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
-const CATEGORY_COPY: Record<string, { name: string; description: string }> = {
+export const CATEGORY_COPY: Record<string, { name: string; description: string }> = {
   domestic_violence: {
     name: "Domestic Violence",
     description: "Artists flagged for documented domestic violence incidents.",
@@ -74,21 +74,28 @@ export const list = query({
     ]);
 
     const subscribed = new Set(subscriptions.map((subscription) => subscription.category));
-    const counts = new Map<string, number>();
+
+    const artistSets = new Map<string, Set<string>>();
+    const offenseCounts = new Map<string, number>();
 
     for (const offense of offenses) {
-      counts.set(offense.category, (counts.get(offense.category) ?? 0) + 1);
+      offenseCounts.set(offense.category, (offenseCounts.get(offense.category) ?? 0) + 1);
+      if (!artistSets.has(offense.category)) artistSets.set(offense.category, new Set());
+      artistSets.get(offense.category)!.add(offense.artistId as string);
     }
 
-    return Array.from(counts.entries())
-      .sort((left, right) => right[1] - left[1])
-      .map(([category, artistCount]) => ({
+    const allCategories = Object.keys(CATEGORY_COPY);
+
+    return allCategories
+      .map((category) => ({
         id: category,
         name: categoryCopy(category).name,
         description: categoryCopy(category).description,
-        artist_count: artistCount,
+        artist_count: artistSets.get(category)?.size ?? 0,
+        offense_count: offenseCounts.get(category) ?? 0,
         subscribed: subscribed.has(category),
-      }));
+      }))
+      .sort((a, b) => b.offense_count - a.offense_count);
   },
 });
 
@@ -147,10 +154,10 @@ export const blockedArtists = query({
     category: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
     let categories = args.category ? [args.category] : [];
 
     if (categories.length === 0) {
-      const { user } = await requireCurrentUser(ctx);
       const subscriptions = await ctx.db
         .query("categorySubscriptions")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))

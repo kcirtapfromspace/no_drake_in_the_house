@@ -17,6 +17,7 @@
 	import OffenseDatabase from "./lib/components/OffenseDatabase.svelte";
 	import ServiceHealthDashboard from "./lib/components/ServiceHealthDashboard.svelte";
 	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
+	import BlocklistPage from "./lib/components/BlocklistPage.svelte";
 	import Layout from "./lib/components/Layout.svelte";
 	import config from "./lib/utils/config";
 	import { initPostHog, capturePageView, identifyUser, resetUser } from "./lib/utils/posthog";
@@ -275,6 +276,8 @@
 		{#key `${$currentRoute}:${$routeParams.id || ''}`}
 			{#if $currentRoute === 'artist-profile'}
 				<ArtistProfile artistId={$routeParams.id || ''} />
+			{:else if $currentRoute === 'blocklist'}
+				<BlocklistPage />
 			{:else if $currentRoute === 'settings'}
 				<Settings />
 			{:else if $currentRoute === 'connections'}

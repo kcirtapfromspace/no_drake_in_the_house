@@ -54,8 +54,10 @@
 
   const navItems: { route: Route; label: string; icon: string }[] = [
     { route: 'home', label: 'Home', icon: 'home' },
+    { route: 'blocklist', label: 'Blocklist', icon: 'blocklist' },
     { route: 'sync', label: 'Library', icon: 'library' },
     { route: 'playlist-sanitizer', label: 'Playlists', icon: 'playlist' },
+    { route: 'community', label: 'Community', icon: 'community' },
   ];
 
   function handleNavigation(route: Route) {
@@ -527,7 +529,8 @@
   }
 
   .nav__link {
-    padding: 0.375rem 0.875rem;
+    position: relative;
+    padding: 0.375rem 0.75rem;
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--color-text-tertiary);
@@ -546,13 +549,20 @@
 
   .nav__link--active {
     color: var(--color-text-primary);
+    font-weight: 600;
     background: var(--color-bg-interactive);
   }
 
   .nav__link--active::after {
     content: '';
-    display: block;
-    height: 0;
+    position: absolute;
+    bottom: -0.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 1rem;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--color-brand-primary, #f43f5e);
   }
 
   .nav__actions {

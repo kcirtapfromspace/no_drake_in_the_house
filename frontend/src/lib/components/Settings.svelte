@@ -21,7 +21,6 @@
     id: ServiceId;
     name: string;
     icon: 'spotify' | 'apple' | 'youtube' | 'tidal' | 'deezer';
-    color: string;
     description: string;
     connectedDescription: string;
     connectionProvider?: string;
@@ -35,7 +34,6 @@
       id: 'spotify',
       name: 'Spotify',
       icon: 'spotify',
-      color: '#1DB954',
       description: 'Connect Spotify to sync saved tracks, playlists, and followed artists.',
       connectedDescription:
         'Spotify is connected. Use Library Control to import saved tracks, playlists, and followed artists.',
@@ -46,7 +44,6 @@
       id: 'apple',
       name: 'Apple Music',
       icon: 'apple',
-      color: '#FA2D48',
       description: 'Connect your Apple Music account to sync the full library into analysis.',
       connectedDescription:
         'Apple Music is connected. Use Library Control to import and refresh your library.',
@@ -57,7 +54,6 @@
       id: 'youtube',
       name: 'YouTube Music',
       icon: 'youtube',
-      color: '#FF0000',
       description: 'Connect YouTube Music to sync playlists, likes, and subscriptions.',
       connectedDescription:
         'YouTube Music is connected. Use Library Control to import your YouTube library.',
@@ -68,7 +64,6 @@
       id: 'tidal',
       name: 'Tidal',
       icon: 'tidal',
-      color: '#000000',
       description: 'Connect Tidal to import favorites, albums, artists, and playlists.',
       connectedDescription:
         'Tidal is connected. Use Library Control to import your Tidal favorites.',
@@ -79,7 +74,6 @@
       id: 'deezer',
       name: 'Deezer',
       icon: 'deezer',
-      color: '#FEAA2D',
       description: 'Deezer currently powers catalog metadata only.',
       connectedDescription: 'Deezer is available for catalog lookups only.',
       statusLabel: 'Catalog Only',
@@ -485,18 +479,18 @@
               <div class="settings__service-top">
                 <div
                   class="settings__service-avatar"
-                  style={`background-color: ${service.color}20; border-color: ${service.color}40;`}
+                  style={`--svc-color: var(--color-${service.id})`}
                 >
                   {#if service.icon === 'spotify'}
-                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="settings__service-glyph" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z" />
                     </svg>
                   {:else if service.icon === 'apple'}
-                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="settings__service-glyph" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
                     </svg>
                   {:else if service.icon === 'youtube'}
-                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="settings__service-glyph" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                     </svg>
                   {:else if service.icon === 'tidal'}
@@ -504,7 +498,7 @@
                       <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l4.004-4.004L12.012 3.992zM12.012 12l-4.004 4.004L12.012 20.008l4.004-4.004L12.012 12zM20.02 7.996L16.016 3.992l-4.004 4.004 4.004 4.004 4.004-4.004L24.024 3.992 20.02 7.996z" />
                     </svg>
                   {:else}
-                    <svg class="settings__service-glyph" fill={service.color} viewBox="0 0 24 24" aria-hidden="true">
+                    <svg class="settings__service-glyph" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                       <path d="M18.81 4.16v3.03H24V4.16h-5.19zM6.27 8.38v3.027h5.189V8.38h-5.19zm12.54 0v3.027H24V8.38h-5.19zM6.27 12.594v3.027h5.189v-3.027h-5.19zm6.271 0v3.027h5.19v-3.027h-5.19zm6.27 0v3.027H24v-3.027h-5.19zM0 16.81v3.028h5.19v-3.027H0zm6.27 0v3.028h5.189v-3.027h-5.19zm6.271 0v3.028h5.19v-3.027h-5.19zm6.27 0v3.028H24v-3.027h-5.19z" />
                     </svg>
                   {/if}
@@ -884,19 +878,16 @@
   }
 
   .settings__section {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
-      rgba(17, 17, 19, 0.88);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-elevated, var(--color-bg-surface));
+    border: 1px solid var(--color-border-default);
     border-radius: var(--radius-2xl);
     overflow: hidden;
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-lg, 0 20px 48px rgba(0, 0, 0, 0.08));
   }
 
   .settings__section-header {
     padding: 1.1rem 1.25rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: 1px solid var(--color-border-subtle);
   }
 
   .settings__section-title {
@@ -964,10 +955,8 @@
     display: flex;
     gap: 0.125rem;
     padding: 0.1875rem;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(24, 24, 27, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
     border-radius: var(--radius-lg);
   }
 
@@ -990,7 +979,7 @@
 
   .settings__theme-btn--active {
     color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-bg-hover);
     box-shadow: var(--shadow-sm);
   }
 
@@ -1018,12 +1007,15 @@
     gap: 1rem;
     min-height: 15rem;
     padding: 1.1rem;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.012)),
-      rgba(15, 17, 24, 0.86);
-    border: 1px solid rgba(82, 93, 124, 0.45);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
     border-radius: 1.1rem;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+
+  .settings__service-card:hover {
+    border-color: var(--color-border-hover);
+    box-shadow: var(--shadow-md);
   }
 
   .settings__service-top {
@@ -1039,8 +1031,10 @@
     width: 3rem;
     height: 3rem;
     flex-shrink: 0;
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid color-mix(in srgb, var(--svc-color) 25%, transparent);
     border-radius: 0.95rem;
+    background-color: color-mix(in srgb, var(--svc-color) 12%, transparent);
+    color: var(--svc-color);
   }
 
   .settings__service-glyph {
@@ -1086,39 +1080,39 @@
   }
 
   .settings__status-pill--connected {
-    color: #4ade80;
-    background: rgba(34, 197, 94, 0.16);
-    border-color: rgba(74, 222, 128, 0.2);
+    color: var(--color-success);
+    background: var(--color-success-muted);
+    border-color: color-mix(in srgb, var(--color-success) 20%, transparent);
   }
 
   .settings__status-pill--warning {
-    color: #fbbf24;
-    background: rgba(245, 158, 11, 0.16);
-    border-color: rgba(251, 191, 36, 0.22);
+    color: var(--color-warning);
+    background: var(--color-warning-muted);
+    border-color: color-mix(in srgb, var(--color-warning) 22%, transparent);
   }
 
   .settings__status-pill--error {
-    color: #fda4af;
-    background: rgba(225, 29, 72, 0.16);
-    border-color: rgba(251, 113, 133, 0.24);
+    color: var(--color-brand-accent);
+    background: var(--color-brand-primary-muted);
+    border-color: color-mix(in srgb, var(--color-brand-accent) 24%, transparent);
   }
 
   .settings__status-pill--paused {
-    color: #fbbf24;
-    background: rgba(180, 83, 9, 0.18);
-    border-color: rgba(251, 191, 36, 0.2);
+    color: var(--color-warning);
+    background: var(--color-warning-muted);
+    border-color: color-mix(in srgb, var(--color-warning) 20%, transparent);
   }
 
   .settings__status-pill--catalog {
-    color: #d4d4d8;
-    background: rgba(113, 113, 122, 0.22);
-    border-color: rgba(161, 161, 170, 0.16);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-interactive);
+    border-color: var(--color-border-default);
   }
 
   .settings__status-pill--idle {
-    color: #d4d4d8;
-    background: rgba(63, 63, 70, 0.5);
-    border-color: rgba(113, 113, 122, 0.2);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-default);
   }
 
   .settings__service-actions {
@@ -1150,61 +1144,62 @@
 
   .settings__service-btn--primary {
     color: white;
-    background: linear-gradient(135deg, #fb7185, #f43f5e);
-    box-shadow: 0 12px 28px rgba(244, 63, 94, 0.22);
+    background: var(--color-brand-primary);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--color-brand-primary) 22%, transparent);
   }
 
   .settings__service-btn--primary:hover:not(:disabled) {
+    background: var(--color-brand-primary-hover);
     transform: translateY(-1px);
-    box-shadow: 0 18px 34px rgba(244, 63, 94, 0.26);
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--color-brand-primary) 26%, transparent);
   }
 
   .settings__service-btn--youtube {
     color: white;
-    background: linear-gradient(135deg, #ff3b30, #ff0000);
-    box-shadow: 0 12px 28px rgba(255, 59, 48, 0.18);
+    background: var(--color-youtube);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--color-youtube) 18%, transparent);
   }
 
   .settings__service-btn--youtube:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 18px 34px rgba(255, 59, 48, 0.22);
+    box-shadow: 0 18px 34px color-mix(in srgb, var(--color-youtube) 22%, transparent);
   }
 
   .settings__service-btn--tidal {
     color: white;
-    background: linear-gradient(135deg, #111827, #000000);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: var(--color-tidal);
+    border-color: var(--color-border-default);
   }
 
   .settings__service-btn--tidal:hover:not(:disabled) {
     transform: translateY(-1px);
-    border-color: rgba(255, 255, 255, 0.14);
+    border-color: var(--color-border-hover);
   }
 
   .settings__service-btn--paused {
-    color: #fde68a;
-    background: rgba(120, 53, 15, 0.34);
-    border-color: rgba(251, 191, 36, 0.16);
+    color: var(--color-warning);
+    background: var(--color-warning-muted);
+    border-color: color-mix(in srgb, var(--color-warning) 16%, transparent);
   }
 
   .settings__service-btn--secondary {
     color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.03);
-    border-color: rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border-color: var(--color-border-default);
   }
 
   .settings__service-btn--secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-bg-hover);
   }
 
   .settings__service-btn--disconnect {
-    color: #fecaca;
-    background: rgba(127, 29, 29, 0.28);
-    border-color: rgba(248, 113, 113, 0.16);
+    color: var(--color-error);
+    background: var(--color-error-muted);
+    border-color: color-mix(in srgb, var(--color-error) 16%, transparent);
   }
 
   .settings__service-btn--disconnect:hover:not(:disabled) {
-    background: rgba(127, 29, 29, 0.38);
+    opacity: 0.9;
   }
 
   .settings__confirm-strip {
@@ -1231,14 +1226,14 @@
 
   .settings__confirm-yes {
     color: white;
-    background: linear-gradient(135deg, #fb7185, #f43f5e);
+    background: var(--color-brand-primary);
     border: none;
   }
 
   .settings__confirm-no {
     color: var(--color-text-secondary);
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
   }
 
   .settings__actions {
@@ -1267,12 +1262,12 @@
 
   .settings__logout-btn {
     color: var(--color-text-primary);
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
   }
 
   .settings__logout-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--color-bg-hover);
   }
 
   .settings__logout-btn:disabled {
@@ -1297,13 +1292,13 @@
   }
 
   .settings__delete-btn {
-    color: #fecaca;
-    background: rgba(127, 29, 29, 0.24);
-    border: 1px solid rgba(248, 113, 113, 0.16);
+    color: var(--color-error);
+    background: var(--color-error-muted);
+    border: 1px solid color-mix(in srgb, var(--color-error) 16%, transparent);
   }
 
   .settings__delete-btn:hover {
-    background: rgba(153, 27, 27, 0.34);
+    opacity: 0.9;
   }
 
   .settings__version {
@@ -1327,7 +1322,7 @@
   }
 
   .settings__plan-card--active {
-    border-color: rgba(244, 63, 94, 0.4);
+    border-color: color-mix(in srgb, var(--color-brand-primary) 40%, transparent);
   }
 
   .settings__plan-features {
@@ -1351,7 +1346,7 @@
     content: '✓';
     position: absolute;
     left: 0;
-    color: #4ade80;
+    color: var(--color-success);
     font-size: 0.7rem;
     font-weight: 700;
   }

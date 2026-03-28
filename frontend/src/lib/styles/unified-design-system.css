@@ -53,6 +53,9 @@
   /* Platform */
   --color-spotify: #1DB954;
   --color-apple: #FC3C44;
+  --color-youtube: #FF0000;
+  --color-tidal: #000000;
+  --color-deezer: #FEAA2D;
 
   /* Trend direction */
   --color-trend-rising: #4ade80;
@@ -137,6 +140,9 @@
   /* Platform */
   --color-spotify: #1DB954;
   --color-apple: #FC3C44;
+  --color-youtube: #FF0000;
+  --color-tidal: #111827;
+  --color-deezer: #FEAA2D;
 
   /* Trend direction */
   --color-trend-rising: #16a34a;

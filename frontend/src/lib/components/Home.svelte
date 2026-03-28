@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { apiClient } from '../utils/api-client';
-  import { navigateToArtist } from '../utils/simple-router';
+  import { navigateToArtist, navigateTo } from '../utils/simple-router';
   import { blockingStore, type Platform } from '../stores/blocking';
   import {
     spotifyConnection,
@@ -502,6 +502,37 @@
           {/if}
         </div>
       {/if}
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+      <button type="button" class="quick-action" on:click={() => { const el = document.querySelector('.search__input'); if (el instanceof HTMLElement) el.focus(); }}>
+        <div class="quick-action__icon quick-action__icon--search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="quick-action__copy">
+          <span class="quick-action__title">Search Artists</span>
+          <span class="quick-action__desc">Find and block by name</span>
+        </div>
+      </button>
+      <button type="button" class="quick-action" on:click={() => navigateTo('blocklist')}>
+        <div class="quick-action__icon quick-action__icon--blocklist">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        </div>
+        <div class="quick-action__copy">
+          <span class="quick-action__title">View Blocklist</span>
+          <span class="quick-action__desc">{uniqueBlockedArtists.length} artists blocked</span>
+        </div>
+      </button>
+      <button type="button" class="quick-action" on:click={() => navigateTo('community')}>
+        <div class="quick-action__icon quick-action__icon--community">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <div class="quick-action__copy">
+          <span class="quick-action__title">Community Lists</span>
+          <span class="quick-action__desc">Browse curated blocklists</span>
+        </div>
+      </button>
     </div>
 
     <div class="content brand-page__stack">
@@ -1007,13 +1038,10 @@
     font-family: var(--font-family-sans);
     font-size: 0.95rem;
     color: var(--color-text-primary);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(24, 24, 27, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
     border-radius: 1rem;
     transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
   }
 
   .search__input::placeholder {
@@ -1023,8 +1051,8 @@
   .search__input:focus {
     outline: none;
     transform: translateY(-1px);
-    border-color: rgba(244, 63, 94, 0.42);
-    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.16);
+    border-color: var(--color-brand-accent, rgba(244, 63, 94, 0.42));
+    box-shadow: 0 0 0 3px var(--color-brand-primary-muted, rgba(244, 63, 94, 0.16));
   }
 
   .search__clear {
@@ -1062,12 +1090,10 @@
     top: calc(100% + 0.375rem);
     left: 0;
     right: 0;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.018)),
-      rgba(17, 17, 19, 0.94);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-elevated, var(--color-bg-surface));
+    border: 1px solid var(--color-border-default);
     border-radius: 1.15rem;
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+    box-shadow: var(--shadow-lg, 0 24px 48px rgba(0, 0, 0, 0.12));
     z-index: var(--z-dropdown);
     overflow: hidden;
     backdrop-filter: blur(14px);
@@ -1095,7 +1121,7 @@
   }
 
   .search__result:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--color-bg-hover);
   }
 
   .search__result-info {
@@ -1134,6 +1160,97 @@
 
   .search__empty strong {
     color: var(--color-text-primary);
+  }
+
+  /* ===== QUICK ACTIONS ===== */
+  .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+
+  .quick-action {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1rem;
+    border-radius: var(--radius-lg, 0.75rem);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    font-family: var(--font-family-sans);
+  }
+
+  .quick-action:hover {
+    border-color: var(--color-brand-accent, rgba(244, 63, 94, 0.3));
+    background: var(--color-bg-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .quick-action:focus-visible {
+    outline: 2px solid var(--color-brand-primary);
+    outline-offset: 2px;
+  }
+
+  .quick-action__icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: var(--radius-md, 0.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .quick-action__icon svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    max-width: none;
+    max-height: none;
+  }
+
+  .quick-action__icon--search {
+    background: rgba(244, 63, 94, 0.12);
+    color: var(--color-brand-accent, #f43f5e);
+  }
+
+  .quick-action__icon--blocklist {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--color-error, #ef4444);
+  }
+
+  .quick-action__icon--community {
+    background: rgba(139, 92, 246, 0.12);
+    color: #8b5cf6;
+  }
+
+  .quick-action__copy {
+    min-width: 0;
+  }
+
+  .quick-action__title {
+    display: block;
+    font-size: var(--text-sm, 0.875rem);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1.3;
+  }
+
+  .quick-action__desc {
+    display: block;
+    font-size: var(--text-xs, 0.75rem);
+    color: var(--color-text-tertiary);
+    margin-top: 0.0625rem;
+  }
+
+  @media (max-width: 640px) {
+    .quick-actions {
+      grid-template-columns: 1fr;
+    }
   }
 
   /* ===== CONTENT ===== */
@@ -1200,10 +1317,8 @@
     padding: 0.25rem;
     padding-right: 0.125rem;
     border-radius: 1rem;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(24, 24, 27, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
     transition: all var(--transition-fast);
   }
 
@@ -1229,8 +1344,8 @@
   }
 
   .category-chip--expanded {
-    border-color: rgba(244, 63, 94, 0.22);
-    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.12);
+    border-color: var(--color-brand-accent, rgba(244, 63, 94, 0.22));
+    box-shadow: var(--shadow-md, 0 14px 28px rgba(0, 0, 0, 0.12));
   }
 
   .category-chip__toggle {
@@ -1291,12 +1406,10 @@
   .category-panel {
     margin-top: 0.75rem;
     border-radius: 1.35rem;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015)),
-      rgba(17, 17, 19, 0.9);
+    border: 1px solid var(--color-border-default);
+    background: var(--color-bg-elevated, var(--color-bg-surface));
     overflow: hidden;
-    box-shadow: 0 20px 44px rgba(0, 0, 0, 0.18);
+    box-shadow: var(--shadow-lg, 0 20px 44px rgba(0, 0, 0, 0.12));
     backdrop-filter: blur(14px);
   }
 
@@ -1421,9 +1534,7 @@
     position: relative;
     padding: 0.625rem;
     border-radius: 0.95rem;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(24, 24, 27, 0.92);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
     border: none;
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -1431,9 +1542,7 @@
   }
 
   .artist-tile:hover {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
-      rgba(32, 32, 35, 0.94);
+    background: var(--color-bg-hover);
   }
 
   .artist-tile--excepted {
@@ -1532,20 +1641,16 @@
     gap: 0.375rem;
     padding: 0.35rem 0.45rem 0.35rem 0.75rem;
     border-radius: var(--radius-full);
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
-      rgba(24, 24, 27, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
+    border: 1px solid var(--color-border-default);
     cursor: pointer;
     transition: all var(--transition-fast);
     font-family: var(--font-family-sans);
   }
 
   .blocked-chip:hover {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
-      rgba(32, 32, 35, 0.94);
-    border-color: rgba(244, 63, 94, 0.18);
+    background: var(--color-bg-hover);
+    border-color: var(--color-brand-accent, rgba(244, 63, 94, 0.18));
   }
 
   .blocked-chip__name {
@@ -1747,7 +1852,7 @@
   .analytics-tab-toggle {
     display: flex;
     gap: 0.25rem;
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--color-bg-interactive, var(--color-bg-elevated));
     border-radius: 0.5rem;
     padding: 0.125rem;
   }
@@ -1765,7 +1870,7 @@
   }
   .analytics-tab-btn:hover { color: var(--color-text-secondary); }
   .analytics-tab-btn--active {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-hover);
     color: var(--color-text-primary);
   }
 
@@ -1794,7 +1899,7 @@
     color: inherit;
     font: inherit;
   }
-  .top-blocked-row--clickable:hover { background: rgba(255, 255, 255, 0.04); }
+  .top-blocked-row--clickable:hover { background: var(--color-bg-hover); }
 
   .top-blocked-rank {
     font-size: 0.75rem;

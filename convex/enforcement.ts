@@ -97,7 +97,8 @@ async function refreshSpotifyToken(
 }
 
 /**
- * Wrapper around fetch that auto-retries once on 401 by refreshing the token.
+ * Wrapper around fetch that auto-retries once on 401 by refreshing the token,
+ * and respects Spotify 429 rate-limit responses with Retry-After backoff.
  */
 async function spotifyFetch(
   url: string,
@@ -137,6 +138,16 @@ async function spotifyFetch(
 
     // Retry the original request with the plaintext token
     headers.Authorization = `Bearer ${refreshed.access_token}`;
+    resp = await fetch(url, { ...opts, headers });
+  }
+
+  // Handle Spotify 429 rate limiting with Retry-After backoff
+  if (resp.status === 429) {
+    const retryAfter = resp.headers.get("Retry-After");
+    const waitMs = retryAfter
+      ? (parseInt(retryAfter, 10) || 1) * 1000
+      : 2000;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 30000)));
     resp = await fetch(url, { ...opts, headers });
   }
 
@@ -1680,10 +1691,22 @@ export const _computeImpact = query({
       .collect();
     const blockedArtistIdSet = new Set(blocks.map((b) => b.artistId as string));
 
-    // Also check artist offenses (global blocklist)
+    // Get user's category subscriptions to filter relevant offenses
+    const catSubs = await ctx.db
+      .query("categorySubscriptions")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect();
+    const subscribedCategories = new Set(catSubs.map((s) => s.category));
+
+    // Only include offenses matching the user's subscribed categories.
+    // If the user has no category subscriptions, fall back to all offenses
+    // so the default experience still flags known offenders.
     const allOffenses = await ctx.db.query("artistOffenses").collect();
+    const relevantOffenses = subscribedCategories.size > 0
+      ? allOffenses.filter((o) => subscribedCategories.has(o.category))
+      : allOffenses;
     const offendingArtistIdSet = new Set(
-      allOffenses.map((o) => o.artistId as string),
+      relevantOffenses.map((o) => o.artistId as string),
     );
 
     // Merge blocked + offending

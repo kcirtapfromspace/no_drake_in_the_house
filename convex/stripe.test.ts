@@ -185,7 +185,7 @@ describe("syncSubscription mutation", () => {
   test("creates new subscription correctly", async () => {
     const t = convexTest(schema, modules);
 
-    await t.mutation(internal.stripe.syncSubscription, {
+    await t.mutation(internal.subscriptions.syncSubscription, {
       stripeCustomerId: "cus_new123",
       stripeSubscriptionId: "sub_new123",
       plan: "pro",
@@ -217,7 +217,7 @@ describe("syncSubscription mutation", () => {
     const t = convexTest(schema, modules);
 
     // Create initial subscription
-    await t.mutation(internal.stripe.syncSubscription, {
+    await t.mutation(internal.subscriptions.syncSubscription, {
       stripeCustomerId: "cus_update123",
       stripeSubscriptionId: "sub_update123",
       plan: "pro",
@@ -231,7 +231,7 @@ describe("syncSubscription mutation", () => {
     });
 
     // Update it (e.g., plan change or cancel)
-    await t.mutation(internal.stripe.syncSubscription, {
+    await t.mutation(internal.subscriptions.syncSubscription, {
       stripeCustomerId: "cus_update123",
       stripeSubscriptionId: "sub_update123",
       plan: "pro",
@@ -266,14 +266,14 @@ describe("recordBillingEvent mutation", () => {
     const payload = { type: "invoice.paid", data: { amount: 999 } };
 
     // Record event first time
-    await t.mutation(internal.stripe.recordBillingEvent, {
+    await t.mutation(internal.subscriptions.recordBillingEvent, {
       stripeEventId: "evt_idempotent_1",
       eventType: "invoice.paid",
       payload,
     });
 
     // Record same event again (should be ignored)
-    await t.mutation(internal.stripe.recordBillingEvent, {
+    await t.mutation(internal.subscriptions.recordBillingEvent, {
       stripeEventId: "evt_idempotent_1",
       eventType: "invoice.paid",
       payload,
@@ -296,7 +296,7 @@ describe("recordBillingEvent mutation", () => {
     const t = convexTest(schema, modules);
     const userId = await createTestUser(t);
 
-    await t.mutation(internal.stripe.recordBillingEvent, {
+    await t.mutation(internal.subscriptions.recordBillingEvent, {
       stripeEventId: "evt_with_user",
       eventType: "customer.subscription.created",
       payload: { customer: "cus_test" },
@@ -334,7 +334,7 @@ describe("getSubscription query", () => {
     });
 
     const asUser = t.withIdentity({ tokenIdentifier: authSubject });
-    const result = await asUser.query(api.stripe.getSubscription, {});
+    const result = await asUser.query(api.subscriptions.getSubscription, {});
 
     expect(result).toBeNull();
   });
@@ -377,7 +377,7 @@ describe("getSubscription query", () => {
     });
 
     const asUser = t.withIdentity({ tokenIdentifier: authSubject });
-    const result = await asUser.query(api.stripe.getSubscription, {});
+    const result = await asUser.query(api.subscriptions.getSubscription, {});
 
     expect(result).not.toBeNull();
     expect(result!.plan).toBe("pro");
@@ -404,7 +404,7 @@ describe("getFeatureAccess query", () => {
     });
 
     const asUser = t.withIdentity({ tokenIdentifier: authSubject });
-    const result = await asUser.query(api.stripe.getFeatureAccess, {
+    const result = await asUser.query(api.subscriptions.getFeatureAccess, {
       feature: "autoEnforce",
     });
 
@@ -448,7 +448,7 @@ describe("getFeatureAccess query", () => {
     });
 
     const asUser = t.withIdentity({ tokenIdentifier: authSubject });
-    const result = await asUser.query(api.stripe.getFeatureAccess, {
+    const result = await asUser.query(api.subscriptions.getFeatureAccess, {
       feature: "autoEnforce",
     });
 
@@ -492,7 +492,7 @@ describe("getFeatureAccess query", () => {
     });
 
     const asUser = t.withIdentity({ tokenIdentifier: authSubject });
-    const result = await asUser.query(api.stripe.getFeatureAccess, {
+    const result = await asUser.query(api.subscriptions.getFeatureAccess, {
       feature: "export",
     });
 

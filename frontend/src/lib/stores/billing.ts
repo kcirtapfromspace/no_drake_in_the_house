@@ -53,7 +53,7 @@ export const billingActions = {
 
     try {
       const sub = await convexQuery<Subscription | null>(
-        anyApi.stripe.getSubscription,
+        anyApi.subscriptions.getSubscription,
       );
       billingStore.update((s) => ({
         ...s,
@@ -83,7 +83,7 @@ export const billingActions = {
 
     try {
       const access = await convexQuery<FeatureAccess>(
-        anyApi.stripe.getFeatureAccess,
+        anyApi.subscriptions.getFeatureAccess,
         { feature },
       );
       billingStore.update((s) => {

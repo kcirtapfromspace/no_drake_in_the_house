@@ -107,7 +107,7 @@ export const handleWebhookEvent = internalAction({
     );
 
     // Record the billing event (idempotent)
-    await ctx.runMutation(internal.stripe.recordBillingEvent, {
+    await ctx.runMutation(internal.subscriptions.recordBillingEvent, {
       stripeEventId: event.id,
       eventType: event.type,
       payload: event.data.object,
@@ -130,7 +130,7 @@ export const handleWebhookEvent = internalAction({
           unpaid: "past_due",
         };
 
-        await ctx.runMutation(internal.stripe.syncSubscription, {
+        await ctx.runMutation(internal.subscriptions.syncSubscription, {
           stripeCustomerId:
             typeof subscription.customer === "string"
               ? subscription.customer

@@ -563,7 +563,6 @@ jobs:
       - name: Run linting
         working-directory: frontend
         run: npm run lint
-        continue-on-error: true
 
       - name: Run unit tests
         working-directory: frontend

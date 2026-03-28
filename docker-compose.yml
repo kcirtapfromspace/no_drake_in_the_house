@@ -1,27 +1,27 @@
 services:
   postgres:
     image: postgres:15
-    container_name: kiro-postgres
+    container_name: ndith-postgres
     environment:
-      POSTGRES_DB: kiro_dev
-      POSTGRES_USER: kiro
-      POSTGRES_PASSWORD: kiro_dev_password
+      POSTGRES_DB: ndith_dev
+      POSTGRES_USER: ndith
+      POSTGRES_PASSWORD: ndith_dev_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U kiro -d kiro_dev"]
+      test: ["CMD-SHELL", "pg_isready -U ndith -d ndith_dev"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - kiro-network
+      - ndith-network
 
   redis:
     image: redis:7-alpine
-    container_name: kiro-redis
+    container_name: ndith-redis
     ports:
       - "6379:6379"
     volumes:
@@ -32,17 +32,17 @@ services:
       timeout: 3s
       retries: 5
     networks:
-      - kiro-network
+      - ndith-network
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    container_name: kiro-backend
+    container_name: ndith-backend
     ports:
       - "3000:3000"
     environment:
-      DATABASE_URL: postgres://kiro:kiro_dev_password@postgres:5432/kiro_dev
+      DATABASE_URL: postgres://ndith:ndith_dev_password@postgres:5432/ndith_dev
       REDIS_URL: redis://redis:6379
       JWT_SECRET: dev_jwt_secret_change_in_production
       RUST_LOG: debug
@@ -53,21 +53,21 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - kiro-network
+      - ndith-network
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
-    container_name: kiro-frontend
+    container_name: ndith-frontend
     ports:
       - "5001:5000"
     environment:
-      VITE_API_URL: http://kiro-backend:3000
+      VITE_API_URL: http://ndith-backend:3000
       NODE_ENV: development
     networks:
-      - kiro-network
+      - ndith-network
     restart: unless-stopped
 
 volumes:
@@ -83,5 +83,5 @@ volumes:
     driver: local
 
 networks:
-  kiro-network:
+  ndith-network:
     driver: bridge

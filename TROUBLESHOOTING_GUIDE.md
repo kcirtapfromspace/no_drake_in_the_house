@@ -21,16 +21,16 @@ docker-compose logs frontend
 ### Kubernetes Environment
 ```bash
 # Check pod status
-kubectl get pods -n kiro-dev
+kubectl get pods -n ndith-dev
 
 # Check service health (with port forwarding)
-kubectl port-forward -n kiro-dev deployment/backend 3000:3000 &
+kubectl port-forward -n ndith-dev deployment/backend 3000:3000 &
 curl http://localhost:3000/health
 kill %1
 
 # View logs
-kubectl logs -n kiro-dev deployment/backend
-kubectl logs -n kiro-dev deployment/frontend
+kubectl logs -n ndith-dev deployment/backend
+kubectl logs -n ndith-dev deployment/frontend
 ```
 
 ## Common Issues and Solutions
@@ -66,7 +66,7 @@ cargo build
 docker-compose up -d postgres redis
 
 # Check database connectivity
-docker-compose exec postgres pg_isready -U kiro -d kiro_dev
+docker-compose exec postgres pg_isready -U ndith -d ndith_dev
 docker-compose exec redis redis-cli ping
 
 # Reset database if corrupted
@@ -79,15 +79,15 @@ docker-compose up -d postgres redis
 **Kubernetes Solutions:**
 ```bash
 # Check database pods
-kubectl get pods -n kiro-dev -l app=postgres
-kubectl get pods -n kiro-dev -l app=redis
+kubectl get pods -n ndith-dev -l app=postgres
+kubectl get pods -n ndith-dev -l app=redis
 
 # Test connectivity from backend pod
-kubectl exec -n kiro-dev deployment/backend -- pg_isready -h postgres -U kiro -d kiro
-kubectl exec -n kiro-dev deployment/backend -- redis-cli -h redis ping
+kubectl exec -n ndith-dev deployment/backend -- pg_isready -h postgres -U ndith -d ndith
+kubectl exec -n ndith-dev deployment/backend -- redis-cli -h redis ping
 
 # Check service DNS resolution
-kubectl run -n kiro-dev test-pod --image=alpine --rm -it --restart=Never -- nslookup postgres
+kubectl run -n ndith-dev test-pod --image=alpine --rm -it --restart=Never -- nslookup postgres
 ```
 
 ### 3. Port Conflicts
@@ -124,14 +124,14 @@ kill -9 <PID>
 **Kubernetes Solutions:**
 ```bash
 # Check service names and endpoints
-kubectl get services -n kiro-dev
-kubectl get endpoints -n kiro-dev
+kubectl get services -n ndith-dev
+kubectl get endpoints -n ndith-dev
 
 # Verify nginx configuration in container
-kubectl exec -n kiro-dev deployment/frontend -- cat /etc/nginx/conf.d/default.conf
+kubectl exec -n ndith-dev deployment/frontend -- cat /etc/nginx/conf.d/default.conf
 
 # Check if backend service is accessible
-kubectl exec -n kiro-dev deployment/frontend -- nslookup backend
+kubectl exec -n ndith-dev deployment/frontend -- nslookup backend
 ```
 
 ### 5. Image Pull Issues (Kubernetes)
@@ -143,12 +143,12 @@ kubectl exec -n kiro-dev deployment/frontend -- nslookup backend
 **Solutions:**
 ```bash
 # For minikube, load images manually
-minikube image load kiro/backend
-minikube image load kiro/frontend:v3
+minikube image load ndith/backend
+minikube image load ndith/frontend:v3
 
 # For other Kubernetes setups, ensure images are built
-docker build -t kiro/backend backend/
-docker build -f frontend/Dockerfile.k8s -t kiro/frontend frontend/
+docker build -t ndith/backend backend/
+docker build -t ndith/frontend frontend/
 
 # Check image pull policy in manifests (should be "Never" for local images)
 ```
@@ -171,15 +171,15 @@ docker-compose ps
 **Kubernetes Solutions:**
 ```bash
 # Check service and endpoint configuration
-kubectl get services -n kiro-dev
-kubectl get endpoints -n kiro-dev
+kubectl get services -n ndith-dev
+kubectl get endpoints -n ndith-dev
 
 # Test DNS resolution between pods
-kubectl exec -n kiro-dev deployment/backend -- nslookup postgres
-kubectl exec -n kiro-dev deployment/frontend -- nslookup backend
+kubectl exec -n ndith-dev deployment/backend -- nslookup postgres
+kubectl exec -n ndith-dev deployment/frontend -- nslookup backend
 
 # Check network policies (if any)
-kubectl get networkpolicies -n kiro-dev
+kubectl get networkpolicies -n ndith-dev
 ```
 
 ### 7. Environment Variable Issues
@@ -192,7 +192,7 @@ kubectl get networkpolicies -n kiro-dev
 ```bash
 # Check environment variables in containers
 docker-compose exec backend env | grep -E "(DATABASE_URL|REDIS_URL|JWT_SECRET)"
-kubectl exec -n kiro-dev deployment/backend -- env | grep -E "(DATABASE_URL|REDIS_URL|JWT_SECRET)"
+kubectl exec -n ndith-dev deployment/backend -- env | grep -E "(DATABASE_URL|REDIS_URL|JWT_SECRET)"
 
 # Verify configuration matches between environments
 # Docker Compose: docker-compose.yml
@@ -218,7 +218,7 @@ docker-compose exec postgres chown -R postgres:postgres /var/lib/postgresql/data
 **Kubernetes Solutions:**
 ```bash
 # Check persistent volume claims (if using persistent storage)
-kubectl get pvc -n kiro-dev
+kubectl get pvc -n ndith-dev
 
 # For development, we use emptyDir volumes (data is ephemeral)
 # This is expected behavior for dev environment
@@ -246,7 +246,7 @@ docker system prune -f
 ```bash
 # Check resource usage
 docker stats  # Docker Compose
-kubectl top pods -n kiro-dev  # Kubernetes
+kubectl top pods -n ndith-dev  # Kubernetes
 
 # Adjust resource limits in configuration files
 # Docker Compose: Add resource limits to services
@@ -276,11 +276,11 @@ make clean
 kubectl apply -f k8s/dev-manifests.yaml
 
 # Port forwarding for local access
-kubectl port-forward -n kiro-dev deployment/backend 3000:3000
-kubectl port-forward -n kiro-dev deployment/frontend 5000:5000
+kubectl port-forward -n ndith-dev deployment/backend 3000:3000
+kubectl port-forward -n ndith-dev deployment/frontend 5000:5000
 
 # Cleanup
-kubectl delete namespace kiro-dev
+kubectl delete namespace ndith-dev
 ```
 
 ### Using Tilt (Advanced Kubernetes Development)
@@ -311,7 +311,7 @@ After resolving issues, verify the environment is working:
 - [ ] Redis connectivity: Backend logs show successful Redis connection
 
 ### ✅ Kubernetes Verification
-- [ ] All pods are running: `kubectl get pods -n kiro-dev`
+- [ ] All pods are running: `kubectl get pods -n ndith-dev`
 - [ ] Services are accessible via port forwarding
 - [ ] Backend health check passes through port forward
 - [ ] Frontend serves content through port forward
@@ -338,12 +338,12 @@ docker exec -it <container_name> /bin/sh
 docker logs --follow <container_name>
 
 # Kubernetes debugging
-kubectl describe pod -n kiro-dev <pod_name>
-kubectl exec -n kiro-dev <pod_name> -- /bin/sh
-kubectl logs -n kiro-dev <pod_name> --follow
+kubectl describe pod -n ndith-dev <pod_name>
+kubectl exec -n ndith-dev <pod_name> -- /bin/sh
+kubectl logs -n ndith-dev <pod_name> --follow
 
 # Network debugging
-kubectl run -n kiro-dev debug-pod --image=alpine --rm -it --restart=Never -- /bin/sh
+kubectl run -n ndith-dev debug-pod --image=alpine --rm -it --restart=Never -- /bin/sh
 # Inside the pod: nslookup, wget, curl, ping
 ```
 

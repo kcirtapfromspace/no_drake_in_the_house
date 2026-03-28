@@ -1128,7 +1128,10 @@ impl TokenVaultService {
         })
     }
 
-    async fn decrypt_legacy_connection_tokens(&self, connection: &Connection) -> Result<DecryptedToken> {
+    async fn decrypt_legacy_connection_tokens(
+        &self,
+        connection: &Connection,
+    ) -> Result<DecryptedToken> {
         let encryption = OAuthTokenEncryption::new()
             .map_err(|e| anyhow!("Failed to initialize legacy OAuth token decryption: {}", e))?;
 
@@ -1136,13 +1139,12 @@ impl TokenVaultService {
             .access_token_encrypted
             .as_deref()
             .ok_or_else(|| anyhow!("No access token stored for this connection"))?;
-        let access_token =
-            Self::decrypt_legacy_token_string(access_token_str, &encryption).await?;
+        let access_token = Self::decrypt_legacy_token_string(access_token_str, &encryption).await?;
 
         let refresh_token = match connection.refresh_token_encrypted.as_deref() {
-            Some(encoded_refresh) => Some(
-                Self::decrypt_legacy_token_string(encoded_refresh, &encryption).await?,
-            ),
+            Some(encoded_refresh) => {
+                Some(Self::decrypt_legacy_token_string(encoded_refresh, &encryption).await?)
+            }
             None => None,
         };
 
@@ -1478,28 +1480,29 @@ mod tests {
 
     #[tokio::test]
     async fn test_decrypt_connection_tokens_falls_back_to_legacy_oauth_format() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let key = OAuthTokenEncryption::generate_key_base64();
-        std::env::set_var("OAUTH_ENCRYPTION_KEY", key);
+        let (vault, connection) = {
+            let _guard = ENV_LOCK.lock().unwrap();
+            let key = OAuthTokenEncryption::generate_key_base64();
+            std::env::set_var("OAUTH_ENCRYPTION_KEY", key);
 
-        let encryption = OAuthTokenEncryption::new().unwrap();
-        let access_token = general_purpose::STANDARD.encode(
-            encryption.encrypt_token("legacy_access_token").unwrap(),
-        );
-        let refresh_token = general_purpose::STANDARD.encode(
-            encryption.encrypt_token("legacy_refresh_token").unwrap(),
-        );
+            let encryption = OAuthTokenEncryption::new().unwrap();
+            let access_token = general_purpose::STANDARD
+                .encode(encryption.encrypt_token("legacy_access_token").unwrap());
+            let refresh_token = general_purpose::STANDARD
+                .encode(encryption.encrypt_token("legacy_refresh_token").unwrap());
 
-        let mut connection = Connection::new(
-            Uuid::new_v4(),
-            StreamingProvider::Spotify,
-            "legacy-user".to_string(),
-            vec!["user-library-read".to_string()],
-        );
-        connection.access_token_encrypted = Some(access_token);
-        connection.refresh_token_encrypted = Some(refresh_token);
+            let mut connection = Connection::new(
+                Uuid::new_v4(),
+                StreamingProvider::Spotify,
+                "legacy-user".to_string(),
+                vec!["user-library-read".to_string()],
+            );
+            connection.access_token_encrypted = Some(access_token);
+            connection.refresh_token_encrypted = Some(refresh_token);
 
-        let vault = TokenVaultService::new();
+            (TokenVaultService::new(), connection)
+        };
+
         let decrypted = vault.decrypt_connection_tokens(&connection).await.unwrap();
 
         assert_eq!(decrypted.access_token, "legacy_access_token");
@@ -1508,6 +1511,7 @@ mod tests {
             Some("legacy_refresh_token".to_string())
         );
 
+        let _guard = ENV_LOCK.lock().unwrap();
         std::env::remove_var("OAUTH_ENCRYPTION_KEY");
     }
 }

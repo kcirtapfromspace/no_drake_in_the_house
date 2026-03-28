@@ -525,14 +525,13 @@ impl OAuthConfigValidator {
                 &["YOUTUBE_MUSIC_REDIRECT_URI", "GOOGLE_REDIRECT_URI"],
             );
             if !redirect_uri.starts_with("http://") && !redirect_uri.starts_with("https://") {
-                validation.validation_errors.push(
-                    "YouTube Music redirect URI must be a valid HTTP/HTTPS URL".to_string(),
-                );
+                validation
+                    .validation_errors
+                    .push("YouTube Music redirect URI must be a valid HTTP/HTTPS URL".to_string());
             }
             if !redirect_uri.contains("/auth/callback/youtube") {
                 validation.warnings.push(
-                    "YouTube Music redirect URI should point to /auth/callback/youtube"
-                        .to_string(),
+                    "YouTube Music redirect URI should point to /auth/callback/youtube".to_string(),
                 );
             }
 
@@ -590,9 +589,9 @@ impl OAuthConfigValidator {
                     .push("Tidal redirect URI must be a valid HTTP/HTTPS URL".to_string());
             }
             if !redirect_uri.contains("/auth/callback/tidal") {
-                validation.warnings.push(
-                    "Tidal redirect URI should point to /auth/callback/tidal".to_string(),
-                );
+                validation
+                    .warnings
+                    .push("Tidal redirect URI should point to /auth/callback/tidal".to_string());
             }
 
             validation.is_valid = validation.validation_errors.is_empty();

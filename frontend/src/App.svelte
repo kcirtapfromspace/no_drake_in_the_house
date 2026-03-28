@@ -30,7 +30,7 @@
 	let maintenancePollTimer: ReturnType<typeof setInterval> | null = null;
 
 	const INIT_TIMEOUT_MS = 10000; // 10 second timeout
-	const BACKEND_HEALTH_TIMEOUT_MS = 5000;
+	const BACKEND_HEALTH_TIMEOUT_MS = 15000; // 15s to survive Render cold-starts
 	const MAINTENANCE_POLL_INTERVAL_MS = 5000;
 
 	async function isBackendHealthy(): Promise<boolean> {
@@ -238,7 +238,7 @@
 						{/if}
 					</button>
 				</div>
-				<p class="brand-status-note">The app polls every 5 seconds while maintenance mode is active.</p>
+				<p class="brand-status-note">The app polls every few seconds while startup is in progress.</p>
 			</div>
 		</div>
 	</div>

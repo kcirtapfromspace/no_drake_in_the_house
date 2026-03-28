@@ -661,7 +661,7 @@ impl TidalService {
             .client
             .get(&url)
             .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.api+json, application/json");
+            .header("Accept", "application/json");
 
         for (key, value) in params {
             request = request.query(&[(key, value)]);
@@ -715,7 +715,7 @@ impl TidalService {
             .client
             .delete(&url)
             .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.api+json, application/json")
+            .header("Accept", "application/json")
             .send()
             .await?;
 
@@ -769,7 +769,7 @@ impl TidalService {
             .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.api+json, application/json")
+            .header("Accept", "application/json")
             .header("Content-Type", "application/x-www-form-urlencoded")
             .form(params)
             .send()
@@ -1249,11 +1249,11 @@ impl TidalService {
             .client
             .request(method, &url)
             .header("Authorization", format!("Bearer {}", access_token))
-            .header("Accept", "application/vnd.api+json, application/json");
+            .header("Accept", "application/json");
 
         if let Some(body) = body {
             request = request
-                .header("Content-Type", "application/vnd.api+json")
+                .header("Content-Type", "application/json")
                 .json(body);
         }
 

@@ -83,8 +83,8 @@ async function mockSpotifyApiRoutes(page: Page, options: {
     });
   });
 
-  // POST /api/v1/connections/spotify/callback
-  await page.route('**/api/v1/connections/spotify/callback', async (route) => {
+  // POST /api/v1/oauth/spotify/callback
+  await page.route('**/api/v1/oauth/spotify/callback', async (route) => {
     if (callbackError) {
       await route.fulfill({
         status: 200,

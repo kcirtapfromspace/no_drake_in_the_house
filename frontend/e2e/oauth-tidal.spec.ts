@@ -65,7 +65,7 @@ async function mockTidalApiRoutes(page: import('@playwright/test').Page) {
   });
 
   // Tidal callback endpoint
-  await page.route('**/api/v1/connections/tidal/callback', async (route) => {
+  await page.route('**/api/v1/oauth/tidal/callback', async (route) => {
     if (route.request().method() === 'POST') {
       await route.fulfill({
         status: 200,
@@ -261,7 +261,7 @@ test.describe('Tidal OAuth Integration', () => {
       let callbackPayload: Record<string, unknown> | null = null;
 
       // Intercept the callback POST to capture the payload
-      await page.route('**/api/v1/connections/tidal/callback', async (route) => {
+      await page.route('**/api/v1/oauth/tidal/callback', async (route) => {
         if (route.request().method() === 'POST') {
           callbackPayload = route.request().postDataJSON();
           await route.fulfill({
@@ -357,7 +357,7 @@ test.describe('Tidal OAuth Integration', () => {
       await mockApi(page);
 
       // Mock callback endpoint to return failure
-      await page.route('**/api/v1/connections/tidal/callback', async (route) => {
+      await page.route('**/api/v1/oauth/tidal/callback', async (route) => {
         if (route.request().method() === 'POST') {
           await route.fulfill({
             status: 200,

@@ -2,9 +2,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "kiro.fullname" . }}-migration
+  name: {{ include "ndith.fullname" . }}-migration
   labels:
-    {{- include "kiro.labels" . | nindent 4 }}
+    {{- include "ndith.labels" . | nindent 4 }}
     app.kubernetes.io/component: migration
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "kiro.selectorLabels" . | nindent 8 }}
+        {{- include "ndith.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: migration
     spec:
       restartPolicy: {{ .Values.migration.restartPolicy | default "Never" }}

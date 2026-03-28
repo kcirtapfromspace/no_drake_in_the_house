@@ -85,7 +85,7 @@ impl MetricsCollector {
         // HTTP metrics
         let http_requests_total = CounterVec::new(
             Opts::new("http_requests_total", "Total number of HTTP requests")
-                .namespace("kiro")
+                .namespace("ndith")
                 .subsystem("http"),
             &["method", "endpoint", "status_code"],
         )?;
@@ -95,7 +95,7 @@ impl MetricsCollector {
                 "http_request_duration_seconds",
                 "HTTP request duration in seconds",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("http")
             .buckets(vec![
                 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
@@ -104,7 +104,7 @@ impl MetricsCollector {
         )?;
 
         let http_requests_in_flight = Gauge::new(
-            "kiro_http_requests_in_flight",
+            "ndith_http_requests_in_flight",
             "Number of HTTP requests currently being processed",
         )?;
 
@@ -115,7 +115,7 @@ impl MetricsCollector {
                 "http_request_latency_seconds",
                 "HTTP request latency in seconds for P50/P90/P99 calculations",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("http")
             .buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 5.0]),
             &["method", "path", "status_code"],
@@ -123,12 +123,12 @@ impl MetricsCollector {
 
         // Database metrics
         let db_connections_active = Gauge::new(
-            "kiro_db_connections_active",
+            "ndith_db_connections_active",
             "Number of active database connections",
         )?;
 
         let db_connections_idle = Gauge::new(
-            "kiro_db_connections_idle",
+            "ndith_db_connections_idle",
             "Number of idle database connections",
         )?;
 
@@ -137,7 +137,7 @@ impl MetricsCollector {
                 "db_query_duration_seconds",
                 "Database query duration in seconds",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("db")
             .buckets(vec![
                 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0,
@@ -147,20 +147,20 @@ impl MetricsCollector {
 
         let db_operations_total = CounterVec::new(
             Opts::new("db_operations_total", "Total number of database operations")
-                .namespace("kiro")
+                .namespace("ndith")
                 .subsystem("db"),
             &["operation", "table", "status"],
         )?;
 
         // Redis metrics
         let redis_connections_active = Gauge::new(
-            "kiro_redis_connections_active",
+            "ndith_redis_connections_active",
             "Number of active Redis connections",
         )?;
 
         let redis_operations_total = CounterVec::new(
             Opts::new("redis_operations_total", "Total number of Redis operations")
-                .namespace("kiro")
+                .namespace("ndith")
                 .subsystem("redis"),
             &["operation", "status"],
         )?;
@@ -170,7 +170,7 @@ impl MetricsCollector {
                 "redis_operation_duration_seconds",
                 "Redis operation duration in seconds",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("redis")
             .buckets(vec![0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]),
             &["operation"],
@@ -178,13 +178,13 @@ impl MetricsCollector {
 
         // Business metrics
         let user_registrations_total = Counter::new(
-            "kiro_user_registrations_total",
+            "ndith_user_registrations_total",
             "Total number of user registrations",
         )?;
 
         let user_logins_total = CounterVec::new(
             Opts::new("user_logins_total", "Total number of user login attempts")
-                .namespace("kiro")
+                .namespace("ndith")
                 .subsystem("auth"),
             &["status", "method"],
         )?;
@@ -194,7 +194,7 @@ impl MetricsCollector {
                 "dnp_operations_total",
                 "Total number of DNP list operations",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("dnp"),
             &["operation", "status"],
         )?;
@@ -204,78 +204,78 @@ impl MetricsCollector {
                 "auth_failures_total",
                 "Total number of authentication failures",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("auth"),
             &["reason"],
         )?;
 
         // System metrics (US-022: Real system metrics - no placeholders)
         let memory_usage_bytes = Gauge::new(
-            "kiro_memory_usage_bytes",
+            "ndith_memory_usage_bytes",
             "Current total memory usage in bytes",
         )?;
 
         let memory_rss_bytes = Gauge::new(
-            "kiro_memory_rss_bytes",
+            "ndith_memory_rss_bytes",
             "Process resident set size (RSS) in bytes",
         )?;
 
         let memory_heap_bytes = Gauge::new(
-            "kiro_memory_heap_bytes",
+            "ndith_memory_heap_bytes",
             "Process heap memory usage in bytes",
         )?;
 
         let cpu_usage_percent =
-            Gauge::new("kiro_cpu_usage_percent", "Current CPU usage percentage")?;
+            Gauge::new("ndith_cpu_usage_percent", "Current CPU usage percentage")?;
 
-        let uptime_seconds = Gauge::new("kiro_uptime_seconds", "Application uptime in seconds")?;
+        let uptime_seconds = Gauge::new("ndith_uptime_seconds", "Application uptime in seconds")?;
 
         // Disk metrics (US-022)
         let disk_usage_bytes = Gauge::new(
-            "kiro_disk_usage_bytes",
+            "ndith_disk_usage_bytes",
             "Disk space used by data directory in bytes",
         )?;
 
         let disk_available_bytes = Gauge::new(
-            "kiro_disk_available_bytes",
+            "ndith_disk_available_bytes",
             "Available disk space for data directory in bytes",
         )?;
 
         let disk_total_bytes = Gauge::new(
-            "kiro_disk_total_bytes",
+            "ndith_disk_total_bytes",
             "Total disk space for data directory in bytes",
         )?;
 
         // Job queue metrics (US-022)
         let job_queue_depth = GaugeVec::new(
-            Opts::new("kiro_job_queue_depth", "Number of pending jobs by job type"),
+            Opts::new("ndith_job_queue_depth", "Number of pending jobs by job type"),
             &["job_type"],
         )?;
 
         // Data key cache metrics
         let data_key_cache_hits = Counter::new(
-            "kiro_data_key_cache_hits",
+            "ndith_data_key_cache_hits",
             "Total number of data key cache hits",
         )?;
 
         let data_key_cache_misses = Counter::new(
-            "kiro_data_key_cache_misses",
+            "ndith_data_key_cache_misses",
             "Total number of data key cache misses",
         )?;
 
         // Token refresh metrics (US-011)
         let tokens_refreshed_total = Counter::new(
-            "kiro_tokens_refreshed_total",
+            "ndith_tokens_refreshed_total",
             "Total number of tokens successfully refreshed",
         )?;
 
         let token_refresh_failures_total = Counter::new(
-            "kiro_token_refresh_failures_total",
+            "ndith_token_refresh_failures_total",
             "Total number of token refresh failures",
         )?;
 
         let connections_marked_reauth_total = Counter::new(
-            "kiro_connections_marked_reauth_total",
+            "ndith_connections_marked_reauth_total",
             "Total number of connections marked as needing re-authentication",
         )?;
 
@@ -790,8 +790,8 @@ mod tests {
         );
 
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-        assert!(metrics_text.contains("kiro_http_http_requests_total"));
-        assert!(metrics_text.contains("kiro_http_http_request_duration_seconds"));
+        assert!(metrics_text.contains("ndith_http_http_requests_total"));
+        assert!(metrics_text.contains("ndith_http_http_request_duration_seconds"));
     }
 
     #[test]
@@ -805,10 +805,10 @@ mod tests {
         metrics.record_auth_failure("invalid_credentials");
 
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-        assert!(metrics_text.contains("kiro_user_registrations_total"));
-        assert!(metrics_text.contains("kiro_auth_user_logins_total"));
-        assert!(metrics_text.contains("kiro_dnp_dnp_operations_total"));
-        assert!(metrics_text.contains("kiro_auth_auth_failures_total"));
+        assert!(metrics_text.contains("ndith_user_registrations_total"));
+        assert!(metrics_text.contains("ndith_auth_user_logins_total"));
+        assert!(metrics_text.contains("ndith_dnp_dnp_operations_total"));
+        assert!(metrics_text.contains("ndith_auth_auth_failures_total"));
     }
 
     #[test]
@@ -839,7 +839,7 @@ mod tests {
         let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
 
         // Verify the latency histogram is present with correct labels
-        assert!(metrics_text.contains("kiro_http_http_request_latency_seconds"));
+        assert!(metrics_text.contains("ndith_http_http_request_latency_seconds"));
         assert!(metrics_text.contains("method=\"GET\""));
         assert!(metrics_text.contains("method=\"POST\""));
         assert!(metrics_text.contains("path=\"/api/v1/health\""));

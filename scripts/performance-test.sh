@@ -209,7 +209,7 @@ test_database_performance() {
     print_status "Running database performance tests..."
     
     # Check if we can connect to the database
-    if docker compose exec -T postgres pg_isready -U kiro -d kiro_dev >/dev/null 2>&1; then
+    if docker compose exec -T postgres pg_isready -U ndith -d ndith_dev >/dev/null 2>&1; then
         # Run database performance queries
         cat > "$RESULTS_DIR/db-performance.sql" << 'EOF'
 -- Database performance analysis
@@ -245,7 +245,7 @@ FROM pg_stat_user_tables;
 SELECT pg_stat_reset();
 EOF
         
-        docker compose exec -T postgres psql -U kiro -d kiro_dev -f - < "$RESULTS_DIR/db-performance.sql" > "$RESULTS_DIR/database-performance.txt" 2>&1
+        docker compose exec -T postgres psql -U ndith -d ndith_dev -f - < "$RESULTS_DIR/db-performance.sql" > "$RESULTS_DIR/database-performance.txt" 2>&1
         
         print_success "Database performance tests completed"
     else

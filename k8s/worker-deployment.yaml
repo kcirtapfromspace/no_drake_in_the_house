@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kiro-worker
-  namespace: kiro-production
+  name: ndith-worker
+  namespace: ndith-production
   labels:
-    app: kiro-worker
+    app: ndith-worker
     version: v1
 spec:
   replicas: 2
@@ -15,25 +15,25 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: kiro-worker
+      app: ndith-worker
   template:
     metadata:
       labels:
-        app: kiro-worker
+        app: ndith-worker
         version: v1
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: kiro-worker
+      serviceAccountName: ndith-worker
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 2000
       containers:
       - name: worker
-        image: kiro/worker:latest
+        image: ndith/worker:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 9090
@@ -45,31 +45,31 @@ spec:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: DATABASE_URL
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: REDIS_URL
         - name: KMS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: KMS_KEY_ID
         - name: SPOTIFY_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: SPOTIFY_CLIENT_SECRET
         - name: APPLE_MUSIC_PRIVATE_KEY
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: APPLE_MUSIC_PRIVATE_KEY
         envFrom:
         - configMapRef:
-            name: kiro-config
+            name: ndith-config
         resources:
           requests:
             memory: "256Mi"

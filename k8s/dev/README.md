@@ -4,7 +4,7 @@ This directory contains simple Kubernetes manifests used by Tilt for local devel
 
 ## Files
 
-- **`namespace.yaml`** - Creates the `kiro-dev` namespace
+- **`namespace.yaml`** - Creates the `ndith-dev` namespace
 - **`postgres.yaml`** - PostgreSQL database deployment and service
 - **`redis.yaml`** - Redis cache deployment and service  
 - **`backend.yaml`** - Backend API deployment and service
@@ -23,8 +23,8 @@ tilt up
 The manifests are configured for development with:
 
 - **PostgreSQL**: 
-  - Database: `kiro`
-  - User: `kiro` 
+  - Database: `ndith`
+  - User: `ndith` 
   - Password: `password`
   - Port: 5432
 

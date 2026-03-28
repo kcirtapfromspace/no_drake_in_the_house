@@ -5,7 +5,7 @@
 
 set -e
 
-NAMESPACE="kiro-dev"
+NAMESPACE="ndith-dev"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -83,16 +83,16 @@ if kubectl wait --for=condition=complete job/database-migration -n "$NAMESPACE" 
     
     echo ""
     echo "🔍 Verifying database schema..."
-    if kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U kiro -d kiro -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" >/dev/null 2>&1; then
+    if kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U ndith -d ndith -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;" >/dev/null 2>&1; then
         echo "✅ Database schema verification passed"
         
         echo ""
         echo "📋 Created tables:"
-        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U kiro -d kiro -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
+        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U ndith -d ndith -c "SELECT schemaname, tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;"
         
         echo ""
         echo "📈 Migration history:"
-        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U kiro -d kiro -c "SELECT version, description, installed_on, success FROM sqlx_migrations ORDER BY version;" 2>/dev/null || echo "Migration table not accessible"
+        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U ndith -d ndith -c "SELECT version, description, installed_on, success FROM sqlx_migrations ORDER BY version;" 2>/dev/null || echo "Migration table not accessible"
     else
         echo "❌ Database schema verification failed"
         exit 1
@@ -134,7 +134,7 @@ if kubectl get job database-seed -n "$NAMESPACE" >/dev/null 2>&1; then
         
         echo ""
         echo "🔍 Verifying seeded data..."
-        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U kiro -d kiro -c "SELECT 'Users: ' || count(*) FROM users UNION ALL SELECT 'Artists: ' || count(*) FROM artists UNION ALL SELECT 'DNP Entries: ' || count(*) FROM user_artist_blocks;"
+        kubectl exec -n "$NAMESPACE" deployment/postgres -- psql -U ndith -d ndith -c "SELECT 'Users: ' || count(*) FROM users UNION ALL SELECT 'Artists: ' || count(*) FROM artists UNION ALL SELECT 'DNP Entries: ' || count(*) FROM user_artist_blocks;"
         
         # Re-suspend seed job
         kubectl patch job database-seed -n "$NAMESPACE" -p '{"spec":{"suspend":true}}'

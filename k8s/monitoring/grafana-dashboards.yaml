@@ -2,14 +2,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
-  namespace: kiro-production
+  namespace: ndith-production
 data:
-  kiro-overview.json: |
+  ndith-overview.json: |
     {
       "dashboard": {
         "id": null,
-        "title": "Kiro Production Overview",
-        "tags": ["kiro", "production"],
+        "title": "NDITH Production Overview",
+        "tags": ["ndith", "production"],
         "timezone": "UTC",
         "panels": [
           {
@@ -18,7 +18,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "sum(rate(http_requests_total{job=\"kiro-api\"}[5m]))",
+                "expr": "sum(rate(http_requests_total{job=\"ndith-api\"}[5m]))",
                 "legendFormat": "Requests/sec"
               }
             ],
@@ -35,7 +35,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "sum(rate(http_requests_total{job=\"kiro-api\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"kiro-api\"}[5m])) * 100",
+                "expr": "sum(rate(http_requests_total{job=\"ndith-api\",status=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"ndith-api\"}[5m])) * 100",
                 "legendFormat": "Error %"
               }
             ],
@@ -59,7 +59,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"kiro-api\"}[5m])) by (le))",
+                "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"ndith-api\"}[5m])) by (le))",
                 "legendFormat": "95th percentile"
               }
             ],
@@ -83,7 +83,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "sum(kiro_database_connections_active)",
+                "expr": "sum(ndith_database_connections_active)",
                 "legendFormat": "DB Connections"
               }
             ],
@@ -100,7 +100,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(rate(http_requests_total{job=\"kiro-api\"}[5m])) by (handler)",
+                "expr": "sum(rate(http_requests_total{job=\"ndith-api\"}[5m])) by (handler)",
                 "legendFormat": "{{handler}}"
               }
             ],
@@ -115,7 +115,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "kiro_job_queue_size",
+                "expr": "ndith_job_queue_size",
                 "legendFormat": "Pending Jobs"
               }
             ],
@@ -130,7 +130,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(container_memory_usage_bytes{pod=~\"kiro-.*\"}) by (pod)",
+                "expr": "sum(container_memory_usage_bytes{pod=~\"ndith-.*\"}) by (pod)",
                 "legendFormat": "{{pod}}"
               }
             ],
@@ -145,7 +145,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "expr": "sum(rate(container_cpu_usage_seconds_total{pod=~\"ndith-.*\"}[5m])) by (pod)",
                 "legendFormat": "{{pod}}"
               }
             ],
@@ -163,12 +163,12 @@ data:
       }
     }
 
-  kiro-enforcement.json: |
+  ndith-enforcement.json: |
     {
       "dashboard": {
         "id": null,
-        "title": "Kiro Enforcement Metrics",
-        "tags": ["kiro", "enforcement"],
+        "title": "NDITH Enforcement Metrics",
+        "tags": ["ndith", "enforcement"],
         "timezone": "UTC",
         "panels": [
           {
@@ -177,7 +177,7 @@ data:
             "type": "stat",
             "targets": [
               {
-                "expr": "sum(rate(kiro_enforcement_jobs_completed_total[5m])) / sum(rate(kiro_enforcement_jobs_total[5m])) * 100",
+                "expr": "sum(rate(ndith_enforcement_jobs_completed_total[5m])) / sum(rate(ndith_enforcement_jobs_total[5m])) * 100",
                 "legendFormat": "Success Rate %"
               }
             ],
@@ -201,7 +201,7 @@ data:
             "type": "gauge",
             "targets": [
               {
-                "expr": "kiro_spotify_rate_limit_remaining",
+                "expr": "ndith_spotify_rate_limit_remaining",
                 "legendFormat": "Remaining"
               }
             ],
@@ -226,7 +226,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "histogram_quantile(0.95, sum(rate(kiro_external_api_duration_seconds_bucket[5m])) by (provider, le))",
+                "expr": "histogram_quantile(0.95, sum(rate(ndith_external_api_duration_seconds_bucket[5m])) by (provider, le))",
                 "legendFormat": "{{provider}} 95th"
               }
             ],
@@ -241,7 +241,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(rate(kiro_enforcement_actions_total[5m])) by (action_type)",
+                "expr": "sum(rate(ndith_enforcement_actions_total[5m])) by (action_type)",
                 "legendFormat": "{{action_type}}"
               }
             ],
@@ -256,7 +256,7 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(rate(kiro_token_vault_operations_total[5m])) by (operation)",
+                "expr": "sum(rate(ndith_token_vault_operations_total[5m])) by (operation)",
                 "legendFormat": "{{operation}}"
               }
             ],
@@ -274,12 +274,12 @@ data:
       }
     }
 
-  kiro-infrastructure.json: |
+  ndith-infrastructure.json: |
     {
       "dashboard": {
         "id": null,
-        "title": "Kiro Infrastructure",
-        "tags": ["kiro", "infrastructure"],
+        "title": "NDITH Infrastructure",
+        "tags": ["ndith", "infrastructure"],
         "timezone": "UTC",
         "panels": [
           {
@@ -288,7 +288,7 @@ data:
             "type": "table",
             "targets": [
               {
-                "expr": "kube_pod_info{namespace=\"kiro-production\"}",
+                "expr": "kube_pod_info{namespace=\"ndith-production\"}",
                 "format": "table"
               }
             ],
@@ -334,11 +334,11 @@ data:
             "type": "graph",
             "targets": [
               {
-                "expr": "sum(rate(container_network_receive_bytes_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "expr": "sum(rate(container_network_receive_bytes_total{pod=~\"ndith-.*\"}[5m])) by (pod)",
                 "legendFormat": "RX {{pod}}"
               },
               {
-                "expr": "sum(rate(container_network_transmit_bytes_total{pod=~\"kiro-.*\"}[5m])) by (pod)",
+                "expr": "sum(rate(container_network_transmit_bytes_total{pod=~\"ndith-.*\"}[5m])) by (pod)",
                 "legendFormat": "TX {{pod}}"
               }
             ],

@@ -446,7 +446,7 @@ mod tests {
 /// Get test database pool
 async fn get_test_pool() -> PgPool {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-        "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string()
+        "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string()
     });
 
     PgPool::connect(&database_url)

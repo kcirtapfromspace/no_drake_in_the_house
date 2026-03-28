@@ -1,13 +1,13 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: kiro-api-hpa
-  namespace: kiro-production
+  name: ndith-api-hpa
+  namespace: ndith-production
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: kiro-api
+    name: ndith-api
   minReplicas: 3
   maxReplicas: 10
   metrics:
@@ -41,13 +41,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: kiro-worker-hpa
-  namespace: kiro-production
+  name: ndith-worker-hpa
+  namespace: ndith-production
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: kiro-worker
+    name: ndith-worker
   minReplicas: 2
   maxReplicas: 8
   metrics:

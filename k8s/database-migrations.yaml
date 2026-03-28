@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kiro-migrations
-  namespace: kiro-production
+  name: ndith-migrations
+  namespace: ndith-production
   labels:
-    app: kiro-migrations
+    app: ndith-migrations
 data:
   001_initial_schema.sql: |
     -- Users table with authentication

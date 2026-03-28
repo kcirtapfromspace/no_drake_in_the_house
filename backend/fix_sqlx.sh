@@ -12,7 +12,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Default database URL
-DATABASE_URL=${DATABASE_URL:-"postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev"}
+DATABASE_URL=${DATABASE_URL:-"postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev"}
 
 echo -e "${GREEN}SQLx Database Management Script${NC}"
 echo "Database URL: $DATABASE_URL"

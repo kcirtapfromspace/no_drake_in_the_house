@@ -59,7 +59,7 @@
 **Cache Warming Features:**
 - Pre-builds chef, planner, and builder stages
 - Downloads base images (rust:1.82-slim, node:18-alpine, etc.)
-- Creates reusable cache layers tagged as `kiro-cache:*`
+- Creates reusable cache layers tagged as `ndith-cache:*`
 - Handles build failures gracefully
 
 #### 5. Create fast development Dockerfiles separate from production builds
@@ -120,8 +120,8 @@ make warm-cache
 make test-build-perf
 
 # Use fast development builds
-docker build -f backend/Dockerfile.fast -t kiro/backend:dev backend/
-docker build -f frontend/Dockerfile.fast -t kiro/frontend:dev frontend/
+docker build -f backend/Dockerfile.fast -t ndith/backend:dev backend/
+docker build -f frontend/Dockerfile.fast -t ndith/frontend:dev frontend/
 ```
 
 #### Cache Management

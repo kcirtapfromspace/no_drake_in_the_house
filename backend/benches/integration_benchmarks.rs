@@ -3,7 +3,7 @@ use axum::{
     http::{Request, StatusCode},
 };
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use kiro_backend::{
+use ndith_backend::{
     create_app_state, create_router,
     models::{
         auth::{LoginRequest, RegisterRequest},

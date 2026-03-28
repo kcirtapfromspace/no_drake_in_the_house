@@ -98,8 +98,8 @@ gh api repos/:owner/:repo/branches/main/protection \
 
 The pipeline uses GitHub Container Registry (ghcr.io). Images are automatically pushed to:
 
-- `ghcr.io/your-org/kiro/backend`
-- `ghcr.io/your-org/kiro/frontend`
+- `ghcr.io/your-org/ndith/backend`
+- `ghcr.io/your-org/ndith/frontend`
 
 ### 4. Kubernetes Cluster Setup
 
@@ -107,7 +107,7 @@ The pipeline uses GitHub Container Registry (ghcr.io). Images are automatically 
 
 ```bash
 # Create namespace
-kubectl create namespace kiro-staging
+kubectl create namespace ndith-staging
 
 # Install cert-manager for TLS
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.0/cert-manager.yaml
@@ -135,7 +135,7 @@ EOF
 
 ```bash
 # Create namespace
-kubectl create namespace kiro-production
+kubectl create namespace ndith-production
 
 # Create cluster issuer for production
 kubectl apply -f - <<EOF
@@ -234,12 +234,12 @@ act push
 ./scripts/validate-cicd.sh
 
 # Check Docker builds
-docker build -t kiro/backend ./backend
-docker build -t kiro/frontend ./frontend
+docker build -t ndith/backend ./backend
+docker build -t ndith/frontend ./frontend
 
 # Test Helm charts
 helm lint ./helm
-helm template kiro ./helm --values helm/values-staging.yaml
+helm template ndith ./helm --values helm/values-staging.yaml
 ```
 
 ## Troubleshooting
@@ -260,11 +260,11 @@ docker build --progress=plain -t test ./backend
 
 ```bash
 # Check deployment status
-kubectl get pods -n kiro-staging
-kubectl describe deployment kiro-backend -n kiro-staging
+kubectl get pods -n ndith-staging
+kubectl describe deployment ndith-backend -n ndith-staging
 
 # Check logs
-kubectl logs -f deployment/kiro-backend -n kiro-staging
+kubectl logs -f deployment/ndith-backend -n ndith-staging
 ```
 
 #### 3. Helm Chart Issues
@@ -274,10 +274,10 @@ kubectl logs -f deployment/kiro-backend -n kiro-staging
 helm lint ./helm
 
 # Debug template rendering
-helm template kiro ./helm --values helm/values-staging.yaml --debug
+helm template ndith ./helm --values helm/values-staging.yaml --debug
 
 # Check release status
-helm status kiro-staging -n kiro-staging
+helm status ndith-staging -n ndith-staging
 ```
 
 ### Debug Commands

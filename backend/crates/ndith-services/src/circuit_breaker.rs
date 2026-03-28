@@ -130,7 +130,7 @@ impl CircuitBreakerMetrics {
                 "circuit_breaker_state",
                 "Current state of circuit breaker (0=closed, 1=open, 2=half_open)",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("circuit_breaker"),
             &["provider"],
         )?;
@@ -140,7 +140,7 @@ impl CircuitBreakerMetrics {
                 "circuit_breaker_trips_total",
                 "Total number of times circuit breaker tripped to open state",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("circuit_breaker"),
             &["provider"],
         )?;
@@ -150,7 +150,7 @@ impl CircuitBreakerMetrics {
                 "circuit_breaker_requests_blocked_total",
                 "Total number of requests blocked by open circuit",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("circuit_breaker"),
             &["provider"],
         )?;
@@ -160,7 +160,7 @@ impl CircuitBreakerMetrics {
                 "circuit_breaker_requests_allowed_total",
                 "Total number of requests allowed through circuit breaker",
             )
-            .namespace("kiro")
+            .namespace("ndith")
             .subsystem("circuit_breaker"),
             &["provider"],
         )?;

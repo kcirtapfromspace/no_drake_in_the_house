@@ -110,7 +110,7 @@ Error: error occurred while checking query
 **Solution:**
 ```bash
 # Set DATABASE_URL for SQLx
-export DATABASE_URL="postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev"
+export DATABASE_URL="postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev"
 
 # Or use offline mode
 export SQLX_OFFLINE=true
@@ -172,7 +172,7 @@ Error: migration 001 failed
 **Solution:**
 ```bash
 # Check database connection
-psql postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev
+psql postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev
 
 # Reset database and re-run migrations
 make reset-db
@@ -417,7 +417,7 @@ helm repo update
 helm lint ./helm
 
 # Debug deployment
-helm install kiro ./helm --dry-run --debug
+helm install ndith ./helm --dry-run --debug
 ```
 
 #### Problem: Pods stuck in Pending state
@@ -428,13 +428,13 @@ Status: Pending
 **Solution:**
 ```bash
 # Check pod events
-kubectl describe pod <pod-name> -n kiro-dev
+kubectl describe pod <pod-name> -n ndith-dev
 
 # Check node resources
 kubectl top nodes
 
 # Check if images can be pulled
-kubectl get events -n kiro-dev --sort-by='.lastTimestamp'
+kubectl get events -n ndith-dev --sort-by='.lastTimestamp'
 
 # Common fixes:
 # 1. Insufficient resources - reduce resource requests
@@ -498,12 +498,12 @@ Cannot access services on localhost
 # Check Tilt UI for port forward status
 # Verify services are running in Kubernetes
 
-kubectl get pods -n kiro-dev
-kubectl get services -n kiro-dev
+kubectl get pods -n ndith-dev
+kubectl get services -n ndith-dev
 
 # Manually set up port forwards
-kubectl port-forward -n kiro-dev svc/kiro-backend 3000:3000
-kubectl port-forward -n kiro-dev svc/kiro-frontend 5000:80
+kubectl port-forward -n ndith-dev svc/ndith-backend 3000:3000
+kubectl port-forward -n ndith-dev svc/ndith-frontend 5000:80
 
 # Check for port conflicts
 lsof -i :3000
@@ -542,7 +542,7 @@ Error: query data not found
 cd backend
 
 # Regenerate SQLx query data
-export DATABASE_URL="postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev"
+export DATABASE_URL="postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev"
 cargo sqlx prepare
 
 # Commit the generated .sqlx/ directory
@@ -622,7 +622,7 @@ Slow query detected
 **Solution:**
 ```bash
 # Check database indexes
-psql postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev
+psql postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev
 \d+ users
 \d+ artists
 
@@ -728,7 +728,7 @@ cat tsconfig.json
    ```bash
    make logs
    docker compose logs <service>
-   kubectl logs <pod> -n kiro-dev
+   kubectl logs <pod> -n ndith-dev
    ```
 
 2. **Verify service health**:
@@ -754,7 +754,7 @@ cat tsconfig.json
 
 ```bash
 # Backend (.env)
-DATABASE_URL=postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev
+DATABASE_URL=postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=your-secret-here
 RUST_LOG=debug

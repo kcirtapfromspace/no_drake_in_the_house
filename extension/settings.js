@@ -1,5 +1,5 @@
 /**
- * Settings Page Script for Kiro Extension
+ * Settings Page Script for NDITH Extension
  */
 
 class SettingsController {
@@ -228,7 +228,7 @@ class SettingsController {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `kiro-blocklist-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `ndith-blocklist-${new Date().toISOString().split('T')[0]}.json`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);

@@ -288,7 +288,7 @@ async fn test_musicbrainz_api_integration() {
     let search_response = client
         .get(&format!("{}/ws/2/artist", mock_server.uri()))
         .query(&[("query", "Drake"), ("fmt", "json"), ("limit", "10")])
-        .header("User-Agent", "KiroMusicBlocklist/1.0 (test@example.com)")
+        .header("User-Agent", "NDITHMusicBlocklist/1.0 (test@example.com)")
         .send()
         .await
         .unwrap();

@@ -13,7 +13,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Configuration
-NAMESPACE="kiro-dev"
+NAMESPACE="ndith-dev"
 TILT_UI_PORT="10350"
 
 # Function to print colored output
@@ -122,12 +122,12 @@ warm_cache() {
     
     # Warm backend cache
     echo "Building backend base layers..."
-    docker build --target chef -t kiro/backend:chef ./backend/ >/dev/null 2>&1 || true
-    docker build --target planner -t kiro/backend:planner ./backend/ >/dev/null 2>&1 || true
+    docker build --target chef -t ndith/backend:chef ./backend/ >/dev/null 2>&1 || true
+    docker build --target planner -t ndith/backend:planner ./backend/ >/dev/null 2>&1 || true
     
     # Warm frontend cache
     echo "Building frontend base layers..."
-    docker build --target builder -t kiro/frontend:builder ./frontend/ >/dev/null 2>&1 || true
+    docker build --target builder -t ndith/frontend:builder ./frontend/ >/dev/null 2>&1 || true
     
     print_success "Cache warming completed"
     echo ""
@@ -267,7 +267,7 @@ show_troubleshooting() {
 show_menu() {
     clear
     echo -e "${CYAN}"
-    echo "🚀 Kiro Tilt Development Environment Manager"
+    echo "🚀 NDITH Tilt Development Environment Manager"
     echo "============================================"
     echo -e "${NC}"
     echo ""

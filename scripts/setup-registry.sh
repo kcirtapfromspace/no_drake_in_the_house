@@ -4,7 +4,7 @@
 # What this does:
 #   1. Starts a standalone registry:2 container on localhost:5001
 #   2. Recreates minikube with --insecure-registry to trust the local registry
-#   3. Creates the kiro-dev namespace
+#   3. Creates the ndith-dev namespace
 #   4. Verifies connectivity: host → registry, minikube → registry
 #
 # After this, run ./scripts/tilt-build.sh to pre-warm the cargo cache,
@@ -13,7 +13,7 @@ set -euo pipefail
 
 REGISTRY_NAME="registry"
 REGISTRY_PORT=5001
-NAMESPACE="kiro-dev"
+NAMESPACE="ndith-dev"
 
 echo "=========================================="
 echo "  Local Registry + Minikube Setup"
@@ -38,7 +38,7 @@ else
         --name "${REGISTRY_NAME}" \
         --restart always \
         -p "${REGISTRY_PORT}:5000" \
-        -v kiro-registry-data:/var/lib/registry \
+        -v ndith-registry-data:/var/lib/registry \
         registry:2
     echo "  Registry created and running."
 fi

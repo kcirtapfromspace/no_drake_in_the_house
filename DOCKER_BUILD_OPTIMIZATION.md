@@ -1,6 +1,6 @@
 # Docker Build Optimization Guide
 
-This document describes the advanced Docker build optimizations implemented for the Kiro project to achieve faster development iteration cycles.
+This document describes the advanced Docker build optimizations implemented for the NDITH project to achieve faster development iteration cycles.
 
 ## Overview
 
@@ -127,19 +127,19 @@ This script:
 ### Fast Development Builds
 ```bash
 # Backend (debug build, ~10-30s with warm cache)
-docker build -f backend/Dockerfile.fast -t kiro/backend:dev backend/
+docker build -f backend/Dockerfile.fast -t ndith/backend:dev backend/
 
 # Frontend (~5-15s with warm cache)
-docker build -f frontend/Dockerfile.fast -t kiro/frontend:dev frontend/
+docker build -f frontend/Dockerfile.fast -t ndith/frontend:dev frontend/
 ```
 
 ### Production Builds
 ```bash
 # Backend (release build, optimized)
-docker build -f backend/Dockerfile -t kiro/backend:prod backend/
+docker build -f backend/Dockerfile -t ndith/backend:prod backend/
 
 # Frontend (production optimized)
-docker build -f frontend/Dockerfile -t kiro/frontend:prod frontend/
+docker build -f frontend/Dockerfile -t ndith/frontend:prod frontend/
 ```
 
 ## Cache Strategy Details
@@ -249,7 +249,7 @@ clean-cache:
 ### Tilt Integration
 ```python
 # Use fast Dockerfiles in Tiltfile
-docker_build('kiro/backend', 
+docker_build('ndith/backend', 
     context='./backend',
     dockerfile='./backend/Dockerfile.fast')
 ```

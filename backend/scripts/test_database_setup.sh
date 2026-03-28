@@ -8,7 +8,7 @@ echo "🔧 Testing database setup and migrations..."
 
 # Ensure PostgreSQL is running
 echo "📊 Checking PostgreSQL connection..."
-if ! docker-compose exec postgres pg_isready -U kiro -d kiro_dev > /dev/null 2>&1; then
+if ! docker-compose exec postgres pg_isready -U ndith -d ndith_dev > /dev/null 2>&1; then
     echo "❌ PostgreSQL is not ready. Starting services..."
     docker-compose up -d postgres redis
     sleep 5
@@ -21,7 +21,7 @@ cargo run --bin sqlx -- migrate run
 
 # Verify tables exist
 echo "📋 Verifying required tables exist..."
-TABLES=$(docker-compose exec -T postgres psql -U kiro -d kiro_dev -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ' | grep -v '^$')
+TABLES=$(docker-compose exec -T postgres psql -U ndith -d ndith_dev -t -c "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';" | tr -d ' ' | grep -v '^$')
 
 REQUIRED_TABLES=("users" "artists" "user_artist_blocks" "audit_log" "health_check")
 

@@ -1,6 +1,6 @@
 # Enhanced Tilt Development Guide
 
-This guide covers the enhanced Tiltfile configuration for optimal Kubernetes development experience with the Kiro platform.
+This guide covers the enhanced Tiltfile configuration for optimal Kubernetes development experience with the NDITH platform.
 
 ## 🚀 Quick Start
 
@@ -92,7 +92,7 @@ Once Tilt is running, services are available at:
 
 - **Backend API**: http://localhost:3000
 - **Frontend**: http://localhost:5000
-- **PostgreSQL**: localhost:5432 (user: kiro, pass: password, db: kiro)
+- **PostgreSQL**: localhost:5432 (user: ndith, pass: password, db: ndith)
 - **Redis**: localhost:6379
 - **Tilt UI**: http://localhost:10350
 
@@ -277,7 +277,7 @@ docker system df
 # Click 'db-migrate' trigger in Tilt UI
 
 # Manual check
-kubectl exec -n kiro-dev deployment/postgres -- pg_isready -U kiro -d kiro
+kubectl exec -n ndith-dev deployment/postgres -- pg_isready -U ndith -d ndith
 ```
 
 #### Live Updates Not Working

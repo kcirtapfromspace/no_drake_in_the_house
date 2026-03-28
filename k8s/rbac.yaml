@@ -1,26 +1,26 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kiro-api
-  namespace: kiro-production
+  name: ndith-api
+  namespace: ndith-production
   labels:
-    app: kiro-api
+    app: ndith-api
 
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kiro-worker
-  namespace: kiro-production
+  name: ndith-worker
+  namespace: ndith-production
   labels:
-    app: kiro-worker
+    app: ndith-worker
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  namespace: kiro-production
-  name: kiro-api-role
+  namespace: ndith-production
+  name: ndith-api-role
 rules:
 - apiGroups: [""]
   resources: ["configmaps", "secrets"]
@@ -33,8 +33,8 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  namespace: kiro-production
-  name: kiro-worker-role
+  namespace: ndith-production
+  name: ndith-worker-role
 rules:
 - apiGroups: [""]
   resources: ["configmaps", "secrets"]
@@ -47,28 +47,28 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kiro-api-rolebinding
-  namespace: kiro-production
+  name: ndith-api-rolebinding
+  namespace: ndith-production
 subjects:
 - kind: ServiceAccount
-  name: kiro-api
-  namespace: kiro-production
+  name: ndith-api
+  namespace: ndith-production
 roleRef:
   kind: Role
-  name: kiro-api-role
+  name: ndith-api-role
   apiGroup: rbac.authorization.k8s.io
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kiro-worker-rolebinding
-  namespace: kiro-production
+  name: ndith-worker-rolebinding
+  namespace: ndith-production
 subjects:
 - kind: ServiceAccount
-  name: kiro-worker
-  namespace: kiro-production
+  name: ndith-worker
+  namespace: ndith-production
 roleRef:
   kind: Role
-  name: kiro-worker-role
+  name: ndith-worker-role
   apiGroup: rbac.authorization.k8s.io

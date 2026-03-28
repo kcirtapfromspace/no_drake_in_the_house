@@ -88,7 +88,7 @@ Once deployed, services are available at:
 
 - **Backend API**: http://localhost:3000
 - **Frontend**: http://localhost:5000
-- **PostgreSQL**: localhost:5432 (user: kiro, password: password, db: kiro)
+- **PostgreSQL**: localhost:5432 (user: ndith, password: password, db: ndith)
 - **Redis**: localhost:6379
 
 ## Development Workflow
@@ -119,32 +119,32 @@ Both Skaffold and Tilt support automatic rebuilding when files change:
 #### View Logs
 ```bash
 # All pods
-kubectl logs -f -l app.kubernetes.io/instance=kiro -n kiro-dev
+kubectl logs -f -l app.kubernetes.io/instance=ndith -n ndith-dev
 
 # Specific service
-kubectl logs -f deployment/kiro-backend -n kiro-dev
-kubectl logs -f deployment/kiro-frontend -n kiro-dev
+kubectl logs -f deployment/ndith-backend -n ndith-dev
+kubectl logs -f deployment/ndith-frontend -n ndith-dev
 ```
 
 #### Access Pod Shell
 ```bash
 # Backend pod
-kubectl exec -it deployment/kiro-backend -n kiro-dev -- /bin/bash
+kubectl exec -it deployment/ndith-backend -n ndith-dev -- /bin/bash
 
 # Frontend pod
-kubectl exec -it deployment/kiro-frontend -n kiro-dev -- /bin/sh
+kubectl exec -it deployment/ndith-frontend -n ndith-dev -- /bin/sh
 
 # Database pod
-kubectl exec -it deployment/kiro-postgresql -n kiro-dev -- psql -U kiro -d kiro
+kubectl exec -it deployment/ndith-postgresql -n ndith-dev -- psql -U ndith -d ndith
 ```
 
 #### Port Forward Individual Services
 ```bash
 # Backend only
-kubectl port-forward -n kiro-dev service/kiro-backend 3000:3000
+kubectl port-forward -n ndith-dev service/ndith-backend 3000:3000
 
 # Database only
-kubectl port-forward -n kiro-dev service/kiro-postgresql 5432:5432
+kubectl port-forward -n ndith-dev service/ndith-postgresql 5432:5432
 ```
 
 ## Configuration
@@ -156,8 +156,8 @@ Development-specific environment variables are configured in `helm/values-dev.ya
 ```yaml
 backend:
   env:
-    DATABASE_URL: "postgres://kiro:password@kiro-postgresql:5432/kiro"
-    REDIS_URL: "redis://kiro-redis-master:6379"
+    DATABASE_URL: "postgres://ndith:password@ndith-postgresql:5432/ndith"
+    REDIS_URL: "redis://ndith-redis-master:6379"
     JWT_SECRET: "dev_jwt_secret_change_in_production"
     RUST_LOG: "debug"
 ```
@@ -209,13 +209,13 @@ curl http://localhost:3000/health
 
 ```bash
 # Pod status
-kubectl get pods -n kiro-dev
+kubectl get pods -n ndith-dev
 
 # Service endpoints
-kubectl get endpoints -n kiro-dev
+kubectl get endpoints -n ndith-dev
 
 # Events (for troubleshooting)
-kubectl get events -n kiro-dev --sort-by='.lastTimestamp'
+kubectl get events -n ndith-dev --sort-by='.lastTimestamp'
 ```
 
 ## Testing in Kubernetes
@@ -230,7 +230,7 @@ cd backend && cargo test
 cd frontend && npm test
 
 # Or run tests inside pods
-kubectl exec -it deployment/kiro-backend -n kiro-dev -- cargo test
+kubectl exec -it deployment/ndith-backend -n ndith-dev -- cargo test
 ```
 
 ### Integration Testing
@@ -249,10 +249,10 @@ The Kubernetes environment provides a production-like setup for integration test
 #### Pods Not Starting
 ```bash
 # Check pod status
-kubectl describe pod -l app.kubernetes.io/instance=kiro -n kiro-dev
+kubectl describe pod -l app.kubernetes.io/instance=ndith -n ndith-dev
 
 # Check events
-kubectl get events -n kiro-dev --sort-by='.lastTimestamp'
+kubectl get events -n ndith-dev --sort-by='.lastTimestamp'
 ```
 
 #### Image Pull Errors
@@ -267,23 +267,23 @@ make k8s-build
 #### Port Forward Failures
 ```bash
 # Check if services are running
-kubectl get services -n kiro-dev
+kubectl get services -n ndith-dev
 
 # Check if pods are ready
-kubectl get pods -n kiro-dev
+kubectl get pods -n ndith-dev
 
 # Try different local ports
-kubectl port-forward -n kiro-dev service/kiro-backend 3001:3000
+kubectl port-forward -n ndith-dev service/ndith-backend 3001:3000
 ```
 
 #### Database Connection Issues
 ```bash
 # Check PostgreSQL pod
-kubectl logs -f deployment/kiro-postgresql -n kiro-dev
+kubectl logs -f deployment/ndith-postgresql -n ndith-dev
 
 # Test connection from backend pod
-kubectl exec -it deployment/kiro-backend -n kiro-dev -- \
-  psql postgres://kiro:password@kiro-postgresql:5432/kiro -c "SELECT 1;"
+kubectl exec -it deployment/ndith-backend -n ndith-dev -- \
+  psql postgres://ndith:password@ndith-postgresql:5432/ndith -c "SELECT 1;"
 ```
 
 ### Reset Environment
@@ -333,9 +333,9 @@ cp helm/values-dev.yaml helm/values-local.yaml
 vim helm/values-local.yaml
 
 # Deploy with custom values
-helm upgrade --install kiro ./helm \
+helm upgrade --install ndith ./helm \
   --values ./helm/values-local.yaml \
-  --namespace kiro-dev
+  --namespace ndith-dev
 ```
 
 ### Multiple Environments
@@ -344,9 +344,9 @@ Deploy multiple environments for testing:
 
 ```bash
 # Deploy to different namespace
-helm upgrade --install kiro-feature ./helm \
+helm upgrade --install ndith-feature ./helm \
   --values ./helm/values-dev.yaml \
-  --namespace kiro-feature \
+  --namespace ndith-feature \
   --create-namespace
 ```
 

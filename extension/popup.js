@@ -1,5 +1,5 @@
 /**
- * Popup Script for Kiro Extension
+ * Popup Script for NDITH Extension
  * Handles the extension popup interface
  */
 

@@ -38,19 +38,19 @@ echo -e "${YELLOW}🧊 Testing cold build performance...${NC}"
 docker system prune -f > /dev/null 2>&1
 
 echo "Building backend (cold)..."
-backend_cold_time=$(measure_time docker build -t kiro/backend:perf-test ./backend/ > /dev/null 2>&1)
+backend_cold_time=$(measure_time docker build -t ndith/backend:perf-test ./backend/ > /dev/null 2>&1)
 
 echo "Building frontend (cold)..."
-frontend_cold_time=$(measure_time docker build -t kiro/frontend:perf-test ./frontend/ > /dev/null 2>&1)
+frontend_cold_time=$(measure_time docker build -t ndith/frontend:perf-test ./frontend/ > /dev/null 2>&1)
 
 # Test warm build (with cache)
 echo -e "${YELLOW}🔥 Testing warm build performance...${NC}"
 
 echo "Building backend (warm)..."
-backend_warm_time=$(measure_time docker build -t kiro/backend:perf-test ./backend/ > /dev/null 2>&1)
+backend_warm_time=$(measure_time docker build -t ndith/backend:perf-test ./backend/ > /dev/null 2>&1)
 
 echo "Building frontend (warm)..."
-frontend_warm_time=$(measure_time docker build -t kiro/frontend:perf-test ./frontend/ > /dev/null 2>&1)
+frontend_warm_time=$(measure_time docker build -t ndith/frontend:perf-test ./frontend/ > /dev/null 2>&1)
 
 # Calculate improvements
 backend_improvement=$(echo "scale=1; ($backend_cold_time - $backend_warm_time) / $backend_cold_time * 100" | bc -l)

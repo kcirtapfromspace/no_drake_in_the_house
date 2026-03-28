@@ -97,7 +97,7 @@ dev:
 	docker compose up -d postgres redis
 	@echo "Waiting for services to be ready..."
 	@for i in $$(seq 1 30); do \
-		if docker compose exec postgres pg_isready -U kiro -d kiro_dev >/dev/null 2>&1; then break; fi; \
+		if docker compose exec postgres pg_isready -U ndith -d ndith_dev >/dev/null 2>&1; then break; fi; \
 		if [ $$i -eq 30 ]; then echo "❌ PostgreSQL failed to start" && exit 1; fi; \
 		sleep 1; \
 	done
@@ -116,7 +116,7 @@ dev:
 	@echo "📊 Service URLs:"
 	@echo "  Backend API:    http://localhost:3000"
 	@echo "  Frontend:       http://localhost:5000"
-	@echo "  PostgreSQL:     localhost:5432 (user: kiro, db: kiro_dev)"
+	@echo "  PostgreSQL:     localhost:5432 (user: ndith, db: ndith_dev)"
 	@echo "  Redis:          localhost:6379"
 	@echo ""
 	@echo "🔍 Useful commands:"
@@ -235,7 +235,7 @@ reset-db:
 	docker compose up -d postgres
 	@echo "Waiting for PostgreSQL to be ready..."
 	@for i in $$(seq 1 30); do \
-		if docker compose exec postgres pg_isready -U kiro -d kiro_dev >/dev/null 2>&1; then break; fi; \
+		if docker compose exec postgres pg_isready -U ndith -d ndith_dev >/dev/null 2>&1; then break; fi; \
 		if [ $$i -eq 30 ]; then echo "❌ PostgreSQL failed to start" && exit 1; fi; \
 		sleep 1; \
 	done
@@ -261,8 +261,8 @@ k8s-dev:
 # Build Docker images for Kubernetes
 k8s-build:
 	@echo "🐳 Building Docker images for Kubernetes..."
-	docker build -t kiro/backend:latest -f backend/Dockerfile.dev backend/
-	docker build -t kiro/frontend:latest -f frontend/Dockerfile.dev frontend/
+	docker build -t ndith/backend:latest -f backend/Dockerfile.dev backend/
+	docker build -t ndith/frontend:latest -f frontend/Dockerfile.dev frontend/
 
 # Deploy to Kubernetes using Helm
 k8s-deploy:
@@ -270,17 +270,17 @@ k8s-deploy:
 	@command -v helm >/dev/null 2>&1 || (echo "❌ Helm not found. Please install Helm first." && exit 1)
 	helm repo add bitnami https://charts.bitnami.com/bitnami || true
 	helm repo update
-	helm upgrade --install kiro ./helm \
+	helm upgrade --install ndith ./helm \
 		--values ./helm/values-dev.yaml \
-		--namespace kiro-dev \
+		--namespace ndith-dev \
 		--create-namespace \
 		--wait
 
 # Clean up Kubernetes resources
 k8s-clean:
 	@echo "🧹 Cleaning up Kubernetes resources..."
-	helm uninstall kiro --namespace kiro-dev || true
-	kubectl delete namespace kiro-dev || true
+	helm uninstall ndith --namespace ndith-dev || true
+	kubectl delete namespace ndith-dev || true
 
 # Port forward services for local access
 k8s-port-forward:
@@ -290,10 +290,10 @@ k8s-port-forward:
 	@echo "PostgreSQL will be available at localhost:5432"
 	@echo "Redis will be available at localhost:6379"
 	@echo "Press Ctrl+C to stop port forwarding"
-	kubectl port-forward -n kiro-dev service/kiro-backend 3000:3000 &
-	kubectl port-forward -n kiro-dev service/kiro-frontend 5000:80 &
-	kubectl port-forward -n kiro-dev service/kiro-postgresql 5432:5432 &
-	kubectl port-forward -n kiro-dev service/kiro-redis-master 6379:6379 &
+	kubectl port-forward -n ndith-dev service/ndith-backend 3000:3000 &
+	kubectl port-forward -n ndith-dev service/ndith-frontend 5000:80 &
+	kubectl port-forward -n ndith-dev service/ndith-postgresql 5432:5432 &
+	kubectl port-forward -n ndith-dev service/ndith-redis-master 6379:6379 &
 	wait
 
 # Check Kubernetes deployment status
@@ -301,13 +301,13 @@ k8s-status:
 	@echo "📊 Checking Kubernetes deployment status..."
 	@echo ""
 	@echo "Pods:"
-	kubectl get pods -n kiro-dev
+	kubectl get pods -n ndith-dev
 	@echo ""
 	@echo "Services:"
-	kubectl get services -n kiro-dev
+	kubectl get services -n ndith-dev
 	@echo ""
 	@echo "Ingress:"
-	kubectl get ingress -n kiro-dev
+	kubectl get ingress -n ndith-dev
 
 # Run database migrations
 migrate:
@@ -331,7 +331,7 @@ status:
 	@echo ""
 	@echo "🔍 Health Checks:"
 	@echo -n "PostgreSQL: "
-	@docker compose exec postgres pg_isready -U kiro -d kiro_dev >/dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unhealthy"
+	@docker compose exec postgres pg_isready -U ndith -d ndith_dev >/dev/null 2>&1 && echo "✅ Healthy" || echo "❌ Unhealthy"
 	@echo -n "Redis: "
 	@docker compose exec redis redis-cli ping 2>/dev/null | grep -q PONG && echo "✅ Healthy" || echo "❌ Unhealthy"
 
@@ -346,7 +346,7 @@ frontend-shell:
 
 db-shell:
 	@echo "🗄️  Opening database shell..."
-	docker compose exec postgres psql -U kiro -d kiro_dev
+	docker compose exec postgres psql -U ndith -d ndith_dev
 
 redis-shell:
 	@echo "📦 Opening Redis shell..."

@@ -140,7 +140,7 @@ The browser extension works with music.apple.com:
 **Content Filtering**
 - Hides artist tiles in browse sections
 - Dims blocked tracks in playlists and albums
-- Shows "Hidden by Kiro" badges on filtered content
+- Shows "Hidden by NDITH" badges on filtered content
 
 **Auto-Skip Functionality**
 - Automatically skips blocked tracks during playback

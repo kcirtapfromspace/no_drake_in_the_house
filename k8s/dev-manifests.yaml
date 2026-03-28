@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kiro-dev
+  name: ndith-dev
   labels:
-    name: kiro-dev
+    name: ndith-dev
     environment: development
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: postgres
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: postgres
     component: database
@@ -32,9 +32,9 @@ spec:
         image: postgres:15-alpine
         env:
         - name: POSTGRES_DB
-          value: kiro
+          value: ndith
         - name: POSTGRES_USER
-          value: kiro
+          value: ndith
         - name: POSTGRES_PASSWORD
           value: password
         - name: POSTGRES_INITDB_ARGS
@@ -53,7 +53,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U kiro -d kiro
+            - pg_isready -U ndith -d ndith
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 10
@@ -63,7 +63,7 @@ spec:
             command:
             - /bin/sh
             - -c
-            - pg_isready -U kiro -d kiro
+            - pg_isready -U ndith -d ndith
           initialDelaySeconds: 60
           periodSeconds: 20
           timeoutSeconds: 10
@@ -86,7 +86,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: postgres-config
-  namespace: kiro-dev
+  namespace: ndith-dev
 data:
   postgresql.conf: |
     # Minikube-friendly PostgreSQL configuration
@@ -110,7 +110,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: postgres
     component: database
@@ -127,7 +127,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: redis
     component: cache
@@ -194,7 +194,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: redis
     component: cache
@@ -211,7 +211,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: backend
     component: api
@@ -236,7 +236,7 @@ spec:
         - -c
         - |
           echo "Waiting for PostgreSQL to be ready..."
-          until pg_isready -h postgres -p 5432 -U kiro; do
+          until pg_isready -h postgres -p 5432 -U ndith; do
             echo "PostgreSQL is not ready yet, waiting..."
             sleep 2
           done
@@ -259,11 +259,11 @@ spec:
 
       containers:
       - name: backend
-        image: kiro/backend
+        image: ndith/backend
         imagePullPolicy: IfNotPresent
         env:
         - name: DATABASE_URL
-          value: postgres://kiro:password@postgres:5432/kiro
+          value: postgres://ndith:password@postgres:5432/ndith
         - name: REDIS_URL
           value: redis://redis:6379
         - name: JWT_SECRET
@@ -322,7 +322,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: backend
     component: api
@@ -339,7 +339,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: frontend
     component: web
@@ -370,7 +370,7 @@ spec:
           echo "Backend is ready!"
       containers:
       - name: frontend
-        image: kiro/frontend
+        image: ndith/frontend
         imagePullPolicy: IfNotPresent
         env:
         - name: NODE_ENV
@@ -412,7 +412,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: frontend
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: frontend
     component: web

@@ -22,7 +22,7 @@ echo "--------------------------------------"
 
 echo -e "${YELLOW}🏗️  Building backend dependencies (chef stage)...${NC}"
 start_time=$(date +%s)
-if docker build --target chef -t kiro-test:backend-chef -f backend/Dockerfile.fast backend/ > /dev/null 2>&1; then
+if docker build --target chef -t ndith-test:backend-chef -f backend/Dockerfile.fast backend/ > /dev/null 2>&1; then
     end_time=$(date +%s)
     chef_time=$((end_time - start_time))
     echo -e "${GREEN}✅ Chef stage: ${chef_time}s${NC}"
@@ -33,7 +33,7 @@ fi
 
 echo -e "${YELLOW}🏗️  Building backend planner...${NC}"
 start_time=$(date +%s)
-if docker build --target planner -t kiro-test:backend-planner -f backend/Dockerfile.fast backend/ > /dev/null 2>&1; then
+if docker build --target planner -t ndith-test:backend-planner -f backend/Dockerfile.fast backend/ > /dev/null 2>&1; then
     end_time=$(date +%s)
     planner_time=$((end_time - start_time))
     echo -e "${GREEN}✅ Planner stage: ${planner_time}s${NC}"
@@ -48,7 +48,7 @@ echo "---------------------------------------"
 
 echo -e "${YELLOW}🏗️  Building frontend dependencies...${NC}"
 start_time=$(date +%s)
-if docker build --target builder -t kiro-test:frontend-builder -f frontend/Dockerfile.fast frontend/ > /dev/null 2>&1; then
+if docker build --target builder -t ndith-test:frontend-builder -f frontend/Dockerfile.fast frontend/ > /dev/null 2>&1; then
     end_time=$(date +%s)
     frontend_time=$((end_time - start_time))
     echo -e "${GREEN}✅ Frontend build: ${frontend_time}s${NC}"
@@ -66,7 +66,7 @@ echo "Frontend Build:  ${frontend_time}s"
 
 # Cleanup
 echo -e "\n${YELLOW}🧹 Cleaning up test images...${NC}"
-docker rmi kiro-test:backend-chef kiro-test:backend-planner kiro-test:frontend-builder > /dev/null 2>&1 || true
+docker rmi ndith-test:backend-chef ndith-test:backend-planner ndith-test:frontend-builder > /dev/null 2>&1 || true
 
 if [ "$chef_time" -lt 60 ] && [ "$planner_time" -lt 60 ] && [ "$frontend_time" -lt 120 ]; then
     echo -e "\n${GREEN}✅ Build optimization is working! All stages completed in reasonable time.${NC}"

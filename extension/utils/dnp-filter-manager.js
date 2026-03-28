@@ -1,5 +1,5 @@
 /**
- * DNP Filter Manager for Kiro Extension
+ * DNP Filter Manager for NDITH Extension
  * Manages bloom filter for fast DNP list lookups with server sync
  */
 

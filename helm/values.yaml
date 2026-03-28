@@ -1,4 +1,4 @@
-# Default values for kiro
+# Default values for ndith
 # This is a YAML-formatted file.
 
 global:
@@ -8,7 +8,7 @@ global:
 # Backend service configuration
 backend:
   image:
-    repository: kiro/backend
+    repository: ndith/backend
     tag: latest
     pullPolicy: IfNotPresent
   
@@ -20,8 +20,8 @@ backend:
     targetPort: 3000
   
   env:
-    DATABASE_URL: "postgres://kiro:password@kiro-postgresql:5432/kiro"
-    REDIS_URL: "redis://kiro-redis-master:6379"
+    DATABASE_URL: "postgres://ndith:password@ndith-postgresql:5432/ndith"
+    REDIS_URL: "redis://ndith-redis-master:6379"
     JWT_SECRET: "production_jwt_secret_change_me"
     RUST_LOG: "info"
     TOTP_ISSUER: "No Drake in the House"
@@ -55,7 +55,7 @@ backend:
 # Frontend service configuration
 frontend:
   image:
-    repository: kiro/frontend
+    repository: ndith/frontend
     tag: latest
     pullPolicy: IfNotPresent
   
@@ -99,9 +99,9 @@ frontend:
 postgresql:
   enabled: true
   auth:
-    username: kiro
+    username: ndith
     password: password
-    database: kiro
+    database: ndith
   primary:
     persistence:
       enabled: true
@@ -137,7 +137,7 @@ ingress:
   className: ""
   annotations: {}
   hosts:
-    - host: kiro.local
+    - host: ndith.local
       paths:
         - path: /
           pathType: Prefix
@@ -188,7 +188,7 @@ configMap:
 migration:
   enabled: false
   image:
-    repository: kiro/backend
+    repository: ndith/backend
     tag: latest
     pullPolicy: IfNotPresent
   restartPolicy: Never

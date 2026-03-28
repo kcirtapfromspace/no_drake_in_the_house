@@ -6,7 +6,7 @@ async fn test_database_initialization() {
     // Use test database configuration
     let config = DatabaseConfig {
         url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-            "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string()
+            "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string()
         }),
         max_connections: 5,
         connection_timeout: Duration::from_secs(10),

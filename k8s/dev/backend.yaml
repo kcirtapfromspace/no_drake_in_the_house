@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: backend
-  namespace: kiro-dev
+  namespace: ndith-dev
 spec:
   replicas: 1
   selector:
@@ -15,10 +15,10 @@ spec:
     spec:
       containers:
       - name: backend
-        image: kiro/backend
+        image: ndith/backend
         env:
         - name: DATABASE_URL
-          value: postgres://kiro:password@postgres:5432/kiro
+          value: postgres://ndith:password@postgres:5432/ndith
         - name: REDIS_URL
           value: redis://redis:6379
         - name: JWT_SECRET
@@ -32,7 +32,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: backend
-  namespace: kiro-dev
+  namespace: ndith-dev
 spec:
   selector:
     app: backend

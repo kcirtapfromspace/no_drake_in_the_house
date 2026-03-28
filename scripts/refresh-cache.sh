@@ -22,8 +22,8 @@ show_cache_usage() {
     docker system df 2>/dev/null || echo "Unable to get Docker system usage"
     
     echo ""
-    echo "Kiro Cache Images:"
-    docker images --filter "reference=kiro-cache:*" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}" 2>/dev/null || echo "No kiro-cache images found"
+    echo "NDITH Cache Images:"
+    docker images --filter "reference=ndith-cache:*" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}" 2>/dev/null || echo "No ndith-cache images found"
 }
 
 # Function to clean specific cache types
@@ -39,9 +39,9 @@ clean_cache_type() {
             echo -e "${YELLOW}🧹 Cleaning unused images...${NC}"
             docker image prune -f
             ;;
-        "kiro")
-            echo -e "${YELLOW}🧹 Cleaning Kiro cache images...${NC}"
-            docker images --filter "reference=kiro-cache:*" -q | xargs -r docker rmi -f
+        "ndith")
+            echo -e "${YELLOW}🧹 Cleaning NDITH cache images...${NC}"
+            docker images --filter "reference=ndith-cache:*" -q | xargs -r docker rmi -f
             ;;
         "all")
             echo -e "${YELLOW}🧹 Cleaning all Docker cache...${NC}"
@@ -59,7 +59,7 @@ refresh_cache() {
     echo -e "${BLUE}🔄 Refreshing Docker cache...${NC}"
     
     # Clean old cache
-    clean_cache_type "kiro"
+    clean_cache_type "ndith"
     clean_cache_type "build"
     
     # Rebuild cache
@@ -86,7 +86,7 @@ case "${1:-help}" in
         echo ""
         echo "Commands:"
         echo "  show              Show current cache usage"
-        echo "  clean [type]      Clean cache (types: build, images, kiro, all)"
+        echo "  clean [type]      Clean cache (types: build, images, ndith, all)"
         echo "  refresh           Clean and rebuild cache"
         echo "  help              Show this help message"
         echo ""

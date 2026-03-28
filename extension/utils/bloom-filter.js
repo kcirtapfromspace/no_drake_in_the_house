@@ -1,5 +1,5 @@
 /**
- * Bloom Filter Implementation for Kiro Extension
+ * Bloom Filter Implementation for NDITH Extension
  * Provides O(1) lookups for DNP list checking with minimal memory usage
  */
 

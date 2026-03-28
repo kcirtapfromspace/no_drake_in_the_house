@@ -13,11 +13,11 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Load environment-specific configuration
 case $ENVIRONMENT in
     "production")
-        NAMESPACE="kiro-production"
+        NAMESPACE="ndith-production"
         REGISTRY="ghcr.io"
         ;;
     "staging")
-        NAMESPACE="kiro-staging"
+        NAMESPACE="ndith-staging"
         REGISTRY="ghcr.io"
         ;;
     *)
@@ -57,7 +57,7 @@ fi
 echo "🔍 Running pre-deployment checks..."
 
 # Check if required secrets exist
-REQUIRED_SECRETS=("kiro-secrets" "grafana-secrets")
+REQUIRED_SECRETS=("ndith-secrets" "grafana-secrets")
 for secret in "${REQUIRED_SECRETS[@]}"; do
     if ! kubectl get secret "$secret" -n "$NAMESPACE" &> /dev/null; then
         echo "Error: Required secret '$secret' not found in namespace '$NAMESPACE'"
@@ -67,19 +67,19 @@ done
 
 # Check resource quotas
 echo "📊 Checking resource quotas..."
-kubectl describe resourcequota kiro-production-quota -n "$NAMESPACE" || echo "Warning: Resource quota not found"
+kubectl describe resourcequota ndith-production-quota -n "$NAMESPACE" || echo "Warning: Resource quota not found"
 
 # Backup current deployment state
 echo "💾 Creating deployment backup..."
-BACKUP_DIR="/tmp/kiro-deployment-backup-$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="/tmp/ndith-deployment-backup-$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 if [ "$COMPONENT" = "all" ] || [ "$COMPONENT" = "api" ]; then
-    kubectl get deployment kiro-api -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/kiro-api-deployment.yaml" 2>/dev/null || true
+    kubectl get deployment ndith-api -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/ndith-api-deployment.yaml" 2>/dev/null || true
 fi
 
 if [ "$COMPONENT" = "all" ] || [ "$COMPONENT" = "worker" ]; then
-    kubectl get deployment kiro-worker -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/kiro-worker-deployment.yaml" 2>/dev/null || true
+    kubectl get deployment ndith-worker -n "$NAMESPACE" -o yaml > "$BACKUP_DIR/ndith-worker-deployment.yaml" 2>/dev/null || true
 fi
 
 echo "📁 Backup saved to: $BACKUP_DIR"
@@ -87,24 +87,24 @@ echo "📁 Backup saved to: $BACKUP_DIR"
 # Function to deploy a component
 deploy_component() {
     local comp=$1
-    local image_name="${REGISTRY}/kiro/${comp}:${IMAGE_TAG}"
+    local image_name="${REGISTRY}/ndith/${comp}:${IMAGE_TAG}"
     
     echo "🔄 Deploying $comp with image: $image_name"
     
     # Update image in deployment
     if [ "$comp" = "api" ]; then
-        kubectl set image deployment/kiro-api api="$image_name" -n "$NAMESPACE"
+        kubectl set image deployment/ndith-api api="$image_name" -n "$NAMESPACE"
     elif [ "$comp" = "worker" ]; then
-        kubectl set image deployment/kiro-worker worker="$image_name" -n "$NAMESPACE"
+        kubectl set image deployment/ndith-worker worker="$image_name" -n "$NAMESPACE"
     fi
     
     # Wait for rollout to complete
     echo "⏳ Waiting for $comp rollout to complete..."
-    if ! kubectl rollout status deployment/kiro-$comp -n "$NAMESPACE" --timeout=600s; then
+    if ! kubectl rollout status deployment/ndith-$comp -n "$NAMESPACE" --timeout=600s; then
         echo "❌ Rollout failed for $comp"
         echo "🔄 Rolling back..."
-        kubectl rollout undo deployment/kiro-$comp -n "$NAMESPACE"
-        kubectl rollout status deployment/kiro-$comp -n "$NAMESPACE" --timeout=300s
+        kubectl rollout undo deployment/ndith-$comp -n "$NAMESPACE"
+        kubectl rollout status deployment/ndith-$comp -n "$NAMESPACE" --timeout=300s
         return 1
     fi
     
@@ -123,10 +123,10 @@ if [ "$COMPONENT" = "all" ] || [ "$COMPONENT" = "api" ]; then
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kiro-migration-$(date +%s)
+  name: ndith-migration-$(date +%s)
   namespace: $NAMESPACE
   labels:
-    app: kiro-migration
+    app: ndith-migration
 spec:
   ttlSecondsAfterFinished: 300
   template:
@@ -134,13 +134,13 @@ spec:
       restartPolicy: Never
       containers:
       - name: migration
-        image: ${REGISTRY}/kiro/api:${IMAGE_TAG}
+        image: ${REGISTRY}/ndith/api:${IMAGE_TAG}
         command: ["sqlx", "migrate", "run"]
         env:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: DATABASE_URL
         volumeMounts:
         - name: migrations
@@ -148,7 +148,7 @@ spec:
       volumes:
       - name: migrations
         configMap:
-          name: kiro-migrations
+          name: ndith-migrations
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -156,7 +156,7 @@ spec:
 EOF
     
     # Wait for migration to complete
-    MIGRATION_JOB=$(kubectl get jobs -n "$NAMESPACE" -l app=kiro-migration --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+    MIGRATION_JOB=$(kubectl get jobs -n "$NAMESPACE" -l app=ndith-migration --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
     
     if ! kubectl wait --for=condition=complete job/"$MIGRATION_JOB" -n "$NAMESPACE" --timeout=300s; then
         echo "❌ Database migration failed"
@@ -185,11 +185,11 @@ echo "🔍 Running post-deployment verification..."
 # Health checks
 if [ "$COMPONENT" = "all" ] || [ "$COMPONENT" = "api" ]; then
     echo "🏥 Checking API health..."
-    kubectl wait --for=condition=ready pod -l app=kiro-api -n "$NAMESPACE" --timeout=120s
+    kubectl wait --for=condition=ready pod -l app=ndith-api -n "$NAMESPACE" --timeout=120s
     
     # Get API URL and test endpoints
-    if kubectl get ingress kiro-ingress -n "$NAMESPACE" &> /dev/null; then
-        API_URL=$(kubectl get ingress kiro-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}')
+    if kubectl get ingress ndith-ingress -n "$NAMESPACE" &> /dev/null; then
+        API_URL=$(kubectl get ingress ndith-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}')
         echo "🌐 Testing API endpoints at https://$API_URL"
         
         # Test health endpoint
@@ -210,12 +210,12 @@ fi
 
 if [ "$COMPONENT" = "all" ] || [ "$COMPONENT" = "worker" ]; then
     echo "👷 Checking worker health..."
-    kubectl wait --for=condition=ready pod -l app=kiro-worker -n "$NAMESPACE" --timeout=120s
+    kubectl wait --for=condition=ready pod -l app=ndith-worker -n "$NAMESPACE" --timeout=120s
 fi
 
 # Check metrics endpoints
 echo "📊 Checking metrics endpoints..."
-kubectl get pods -l app=kiro-api -n "$NAMESPACE" -o name | head -1 | xargs -I {} kubectl port-forward {} 9090:9090 -n "$NAMESPACE" &
+kubectl get pods -l app=ndith-api -n "$NAMESPACE" -o name | head -1 | xargs -I {} kubectl port-forward {} 9090:9090 -n "$NAMESPACE" &
 PORTFORWARD_PID=$!
 sleep 5
 
@@ -248,11 +248,11 @@ echo "   Backup location: $BACKUP_DIR"
 # Show current pod status
 echo ""
 echo "📋 Current pod status:"
-kubectl get pods -n "$NAMESPACE" -l "app in (kiro-api,kiro-worker)" -o wide
+kubectl get pods -n "$NAMESPACE" -l "app in (ndith-api,ndith-worker)" -o wide
 
 echo ""
 echo "🔗 Useful commands:"
-echo "   View logs: kubectl logs -f deployment/kiro-api -n $NAMESPACE"
+echo "   View logs: kubectl logs -f deployment/ndith-api -n $NAMESPACE"
 echo "   Check status: kubectl get pods -n $NAMESPACE"
-echo "   Rollback: kubectl rollout undo deployment/kiro-api -n $NAMESPACE"
-echo "   Scale: kubectl scale deployment/kiro-api --replicas=5 -n $NAMESPACE"
+echo "   Rollback: kubectl rollout undo deployment/ndith-api -n $NAMESPACE"
+echo "   Scale: kubectl scale deployment/ndith-api --replicas=5 -n $NAMESPACE"

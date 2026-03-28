@@ -1,8 +1,8 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: kiro-dev-ingress
-  namespace: kiro-dev
+  name: ndith-dev-ingress
+  namespace: ndith-dev
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
@@ -12,23 +12,23 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: kiro.local
+  - host: ndith.local
     http:
       paths:
       - path: /api(/|$)(.*)
         pathType: Prefix
         backend:
           service:
-            name: kiro-backend
+            name: ndith-backend
             port:
               number: 3000
       - path: /(.*)
         pathType: Prefix
         backend:
           service:
-            name: kiro-frontend
+            name: ndith-frontend
             port:
               number: 80
 ---
-# Add kiro.local to /etc/hosts for local development
-# Run: echo "127.0.0.1 kiro.local" | sudo tee -a /etc/hosts
+# Add ndith.local to /etc/hosts for local development
+# Run: echo "127.0.0.1 ndith.local" | sudo tee -a /etc/hosts

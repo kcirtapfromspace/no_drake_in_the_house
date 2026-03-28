@@ -1,15 +1,15 @@
-# Development-specific values for kiro
+# Development-specific values for ndith
 # Override default values for local development
 
 backend:
   image:
-    repository: kiro/backend
+    repository: ndith/backend
     tag: latest
     pullPolicy: Never  # Use local images
   
   env:
-    DATABASE_URL: "postgres://kiro:password@kiro-postgresql:5432/kiro"
-    REDIS_URL: "redis://kiro-redis-master:6379"
+    DATABASE_URL: "postgres://ndith:password@ndith-postgresql:5432/ndith"
+    REDIS_URL: "redis://ndith-redis-master:6379"
     JWT_SECRET: "dev_jwt_secret_change_in_production"
     RUST_LOG: "debug"
     TOTP_ISSUER: "No Drake in the House (Dev)"
@@ -24,7 +24,7 @@ backend:
 
 frontend:
   image:
-    repository: kiro/frontend
+    repository: ndith/frontend
     tag: latest
     pullPolicy: Never  # Use local images
   
@@ -42,9 +42,9 @@ frontend:
 postgresql:
   enabled: true
   auth:
-    username: kiro
+    username: ndith
     password: password
-    database: kiro
+    database: ndith
   primary:
     persistence:
       enabled: false  # Use ephemeral storage for dev
@@ -78,7 +78,7 @@ ingress:
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
   hosts:
-    - host: kiro.local
+    - host: ndith.local
       paths:
         - path: /api
           pathType: Prefix

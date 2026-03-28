@@ -11,10 +11,10 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Load environment-specific configuration
 case $ENVIRONMENT in
     "production")
-        NAMESPACE="kiro-production"
+        NAMESPACE="ndith-production"
         ;;
     "staging")
-        NAMESPACE="kiro-staging"
+        NAMESPACE="ndith-staging"
         ;;
     *)
         echo "Error: Unknown environment '$ENVIRONMENT'"
@@ -45,7 +45,7 @@ fi
 
 # Get database connection details from secrets
 echo "📋 Retrieving database connection details..."
-DATABASE_URL=$(kubectl get secret kiro-secrets -n "$NAMESPACE" -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
+DATABASE_URL=$(kubectl get secret ndith-secrets -n "$NAMESPACE" -o jsonpath='{.data.DATABASE_URL}' | base64 -d)
 
 if [ -z "$DATABASE_URL" ]; then
     echo "Error: Could not retrieve DATABASE_URL from secrets"
@@ -58,10 +58,10 @@ cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kiro-migration-$(date +%s)
+  name: ndith-migration-$(date +%s)
   namespace: $NAMESPACE
   labels:
-    app: kiro-migration
+    app: ndith-migration
 spec:
   ttlSecondsAfterFinished: 300
   template:
@@ -69,13 +69,13 @@ spec:
       restartPolicy: Never
       containers:
       - name: migration
-        image: ghcr.io/kiro/api:latest
+        image: ghcr.io/ndith/api:latest
         command: ["sqlx", "migrate", "run"]
         env:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: DATABASE_URL
         volumeMounts:
         - name: migrations
@@ -83,7 +83,7 @@ spec:
       volumes:
       - name: migrations
         configMap:
-          name: kiro-migrations
+          name: ndith-migrations
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -92,7 +92,7 @@ EOF
 
 # Wait for migration to complete
 echo "⏳ Waiting for migration to complete..."
-JOB_NAME=$(kubectl get jobs -n "$NAMESPACE" -l app=kiro-migration --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+JOB_NAME=$(kubectl get jobs -n "$NAMESPACE" -l app=ndith-migration --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 if ! kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NAMESPACE" --timeout=300s; then
     echo "❌ Migration failed or timed out"

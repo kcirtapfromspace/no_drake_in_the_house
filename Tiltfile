@@ -11,7 +11,7 @@
 # CONFIGURATION
 # =============================================================================
 
-namespace = "kiro-dev"
+namespace = "ndith-dev"
 k8s_namespace(namespace)
 
 update_settings(
@@ -51,7 +51,7 @@ _strip_mk = 'env -u DOCKER_HOST -u DOCKER_TLS_VERIFY -u DOCKER_CERT_PATH -u MINI
 
 # Build on host, package into nginx, push to registry
 custom_build(
-    'kiro/frontend',
+    'ndith/frontend',
     'set -e && ' +
     'cd frontend && npm run build && cd .. && ' +
     _strip_mk + 'docker build -t $EXPECTED_REF -f ./frontend/Dockerfile.runtime ./frontend && ' +
@@ -68,20 +68,20 @@ custom_build(
 # Build in Docker (Dockerfile.dev builder target), extract binary to .build-output/,
 # package into minimal runtime image (Dockerfile.runtime), push to registry.
 custom_build(
-    'kiro/backend',
+    'ndith/backend',
     'set -e && ' +
     # Step 1: Build in Docker using Dockerfile.dev builder target (BuildKit cache)
     _strip_mk + 'DOCKER_BUILDKIT=1 docker build ' +
-        '-t kiro-backend-builder ' +
+        '-t ndith-backend-builder ' +
         '-f ./backend/Dockerfile.dev ' +
         '--target builder ' +
         './backend && ' +
     # Step 2: Extract compiled binary to .build-output/ (small context for runtime image)
     'mkdir -p ./backend/.build-output && ' +
-    _strip_mk + 'docker rm -f kiro-extract >/dev/null 2>&1 || true && ' +
-    _strip_mk + 'docker create --name kiro-extract kiro-backend-builder && ' +
-    _strip_mk + 'docker cp kiro-extract:/tmp/backend ./backend/.build-output/backend && ' +
-    _strip_mk + 'docker rm kiro-extract && ' +
+    _strip_mk + 'docker rm -f ndith-extract >/dev/null 2>&1 || true && ' +
+    _strip_mk + 'docker create --name ndith-extract ndith-backend-builder && ' +
+    _strip_mk + 'docker cp ndith-extract:/tmp/backend ./backend/.build-output/backend && ' +
+    _strip_mk + 'docker rm ndith-extract && ' +
     # Step 3: Build minimal runtime image
     _strip_mk + 'docker build -t $EXPECTED_REF -f ./backend/Dockerfile.runtime ./backend && ' +
     # Step 4: Push to registry
@@ -148,7 +148,7 @@ local_resource(
 
 local_resource(
     'db-reset',
-    cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- psql -U kiro -d postgres -c "DROP DATABASE IF EXISTS kiro; CREATE DATABASE kiro;"',
+    cmd='kubectl exec -n ' + namespace + ' deployment/postgres -- psql -U ndith -d postgres -c "DROP DATABASE IF EXISTS ndith; CREATE DATABASE ndith;"',
     resource_deps=['postgres'],
     trigger_mode=TRIGGER_MODE_MANUAL,
     auto_init=False,
@@ -182,7 +182,7 @@ print("")
 print("Services (after pods are ready):")
 print("  Backend API:  http://localhost:3000")
 print("  Frontend:     http://localhost:5000")
-print("  PostgreSQL:   localhost:15432 (user: kiro, pass: password, db: kiro)")
+print("  PostgreSQL:   localhost:15432 (user: ndith, pass: password, db: ndith)")
 print("  Redis:        localhost:16379")
 print("")
 print("Registry:       localhost:5001")

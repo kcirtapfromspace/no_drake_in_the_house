@@ -17,7 +17,7 @@ impl Default for DatabaseConfig {
     fn default() -> Self {
         Self {
             url: std::env::var("DATABASE_URL").unwrap_or_else(|_| {
-                "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string()
+                "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string()
             }),
             max_connections: 10,
             connection_timeout: Duration::from_secs(30),

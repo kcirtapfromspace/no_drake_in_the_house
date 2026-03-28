@@ -1,6 +1,6 @@
 # Database Migration System
 
-This document describes the automated database migration system implemented for the Kiro development environment.
+This document describes the automated database migration system implemented for the NDITH development environment.
 
 ## Overview
 
@@ -118,7 +118,7 @@ Available Tilt triggers:
 
 - **`health-check`**: Comprehensive service health verification
 - **Backend `/health`**: Includes database schema verification
-- **Migration Logs**: `kubectl logs job/database-migration -n kiro-dev`
+- **Migration Logs**: `kubectl logs job/database-migration -n ndith-dev`
 
 ## Seed Data System
 
@@ -138,7 +138,7 @@ The seed data job creates:
 tilt trigger db-seed
 
 # Or manually via kubectl
-kubectl patch job database-seed -n kiro-dev -p '{"spec":{"suspend":false}}'
+kubectl patch job database-seed -n ndith-dev -p '{"spec":{"suspend":false}}'
 ```
 
 ## Troubleshooting
@@ -147,8 +147,8 @@ kubectl patch job database-seed -n kiro-dev -p '{"spec":{"suspend":false}}'
 
 1. **Migration Job Fails**
    ```bash
-   kubectl logs job/database-migration -n kiro-dev
-   kubectl describe job database-migration -n kiro-dev
+   kubectl logs job/database-migration -n ndith-dev
+   kubectl describe job database-migration -n ndith-dev
    ```
 
 2. **Backend Won't Start**
@@ -158,7 +158,7 @@ kubectl patch job database-seed -n kiro-dev -p '{"spec":{"suspend":false}}'
 
 3. **Tables Missing**
    ```bash
-   kubectl exec deployment/postgres -n kiro-dev -- psql -U kiro -d kiro -c "\\dt"
+   kubectl exec deployment/postgres -n ndith-dev -- psql -U ndith -d ndith -c "\\dt"
    ```
 
 ### Reset Procedure
@@ -170,8 +170,8 @@ To completely reset the database:
 tilt trigger db-reset
 
 # Or manually
-kubectl exec deployment/postgres -n kiro-dev -- psql -U kiro -d postgres -c "DROP DATABASE IF EXISTS kiro; CREATE DATABASE kiro;"
-kubectl delete job database-migration database-seed -n kiro-dev --ignore-not-found=true
+kubectl exec deployment/postgres -n ndith-dev -- psql -U ndith -d postgres -c "DROP DATABASE IF EXISTS ndith; CREATE DATABASE ndith;"
+kubectl delete job database-migration database-seed -n ndith-dev --ignore-not-found=true
 ```
 
 ## Testing

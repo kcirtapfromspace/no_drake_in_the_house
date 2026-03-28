@@ -25,7 +25,7 @@ The Apple Music integration provides limited functionality due to Apple Music's 
 1. **Visual Content Blocking**
    - Hide artist cards and links
    - Dim blocked tracks in playlists
-   - Show "Blocked by Kiro" indicators
+   - Show "Blocked by NDITH" indicators
    - Overlay blocked artist pages
 
 2. **Artist Detection**
@@ -108,7 +108,7 @@ The Apple Music integration provides limited functionality due to Apple Music's 
 
 1. **Content Hiding**
    ```css
-   .kiro-hidden {
+   .ndith-hidden {
      opacity: 0.3 !important;
      filter: grayscale(100%) !important;
      pointer-events: none !important;
@@ -188,7 +188,7 @@ The Apple Music integration provides limited functionality due to Apple Music's 
 3. **Export/Import Features**
    - Export blocked content lists
    - Import from other platforms
-   - Sync with main Kiro service
+   - Sync with main NDITH service
 
 ### API Limitations
 
@@ -217,7 +217,7 @@ Apple Music's web API restrictions mean that many features available on other pl
 
 3. **Quick Actions Not Responding**
    - Check browser console for errors
-   - Verify connection to Kiro backend
+   - Verify connection to NDITH backend
    - Try reloading the page
 
 ### Reporting Issues

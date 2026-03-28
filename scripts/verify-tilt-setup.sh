@@ -35,7 +35,7 @@ check_service() {
 check_k8s_resource() {
     local resource_type=$1
     local resource_name=$2
-    local namespace=${3:-kiro-dev}
+    local namespace=${3:-ndith-dev}
     
     echo -n "Checking $resource_type/$resource_name in namespace $namespace... "
     
@@ -105,7 +105,7 @@ check_service "Frontend" "http://localhost:5000" "200"
 
 # Check database connectivity
 echo -n "Checking PostgreSQL connectivity... "
-if kubectl exec -n kiro-dev deployment/postgres -- pg_isready -U kiro -d kiro >/dev/null 2>&1; then
+if kubectl exec -n ndith-dev deployment/postgres -- pg_isready -U ndith -d ndith >/dev/null 2>&1; then
     echo -e "${GREEN}✓ OK${NC}"
 else
     echo -e "${RED}✗ FAILED${NC}"
@@ -113,7 +113,7 @@ fi
 
 # Check Redis connectivity
 echo -n "Checking Redis connectivity... "
-if kubectl exec -n kiro-dev deployment/redis -- redis-cli ping >/dev/null 2>&1; then
+if kubectl exec -n ndith-dev deployment/redis -- redis-cli ping >/dev/null 2>&1; then
     echo -e "${GREEN}✓ OK${NC}"
 else
     echo -e "${RED}✗ FAILED${NC}"
@@ -144,7 +144,7 @@ echo "----------------------------------"
 
 # Get the frontend pod's environment variables
 echo -n "Checking VITE_API_URL in frontend pod... "
-api_url=$(kubectl exec -n kiro-dev deployment/frontend -- printenv VITE_API_URL 2>/dev/null || echo "NOT_SET")
+api_url=$(kubectl exec -n ndith-dev deployment/frontend -- printenv VITE_API_URL 2>/dev/null || echo "NOT_SET")
 
 if [ "$api_url" = "http://localhost:3000" ]; then
     echo -e "${GREEN}✓ OK ($api_url)${NC}"
@@ -157,7 +157,7 @@ fi
 
 # Check backend CORS configuration
 echo -n "Checking CORS configuration in backend pod... "
-cors_origins=$(kubectl exec -n kiro-dev deployment/backend -- printenv CORS_ALLOWED_ORIGINS 2>/dev/null || echo "NOT_SET")
+cors_origins=$(kubectl exec -n ndith-dev deployment/backend -- printenv CORS_ALLOWED_ORIGINS 2>/dev/null || echo "NOT_SET")
 
 if [[ "$cors_origins" == *"localhost:5000"* ]]; then
     echo -e "${GREEN}✓ OK (includes localhost:5000)${NC}"

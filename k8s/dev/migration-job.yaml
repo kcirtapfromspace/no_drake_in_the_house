@@ -3,7 +3,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: database-migration
-  namespace: kiro-dev
+  namespace: ndith-dev
   labels:
     app: database-migration
     component: migration
@@ -22,18 +22,18 @@ spec:
       initContainers:
       - name: wait-for-postgres
         image: postgres:15-alpine
-        command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U kiro; do sleep 2; done"]
+        command: ["sh", "-c", "until pg_isready -h postgres -p 5432 -U ndith; do sleep 2; done"]
         env:
         - name: PGPASSWORD
           value: password
       containers:
       - name: migrate
-        image: kiro/backend
+        image: ndith/backend
         imagePullPolicy: Never
         command: ["./backend", "migrate"]
         env:
         - name: DATABASE_URL
-          value: postgres://kiro:password@postgres:5432/kiro
+          value: postgres://ndith:password@postgres:5432/ndith
         - name: RUST_LOG
           value: info
         resources:

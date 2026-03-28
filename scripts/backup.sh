@@ -13,12 +13,12 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 # Load environment-specific configuration
 case $ENVIRONMENT in
     "production")
-        NAMESPACE="kiro-production"
-        BUCKET="kiro-backups-prod"
+        NAMESPACE="ndith-production"
+        BUCKET="ndith-backups-prod"
         ;;
     "staging")
-        NAMESPACE="kiro-staging"
-        BUCKET="kiro-backups-staging"
+        NAMESPACE="ndith-staging"
+        BUCKET="ndith-backups-staging"
         ;;
     *)
         echo "Error: Unknown environment '$ENVIRONMENT'"
@@ -51,11 +51,11 @@ fi
 if [ "$BACKUP_TYPE" = "full" ]; then
     echo "📋 Creating full database backup..."
     BACKUP_COMMAND="pg_dump --verbose --format=custom --no-owner --no-privileges"
-    BACKUP_FILE="kiro_${ENVIRONMENT}_full_${TIMESTAMP}.dump"
+    BACKUP_FILE="ndith_${ENVIRONMENT}_full_${TIMESTAMP}.dump"
 elif [ "$BACKUP_TYPE" = "incremental" ]; then
     echo "📋 Creating incremental backup (WAL archive)..."
     BACKUP_COMMAND="pg_basebackup --verbose --format=tar --gzip --progress"
-    BACKUP_FILE="kiro_${ENVIRONMENT}_incremental_${TIMESTAMP}.tar.gz"
+    BACKUP_FILE="ndith_${ENVIRONMENT}_incremental_${TIMESTAMP}.tar.gz"
 else
     echo "Error: Unknown backup type '$BACKUP_TYPE'"
     echo "Usage: $0 [production|staging] [full|incremental]"
@@ -67,10 +67,10 @@ cat <<EOF | kubectl apply -f -
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kiro-backup-${BACKUP_TYPE}-$(date +%s)
+  name: ndith-backup-${BACKUP_TYPE}-$(date +%s)
   namespace: $NAMESPACE
   labels:
-    app: kiro-backup
+    app: ndith-backup
     backup-type: $BACKUP_TYPE
 spec:
   ttlSecondsAfterFinished: 3600
@@ -111,18 +111,18 @@ spec:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: DATABASE_URL
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: AWS_ACCESS_KEY_ID
               optional: true
         - name: AWS_SECRET_ACCESS_KEY
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: AWS_SECRET_ACCESS_KEY
               optional: true
         - name: AWS_DEFAULT_REGION
@@ -149,7 +149,7 @@ EOF
 
 # Wait for backup to complete
 echo "⏳ Waiting for backup to complete..."
-JOB_NAME=$(kubectl get jobs -n "$NAMESPACE" -l app=kiro-backup,backup-type="$BACKUP_TYPE" --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
+JOB_NAME=$(kubectl get jobs -n "$NAMESPACE" -l app=ndith-backup,backup-type="$BACKUP_TYPE" --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 if ! kubectl wait --for=condition=complete job/"$JOB_NAME" -n "$NAMESPACE" --timeout=1800s; then
     echo "❌ Backup failed or timed out"

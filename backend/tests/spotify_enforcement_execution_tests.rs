@@ -3,13 +3,13 @@ use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;
 
-use kiro_backend::models::spotify::{ActionType, EntityType};
-use kiro_backend::models::{
+use ndith_backend::models::spotify::{ActionType, EntityType};
+use ndith_backend::models::{
     ActionBatch, ActionBatchStatus, ActionItem, ActionItemStatus, AggressivenessLevel,
     BatchSummary, Connection, ConnectionStatus, EnforcementOptions, EnforcementPlan,
     ExecuteBatchRequest, PlannedAction, StreamingProvider,
 };
-use kiro_backend::services::{
+use ndith_backend::services::{
     SpotifyEnforcementService, SpotifyLibraryService, SpotifyService, TokenVaultService,
 };
 

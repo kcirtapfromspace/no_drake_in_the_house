@@ -103,17 +103,17 @@ COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 
 # Create non-root user with proper permissions
-RUN useradd -r -s /bin/bash -u 1001 -m kiro && \
-    chown -R kiro:kiro /app && \
+RUN useradd -r -s /bin/bash -u 1001 -m ndith && \
+    chown -R ndith:ndith /app && \
     chmod +x /app/backend
 
 # Switch to non-root user
-USER kiro
+USER ndith
 
 # Set up optimized environment for development
 ENV RUST_LOG=debug
 ENV RUST_BACKTRACE=1
-ENV DATABASE_URL=postgres://kiro:password@postgres:5432/kiro
+ENV DATABASE_URL=postgres://ndith:password@postgres:5432/ndith
 ENV REDIS_URL=redis://redis:6379
 ENV SQLX_OFFLINE=true
 ENV CARGO_INCREMENTAL=1
@@ -147,15 +147,15 @@ COPY --from=builder /tmp/backend ./backend
 COPY migrations ./migrations
 
 # Create non-root user
-RUN useradd -r -s /bin/false -u 1001 kiro && \
-    chown -R kiro:kiro /app && \
+RUN useradd -r -s /bin/false -u 1001 ndith && \
+    chown -R ndith:ndith /app && \
     chmod +x /app/backend
 
-USER kiro
+USER ndith
 
 # Production environment
 ENV RUST_LOG=info
-ENV DATABASE_URL=postgres://kiro:password@postgres:5432/kiro
+ENV DATABASE_URL=postgres://ndith:password@postgres:5432/ndith
 ENV REDIS_URL=redis://redis:6379
 
 EXPOSE 3000

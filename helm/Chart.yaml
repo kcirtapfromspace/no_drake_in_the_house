@@ -1,5 +1,5 @@
 apiVersion: v2
-name: kiro
+name: ndith
 description: A Helm chart for No Drake in the House platform
 type: application
 version: 0.1.0

@@ -152,7 +152,7 @@ pub struct DatabaseSettings {
 impl DatabaseSettings {
     pub fn from_env(env: Environment) -> Result<Self, ConfigError> {
         let default_url = if env.is_development() {
-            "postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev".to_string()
+            "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string()
         } else {
             return Err(ConfigError::MissingRequired("DATABASE_URL".to_string()));
         };

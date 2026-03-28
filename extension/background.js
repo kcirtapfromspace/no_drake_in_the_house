@@ -1,5 +1,5 @@
 /**
- * Background Service Worker for Kiro Extension
+ * Background Service Worker for NDITH Extension
  * Handles communication between content scripts and manages extension state
  */
 
@@ -47,7 +47,7 @@ class BackgroundService {
       const result = await chrome.storage.sync.get(['authToken']);
       await this.dnpFilterManager.syncWithServer(result.authToken, this.signedUpdateManager);
       
-      console.log('Kiro extension initialized with bloom filter');
+      console.log('NDITH extension initialized with bloom filter');
     } catch (error) {
       console.error('Failed to initialize extension:', error);
       // Fallback initialization

@@ -1,12 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: kiro-api-network-policy
-  namespace: kiro-production
+  name: ndith-api-network-policy
+  namespace: ndith-production
 spec:
   podSelector:
     matchLabels:
-      app: kiro-api
+      app: ndith-api
   policyTypes:
   - Ingress
   - Egress
@@ -41,12 +41,12 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: kiro-worker-network-policy
-  namespace: kiro-production
+  name: ndith-worker-network-policy
+  namespace: ndith-production
 spec:
   podSelector:
     matchLabels:
-      app: kiro-worker
+      app: ndith-worker
   policyTypes:
   - Ingress
   - Egress
@@ -77,7 +77,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: prometheus-network-policy
-  namespace: kiro-production
+  namespace: ndith-production
 spec:
   podSelector:
     matchLabels:
@@ -100,10 +100,10 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: kiro-api
+          app: ndith-api
     - podSelector:
         matchLabels:
-          app: kiro-worker
+          app: ndith-worker
     ports:
     - protocol: TCP
       port: 9090
@@ -117,7 +117,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: grafana-network-policy
-  namespace: kiro-production
+  namespace: ndith-production
 spec:
   podSelector:
     matchLabels:

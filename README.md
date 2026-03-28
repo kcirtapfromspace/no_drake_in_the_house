@@ -287,9 +287,9 @@ make k8s-dev
 
 ```bash
 # Build and deploy with Helm
-helm upgrade --install kiro ./helm \
+helm upgrade --install ndith ./helm \
   --values ./helm/values-production.yaml \
-  --namespace kiro-production
+  --namespace ndith-production
 ```
 
 ## 🛠️ Development Resources

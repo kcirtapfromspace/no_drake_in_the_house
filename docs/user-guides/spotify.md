@@ -131,7 +131,7 @@ The browser extension enhances your Spotify Web Player experience:
 **Content Hiding**
 - Hides artist tiles in browse sections
 - Dims blocked tracks in playlists
-- Shows subtle "Hidden by Kiro" badges
+- Shows subtle "Hidden by NDITH" badges
 
 **Auto-Skip**
 - Automatically skips blocked tracks during playback

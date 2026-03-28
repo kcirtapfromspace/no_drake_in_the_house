@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-This document outlines the comprehensive production deployment process for the Kiro music streaming blocklist manager.
+This document outlines the comprehensive production deployment process for the NDITH music streaming blocklist manager.
 
 ## Prerequisites
 
@@ -43,7 +43,7 @@ kubectl apply -f k8s/network-policies.yaml
 kubectl apply -f k8s/pod-security.yaml
 
 # Verify namespace creation
-kubectl get namespace kiro-production
+kubectl get namespace ndith-production
 ```
 
 ### 2. Configure Secrets
@@ -55,7 +55,7 @@ Update the secrets file with actual production values:
 kubectl apply -f k8s/secrets.yaml
 
 # Verify secrets
-kubectl get secrets -n kiro-production
+kubectl get secrets -n ndith-production
 ```
 
 **Required Secrets:**
@@ -77,7 +77,7 @@ kubectl apply -f k8s/database-migrations.yaml
 ./scripts/migrate.sh production
 
 # Verify migration completion
-kubectl logs -l app=kiro-migration -n kiro-production
+kubectl logs -l app=ndith-migration -n ndith-production
 ```
 
 ### 4. Deploy Core Application
@@ -95,8 +95,8 @@ kubectl apply -f k8s/services.yaml
 kubectl apply -f k8s/ingress.yaml
 
 # Wait for deployments to be ready
-kubectl rollout status deployment/kiro-api -n kiro-production --timeout=300s
-kubectl rollout status deployment/kiro-worker -n kiro-production --timeout=300s
+kubectl rollout status deployment/ndith-api -n ndith-production --timeout=300s
+kubectl rollout status deployment/ndith-worker -n ndith-production --timeout=300s
 ```
 
 ### 5. Deploy Monitoring Stack
@@ -115,8 +115,8 @@ kubectl apply -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -f k8s/logging.yaml
 
 # Verify monitoring stack
-kubectl get pods -l app=prometheus -n kiro-production
-kubectl get pods -l app=grafana -n kiro-production
+kubectl get pods -l app=prometheus -n ndith-production
+kubectl get pods -l app=grafana -n ndith-production
 ```
 
 ### 6. Configure Autoscaling and Backup
@@ -132,7 +132,7 @@ kubectl apply -f k8s/backup-cronjob.yaml
 kubectl apply -f k8s/health-checks.yaml
 
 # Verify HPA status
-kubectl get hpa -n kiro-production
+kubectl get hpa -n ndith-production
 ```
 
 ### 7. SSL and Domain Configuration
@@ -150,7 +150,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: admin@kiro.house
+    email: admin@ndith.house
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
@@ -160,7 +160,7 @@ spec:
 EOF
 
 # Update ingress with your domain
-kubectl patch ingress kiro-ingress -n kiro-production -p '{"spec":{"rules":[{"host":"api.yourdomain.com","http":{"paths":[{"path":"/","pathType":"Prefix","backend":{"service":{"name":"kiro-api-service","port":{"number":80}}}}]}}]}}'
+kubectl patch ingress ndith-ingress -n ndith-production -p '{"spec":{"rules":[{"host":"api.yourdomain.com","http":{"paths":[{"path":"/","pathType":"Prefix","backend":{"service":{"name":"ndith-api-service","port":{"number":80}}}}]}}]}}'
 ```
 
 ## Verification and Testing
@@ -169,14 +169,14 @@ kubectl patch ingress kiro-ingress -n kiro-production -p '{"spec":{"rules":[{"ho
 
 ```bash
 # Check pod status
-kubectl get pods -n kiro-production -o wide
+kubectl get pods -n ndith-production -o wide
 
 # Check services
-kubectl get svc -n kiro-production
+kubectl get svc -n ndith-production
 
 # Check ingress and SSL
-kubectl get ingress -n kiro-production
-kubectl describe ingress kiro-ingress -n kiro-production
+kubectl get ingress -n ndith-production
+kubectl describe ingress ndith-ingress -n ndith-production
 
 # Test health endpoints
 curl -f https://api.yourdomain.com/health
@@ -214,13 +214,13 @@ EOF
 
 ```bash
 # Port forward to access Grafana locally
-kubectl port-forward svc/grafana 3000:3000 -n kiro-production
+kubectl port-forward svc/grafana 3000:3000 -n ndith-production
 
 # Access Grafana at http://localhost:3000
 # Default credentials: admin / (check grafana-secrets)
 
 # Verify Prometheus targets
-kubectl port-forward svc/prometheus 9090:9090 -n kiro-production
+kubectl port-forward svc/prometheus 9090:9090 -n ndith-production
 # Access Prometheus at http://localhost:9090
 ```
 
@@ -238,7 +238,7 @@ Use the automated deployment script:
 ./scripts/deploy.sh production all latest
 
 # Check deployment status
-kubectl rollout status deployment/kiro-api -n kiro-production
+kubectl rollout status deployment/ndith-api -n ndith-production
 ```
 
 ### Backup and Recovery
@@ -251,41 +251,41 @@ kubectl rollout status deployment/kiro-api -n kiro-production
 ./scripts/backup.sh production incremental
 
 # List available backups
-aws s3 ls s3://kiro-backups-prod/database/
+aws s3 ls s3://ndith-backups-prod/database/
 
 # Restore from backup (example)
 kubectl run postgres-restore --image=postgres:15-alpine --rm -it --restart=Never -- \
-  pg_restore --verbose --clean --no-acl --no-owner -h $DB_HOST -U $DB_USER -d kiro_prod /path/to/backup.dump
+  pg_restore --verbose --clean --no-acl --no-owner -h $DB_HOST -U $DB_USER -d ndith_prod /path/to/backup.dump
 ```
 
 ### Scaling Operations
 
 ```bash
 # Manual scaling
-kubectl scale deployment/kiro-api --replicas=5 -n kiro-production
-kubectl scale deployment/kiro-worker --replicas=4 -n kiro-production
+kubectl scale deployment/ndith-api --replicas=5 -n ndith-production
+kubectl scale deployment/ndith-worker --replicas=4 -n ndith-production
 
 # Check HPA status
-kubectl get hpa -n kiro-production
+kubectl get hpa -n ndith-production
 
 # Update HPA limits
-kubectl patch hpa kiro-api-hpa -n kiro-production -p '{"spec":{"maxReplicas":15}}'
+kubectl patch hpa ndith-api-hpa -n ndith-production -p '{"spec":{"maxReplicas":15}}'
 ```
 
 ### Log Management
 
 ```bash
 # View application logs
-kubectl logs -f deployment/kiro-api -n kiro-production --tail=100
+kubectl logs -f deployment/ndith-api -n ndith-production --tail=100
 
 # View worker logs
-kubectl logs -f deployment/kiro-worker -n kiro-production --tail=100
+kubectl logs -f deployment/ndith-worker -n ndith-production --tail=100
 
 # View logs from specific time
-kubectl logs deployment/kiro-api -n kiro-production --since=1h
+kubectl logs deployment/ndith-api -n ndith-production --since=1h
 
 # Export logs for analysis
-kubectl logs deployment/kiro-api -n kiro-production --since=24h > api-logs.txt
+kubectl logs deployment/ndith-api -n ndith-production --since=24h > api-logs.txt
 ```
 
 ## Monitoring and Alerting
@@ -319,9 +319,9 @@ kubectl logs deployment/kiro-api -n kiro-production --since=24h > api-logs.txt
 ### Grafana Dashboards
 
 Access pre-configured dashboards:
-- **Kiro Overview**: Application performance and health
-- **Kiro Enforcement**: Enforcement job metrics and external API status
-- **Kiro Infrastructure**: Kubernetes cluster and resource usage
+- **NDITH Overview**: Application performance and health
+- **NDITH Enforcement**: Enforcement job metrics and external API status
+- **NDITH Infrastructure**: Kubernetes cluster and resource usage
 
 ## Security Considerations
 
@@ -352,8 +352,8 @@ Access pre-configured dashboards:
 
 1. **Pod CrashLoopBackOff**:
    ```bash
-   kubectl describe pod <pod-name> -n kiro-production
-   kubectl logs <pod-name> -n kiro-production --previous
+   kubectl describe pod <pod-name> -n ndith-production
+   kubectl logs <pod-name> -n ndith-production --previous
    ```
 
 2. **Database Connection Issues**:
@@ -366,7 +366,7 @@ Access pre-configured dashboards:
 3. **High Memory Usage**:
    ```bash
    # Check memory usage by pod
-   kubectl top pods -n kiro-production --sort-by=memory
+   kubectl top pods -n ndith-production --sort-by=memory
    
    # Get detailed resource usage
    kubectl describe node <node-name>
@@ -375,11 +375,11 @@ Access pre-configured dashboards:
 4. **SSL Certificate Issues**:
    ```bash
    # Check certificate status
-   kubectl get certificate -n kiro-production
-   kubectl describe certificate kiro-api-tls -n kiro-production
+   kubectl get certificate -n ndith-production
+   kubectl describe certificate ndith-api-tls -n ndith-production
    
    # Force certificate renewal
-   kubectl delete certificate kiro-api-tls -n kiro-production
+   kubectl delete certificate ndith-api-tls -n ndith-production
    ```
 
 ### Emergency Procedures
@@ -391,11 +391,11 @@ Access pre-configured dashboards:
    kubectl get nodes
    
    # Check critical pods
-   kubectl get pods -n kiro-production
+   kubectl get pods -n ndith-production
    kubectl get pods -n kube-system
    
    # Restart deployments if needed
-   kubectl rollout restart deployment/kiro-api -n kiro-production
+   kubectl rollout restart deployment/ndith-api -n ndith-production
    ```
 
 2. **Database Recovery**:
@@ -404,18 +404,18 @@ Access pre-configured dashboards:
    ./scripts/backup.sh production restore latest
    
    # Run health checks
-   kubectl exec -it deployment/kiro-api -n kiro-production -- \
+   kubectl exec -it deployment/ndith-api -n ndith-production -- \
      curl -f http://localhost:3000/health/db
    ```
 
 3. **Rollback Deployment**:
    ```bash
    # Rollback to previous version
-   kubectl rollout undo deployment/kiro-api -n kiro-production
-   kubectl rollout undo deployment/kiro-worker -n kiro-production
+   kubectl rollout undo deployment/ndith-api -n ndith-production
+   kubectl rollout undo deployment/ndith-worker -n ndith-production
    
    # Verify rollback
-   kubectl rollout status deployment/kiro-api -n kiro-production
+   kubectl rollout status deployment/ndith-api -n ndith-production
    ```
 
 ## Maintenance Windows
@@ -475,25 +475,25 @@ Access pre-configured dashboards:
 
 ```bash
 # Quick status check
-kubectl get pods,svc,ingress -n kiro-production
+kubectl get pods,svc,ingress -n ndith-production
 
 # Resource usage
-kubectl top pods -n kiro-production
+kubectl top pods -n ndith-production
 kubectl top nodes
 
 # Logs and debugging
-kubectl logs -f deployment/kiro-api -n kiro-production
-kubectl exec -it deployment/kiro-api -n kiro-production -- /bin/sh
+kubectl logs -f deployment/ndith-api -n ndith-production
+kubectl exec -it deployment/ndith-api -n ndith-production -- /bin/sh
 
 # Scaling and updates
-kubectl scale deployment/kiro-api --replicas=5 -n kiro-production
-kubectl set image deployment/kiro-api api=ghcr.io/kiro/api:v1.2.3 -n kiro-production
+kubectl scale deployment/ndith-api --replicas=5 -n ndith-production
+kubectl set image deployment/ndith-api api=ghcr.io/ndith/api:v1.2.3 -n ndith-production
 
 # Backup and restore
 ./scripts/backup.sh production full
 ./scripts/deploy.sh production all latest
 
 # Port forwarding for debugging
-kubectl port-forward svc/kiro-api-service 3000:80 -n kiro-production
-kubectl port-forward svc/grafana 3000:3000 -n kiro-production
+kubectl port-forward svc/ndith-api-service 3000:80 -n ndith-production
+kubectl port-forward svc/grafana 3000:3000 -n ndith-production
 ```

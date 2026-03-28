@@ -10,7 +10,7 @@ This directory should contain the extension icons in the following sizes:
 ## Icon Design Guidelines
 
 The icons should:
-- Use the Kiro brand colors (green: #1db954)
+- Use the NDITH brand colors (green: #1db954)
 - Be recognizable at small sizes
 - Include a music/audio theme
 - Have a transparent background

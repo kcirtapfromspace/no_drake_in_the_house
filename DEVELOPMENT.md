@@ -67,7 +67,7 @@ When running, the following services will be available:
 
 - **Backend API:** http://localhost:3000
 - **Frontend:** http://localhost:5000
-- **PostgreSQL:** localhost:5432 (user: `kiro`, db: `kiro_dev`)
+- **PostgreSQL:** localhost:5432 (user: `ndith`, db: `ndith_dev`)
 - **Redis:** localhost:6379
 
 ### Environment Configuration
@@ -144,7 +144,7 @@ make reset-db
 make db-shell
 
 # Or use any PostgreSQL client
-psql -h localhost -U kiro -d kiro_dev
+psql -h localhost -U ndith -d ndith_dev
 ```
 
 ## Testing

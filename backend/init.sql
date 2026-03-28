@@ -19,16 +19,16 @@ INSERT INTO health_check (status) VALUES ('initialized') ON CONFLICT DO NOTHING;
 -- Create development database user if it doesn't exist
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'kiro_dev') THEN
-        CREATE ROLE kiro_dev WITH LOGIN PASSWORD 'kiro_dev_password';
+    IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ndith_dev') THEN
+        CREATE ROLE ndith_dev WITH LOGIN PASSWORD 'ndith_dev_password';
     END IF;
 END
 $$;
 
 -- Grant necessary permissions
-GRANT CONNECT ON DATABASE kiro_dev TO kiro_dev;
-GRANT USAGE ON SCHEMA public TO kiro_dev;
-GRANT CREATE ON SCHEMA public TO kiro_dev;
+GRANT CONNECT ON DATABASE ndith_dev TO ndith_dev;
+GRANT USAGE ON SCHEMA public TO ndith_dev;
+GRANT CREATE ON SCHEMA public TO ndith_dev;
 
 -- Set up proper timezone
 SET timezone = 'UTC';

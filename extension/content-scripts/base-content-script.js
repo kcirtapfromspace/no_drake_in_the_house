@@ -35,7 +35,7 @@ class BaseContentScript {
       // Initial scan of existing content
       await this.scanExistingContent();
       
-      console.log(`Kiro content script initialized for ${this.platform}`);
+      console.log(`NDITH content script initialized for ${this.platform}`);
       
       if (this.telemetry) {
         this.telemetry.trackPerformance('initialization_complete', Date.now(), {
@@ -75,7 +75,7 @@ class BaseContentScript {
   createShadowRoot() {
     // Create a container for our shadow DOM
     const container = document.createElement('div');
-    container.id = 'kiro-extension-container';
+    container.id = 'ndith-extension-container';
     container.style.cssText = `
       position: fixed;
       top: 0;
@@ -90,7 +90,7 @@ class BaseContentScript {
     // Add styles for our UI components
     const styles = document.createElement('style');
     styles.textContent = `
-      .kiro-badge {
+      .ndith-badge {
         position: absolute;
         background: rgba(0, 0, 0, 0.8);
         color: white;
@@ -103,13 +103,13 @@ class BaseContentScript {
         cursor: pointer;
       }
       
-      .kiro-hidden {
+      .ndith-hidden {
         opacity: 0.3;
         filter: grayscale(100%);
         position: relative;
       }
       
-      .kiro-overlay {
+      .ndith-overlay {
         position: absolute;
         top: 0;
         left: 0;
@@ -125,13 +125,13 @@ class BaseContentScript {
         pointer-events: auto;
       }
       
-      .kiro-controls {
+      .ndith-controls {
         display: flex;
         gap: 8px;
         margin-top: 4px;
       }
       
-      .kiro-btn {
+      .ndith-btn {
         background: #1db954;
         color: white;
         border: none;
@@ -141,15 +141,15 @@ class BaseContentScript {
         cursor: pointer;
       }
       
-      .kiro-btn:hover {
+      .ndith-btn:hover {
         background: #1ed760;
       }
       
-      .kiro-btn.secondary {
+      .ndith-btn.secondary {
         background: #535353;
       }
       
-      .kiro-btn.secondary:hover {
+      .ndith-btn.secondary:hover {
         background: #727272;
       }
     `;
@@ -533,7 +533,7 @@ class BaseContentScript {
     this.blockedElements.add(element);
     
     // Apply visual hiding
-    element.classList.add('kiro-hidden');
+    element.classList.add('ndith-hidden');
     
     // Create overlay with controls
     this.createOverlay(element, artistInfo);
@@ -544,24 +544,24 @@ class BaseContentScript {
 
   createOverlay(element, artistInfo) {
     const overlay = document.createElement('div');
-    overlay.className = 'kiro-overlay';
+    overlay.className = 'ndith-overlay';
     overlay.setAttribute('data-artist-id', artistInfo.externalId || artistInfo.name);
     
     const content = document.createElement('div');
     content.innerHTML = `
-      <div class="kiro-overlay-header">
-        <span class="kiro-overlay-icon">🚫</span>
-        <span class="kiro-overlay-title">Hidden by Kiro</span>
+      <div class="ndith-overlay-header">
+        <span class="ndith-overlay-icon">🚫</span>
+        <span class="ndith-overlay-title">Hidden by NDITH</span>
       </div>
-      <div class="kiro-overlay-artist">${artistInfo.name}</div>
-      <div class="kiro-controls">
-        <button class="kiro-btn primary" data-action="play-once" title="Allow this content once">
+      <div class="ndith-overlay-artist">${artistInfo.name}</div>
+      <div class="ndith-controls">
+        <button class="ndith-btn primary" data-action="play-once" title="Allow this content once">
           <span>▶️</span> Play Once
         </button>
-        <button class="kiro-btn secondary" data-action="remove-from-dnp" title="Remove from blocklist">
+        <button class="ndith-btn secondary" data-action="remove-from-dnp" title="Remove from blocklist">
           <span>✅</span> Unblock
         </button>
-        <button class="kiro-btn tertiary" data-action="add-to-dnp" title="Add to permanent blocklist">
+        <button class="ndith-btn tertiary" data-action="add-to-dnp" title="Add to permanent blocklist">
           <span>🚫</span> Block
         </button>
       </div>
@@ -570,7 +570,7 @@ class BaseContentScript {
     // Add enhanced styles
     const overlayStyles = document.createElement('style');
     overlayStyles.textContent = `
-      .kiro-overlay-header {
+      .ndith-overlay-header {
         display: flex;
         align-items: center;
         gap: 6px;
@@ -579,11 +579,11 @@ class BaseContentScript {
         font-size: 12px;
       }
       
-      .kiro-overlay-icon {
+      .ndith-overlay-icon {
         font-size: 14px;
       }
       
-      .kiro-overlay-artist {
+      .ndith-overlay-artist {
         font-size: 11px;
         opacity: 0.8;
         margin-bottom: 8px;
@@ -593,14 +593,14 @@ class BaseContentScript {
         white-space: nowrap;
       }
       
-      .kiro-controls {
+      .ndith-controls {
         display: flex;
         gap: 4px;
         flex-wrap: wrap;
         justify-content: center;
       }
       
-      .kiro-btn {
+      .ndith-btn {
         display: flex;
         align-items: center;
         gap: 4px;
@@ -614,36 +614,36 @@ class BaseContentScript {
         white-space: nowrap;
       }
       
-      .kiro-btn:hover {
+      .ndith-btn:hover {
         transform: translateY(-1px);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
       }
       
-      .kiro-btn.primary {
+      .ndith-btn.primary {
         background: #1db954;
         color: white;
       }
       
-      .kiro-btn.primary:hover {
+      .ndith-btn.primary:hover {
         background: #1ed760;
       }
       
-      .kiro-btn.secondary {
+      .ndith-btn.secondary {
         background: #444;
         color: white;
       }
       
-      .kiro-btn.secondary:hover {
+      .ndith-btn.secondary:hover {
         background: #555;
       }
       
-      .kiro-btn.tertiary {
+      .ndith-btn.tertiary {
         background: rgba(255, 255, 255, 0.1);
         color: white;
         border: 1px solid rgba(255, 255, 255, 0.2);
       }
       
-      .kiro-btn.tertiary:hover {
+      .ndith-btn.tertiary:hover {
         background: rgba(255, 255, 255, 0.2);
       }
     `;
@@ -756,11 +756,11 @@ class BaseContentScript {
 
   playOnce(element, artistInfo) {
     // Temporarily unhide the element
-    element.classList.remove('kiro-hidden');
+    element.classList.remove('ndith-hidden');
     this.blockedElements.delete(element);
     
     // Remove overlay
-    const overlays = this.shadowRoot.querySelectorAll('.kiro-overlay');
+    const overlays = this.shadowRoot.querySelectorAll('.ndith-overlay');
     overlays.forEach(overlay => overlay.remove());
     
     this.logAction('play_once', { artistInfo });
@@ -776,11 +776,11 @@ class BaseContentScript {
       });
       
       // Unhide element
-      element.classList.remove('kiro-hidden');
+      element.classList.remove('ndith-hidden');
       this.blockedElements.delete(element);
       
       // Remove overlay
-      const overlays = this.shadowRoot.querySelectorAll('.kiro-overlay');
+      const overlays = this.shadowRoot.querySelectorAll('.ndith-overlay');
       overlays.forEach(overlay => overlay.remove());
       
       this.logAction('removed_from_dnp', { artistInfo });
@@ -989,7 +989,7 @@ class BaseContentScript {
 
   showSkipNotification(trackInfo, options = {}) {
     const notification = document.createElement('div');
-    notification.className = 'kiro-skip-notification';
+    notification.className = 'ndith-skip-notification';
     
     const action = options.action || 'skipped';
     const icon = action === 'paused' ? '⏸️' : '⏭️';
@@ -1006,7 +1006,7 @@ class BaseContentScript {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       z-index: 2147483647;
-      animation: kiroSlideIn 0.3s ease-out;
+      animation: ndithSlideIn 0.3s ease-out;
       max-width: 300px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       border-left: 4px solid #ff4444;
@@ -1014,34 +1014,34 @@ class BaseContentScript {
     `;
     
     notification.innerHTML = `
-      <div class="kiro-notification-header">
-        <span class="kiro-notification-icon">${icon}</span>
-        <span class="kiro-notification-title">${actionText} by Kiro</span>
+      <div class="ndith-notification-header">
+        <span class="ndith-notification-icon">${icon}</span>
+        <span class="ndith-notification-title">${actionText} by NDITH</span>
       </div>
-      <div class="kiro-notification-artist">${trackInfo.name}</div>
-      ${trackInfo.trackTitle ? `<div class="kiro-notification-track">"${trackInfo.trackTitle}"</div>` : ''}
-      <div class="kiro-notification-actions">
-        <button class="kiro-notification-btn" data-action="undo">Undo</button>
-        <button class="kiro-notification-btn" data-action="unblock">Unblock Artist</button>
+      <div class="ndith-notification-artist">${trackInfo.name}</div>
+      ${trackInfo.trackTitle ? `<div class="ndith-notification-track">"${trackInfo.trackTitle}"</div>` : ''}
+      <div class="ndith-notification-actions">
+        <button class="ndith-notification-btn" data-action="undo">Undo</button>
+        <button class="ndith-notification-btn" data-action="unblock">Unblock Artist</button>
       </div>
     `;
     
     // Add notification styles if not already present
-    if (!document.getElementById('kiro-notification-styles')) {
+    if (!document.getElementById('ndith-notification-styles')) {
       const style = document.createElement('style');
-      style.id = 'kiro-notification-styles';
+      style.id = 'ndith-notification-styles';
       style.textContent = `
-        @keyframes kiroSlideIn {
+        @keyframes ndithSlideIn {
           from { transform: translateX(100%); opacity: 0; }
           to { transform: translateX(0); opacity: 1; }
         }
         
-        @keyframes kiroSlideOut {
+        @keyframes ndithSlideOut {
           from { transform: translateX(0); opacity: 1; }
           to { transform: translateX(100%); opacity: 0; }
         }
         
-        .kiro-notification-header {
+        .ndith-notification-header {
           display: flex;
           align-items: center;
           gap: 8px;
@@ -1049,34 +1049,34 @@ class BaseContentScript {
           font-weight: 600;
         }
         
-        .kiro-notification-icon {
+        .ndith-notification-icon {
           font-size: 16px;
         }
         
-        .kiro-notification-title {
+        .ndith-notification-title {
           font-size: 13px;
         }
         
-        .kiro-notification-artist {
+        .ndith-notification-artist {
           font-size: 12px;
           font-weight: 500;
           margin-bottom: 2px;
         }
         
-        .kiro-notification-track {
+        .ndith-notification-track {
           font-size: 11px;
           opacity: 0.8;
           margin-bottom: 8px;
           font-style: italic;
         }
         
-        .kiro-notification-actions {
+        .ndith-notification-actions {
           display: flex;
           gap: 8px;
           margin-top: 8px;
         }
         
-        .kiro-notification-btn {
+        .ndith-notification-btn {
           background: rgba(255, 255, 255, 0.1);
           color: white;
           border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1087,7 +1087,7 @@ class BaseContentScript {
           transition: background-color 0.2s;
         }
         
-        .kiro-notification-btn:hover {
+        .ndith-notification-btn:hover {
           background: rgba(255, 255, 255, 0.2);
         }
       `;
@@ -1113,7 +1113,7 @@ class BaseContentScript {
         }
         
         // Close notification
-        notification.style.animation = 'kiroSlideOut 0.3s ease-in';
+        notification.style.animation = 'ndithSlideOut 0.3s ease-in';
         setTimeout(() => notification.remove(), 300);
         
       } catch (error) {
@@ -1127,7 +1127,7 @@ class BaseContentScript {
     const duration = options.duration || 5000;
     setTimeout(() => {
       if (notification.parentNode) {
-        notification.style.animation = 'kiroSlideOut 0.3s ease-in';
+        notification.style.animation = 'ndithSlideOut 0.3s ease-in';
         setTimeout(() => {
           if (notification.parentNode) {
             notification.remove();
@@ -1172,7 +1172,7 @@ class BaseContentScript {
     
     // Clean up overlays
     if (this.shadowRoot) {
-      const overlays = this.shadowRoot.querySelectorAll('.kiro-overlay');
+      const overlays = this.shadowRoot.querySelectorAll('.ndith-overlay');
       overlays.forEach(overlay => {
         if (overlay._cleanup) {
           overlay._cleanup();
@@ -1181,7 +1181,7 @@ class BaseContentScript {
     }
     
     // Remove shadow root container
-    const container = document.getElementById('kiro-extension-container');
+    const container = document.getElementById('ndith-extension-container');
     if (container) {
       container.remove();
     }
@@ -1190,7 +1190,7 @@ class BaseContentScript {
     this.blockedElements.clear();
     this.processedElements.clear();
     
-    console.log(`Kiro content script destroyed for ${this.platform}`);
+    console.log(`NDITH content script destroyed for ${this.platform}`);
   }
 
   // Add method to temporarily disable extension
@@ -1199,18 +1199,18 @@ class BaseContentScript {
     
     // Remove all overlays
     if (this.shadowRoot) {
-      const overlays = this.shadowRoot.querySelectorAll('.kiro-overlay');
+      const overlays = this.shadowRoot.querySelectorAll('.ndith-overlay');
       overlays.forEach(overlay => overlay.remove());
     }
     
     // Restore hidden elements
     this.blockedElements.forEach(element => {
       if (element && element.classList) {
-        element.classList.remove('kiro-hidden');
+        element.classList.remove('ndith-hidden');
       }
     });
     
-    console.log(`Kiro content script disabled for ${this.platform}`);
+    console.log(`NDITH content script disabled for ${this.platform}`);
   }
 
   // Add method to re-enable extension
@@ -1220,7 +1220,7 @@ class BaseContentScript {
     // Re-scan content
     setTimeout(() => this.scanExistingContent(), 500);
     
-    console.log(`Kiro content script enabled for ${this.platform}`);
+    console.log(`NDITH content script enabled for ${this.platform}`);
   }
 
   // Add method to get extension statistics
@@ -1229,7 +1229,7 @@ class BaseContentScript {
       platform: this.platform,
       blockedElementsCount: this.blockedElements.size,
       processedElementsCount: this.processedElements.size,
-      overlaysCount: this.shadowRoot ? this.shadowRoot.querySelectorAll('.kiro-overlay').length : 0
+      overlaysCount: this.shadowRoot ? this.shadowRoot.querySelectorAll('.ndith-overlay').length : 0
     };
   }
 }

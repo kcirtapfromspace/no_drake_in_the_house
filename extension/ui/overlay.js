@@ -1,20 +1,20 @@
 /**
- * Overlay UI Components for Kiro Extension
+ * Overlay UI Components for NDITH Extension
  * Provides reusable UI components for content scripts
  */
 
-class KiroOverlayUI {
+class NDITHOverlayUI {
   constructor() {
     this.overlays = new Map();
     this.notifications = [];
   }
 
   createBlockedContentOverlay(element, artistInfo, options = {}) {
-    const overlayId = `kiro-overlay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const overlayId = `ndith-overlay-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
     const overlay = document.createElement('div');
     overlay.id = overlayId;
-    overlay.className = 'kiro-content-overlay';
+    overlay.className = 'ndith-content-overlay';
     
     // Position overlay over the blocked element
     const rect = element.getBoundingClientRect();
@@ -40,15 +40,15 @@ class KiroOverlayUI {
     `;
     
     overlay.innerHTML = `
-      <div class="kiro-overlay-content">
-        <div class="kiro-overlay-icon">🚫</div>
-        <div class="kiro-overlay-title">Hidden by Kiro</div>
-        <div class="kiro-overlay-subtitle">${artistInfo.name}</div>
-        <div class="kiro-overlay-actions">
-          <button class="kiro-overlay-btn primary" data-action="play-once">
+      <div class="ndith-overlay-content">
+        <div class="ndith-overlay-icon">🚫</div>
+        <div class="ndith-overlay-title">Hidden by NDITH</div>
+        <div class="ndith-overlay-subtitle">${artistInfo.name}</div>
+        <div class="ndith-overlay-actions">
+          <button class="ndith-overlay-btn primary" data-action="play-once">
             Play Once
           </button>
-          <button class="kiro-overlay-btn secondary" data-action="unblock">
+          <button class="ndith-overlay-btn secondary" data-action="unblock">
             Unblock
           </button>
         </div>
@@ -58,35 +58,35 @@ class KiroOverlayUI {
     // Add styles
     const style = document.createElement('style');
     style.textContent = `
-      .kiro-overlay-content {
+      .ndith-overlay-content {
         text-align: center;
         padding: 16px;
       }
       
-      .kiro-overlay-icon {
+      .ndith-overlay-icon {
         font-size: 24px;
         margin-bottom: 8px;
       }
       
-      .kiro-overlay-title {
+      .ndith-overlay-title {
         font-weight: 600;
         margin-bottom: 4px;
         font-size: 13px;
       }
       
-      .kiro-overlay-subtitle {
+      .ndith-overlay-subtitle {
         opacity: 0.8;
         margin-bottom: 12px;
         font-size: 11px;
       }
       
-      .kiro-overlay-actions {
+      .ndith-overlay-actions {
         display: flex;
         gap: 8px;
         justify-content: center;
       }
       
-      .kiro-overlay-btn {
+      .ndith-overlay-btn {
         padding: 6px 12px;
         border: none;
         border-radius: 4px;
@@ -96,23 +96,23 @@ class KiroOverlayUI {
         transition: all 0.2s;
       }
       
-      .kiro-overlay-btn.primary {
+      .ndith-overlay-btn.primary {
         background: #1db954;
         color: white;
       }
       
-      .kiro-overlay-btn.primary:hover {
+      .ndith-overlay-btn.primary:hover {
         background: #1ed760;
         transform: translateY(-1px);
       }
       
-      .kiro-overlay-btn.secondary {
+      .ndith-overlay-btn.secondary {
         background: rgba(255, 255, 255, 0.1);
         color: white;
         border: 1px solid rgba(255, 255, 255, 0.2);
       }
       
-      .kiro-overlay-btn.secondary:hover {
+      .ndith-overlay-btn.secondary:hover {
         background: rgba(255, 255, 255, 0.2);
         transform: translateY(-1px);
       }
@@ -140,7 +140,7 @@ class KiroOverlayUI {
 
   createSkipNotification(artistInfo, options = {}) {
     const notification = document.createElement('div');
-    notification.className = 'kiro-skip-notification';
+    notification.className = 'ndith-skip-notification';
     
     notification.style.cssText = `
       position: fixed;
@@ -153,30 +153,30 @@ class KiroOverlayUI {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
       z-index: 2147483647;
-      animation: kiroSlideIn 0.3s ease-out;
+      animation: ndithSlideIn 0.3s ease-out;
       max-width: 300px;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       border-left: 4px solid #ff4444;
     `;
     
     notification.innerHTML = `
-      <div class="kiro-notification-content">
-        <div class="kiro-notification-title">
-          <span class="kiro-notification-icon">⏭️</span>
+      <div class="ndith-notification-content">
+        <div class="ndith-notification-title">
+          <span class="ndith-notification-icon">⏭️</span>
           Track Skipped
         </div>
-        <div class="kiro-notification-subtitle">
+        <div class="ndith-notification-subtitle">
           ${artistInfo.name} is blocked
         </div>
       </div>
     `;
     
     // Add animation styles if not already present
-    if (!document.getElementById('kiro-animations')) {
+    if (!document.getElementById('ndith-animations')) {
       const animationStyle = document.createElement('style');
-      animationStyle.id = 'kiro-animations';
+      animationStyle.id = 'ndith-animations';
       animationStyle.textContent = `
-        @keyframes kiroSlideIn {
+        @keyframes ndithSlideIn {
           from { 
             transform: translateX(100%); 
             opacity: 0; 
@@ -187,7 +187,7 @@ class KiroOverlayUI {
           }
         }
         
-        @keyframes kiroSlideOut {
+        @keyframes ndithSlideOut {
           from { 
             transform: translateX(0); 
             opacity: 1; 
@@ -198,13 +198,13 @@ class KiroOverlayUI {
           }
         }
         
-        .kiro-notification-content {
+        .ndith-notification-content {
           display: flex;
           flex-direction: column;
           gap: 4px;
         }
         
-        .kiro-notification-title {
+        .ndith-notification-title {
           display: flex;
           align-items: center;
           gap: 8px;
@@ -212,13 +212,13 @@ class KiroOverlayUI {
           font-size: 13px;
         }
         
-        .kiro-notification-subtitle {
+        .ndith-notification-subtitle {
           font-size: 12px;
           opacity: 0.8;
           margin-left: 24px;
         }
         
-        .kiro-notification-icon {
+        .ndith-notification-icon {
           font-size: 16px;
         }
       `;
@@ -228,7 +228,7 @@ class KiroOverlayUI {
     // Auto-remove after duration
     const duration = options.duration || 3000;
     setTimeout(() => {
-      notification.style.animation = 'kiroSlideOut 0.3s ease-in';
+      notification.style.animation = 'ndithSlideOut 0.3s ease-in';
       setTimeout(() => {
         if (notification.parentNode) {
           notification.remove();
@@ -242,7 +242,7 @@ class KiroOverlayUI {
 
   createContextMenu(element, artistInfo, actions = []) {
     const menu = document.createElement('div');
-    menu.className = 'kiro-context-menu';
+    menu.className = 'ndith-context-menu';
     
     const rect = element.getBoundingClientRect();
     menu.style.cssText = `
@@ -271,7 +271,7 @@ class KiroOverlayUI {
     
     actions.forEach(action => {
       const item = document.createElement('div');
-      item.className = `kiro-menu-item ${action.type || 'default'}`;
+      item.className = `ndith-menu-item ${action.type || 'default'}`;
       item.setAttribute('data-action', action.id);
       item.textContent = action.label;
       
@@ -313,7 +313,7 @@ class KiroOverlayUI {
 
   createBadge(text, options = {}) {
     const badge = document.createElement('div');
-    badge.className = 'kiro-badge';
+    badge.className = 'ndith-badge';
     badge.textContent = text;
     
     const type = options.type || 'default';
@@ -374,4 +374,4 @@ class KiroOverlayUI {
 }
 
 // Export for use by content scripts
-window.KiroOverlayUI = KiroOverlayUI;
+window.NDITHOverlayUI = NDITHOverlayUI;

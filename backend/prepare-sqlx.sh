@@ -8,16 +8,16 @@ echo "🔧 Preparing SQLx queries for offline compilation..."
 # Check if DATABASE_URL is set
 if [ -z "${DATABASE_URL:-}" ]; then
     echo "⚠️  DATABASE_URL not set, using default for preparation"
-    export DATABASE_URL="postgres://kiro:password@localhost:5432/kiro"
+    export DATABASE_URL="postgres://ndith:password@localhost:5432/ndith"
 fi
 
 # Start a temporary database if needed
 TEMP_DB_STARTED=false
-if ! pg_isready -h localhost -p 5432 -U kiro 2>/dev/null; then
+if ! pg_isready -h localhost -p 5432 -U ndith 2>/dev/null; then
     echo "🐘 Starting temporary PostgreSQL for SQLx preparation..."
     docker run -d --name sqlx-prep-db \
-        -e POSTGRES_DB=kiro \
-        -e POSTGRES_USER=kiro \
+        -e POSTGRES_DB=ndith \
+        -e POSTGRES_USER=ndith \
         -e POSTGRES_PASSWORD=password \
         -p 5432:5432 \
         postgres:15 > /dev/null
@@ -27,7 +27,7 @@ if ! pg_isready -h localhost -p 5432 -U kiro 2>/dev/null; then
     # Wait for database to be ready
     echo "⏳ Waiting for database to be ready..."
     for i in {1..30}; do
-        if pg_isready -h localhost -p 5432 -U kiro 2>/dev/null; then
+        if pg_isready -h localhost -p 5432 -U ndith 2>/dev/null; then
             break
         fi
         if [ $i -eq 30 ]; then

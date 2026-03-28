@@ -78,7 +78,7 @@ script.onload = () => {
     showLimitationNotice() {
       // Show a notice about Apple Music's limitations
       const notice = document.createElement('div');
-      notice.id = 'kiro-apple-music-notice';
+      notice.id = 'ndith-apple-music-notice';
       notice.style.cssText = `
         position: fixed;
         top: 10px;
@@ -99,8 +99,8 @@ script.onload = () => {
       notice.innerHTML = `
         <div style="display: flex; align-items: center; gap: 8px;">
           <span>🍎</span>
-          <span>Kiro: Apple Music has limited API support - visual blocking only</span>
-          <button id="kiro-dismiss-notice" style="background: none; border: none; color: white; cursor: pointer; margin-left: 8px;">✕</button>
+          <span>NDITH: Apple Music has limited API support - visual blocking only</span>
+          <button id="ndith-dismiss-notice" style="background: none; border: none; color: white; cursor: pointer; margin-left: 8px;">✕</button>
         </div>
       `;
       
@@ -112,7 +112,7 @@ script.onload = () => {
         setTimeout(() => notice.remove(), 300);
       };
       
-      document.getElementById('kiro-dismiss-notice').addEventListener('click', dismissNotice);
+      document.getElementById('ndith-dismiss-notice').addEventListener('click', dismissNotice);
       setTimeout(dismissNotice, 5000);
     }
 
@@ -503,7 +503,7 @@ script.onload = () => {
             This artist is in your blocklist. Apple Music's limited API means you'll need to manually avoid their content.
           </p>
           <div style="display: flex; gap: 12px; justify-content: center;">
-            <button id="kiro-unblock-artist" style="
+            <button id="ndith-unblock-artist" style="
               background: #007AFF;
               color: white;
               border: none;
@@ -513,7 +513,7 @@ script.onload = () => {
               font-weight: 500;
               cursor: pointer;
             ">Unblock Artist</button>
-            <button id="kiro-go-back" style="
+            <button id="ndith-go-back" style="
               background: rgba(255, 255, 255, 0.1);
               color: white;
               border: 1px solid rgba(255, 255, 255, 0.2);
@@ -528,12 +528,12 @@ script.onload = () => {
       `;
       
       // Add event listeners
-      overlay.querySelector('#kiro-unblock-artist').addEventListener('click', async () => {
+      overlay.querySelector('#ndith-unblock-artist').addEventListener('click', async () => {
         await this.removeFromDNP(null, artistInfo);
         overlay.remove();
       });
       
-      overlay.querySelector('#kiro-go-back').addEventListener('click', () => {
+      overlay.querySelector('#ndith-go-back').addEventListener('click', () => {
         window.history.back();
         overlay.remove();
       });

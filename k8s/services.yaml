@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: kiro-api-service
-  namespace: kiro-production
+  name: ndith-api-service
+  namespace: ndith-production
   labels:
-    app: kiro-api
+    app: ndith-api
 spec:
   type: ClusterIP
   ports:
@@ -17,16 +17,16 @@ spec:
     protocol: TCP
     name: metrics
   selector:
-    app: kiro-api
+    app: ndith-api
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: kiro-worker-service
-  namespace: kiro-production
+  name: ndith-worker-service
+  namespace: ndith-production
   labels:
-    app: kiro-worker
+    app: ndith-worker
 spec:
   type: ClusterIP
   ports:
@@ -35,16 +35,16 @@ spec:
     protocol: TCP
     name: metrics
   selector:
-    app: kiro-worker
+    app: ndith-worker
 
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: kiro-api-headless
-  namespace: kiro-production
+  name: ndith-api-headless
+  namespace: ndith-production
   labels:
-    app: kiro-api
+    app: ndith-api
 spec:
   type: ClusterIP
   clusterIP: None
@@ -54,4 +54,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: kiro-api
+    app: ndith-api

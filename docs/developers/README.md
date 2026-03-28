@@ -158,7 +158,7 @@ public class TaskerReceiver extends BroadcastReceiver {
 ### Authentication Flow
 ```javascript
 // OAuth 2.0 with PKCE
-class KiroAuth {
+class NDITHAuth {
   async initiateAuth() {
     const codeVerifier = this.generateCodeVerifier();
     const codeChallenge = await this.generateCodeChallenge(codeVerifier);
@@ -168,7 +168,7 @@ class KiroAuth {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        provider: 'kiro',
+        provider: 'ndith',
         redirect_uri: 'https://yourapp.com/callback',
         code_challenge: codeChallenge,
         code_challenge_method: 'S256'
@@ -184,9 +184,9 @@ class KiroAuth {
 ### DNP List Management
 ```python
 # Python SDK example
-from nodrakeinthe import KiroClient
+from nodrakeinthe import NDITHClient
 
-client = KiroClient(api_key='your_api_key')
+client = NDITHClient(api_key='your_api_key')
 
 # Add artist to DNP list
 result = client.dnp_lists.add_artist(
@@ -243,7 +243,7 @@ impl StreamingPlatformAdapter for SpotifyAdapter {
 ### Custom Metrics
 ```javascript
 // Track custom events
-class KiroAnalytics {
+class NDITHAnalytics {
   trackEnforcementExecution(executionId, platform, actionCount) {
     this.sendEvent('enforcement_executed', {
       execution_id: executionId,
@@ -322,11 +322,11 @@ describe('SpotifyContentFilter', () => {
 ```python
 # Python integration test
 import pytest
-from nodrakeinthe import KiroClient
+from nodrakeinthe import NDITHClient
 
 @pytest.fixture
 def client():
-    return KiroClient(api_key='test_key', base_url='http://localhost:3000')
+    return NDITHClient(api_key='test_key', base_url='http://localhost:3000')
 
 def test_add_artist_to_dnp_list(client):
     result = client.dnp_lists.add_artist(

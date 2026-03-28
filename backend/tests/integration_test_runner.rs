@@ -16,7 +16,7 @@ impl IntegrationTestRunner {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Set up test database
         let test_db_url = std::env::var("TEST_DATABASE_URL").unwrap_or_else(|_| {
-            "postgresql://postgres:password@localhost:5432/kiro_test".to_string()
+            "postgresql://postgres:password@localhost:5432/ndith_test".to_string()
         });
 
         let test_redis_url = std::env::var("TEST_REDIS_URL")

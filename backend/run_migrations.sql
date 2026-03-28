@@ -2,7 +2,7 @@
 -- This can be executed manually if needed
 
 -- Ensure we're in the correct database
-\c kiro_dev;
+\c ndith_dev;
 
 -- Show current migration status
 SELECT 

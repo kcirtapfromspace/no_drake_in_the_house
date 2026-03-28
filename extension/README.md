@@ -1,4 +1,4 @@
-# Kiro Browser Extension
+# NDITH Browser Extension
 
 A browser extension for blocking unwanted artists across music streaming platforms.
 
@@ -8,7 +8,7 @@ A browser extension for blocking unwanted artists across music streaming platfor
 - **Content Filtering**: Hides blocked artists in playlists, search results, and recommendations
 - **Auto-Skip**: Automatically skips tracks from blocked artists
 - **Quick Actions**: Add/remove artists from blocklist with right-click context menus
-- **Sync Support**: Synchronizes with Kiro server for cross-device consistency
+- **Sync Support**: Synchronizes with NDITH server for cross-device consistency
 - **Offline Mode**: Works offline with cached blocklist data
 
 ## Installation
@@ -27,8 +27,8 @@ The extension will be available on the Chrome Web Store once published.
 
 ## Setup
 
-1. Click the Kiro extension icon in your browser toolbar
-2. If you have a Kiro account, enter your authentication token in settings
+1. Click the NDITH extension icon in your browser toolbar
+2. If you have a NDITH account, enter your authentication token in settings
 3. The extension will automatically sync your blocklist
 4. Visit supported streaming sites to see the extension in action
 
@@ -48,11 +48,11 @@ The extension will be available on the Chrome Web Store once published.
 1. **From Extension Popup**: Click the extension icon and use "Block Current Artist"
 2. **Context Menu**: Right-click on any artist name or link
 3. **Quick Actions**: Use the overlay controls when blocked content is detected
-4. **Web Dashboard**: Manage your full blocklist at the Kiro web app
+4. **Web Dashboard**: Manage your full blocklist at the NDITH web app
 
 ### Managing Blocked Content
 
-- **Hidden Content**: Blocked artists appear grayed out with "Hidden by Kiro" badges
+- **Hidden Content**: Blocked artists appear grayed out with "Hidden by NDITH" badges
 - **Override Options**: Click badges to reveal "Play Once" or "Unblock" options
 - **Auto-Skip**: Tracks are automatically skipped with notifications
 - **Manual Control**: Disable auto-skip in extension settings if preferred
@@ -60,7 +60,7 @@ The extension will be available on the Chrome Web Store once published.
 ### Syncing with Server
 
 1. Open extension settings (right-click extension icon → Options)
-2. Enter your Kiro server URL (default: http://localhost:3000)
+2. Enter your NDITH server URL (default: http://localhost:3000)
 3. Add your authentication token from the web dashboard
 4. Click "Connect" to test the connection
 5. The extension will sync automatically every 5 minutes
@@ -73,7 +73,7 @@ Access settings by right-clicking the extension icon and selecting "Options":
 - **Show Notifications**: Display skip notifications
 - **Hide Content**: Visually hide blocked artists
 - **Sync Interval**: How often to sync with server (1-60 minutes)
-- **Server URL**: Your Kiro server endpoint
+- **Server URL**: Your NDITH server endpoint
 - **Auth Token**: Your authentication token
 
 ## Privacy
@@ -111,7 +111,7 @@ Access settings by right-clicking the extension icon and selecting "Options":
 
 1. Verify your server URL is correct
 2. Check that your auth token is valid
-3. Ensure the Kiro server is running and accessible
+3. Ensure the NDITH server is running and accessible
 4. Check network connectivity
 
 ## Development

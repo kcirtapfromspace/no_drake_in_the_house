@@ -71,7 +71,7 @@ script.onload = () => {
         if (!result.ytmusic_notification_shown) {
           this.showPersistentNotification(
             'YouTube Music Limitations',
-            'Due to YouTube Music\'s Terms of Service, Kiro operates in preview-only mode. We can hide content and auto-skip tracks, but cannot modify your library directly. Use the export/import feature for manual synchronization.',
+            'Due to YouTube Music\'s Terms of Service, NDITH operates in preview-only mode. We can hide content and auto-skip tracks, but cannot modify your library directly. Use the export/import feature for manual synchronization.',
             'info',
             10000
           );
@@ -419,7 +419,7 @@ script.onload = () => {
     addExportImportUI() {
       // Add a floating action button for export/import
       const fab = document.createElement('div');
-      fab.id = 'kiro-ytmusic-fab';
+      fab.id = 'ndith-ytmusic-fab';
       fab.style.cssText = `
         position: fixed;
         bottom: 20px;
@@ -440,7 +440,7 @@ script.onload = () => {
       `;
       
       fab.innerHTML = '🎵';
-      fab.title = 'Kiro - Export/Import YouTube Music Data';
+      fab.title = 'NDITH - Export/Import YouTube Music Data';
       
       fab.addEventListener('click', () => {
         this.showExportImportMenu();
@@ -474,23 +474,23 @@ script.onload = () => {
       `;
       
       menu.innerHTML = `
-        <div class="kiro-menu-header">
-          <h3 style="margin: 0 0 12px 0; font-size: 16px;">Kiro Data Sync</h3>
+        <div class="ndith-menu-header">
+          <h3 style="margin: 0 0 12px 0; font-size: 16px;">NDITH Data Sync</h3>
           <p style="margin: 0 0 16px 0; font-size: 12px; opacity: 0.8;">
             YouTube Music API limitations require manual sync
           </p>
         </div>
-        <div class="kiro-menu-actions">
-          <button class="kiro-menu-btn" data-action="export">
+        <div class="ndith-menu-actions">
+          <button class="ndith-menu-btn" data-action="export">
             📤 Export Blocked Content
           </button>
-          <button class="kiro-menu-btn" data-action="import">
+          <button class="ndith-menu-btn" data-action="import">
             📥 Import Blocklist
           </button>
-          <button class="kiro-menu-btn" data-action="preview">
+          <button class="ndith-menu-btn" data-action="preview">
             👁️ Preview Mode Info
           </button>
-          <button class="kiro-menu-btn secondary" data-action="close">
+          <button class="ndith-menu-btn secondary" data-action="close">
             ✕ Close
           </button>
         </div>
@@ -499,7 +499,7 @@ script.onload = () => {
       // Add menu styles
       const style = document.createElement('style');
       style.textContent = `
-        .kiro-menu-btn {
+        .ndith-menu-btn {
           display: block;
           width: 100%;
           padding: 10px 12px;
@@ -513,14 +513,14 @@ script.onload = () => {
           text-align: left;
           transition: background-color 0.2s;
         }
-        .kiro-menu-btn:hover {
+        .ndith-menu-btn:hover {
           background: #505050;
         }
-        .kiro-menu-btn.secondary {
+        .ndith-menu-btn.secondary {
           background: #666;
           margin-top: 12px;
         }
-        .kiro-menu-btn.secondary:hover {
+        .ndith-menu-btn.secondary:hover {
           background: #777;
         }
       `;
@@ -550,7 +550,7 @@ script.onload = () => {
       
       // Close menu when clicking outside
       const closeMenu = (e) => {
-        if (!menu.contains(e.target) && e.target.id !== 'kiro-ytmusic-fab') {
+        if (!menu.contains(e.target) && e.target.id !== 'ndith-ytmusic-fab') {
           menu.remove();
           style.remove();
           document.removeEventListener('click', closeMenu);
@@ -573,7 +573,7 @@ script.onload = () => {
         
         const a = document.createElement('a');
         a.href = url;
-        a.download = `kiro-youtube-music-export-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `ndith-youtube-music-export-${new Date().toISOString().split('T')[0]}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1127,7 +1127,7 @@ script.onload = () => {
           <h2 style="margin: 0 0 16px 0; color: #ff0000;">YouTube Music Limitations & Features</h2>
           
           <div style="text-align: left; margin: 16px 0;">
-            <h3 style="color: #4caf50; margin: 12px 0 8px 0;">✅ What Kiro CAN do:</h3>
+            <h3 style="color: #4caf50; margin: 12px 0 8px 0;">✅ What NDITH CAN do:</h3>
             <ul style="margin: 0; padding-left: 20px; line-height: 1.5;">
               <li><strong>Visual Content Filtering:</strong> Hide blocked artists with overlays</li>
               <li><strong>Auto-Skip Playback:</strong> Automatically skip blocked tracks</li>
@@ -1138,7 +1138,7 @@ script.onload = () => {
               <li><strong>"Not Interested" Automation:</strong> Mark blocked content as not interested</li>
             </ul>
             
-            <h3 style="color: #ff9800; margin: 16px 0 8px 0;">⚠️ What Kiro CANNOT do (YouTube ToS):</h3>
+            <h3 style="color: #ff9800; margin: 16px 0 8px 0;">⚠️ What NDITH CANNOT do (YouTube ToS):</h3>
             <ul style="margin: 0; padding-left: 20px; line-height: 1.5;">
               <li>Remove tracks from your library permanently via API</li>
               <li>Modify playlists or liked songs automatically</li>
@@ -1176,7 +1176,7 @@ script.onload = () => {
               margin-right: 12px;
               font-size: 14px;
             ">Got it!</button>
-            <button onclick="window.open('https://github.com/kiro-music/docs/youtube-music', '_blank')" style="
+            <button onclick="window.open('https://github.com/ndith-music/docs/youtube-music', '_blank')" style="
               background: #404040;
               color: white;
               border: none;
@@ -1196,7 +1196,7 @@ script.onload = () => {
     showLimitationWarning(context) {
       const warnings = {
         library: "YouTube Music API limitations prevent automatic library modifications. Use export/import for manual sync.",
-        playlist: "Playlist modifications require manual action. Kiro can identify blocked content for you to remove.",
+        playlist: "Playlist modifications require manual action. NDITH can identify blocked content for you to remove.",
         recommendations: "Recommendation filtering is limited to visual hiding. Use 'Not Interested' for better algorithm training.",
         radio: "Radio seed filtering helps reduce blocked artists in generated stations, but cannot guarantee complete blocking."
       };
@@ -1219,12 +1219,12 @@ script.onload = () => {
         },
         autoSkip: {
           title: "Auto-Skip",
-          content: "When a blocked track starts playing, Kiro automatically clicks the next button to skip it.",
+          content: "When a blocked track starts playing, NDITH automatically clicks the next button to skip it.",
           action: "This feature works automatically - no setup required!"
         },
         recommendations: {
           title: "Recommendation Filtering",
-          content: "Kiro hides blocked artists from your home page, mixes, and related content sections.",
+          content: "NDITH hides blocked artists from your home page, mixes, and related content sections.",
           action: "Blocked recommendations are grayed out with a 🚫 indicator."
         }
       };

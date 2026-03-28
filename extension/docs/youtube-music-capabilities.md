@@ -2,9 +2,9 @@
 
 ## Overview
 
-Kiro's YouTube Music integration operates in **preview-only mode** due to YouTube Music's Terms of Service and API limitations. This document explains what Kiro can and cannot do on YouTube Music, and provides best practices for effective content blocking.
+NDITH's YouTube Music integration operates in **preview-only mode** due to YouTube Music's Terms of Service and API limitations. This document explains what NDITH can and cannot do on YouTube Music, and provides best practices for effective content blocking.
 
-## What Kiro CAN Do ✅
+## What NDITH CAN Do ✅
 
 ### Visual Content Filtering
 - **Hide blocked artists** with visual overlays and grayed-out styling
@@ -35,7 +35,7 @@ Kiro's YouTube Music integration operates in **preview-only mode** due to YouTub
 - **Train YouTube's algorithm** to reduce blocked artist recommendations
 - **Respectful rate limiting** to avoid triggering anti-automation measures
 
-## What Kiro CANNOT Do ❌
+## What NDITH CANNOT Do ❌
 
 ### API Limitations
 - **Remove tracks from library** - YouTube Music API doesn't support bulk library modifications
@@ -57,7 +57,7 @@ Kiro's YouTube Music integration operates in **preview-only mode** due to YouTub
 4. **Library audits** - Use export data to identify patterns in blocked content
 
 ### Algorithm Training
-1. **Use "Not Interested"** - Let Kiro mark blocked content as not interested
+1. **Use "Not Interested"** - Let NDITH mark blocked content as not interested
 2. **Avoid blocked artists** - Don't manually play blocked artists even temporarily
 3. **Curate radio seeds** - Choose non-blocked artists when creating radio stations
 4. **Thumbs down** - Use YouTube Music's thumbs down on blocked content
@@ -95,7 +95,7 @@ Kiro's YouTube Music integration operates in **preview-only mode** due to YouTub
 **Blocked content still appears**
 - Refresh the page after updating your blocklist
 - Check if the artist name matches exactly in your DNP list
-- Some content may load before Kiro can process it
+- Some content may load before NDITH can process it
 
 **Auto-skip not working**
 - Ensure the next button is visible and enabled
@@ -108,7 +108,7 @@ Kiro's YouTube Music integration operates in **preview-only mode** due to YouTub
 - Check that the extension has permission to run on YouTube Music
 
 **Import fails**
-- Ensure the JSON file is valid and from a Kiro export
+- Ensure the JSON file is valid and from a NDITH export
 - Check that the file contains the expected data structure
 - Try importing a smaller file to test the functionality
 

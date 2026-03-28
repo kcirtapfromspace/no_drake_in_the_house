@@ -2,101 +2,101 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-rules
-  namespace: kiro-production
+  namespace: ndith-production
 data:
-  kiro-alerts.yml: |
+  ndith-alerts.yml: |
     groups:
-    - name: kiro-api
+    - name: ndith-api
       rules:
-      - alert: KiroAPIDown
-        expr: up{job="kiro-api"} == 0
+      - alert: NDITHAPIDown
+        expr: up{job="ndith-api"} == 0
         for: 1m
         labels:
           severity: critical
         annotations:
-          summary: "Kiro API is down"
-          description: "Kiro API has been down for more than 1 minute"
+          summary: "NDITH API is down"
+          description: "NDITH API has been down for more than 1 minute"
           
-      - alert: KiroAPIHighLatency
-        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="kiro-api"}[5m])) > 1
+      - alert: NDITHAPIHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="ndith-api"}[5m])) > 1
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro API high latency"
+          summary: "NDITH API high latency"
           description: "95th percentile latency is above 1 second for 5 minutes"
           
-      - alert: KiroAPIHighErrorRate
-        expr: rate(http_requests_total{job="kiro-api",status=~"5.."}[5m]) / rate(http_requests_total{job="kiro-api"}[5m]) > 0.05
+      - alert: NDITHAPIHighErrorRate
+        expr: rate(http_requests_total{job="ndith-api",status=~"5.."}[5m]) / rate(http_requests_total{job="ndith-api"}[5m]) > 0.05
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Kiro API high error rate"
+          summary: "NDITH API high error rate"
           description: "Error rate is above 5% for 2 minutes"
           
-      - alert: KiroAPIMemoryUsage
-        expr: container_memory_usage_bytes{pod=~"kiro-api-.*"} / container_spec_memory_limit_bytes > 0.9
+      - alert: NDITHAPIMemoryUsage
+        expr: container_memory_usage_bytes{pod=~"ndith-api-.*"} / container_spec_memory_limit_bytes > 0.9
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro API high memory usage"
+          summary: "NDITH API high memory usage"
           description: "Memory usage is above 90% for 5 minutes"
           
-    - name: kiro-worker
+    - name: ndith-worker
       rules:
-      - alert: KiroWorkerDown
-        expr: up{job="kiro-worker"} == 0
+      - alert: NDITHWorkerDown
+        expr: up{job="ndith-worker"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Kiro Worker is down"
-          description: "Kiro Worker has been down for more than 2 minutes"
+          summary: "NDITH Worker is down"
+          description: "NDITH Worker has been down for more than 2 minutes"
           
-      - alert: KiroWorkerJobQueueBacklog
-        expr: kiro_job_queue_size > 1000
+      - alert: NDITHWorkerJobQueueBacklog
+        expr: ndith_job_queue_size > 1000
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro Worker job queue backlog"
+          summary: "NDITH Worker job queue backlog"
           description: "Job queue has more than 1000 pending jobs for 10 minutes"
           
-      - alert: KiroWorkerJobFailureRate
-        expr: rate(kiro_job_failures_total[5m]) / rate(kiro_job_total[5m]) > 0.1
+      - alert: NDITHWorkerJobFailureRate
+        expr: rate(ndith_job_failures_total[5m]) / rate(ndith_job_total[5m]) > 0.1
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro Worker high job failure rate"
+          summary: "NDITH Worker high job failure rate"
           description: "Job failure rate is above 10% for 5 minutes"
           
-    - name: kiro-database
+    - name: ndith-database
       rules:
-      - alert: KiroDatabaseConnectionsHigh
-        expr: kiro_database_connections_active / kiro_database_connections_max > 0.8
+      - alert: NDITHDatabaseConnectionsHigh
+        expr: ndith_database_connections_active / ndith_database_connections_max > 0.8
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro Database connections high"
+          summary: "NDITH Database connections high"
           description: "Database connection usage is above 80% for 5 minutes"
           
-      - alert: KiroDatabaseSlowQueries
-        expr: rate(kiro_database_query_duration_seconds_sum[5m]) / rate(kiro_database_query_duration_seconds_count[5m]) > 1
+      - alert: NDITHDatabaseSlowQueries
+        expr: rate(ndith_database_query_duration_seconds_sum[5m]) / rate(ndith_database_query_duration_seconds_count[5m]) > 1
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Kiro Database slow queries"
+          summary: "NDITH Database slow queries"
           description: "Average query duration is above 1 second for 5 minutes"
           
-    - name: kiro-external-apis
+    - name: ndith-external-apis
       rules:
       - alert: SpotifyAPIRateLimit
-        expr: kiro_spotify_rate_limit_remaining < 100
+        expr: ndith_spotify_rate_limit_remaining < 100
         for: 1m
         labels:
           severity: warning
@@ -105,7 +105,7 @@ data:
           description: "Spotify API rate limit remaining is below 100"
           
       - alert: ExternalAPIFailureRate
-        expr: rate(kiro_external_api_errors_total[5m]) / rate(kiro_external_api_requests_total[5m]) > 0.1
+        expr: rate(ndith_external_api_errors_total[5m]) / rate(ndith_external_api_requests_total[5m]) > 0.1
         for: 5m
         labels:
           severity: warning

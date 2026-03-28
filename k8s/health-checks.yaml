@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: health-check-scripts
-  namespace: kiro-production
+  namespace: ndith-production
 data:
   api-health-check.sh: |
     #!/bin/bash
@@ -81,10 +81,10 @@ data:
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: kiro-health-monitor
-  namespace: kiro-production
+  name: ndith-health-monitor
+  namespace: ndith-production
   labels:
-    app: kiro-health-monitor
+    app: ndith-health-monitor
 spec:
   schedule: "*/5 * * * *"  # Every 5 minutes
   timeZone: "UTC"
@@ -97,7 +97,7 @@ spec:
       template:
         metadata:
           labels:
-            app: kiro-health-monitor
+            app: ndith-health-monitor
         spec:
           restartPolicy: Never
           securityContext:
@@ -115,7 +115,7 @@ spec:
               echo "Running comprehensive health checks..."
               
               # Check API service
-              API_SERVICE="kiro-api-service.kiro-production.svc.cluster.local"
+              API_SERVICE="ndith-api-service.ndith-production.svc.cluster.local"
               if curl -f -s "http://$API_SERVICE/health" > /dev/null; then
                 echo "✅ API service healthy"
               else
@@ -124,7 +124,7 @@ spec:
               fi
               
               # Check worker service metrics
-              WORKER_SERVICE="kiro-worker-service.kiro-production.svc.cluster.local"
+              WORKER_SERVICE="ndith-worker-service.ndith-production.svc.cluster.local"
               if curl -f -s "http://$WORKER_SERVICE:9090/health" > /dev/null; then
                 echo "✅ Worker service healthy"
               else
@@ -133,7 +133,7 @@ spec:
               fi
               
               # Check Prometheus
-              PROMETHEUS_SERVICE="prometheus.kiro-production.svc.cluster.local"
+              PROMETHEUS_SERVICE="prometheus.ndith-production.svc.cluster.local"
               if curl -f -s "http://$PROMETHEUS_SERVICE:9090/-/healthy" > /dev/null; then
                 echo "✅ Prometheus healthy"
               else
@@ -141,7 +141,7 @@ spec:
               fi
               
               # Check Grafana
-              GRAFANA_SERVICE="grafana.kiro-production.svc.cluster.local"
+              GRAFANA_SERVICE="grafana.ndith-production.svc.cluster.local"
               if curl -f -s "http://$GRAFANA_SERVICE:3000/api/health" > /dev/null; then
                 echo "✅ Grafana healthy"
               else
@@ -167,10 +167,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: kiro-health-check
-  namespace: kiro-production
+  name: ndith-health-check
+  namespace: ndith-production
   labels:
-    app: kiro-health-check
+    app: ndith-health-check
 spec:
   type: ClusterIP
   ports:
@@ -179,25 +179,25 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: kiro-health-check
+    app: ndith-health-check
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kiro-health-check
-  namespace: kiro-production
+  name: ndith-health-check
+  namespace: ndith-production
   labels:
-    app: kiro-health-check
+    app: ndith-health-check
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kiro-health-check
+      app: ndith-health-check
   template:
     metadata:
       labels:
-        app: kiro-health-check
+        app: ndith-health-check
     spec:
       securityContext:
         runAsNonRoot: true
@@ -253,7 +253,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: health-check-nginx-config
-  namespace: kiro-production
+  namespace: ndith-production
 data:
   nginx.conf: |
     events {
@@ -278,13 +278,13 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: health-check-content
-  namespace: kiro-production
+  namespace: ndith-production
 data:
   index.html: |
     <!DOCTYPE html>
     <html>
     <head>
-        <title>Kiro Health Check</title>
+        <title>NDITH Health Check</title>
         <style>
             body { font-family: Arial, sans-serif; margin: 40px; }
             .status { padding: 20px; margin: 10px 0; border-radius: 5px; }
@@ -293,7 +293,7 @@ data:
         </style>
     </head>
     <body>
-        <h1>Kiro Production Health Status</h1>
+        <h1>NDITH Production Health Status</h1>
         <div id="status">Loading...</div>
         <script>
             async function checkHealth() {

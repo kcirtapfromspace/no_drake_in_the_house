@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kiro.fullname" . }}-frontend
+  name: {{ include "ndith.fullname" . }}-frontend
   labels:
-    {{- include "kiro.frontend.labels" . | nindent 4 }}
+    {{- include "ndith.frontend.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.frontend.service.type }}
   ports:
@@ -12,4 +12,4 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "kiro.frontend.selectorLabels" . | nindent 4 }}
+    {{- include "ndith.frontend.selectorLabels" . | nindent 4 }}

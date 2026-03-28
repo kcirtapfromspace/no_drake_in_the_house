@@ -75,12 +75,12 @@ async fn test_metrics_recording() {
     let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
 
     // Check for presence of our metrics
-    assert!(metrics_text.contains("kiro_user_registrations_total"));
-    assert!(metrics_text.contains("kiro_auth_user_logins_total"));
-    assert!(metrics_text.contains("kiro_dnp_dnp_operations_total"));
-    assert!(metrics_text.contains("kiro_auth_auth_failures_total"));
-    assert!(metrics_text.contains("kiro_http_requests_total"));
-    assert!(metrics_text.contains("kiro_http_request_duration_seconds"));
+    assert!(metrics_text.contains("ndith_user_registrations_total"));
+    assert!(metrics_text.contains("ndith_auth_user_logins_total"));
+    assert!(metrics_text.contains("ndith_dnp_dnp_operations_total"));
+    assert!(metrics_text.contains("ndith_auth_auth_failures_total"));
+    assert!(metrics_text.contains("ndith_http_requests_total"));
+    assert!(metrics_text.contains("ndith_http_request_duration_seconds"));
 }
 
 #[tokio::test]
@@ -102,8 +102,8 @@ async fn test_database_metrics_integration() {
 
     // Verify metrics were recorded
     let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-    assert!(metrics_text.contains("kiro_db_operations_total"));
-    assert!(metrics_text.contains("kiro_db_query_duration_seconds"));
+    assert!(metrics_text.contains("ndith_db_operations_total"));
+    assert!(metrics_text.contains("ndith_db_query_duration_seconds"));
 }
 
 #[tokio::test]
@@ -125,8 +125,8 @@ async fn test_redis_metrics_integration() {
 
     // Verify metrics were recorded
     let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-    assert!(metrics_text.contains("kiro_redis_operations_total"));
-    assert!(metrics_text.contains("kiro_redis_operation_duration_seconds"));
+    assert!(metrics_text.contains("ndith_redis_operations_total"));
+    assert!(metrics_text.contains("ndith_redis_operation_duration_seconds"));
 }
 
 #[tokio::test]
@@ -144,9 +144,9 @@ async fn test_system_metrics_collection() {
         .metrics()
         .get_metrics()
         .expect("Failed to get metrics");
-    assert!(metrics_text.contains("kiro_memory_usage_bytes"));
-    assert!(metrics_text.contains("kiro_cpu_usage_percent"));
-    assert!(metrics_text.contains("kiro_uptime_seconds"));
+    assert!(metrics_text.contains("ndith_memory_usage_bytes"));
+    assert!(metrics_text.contains("ndith_cpu_usage_percent"));
+    assert!(metrics_text.contains("ndith_uptime_seconds"));
 }
 
 #[tokio::test]
@@ -169,7 +169,7 @@ async fn test_http_request_timing() {
 
     // Verify metrics were recorded
     let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-    assert!(metrics_text.contains("kiro_http_requests_total"));
+    assert!(metrics_text.contains("ndith_http_requests_total"));
     assert!(metrics_text.contains("method=\"POST\""));
     assert!(metrics_text.contains("endpoint=\"/api/auth/login\""));
     assert!(metrics_text.contains("status_code=\"200\""));
@@ -205,8 +205,8 @@ async fn test_performance_profiler() {
 
     // Verify metrics were recorded
     let metrics_text = metrics.get_metrics().expect("Failed to get metrics");
-    assert!(metrics_text.contains("kiro_db_operations_total"));
-    assert!(metrics_text.contains("kiro_redis_operations_total"));
+    assert!(metrics_text.contains("ndith_db_operations_total"));
+    assert!(metrics_text.contains("ndith_redis_operations_total"));
 }
 
 #[tokio::test]
@@ -298,7 +298,7 @@ async fn test_metrics_endpoint_format() {
     // Verify Prometheus format
     assert!(metrics_text.contains("# HELP"));
     assert!(metrics_text.contains("# TYPE"));
-    assert!(metrics_text.contains("kiro_user_registrations_total"));
+    assert!(metrics_text.contains("ndith_user_registrations_total"));
 
     // Verify it's valid Prometheus format (basic check)
     let lines: Vec<&str> = metrics_text.lines().collect();

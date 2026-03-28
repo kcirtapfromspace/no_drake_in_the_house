@@ -5,7 +5,7 @@ global:
 
 backend:
   image:
-    repository: ghcr.io/your-org/kiro/backend
+    repository: ghcr.io/your-org/ndith/backend
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -36,7 +36,7 @@ backend:
 
 frontend:
   image:
-    repository: ghcr.io/your-org/kiro/frontend
+    repository: ghcr.io/your-org/ndith/frontend
     tag: latest
     pullPolicy: IfNotPresent
 
@@ -67,8 +67,8 @@ frontend:
 postgres:
   enabled: true
   auth:
-    username: kiro_prod
-    database: kiro_prod
+    username: ndith_prod
+    database: ndith_prod
   primary:
     persistence:
       size: 100Gi
@@ -171,7 +171,7 @@ backup:
   retention: "30d"
   s3:
     enabled: true
-    bucket: "kiro-backups-prod"
+    bucket: "ndith-backups-prod"
 
 security:
   networkPolicies:

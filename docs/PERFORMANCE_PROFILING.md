@@ -28,7 +28,7 @@ criterion = "0.5"
 Example benchmark:
 ```rust
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use kiro_backend::services::auth::AuthService;
+use ndith_backend::services::auth::AuthService;
 
 fn auth_benchmark(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -60,12 +60,12 @@ sudo apt install linux-perf
 # Profile the backend
 cd backend
 cargo build --release
-perf record --call-graph=dwarf ./target/release/kiro-backend
+perf record --call-graph=dwarf ./target/release/ndith-backend
 perf report
 
 # Generate flamegraph
 cargo install flamegraph
-cargo flamegraph --bin kiro-backend
+cargo flamegraph --bin ndith-backend
 ```
 
 #### 3. Memory Profiling with Valgrind
@@ -77,10 +77,10 @@ sudo apt install valgrind
 # Profile memory usage
 cd backend
 cargo build
-valgrind --tool=memcheck --leak-check=full ./target/debug/kiro-backend
+valgrind --tool=memcheck --leak-check=full ./target/debug/ndith-backend
 
 # Profile cache performance
-valgrind --tool=cachegrind ./target/debug/kiro-backend
+valgrind --tool=cachegrind ./target/debug/ndith-backend
 ```
 
 #### 4. Async Profiling with tokio-console
@@ -377,7 +377,7 @@ getTTFB(sendToAnalytics);
 
 ```sql
 -- Connection statistics
-SELECT * FROM pg_stat_database WHERE datname = 'kiro_dev';
+SELECT * FROM pg_stat_database WHERE datname = 'ndith_dev';
 
 -- Table statistics
 SELECT * FROM pg_stat_user_tables;
@@ -471,7 +471,7 @@ redis-cli slowlog get 10
 docker stats
 
 # Specific container
-docker stats kiro-backend
+docker stats ndith-backend
 
 # Export stats to file
 docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" > docker-stats.txt
@@ -481,7 +481,7 @@ docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsa
 
 ```bash
 # Inspect container resources
-docker inspect kiro-backend | jq '.[0].HostConfig.Memory'
+docker inspect ndith-backend | jq '.[0].HostConfig.Memory'
 
 # Check container logs for OOM kills
 dmesg | grep -i "killed process"
@@ -499,10 +499,10 @@ docker system df
 kubectl top nodes
 
 # Pod resource usage
-kubectl top pods -n kiro-dev
+kubectl top pods -n ndith-dev
 
 # Describe pod for resource limits
-kubectl describe pod <pod-name> -n kiro-dev
+kubectl describe pod <pod-name> -n ndith-dev
 ```
 
 #### 2. Metrics Server

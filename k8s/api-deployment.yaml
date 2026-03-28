@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kiro-api
-  namespace: kiro-production
+  name: ndith-api
+  namespace: ndith-production
   labels:
-    app: kiro-api
+    app: ndith-api
     version: v1
 spec:
   replicas: 3
@@ -15,25 +15,25 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: kiro-api
+      app: ndith-api
   template:
     metadata:
       labels:
-        app: kiro-api
+        app: ndith-api
         version: v1
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: kiro-api
+      serviceAccountName: ndith-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 2000
       containers:
       - name: api
-        image: kiro/api:latest
+        image: ndith/api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 3000
@@ -48,36 +48,36 @@ spec:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: DATABASE_URL
         - name: REDIS_URL
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: REDIS_URL
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: JWT_SECRET
         - name: KMS_KEY_ID
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: KMS_KEY_ID
         - name: SPOTIFY_CLIENT_SECRET
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: SPOTIFY_CLIENT_SECRET
         - name: APPLE_MUSIC_PRIVATE_KEY
           valueFrom:
             secretKeyRef:
-              name: kiro-secrets
+              name: ndith-secrets
               key: APPLE_MUSIC_PRIVATE_KEY
         envFrom:
         - configMapRef:
-            name: kiro-config
+            name: ndith-config
         resources:
           requests:
             memory: "512Mi"

@@ -72,12 +72,12 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run /app/public && \
 
 # Ensure we have content to serve with better development info
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
-    echo '<!DOCTYPE html><html><head><title>Kiro Frontend</title></head><body><h1>🚀 Kiro Frontend</h1><p>⚡ Fast development build with live updates</p><p>🔧 Waiting for build completion...</p></body></html>' > /usr/share/nginx/html/index.html; \
+    echo '<!DOCTYPE html><html><head><title>NDITH Frontend</title></head><body><h1>🚀 NDITH Frontend</h1><p>⚡ Fast development build with live updates</p><p>🔧 Waiting for build completion...</p></body></html>' > /usr/share/nginx/html/index.html; \
     fi
 
 # Create startup script for development
 RUN echo '#!/bin/bash\n\
-echo "🚀 Starting Kiro Frontend Development Server"\n\
+echo "🚀 Starting NDITH Frontend Development Server"\n\
 echo "⚡ Live updates enabled"\n\
 echo "🔧 Build system ready"\n\
 nginx -g "daemon off;" &\n\
@@ -120,7 +120,7 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run && \
 
 # Ensure we have content to serve
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
-    echo '<!DOCTYPE html><html><head><title>Kiro</title></head><body><h1>Kiro</h1><p>Production build</p></body></html>' > /usr/share/nginx/html/index.html; \
+    echo '<!DOCTYPE html><html><head><title>NDITH</title></head><body><h1>NDITH</h1><p>Production build</p></body></html>' > /usr/share/nginx/html/index.html; \
     fi
 
 # Run as root for production (nginx needs to bind to ports and write pid files)

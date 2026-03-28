@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-datasources
-  namespace: kiro-production
+  namespace: ndith-production
 data:
   datasources.yaml: |
     apiVersion: 1
@@ -19,7 +19,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards-config
-  namespace: kiro-production
+  namespace: ndith-production
 data:
   dashboards.yaml: |
     apiVersion: 1
@@ -39,7 +39,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: grafana
-  namespace: kiro-production
+  namespace: ndith-production
   labels:
     app: grafana
 spec:
@@ -118,7 +118,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: grafana
-  namespace: kiro-production
+  namespace: ndith-production
   labels:
     app: grafana
 spec:
@@ -134,7 +134,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-storage
-  namespace: kiro-production
+  namespace: ndith-production
 spec:
   accessModes:
     - ReadWriteOnce
@@ -148,7 +148,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: grafana-secrets
-  namespace: kiro-production
+  namespace: ndith-production
 type: Opaque
 data:
   admin-password: YWRtaW4xMjM0NQ== # admin12345 - change in production

@@ -5,7 +5,7 @@ global:
 
 backend:
   image:
-    repository: ghcr.io/your-org/kiro/backend
+    repository: ghcr.io/your-org/ndith/backend
     tag: develop-latest
     pullPolicy: Always
 
@@ -31,7 +31,7 @@ backend:
 
 frontend:
   image:
-    repository: ghcr.io/your-org/kiro/frontend
+    repository: ghcr.io/your-org/ndith/frontend
     tag: develop-latest
     pullPolicy: Always
 
@@ -52,8 +52,8 @@ frontend:
 postgres:
   enabled: true
   auth:
-    username: kiro_staging
-    database: kiro_staging
+    username: ndith_staging
+    database: ndith_staging
   primary:
     persistence:
       size: 20Gi

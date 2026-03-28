@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Kiro Music Blocklist Manager",
+  "name": "NDITH Music Blocklist Manager",
   "version": "1.0.0",
   "description": "Block unwanted artists across music streaming platforms",
   
@@ -63,7 +63,7 @@
   
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Kiro Music Blocklist Manager"
+    "default_title": "NDITH Music Blocklist Manager"
   },
   
   "icons": {

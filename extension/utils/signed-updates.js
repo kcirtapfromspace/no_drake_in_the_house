@@ -1,5 +1,5 @@
 /**
- * Signed Updates System for Kiro Extension
+ * Signed Updates System for NDITH Extension
  * Handles cryptographically signed DNP filter updates for security
  */
 

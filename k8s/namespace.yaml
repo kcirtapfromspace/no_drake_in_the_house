@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kiro-production
+  name: ndith-production
   labels:
-    name: kiro-production
+    name: ndith-production
     environment: production

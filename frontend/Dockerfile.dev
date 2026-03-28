@@ -42,7 +42,7 @@ RUN mkdir -p /var/cache/nginx /var/log/nginx /var/run && \
 
 # Create a simple index.html if none exists
 RUN if [ ! -f /usr/share/nginx/html/index.html ]; then \
-    echo '<html><body><h1>Kiro Frontend</h1><p>Development build</p></body></html>' > /usr/share/nginx/html/index.html; \
+    echo '<html><body><h1>NDITH Frontend</h1><p>Development build</p></body></html>' > /usr/share/nginx/html/index.html; \
     fi
 
 # Run as root for development (nginx will drop privileges automatically)

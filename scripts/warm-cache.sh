@@ -28,7 +28,7 @@ warm_target() {
     
     docker build \
         --target "$target" \
-        --tag "kiro-cache:$tag" \
+        --tag "ndith-cache:$tag" \
         --file "$dockerfile" \
         "$context" || {
         echo "⚠️  Warning: Failed to warm cache for $tag, continuing..."
@@ -65,7 +65,7 @@ docker pull nginx:alpine || echo "⚠️  Warning: Failed to pull nginx:alpine"
 echo "✅ Cache warming complete!"
 echo ""
 echo "📊 Cache status:"
-docker images --filter "reference=kiro-cache:*" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
+docker images --filter "reference=ndith-cache:*" --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"
 echo ""
 echo "🚀 Next builds will be significantly faster!"
 echo "   - Use 'docker build -f backend/Dockerfile.fast backend/' for fastest backend builds"

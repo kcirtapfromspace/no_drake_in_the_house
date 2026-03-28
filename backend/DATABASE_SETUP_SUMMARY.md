@@ -127,7 +127,7 @@ run_migrations(&pool).await?;
 ### Environment Variables
 
 ```bash
-DATABASE_URL=postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev
+DATABASE_URL=postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev
 RUST_ENV=development  # Controls test data seeding
 ```
 

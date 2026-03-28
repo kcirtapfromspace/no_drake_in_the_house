@@ -8,7 +8,7 @@ YouTube Music integration is web-based due to limited API access, focusing on br
 
 - **Content Filtering**: Hide blocked artists and tracks in the web interface
 - **Auto-Skip**: Automatically skip blocked tracks during playback
-- **Visual Indicators**: Show "Hidden by Kiro" badges on filtered content
+- **Visual Indicators**: Show "Hidden by NDITH" badges on filtered content
 - **Override Controls**: Temporarily allow blocked content with right-click options
 - **Recommendation Filtering**: Hide blocked artists from recommendation sections
 
@@ -42,7 +42,7 @@ YouTube Music integration is web-based due to limited API access, focusing on br
 ### Step 2: Configure Extension
 
 1. Click the extension icon in your browser
-2. Log in to your Kiro account
+2. Log in to your NDITH account
 3. The extension will automatically sync your DNP list
 4. Configure filtering preferences:
 
@@ -51,7 +51,7 @@ Content Filtering Options:
 ☑️ Hide artist tiles in browse sections
 ☑️ Hide tracks in playlists and albums
 ☑️ Hide recommendations and suggestions
-☑️ Show "Hidden by Kiro" badges
+☑️ Show "Hidden by NDITH" badges
 ☑️ Enable auto-skip functionality
 ```
 
@@ -59,7 +59,7 @@ Content Filtering Options:
 
 After configuration, you should see:
 - Blocked content is visually hidden or dimmed
-- "Hidden by Kiro" badges appear on filtered items
+- "Hidden by NDITH" badges appear on filtered items
 - Auto-skip works during playback
 - Right-click options are available on hidden content
 
@@ -146,7 +146,7 @@ Playlists: 15 playlists analyzed
 4. Download your archive
 
 **Step 2: Upload for Analysis**
-1. In Kiro, go to **YouTube Music** → **Import Data**
+1. In NDITH, go to **YouTube Music** → **Import Data**
 2. Upload your YouTube Music data export
 3. Wait for analysis to complete
 
@@ -183,7 +183,7 @@ Aggressive:
 **Visual Preferences**
 ```
 Display Options:
-☑️ Show "Hidden by Kiro" badges
+☑️ Show "Hidden by NDITH" badges
 ☑️ Dim hidden content (vs complete hiding)
 ☑️ Show skip notifications
 ☑️ Enable right-click context menu
@@ -246,7 +246,7 @@ Since automatic library modification isn't available, use these manual workflows
 ### Keeping Data in Sync
 
 **DNP List Updates**
-- Extension automatically syncs with your Kiro account
+- Extension automatically syncs with your NDITH account
 - Changes to your DNP list appear in the extension within minutes
 - Manual refresh available via extension popup
 
@@ -265,7 +265,7 @@ Since automatic library modification isn't available, use these manual workflows
 ```
 **Solutions**:
 1. Refresh the YouTube Music page
-2. Check if you're logged in to both YouTube Music and Kiro
+2. Check if you're logged in to both YouTube Music and NDITH
 3. Verify extension permissions
 4. Clear browser cache for music.youtube.com
 
@@ -323,7 +323,7 @@ Since automatic library modification isn't available, use these manual workflows
 1. Create personal copies of important collaborative playlists
 2. Use descriptive playlist names for easier management
 3. Regularly review auto-generated playlists
-4. Consider using YouTube Music's "Don't play this artist" feature alongside Kiro
+4. Consider using YouTube Music's "Don't play this artist" feature alongside NDITH
 
 ### Workflow Optimization
 

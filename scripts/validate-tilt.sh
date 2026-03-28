@@ -112,11 +112,11 @@ check_helm_chart() {
     fi
     
     # Check if we can template the chart
-    if helm template kiro ./helm --values ./helm/values-dev.yaml >/dev/null 2>&1; then
+    if helm template ndith ./helm --values ./helm/values-dev.yaml >/dev/null 2>&1; then
         print_success "Helm chart templates successfully"
     else
         print_error "Helm chart templating failed"
-        echo "Run 'helm template kiro ./helm --values ./helm/values-dev.yaml' for details"
+        echo "Run 'helm template ndith ./helm --values ./helm/values-dev.yaml' for details"
         return 1
     fi
 }

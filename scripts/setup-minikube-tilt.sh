@@ -97,13 +97,13 @@ setup_minikube() {
 
 # Setup namespace
 setup_namespace() {
-    print_status "Setting up kiro-dev namespace..."
+    print_status "Setting up ndith-dev namespace..."
     
-    if kubectl get namespace kiro-dev >/dev/null 2>&1; then
-        print_success "Namespace kiro-dev already exists"
+    if kubectl get namespace ndith-dev >/dev/null 2>&1; then
+        print_success "Namespace ndith-dev already exists"
     else
-        kubectl create namespace kiro-dev
-        print_success "Created namespace kiro-dev"
+        kubectl create namespace ndith-dev
+        print_success "Created namespace ndith-dev"
     fi
 }
 
@@ -159,7 +159,7 @@ main() {
     echo "  tilt up          # Start development environment"
     echo "  tilt down        # Stop and clean up"
     echo "  minikube status  # Check minikube status"
-    echo "  kubectl get pods -n kiro-dev  # Check pod status"
+    echo "  kubectl get pods -n ndith-dev  # Check pod status"
 }
 
 # Run main function

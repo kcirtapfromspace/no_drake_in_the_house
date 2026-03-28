@@ -11,10 +11,10 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # Load environment-specific configuration
 case $ENVIRONMENT in
     "production")
-        NAMESPACE="kiro-production"
+        NAMESPACE="ndith-production"
         ;;
     "staging")
-        NAMESPACE="kiro-staging"
+        NAMESPACE="ndith-staging"
         ;;
     *)
         echo "Error: Unknown environment '$ENVIRONMENT'"
@@ -86,14 +86,14 @@ echo ""
 echo "🔐 Checking secrets and configuration..."
 
 # Check required secrets
-REQUIRED_SECRETS=("kiro-secrets" "grafana-secrets")
+REQUIRED_SECRETS=("ndith-secrets" "grafana-secrets")
 for secret in "${REQUIRED_SECRETS[@]}"; do
     if kubectl get secret "$secret" -n "$NAMESPACE" &> /dev/null; then
         print_result "Secret $secret exists" "PASS"
         
         # Check secret keys
         case $secret in
-            "kiro-secrets")
+            "ndith-secrets")
                 REQUIRED_KEYS=("DATABASE_URL" "REDIS_URL" "JWT_SECRET" "KMS_KEY_ID")
                 for key in "${REQUIRED_KEYS[@]}"; do
                     if kubectl get secret "$secret" -n "$NAMESPACE" -o jsonpath="{.data.$key}" &> /dev/null; then
@@ -110,7 +110,7 @@ for secret in "${REQUIRED_SECRETS[@]}"; do
 done
 
 # Check ConfigMaps
-REQUIRED_CONFIGMAPS=("kiro-config" "kiro-migrations")
+REQUIRED_CONFIGMAPS=("ndith-config" "ndith-migrations")
 for cm in "${REQUIRED_CONFIGMAPS[@]}"; do
     if kubectl get configmap "$cm" -n "$NAMESPACE" &> /dev/null; then
         print_result "ConfigMap $cm exists" "PASS"
@@ -123,7 +123,7 @@ echo ""
 echo "🚀 Checking deployments and services..."
 
 # Check deployments
-DEPLOYMENTS=("kiro-api" "kiro-worker" "prometheus" "grafana")
+DEPLOYMENTS=("ndith-api" "ndith-worker" "prometheus" "grafana")
 for deployment in "${DEPLOYMENTS[@]}"; do
     if kubectl get deployment "$deployment" -n "$NAMESPACE" &> /dev/null; then
         print_result "Deployment $deployment exists" "PASS"
@@ -143,7 +143,7 @@ for deployment in "${DEPLOYMENTS[@]}"; do
 done
 
 # Check services
-SERVICES=("kiro-api-service" "kiro-worker-service" "prometheus" "grafana")
+SERVICES=("ndith-api-service" "ndith-worker-service" "prometheus" "grafana")
 for service in "${SERVICES[@]}"; do
     if kubectl get service "$service" -n "$NAMESPACE" &> /dev/null; then
         print_result "Service $service exists" "PASS"
@@ -164,11 +164,11 @@ echo ""
 echo "🌐 Checking networking and ingress..."
 
 # Check ingress
-if kubectl get ingress kiro-ingress -n "$NAMESPACE" &> /dev/null; then
+if kubectl get ingress ndith-ingress -n "$NAMESPACE" &> /dev/null; then
     print_result "Ingress exists" "PASS"
     
     # Check ingress status
-    INGRESS_IP=$(kubectl get ingress kiro-ingress -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+    INGRESS_IP=$(kubectl get ingress ndith-ingress -n "$NAMESPACE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
     if [ -n "$INGRESS_IP" ]; then
         print_result "Ingress has external IP" "PASS"
     else
@@ -179,7 +179,7 @@ else
 fi
 
 # Check network policies
-NETWORK_POLICIES=("kiro-api-network-policy" "kiro-worker-network-policy")
+NETWORK_POLICIES=("ndith-api-network-policy" "ndith-worker-network-policy")
 for policy in "${NETWORK_POLICIES[@]}"; do
     if kubectl get networkpolicy "$policy" -n "$NAMESPACE" &> /dev/null; then
         print_result "NetworkPolicy $policy exists" "PASS"
@@ -223,7 +223,7 @@ echo ""
 echo "🔄 Checking autoscaling and resource management..."
 
 # Check HPA
-HPAS=("kiro-api-hpa" "kiro-worker-hpa")
+HPAS=("ndith-api-hpa" "ndith-worker-hpa")
 for hpa in "${HPAS[@]}"; do
     if kubectl get hpa "$hpa" -n "$NAMESPACE" &> /dev/null; then
         print_result "HPA $hpa exists" "PASS"
@@ -241,7 +241,7 @@ for hpa in "${HPAS[@]}"; do
 done
 
 # Check PodDisruptionBudgets
-PDBS=("kiro-api-pdb" "kiro-worker-pdb")
+PDBS=("ndith-api-pdb" "ndith-worker-pdb")
 for pdb in "${PDBS[@]}"; do
     if kubectl get pdb "$pdb" -n "$NAMESPACE" &> /dev/null; then
         print_result "PDB $pdb exists" "PASS"
@@ -251,11 +251,11 @@ for pdb in "${PDBS[@]}"; do
 done
 
 # Check resource quotas
-if kubectl get resourcequota kiro-production-quota -n "$NAMESPACE" &> /dev/null; then
+if kubectl get resourcequota ndith-production-quota -n "$NAMESPACE" &> /dev/null; then
     print_result "ResourceQuota exists" "PASS"
     
     # Check quota usage
-    QUOTA_STATUS=$(kubectl describe resourcequota kiro-production-quota -n "$NAMESPACE" | grep -E "(requests.cpu|requests.memory|limits.cpu|limits.memory)" | head -4)
+    QUOTA_STATUS=$(kubectl describe resourcequota ndith-production-quota -n "$NAMESPACE" | grep -E "(requests.cpu|requests.memory|limits.cpu|limits.memory)" | head -4)
     echo "📊 Resource quota status:"
     echo "$QUOTA_STATUS" | while read -r line; do
         echo "   $line"
@@ -268,7 +268,7 @@ echo ""
 echo "💾 Checking backup and recovery..."
 
 # Check backup CronJobs
-BACKUP_CRONJOBS=("kiro-database-backup-full" "kiro-database-backup-incremental")
+BACKUP_CRONJOBS=("ndith-database-backup-full" "ndith-database-backup-incremental")
 for cronjob in "${BACKUP_CRONJOBS[@]}"; do
     if kubectl get cronjob "$cronjob" -n "$NAMESPACE" &> /dev/null; then
         print_result "CronJob $cronjob exists" "PASS"
@@ -304,8 +304,8 @@ echo ""
 echo "🏥 Checking health and readiness..."
 
 # Check API health
-if kubectl get pod -l app=kiro-api -n "$NAMESPACE" &> /dev/null; then
-    API_POD=$(kubectl get pod -l app=kiro-api -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if kubectl get pod -l app=ndith-api -n "$NAMESPACE" &> /dev/null; then
+    API_POD=$(kubectl get pod -l app=ndith-api -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
     if [ -n "$API_POD" ]; then
         if kubectl exec -n "$NAMESPACE" "$API_POD" -- wget -q -O- http://localhost:3000/health &> /dev/null; then
             print_result "API health endpoint" "PASS"
@@ -322,8 +322,8 @@ if kubectl get pod -l app=kiro-api -n "$NAMESPACE" &> /dev/null; then
 fi
 
 # Check worker health
-if kubectl get pod -l app=kiro-worker -n "$NAMESPACE" &> /dev/null; then
-    WORKER_POD=$(kubectl get pod -l app=kiro-worker -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+if kubectl get pod -l app=ndith-worker -n "$NAMESPACE" &> /dev/null; then
+    WORKER_POD=$(kubectl get pod -l app=ndith-worker -n "$NAMESPACE" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
     if [ -n "$WORKER_POD" ]; then
         if kubectl exec -n "$NAMESPACE" "$WORKER_POD" -- wget -q -O- http://localhost:9090/health &> /dev/null; then
             print_result "Worker health endpoint" "PASS"
@@ -337,7 +337,7 @@ echo ""
 echo "🔒 Checking security configuration..."
 
 # Check pod security context
-API_PODS=$(kubectl get pods -l app=kiro-api -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+API_PODS=$(kubectl get pods -l app=ndith-api -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
 for pod in $API_PODS; do
     if [ -n "$pod" ]; then
         RUN_AS_NON_ROOT=$(kubectl get pod "$pod" -n "$NAMESPACE" -o jsonpath='{.spec.securityContext.runAsNonRoot}' 2>/dev/null || echo "")
@@ -351,7 +351,7 @@ for pod in $API_PODS; do
 done
 
 # Check RBAC
-SERVICE_ACCOUNTS=("kiro-api" "kiro-worker" "prometheus")
+SERVICE_ACCOUNTS=("ndith-api" "ndith-worker" "prometheus")
 for sa in "${SERVICE_ACCOUNTS[@]}"; do
     if kubectl get serviceaccount "$sa" -n "$NAMESPACE" &> /dev/null; then
         print_result "ServiceAccount $sa exists" "PASS"
@@ -383,7 +383,7 @@ echo ""
 echo "🎯 Final validation summary..."
 
 # External connectivity test (if ingress is available)
-INGRESS_HOST=$(kubectl get ingress kiro-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
+INGRESS_HOST=$(kubectl get ingress ndith-ingress -n "$NAMESPACE" -o jsonpath='{.spec.rules[0].host}' 2>/dev/null || echo "")
 if [ -n "$INGRESS_HOST" ]; then
     if curl -f -s "https://$INGRESS_HOST/health" &> /dev/null; then
         print_result "External API access" "PASS"
@@ -393,8 +393,8 @@ if [ -n "$INGRESS_HOST" ]; then
 fi
 
 # Database connectivity test
-if kubectl get secret kiro-secrets -n "$NAMESPACE" &> /dev/null; then
-    DATABASE_URL=$(kubectl get secret kiro-secrets -n "$NAMESPACE" -o jsonpath='{.data.DATABASE_URL}' | base64 -d 2>/dev/null || echo "")
+if kubectl get secret ndith-secrets -n "$NAMESPACE" &> /dev/null; then
+    DATABASE_URL=$(kubectl get secret ndith-secrets -n "$NAMESPACE" -o jsonpath='{.data.DATABASE_URL}' | base64 -d 2>/dev/null || echo "")
     if [ -n "$DATABASE_URL" ]; then
         if kubectl run db-test --image=postgres:15-alpine --rm -i --restart=Never --quiet -- psql "$DATABASE_URL" -c "SELECT 1;" &> /dev/null; then
             print_result "Database connectivity" "PASS"
@@ -405,8 +405,8 @@ if kubectl get secret kiro-secrets -n "$NAMESPACE" &> /dev/null; then
 fi
 
 # Redis connectivity test
-if kubectl get secret kiro-secrets -n "$NAMESPACE" &> /dev/null; then
-    REDIS_URL=$(kubectl get secret kiro-secrets -n "$NAMESPACE" -o jsonpath='{.data.REDIS_URL}' | base64 -d 2>/dev/null || echo "")
+if kubectl get secret ndith-secrets -n "$NAMESPACE" &> /dev/null; then
+    REDIS_URL=$(kubectl get secret ndith-secrets -n "$NAMESPACE" -o jsonpath='{.data.REDIS_URL}' | base64 -d 2>/dev/null || echo "")
     if [ -n "$REDIS_URL" ]; then
         if kubectl run redis-test --image=redis:7-alpine --rm -i --restart=Never --quiet -- redis-cli -u "$REDIS_URL" ping &> /dev/null; then
             print_result "Redis connectivity" "PASS"

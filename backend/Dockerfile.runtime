@@ -13,11 +13,11 @@ COPY .build-output/backend ./backend
 COPY migrations ./migrations
 COPY .sqlx ./.sqlx
 
-RUN useradd -r -s /bin/false -u 1001 kiro && \
-    chown -R kiro:kiro /app && \
+RUN useradd -r -s /bin/false -u 1001 ndith && \
+    chown -R ndith:ndith /app && \
     chmod +x /app/backend
 
-USER kiro
+USER ndith
 
 ENV SQLX_OFFLINE=true
 

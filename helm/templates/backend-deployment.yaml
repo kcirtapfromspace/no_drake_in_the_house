@@ -1,31 +1,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kiro.fullname" . }}-backend
+  name: {{ include "ndith.fullname" . }}-backend
   labels:
-    {{- include "kiro.backend.labels" . | nindent 4 }}
+    {{- include "ndith.backend.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.backend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "kiro.backend.selectorLabels" . | nindent 6 }}
+      {{- include "ndith.backend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "kiro.backend.selectorLabels" . | nindent 8 }}
+        {{- include "ndith.backend.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "kiro.serviceAccountName" . }}
+      serviceAccountName: {{ include "ndith.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: backend
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "kiro.backend.image" . }}
+          image: {{ include "ndith.backend.image" . }}
           imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
           ports:
             - name: http

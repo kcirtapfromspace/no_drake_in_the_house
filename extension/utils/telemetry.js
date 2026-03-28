@@ -1,5 +1,5 @@
 /**
- * Telemetry System for Kiro Extension
+ * Telemetry System for NDITH Extension
  * Monitors performance, selector drift, and usage patterns
  */
 

@@ -46,7 +46,7 @@ VITE_ENVIRONMENT=development
 ENVIRONMENT=development
 
 # Database Configuration
-DATABASE_URL=postgres://kiro:kiro_dev_password@localhost:5432/kiro_dev
+DATABASE_URL=postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev
 
 # Server Configuration
 SERVER_ADDRESS=0.0.0.0:3000
@@ -265,7 +265,7 @@ cd backend && cargo run
 ### Clear Test Data
 ```sql
 -- Connect to PostgreSQL
-psql -h localhost -U kiro -d kiro_dev
+psql -h localhost -U ndith -d ndith_dev
 
 -- Clear test users
 DELETE FROM users WHERE email LIKE '%test%' OR email LIKE '%example%';

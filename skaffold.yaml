@@ -1,11 +1,11 @@
 apiVersion: skaffold/v4beta6
 kind: Config
 metadata:
-  name: kiro-dev
+  name: ndith-dev
 
 build:
   artifacts:
-  - image: kiro/backend
+  - image: ndith/backend
     context: backend
     docker:
       dockerfile: Dockerfile.dev
@@ -19,7 +19,7 @@ build:
         dest: /app/Cargo.toml
       - src: "Cargo.lock"
         dest: /app/Cargo.lock
-  - image: kiro/frontend
+  - image: ndith/frontend
     context: frontend
     docker:
       dockerfile: Dockerfile.dev
@@ -41,17 +41,17 @@ build:
 deploy:
   helm:
     releases:
-    - name: kiro
+    - name: ndith
       chartPath: helm
       valuesFiles:
       - helm/values-dev.yaml
       setValues:
-        backend.image.repository: kiro/backend
+        backend.image.repository: ndith/backend
         backend.image.tag: latest
-        frontend.image.repository: kiro/frontend
+        frontend.image.repository: ndith/frontend
         frontend.image.tag: latest
       createNamespace: true
-      namespace: kiro-dev
+      namespace: ndith-dev
       wait: true
       recreatePods: false
       skipBuildDependencies: false
@@ -59,23 +59,23 @@ deploy:
 
 portForward:
 - resourceType: service
-  resourceName: kiro-backend
-  namespace: kiro-dev
+  resourceName: ndith-backend
+  namespace: ndith-dev
   port: 3000
   localPort: 3000
 - resourceType: service
-  resourceName: kiro-frontend
-  namespace: kiro-dev
+  resourceName: ndith-frontend
+  namespace: ndith-dev
   port: 80
   localPort: 5000
 - resourceType: service
-  resourceName: kiro-postgresql
-  namespace: kiro-dev
+  resourceName: ndith-postgresql
+  namespace: ndith-dev
   port: 5432
   localPort: 5432
 - resourceType: service
-  resourceName: kiro-redis-master
-  namespace: kiro-dev
+  resourceName: ndith-redis-master
+  namespace: ndith-dev
   port: 6379
   localPort: 6379
 
@@ -83,14 +83,14 @@ profiles:
 - name: debug
   build:
     artifacts:
-    - image: kiro/backend
+    - image: ndith/backend
       docker:
         buildArgs:
           CARGO_BUILD_TYPE: debug
   deploy:
     helm:
       releases:
-      - name: kiro
+      - name: ndith
         setValues:
           backend.env.RUST_LOG: "debug"
           backend.resources.requests.cpu: "50m"
@@ -99,18 +99,18 @@ profiles:
 - name: production
   build:
     artifacts:
-    - image: kiro/backend
+    - image: ndith/backend
       docker:
         dockerfile: Dockerfile
         buildArgs:
           CARGO_BUILD_TYPE: release
-    - image: kiro/frontend
+    - image: ndith/frontend
       docker:
         dockerfile: Dockerfile
   deploy:
     helm:
       releases:
-      - name: kiro
+      - name: ndith
         valuesFiles:
         - helm/values.yaml
         setValues:

@@ -1,31 +1,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kiro.fullname" . }}-frontend
+  name: {{ include "ndith.fullname" . }}-frontend
   labels:
-    {{- include "kiro.frontend.labels" . | nindent 4 }}
+    {{- include "ndith.frontend.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
     matchLabels:
-      {{- include "kiro.frontend.selectorLabels" . | nindent 6 }}
+      {{- include "ndith.frontend.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "kiro.frontend.selectorLabels" . | nindent 8 }}
+        {{- include "ndith.frontend.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "kiro.serviceAccountName" . }}
+      serviceAccountName: {{ include "ndith.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
         - name: frontend
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
-          image: {{ include "kiro.frontend.image" . }}
+          image: {{ include "ndith.frontend.image" . }}
           imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
           ports:
             - name: http

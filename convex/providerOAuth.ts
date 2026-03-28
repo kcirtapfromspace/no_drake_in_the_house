@@ -99,6 +99,29 @@ function getProfileEndpoint(provider: string) {
   }
 }
 
+/** Default scopes per provider (mirrors Rust backend constants) */
+function getDefaultScopes(provider: string): string[] {
+  switch (provider) {
+    case "spotify":
+      return [
+        "user-library-read",
+        "user-library-modify",
+        "playlist-read-private",
+        "playlist-read-collaborative",
+        "playlist-modify-private",
+      ];
+    case "tidal":
+      return ["r_usr", "w_usr"];
+    case "youtube":
+      return [
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/youtube",
+      ];
+    default:
+      return [];
+  }
+}
+
 export const authorize = action({
   args: {
     provider: v.string(),
@@ -114,9 +137,14 @@ export const authorize = action({
       );
     }
 
-    const scopeStr = (args.scopes ?? []).join(" ");
+    const scopes = args.scopes?.length ? args.scopes : getDefaultScopes(args.provider);
+    const scopeStr = scopes.join(" ");
     const state = `nodrake_${args.provider}_${Date.now()}`;
-    const redirectUri = encodeURIComponent(args.redirectUri ?? "");
+    // Use provider-specific redirect URI from env if not explicitly provided
+    const redirectUriEnvKey = `${args.provider.toUpperCase()}_REDIRECT_URI`;
+    const rawRedirectUri =
+      args.redirectUri || process.env[redirectUriEnvKey] || "";
+    const redirectUri = encodeURIComponent(rawRedirectUri);
 
     let authUrl = "";
     switch (args.provider) {
@@ -153,7 +181,7 @@ export const authorize = action({
         throw new Error(`Unsupported provider: ${args.provider}`);
     }
 
-    return { auth_url: authUrl, state };
+    return { authorization_url: authUrl, auth_url: authUrl, state, scopes };
   },
 });
 
@@ -174,11 +202,18 @@ export const callback = action({
     }
 
     // --- Exchange the authorization code for tokens ---
+    // Use the provider-specific redirect URI env var as the primary source,
+    // since the authorize step (which may go through the Rust backend) uses it.
+    // Fall back to the explicit arg if the env var is not set.
+    const redirectUriEnvKey = `${args.provider.toUpperCase()}_REDIRECT_URI`;
+    const redirectUri =
+      process.env[redirectUriEnvKey] || args.redirectUri || "";
+
     const tokenUrl = getTokenEndpoint(args.provider);
     const tokenBody = new URLSearchParams({
       grant_type: "authorization_code",
       code: args.code,
-      redirect_uri: args.redirectUri ?? "",
+      redirect_uri: redirectUri,
     });
 
     // Spotify and Tidal use HTTP Basic auth; YouTube/Google uses body params

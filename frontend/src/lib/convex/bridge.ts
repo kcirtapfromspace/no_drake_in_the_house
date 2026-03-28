@@ -785,10 +785,13 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
-    // Provider-specific sync trigger
+    // Provider-specific sync trigger (both /api/v1/{provider}/library/sync and
+    // /api/v1/connections/{provider}/library/sync route to the same Convex action)
     const providerSyncMatch = matchPath(pathname, /^\/api\/v1\/([^/]+)\/library\/sync$/);
-    if (providerSyncMatch && method === 'POST') {
-      const provider = parseId(providerSyncMatch[1]);
+    const connectionSyncMatch = matchPath(pathname, /^\/api\/v1\/connections\/([^/]+)\/library\/sync$/);
+    const syncMatch = providerSyncMatch || connectionSyncMatch;
+    if (syncMatch && method === 'POST') {
+      const provider = parseId(syncMatch[1]);
       const result = await convexAction<any>(anyApi.sync.triggerProviderSync, { provider });
       return ok(result) as BridgedApiResponse<T>;
     }
@@ -848,19 +851,25 @@ export async function maybeHandleConvexRoute<T = unknown>(
     }
 
     const oauthAuthorizeMatch = matchPath(pathname, /^\/api\/v1\/oauth\/([^/]+)\/authorize$/);
-    if (oauthAuthorizeMatch && method === 'POST') {
-      const provider = parseId(oauthAuthorizeMatch[1]);
-      const result = await convexAction<any>(anyApi.providerOAuth.authorize, {
-        provider,
-        redirectUri: data?.redirect_uri ?? data?.redirectUri,
-        scopes: data?.scopes,
-      });
-      return ok(result) as BridgedApiResponse<T>;
+    const connectionAuthorizeMatch = matchPath(pathname, /^\/api\/v1\/connections\/([^/]+)\/authorize$/);
+    const authMatch = oauthAuthorizeMatch || connectionAuthorizeMatch;
+    if (authMatch && (method === 'POST' || method === 'GET')) {
+      const provider = parseId(authMatch[1]);
+      if (['spotify', 'tidal', 'youtube'].includes(provider)) {
+        const result = await convexAction<any>(anyApi.providerOAuth.authorize, {
+          provider,
+          redirectUri: data?.redirect_uri ?? data?.redirectUri,
+          scopes: data?.scopes,
+        });
+        return ok(result) as BridgedApiResponse<T>;
+      }
     }
 
     const oauthCallbackMatch = matchPath(pathname, /^\/api\/v1\/oauth\/([^/]+)\/callback$/);
-    if (oauthCallbackMatch && method === 'POST') {
-      const provider = parseId(oauthCallbackMatch[1]);
+    const connectionCallbackMatch = matchPath(pathname, /^\/api\/v1\/connections\/([^/]+)\/callback$/);
+    const cbMatch = oauthCallbackMatch || connectionCallbackMatch;
+    if (cbMatch && method === 'POST') {
+      const provider = parseId(cbMatch[1]);
       const result = await convexAction<any>(anyApi.providerOAuth.callback, {
         provider,
         code: data?.code,
@@ -870,10 +879,13 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
-    // Provider-specific status shortcuts
+    // Provider-specific status shortcuts (both /api/v1/{provider}/status and
+    // /api/v1/connections/{provider}/status)
     const providerStatusMatch = matchPath(pathname, /^\/api\/v1\/([^/]+)\/status$/);
-    if (providerStatusMatch && method === 'GET') {
-      const provider = parseId(providerStatusMatch[1]);
+    const connectionStatusMatch = matchPath(pathname, /^\/api\/v1\/connections\/([^/]+)\/status$/);
+    const statusMatch = providerStatusMatch || connectionStatusMatch;
+    if (statusMatch && method === 'GET') {
+      const provider = parseId(statusMatch[1]);
       if (['spotify', 'tidal', 'youtube'].includes(provider)) {
         const result = await convexQuery<any>(anyApi.providerOAuth.status, { provider });
         return ok(result) as BridgedApiResponse<T>;

@@ -22,7 +22,6 @@
     const result = await resolveOAuthCallback(
       window.location,
       (url, body) => apiClient.post(url, body),
-      () => apiClient.getAuthToken()
     );
 
     provider = result.provider;

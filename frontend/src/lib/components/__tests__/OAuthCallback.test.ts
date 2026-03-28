@@ -115,54 +115,34 @@ describe('oauth callback helpers', () => {
     expect(post).toHaveBeenCalledWith('/api/v1/connections/youtube/callback', {
       code: 'test-code',
       state: 'test-state',
+      redirect_uri: 'https://nodrakeinthe.house/auth/callback/youtube',
     });
     expect(result.status).toBe('success');
     expect(result.provider).toBe('youtube');
   });
 
-  it('uses no-retry fetch for connection providers when getAuthToken is supplied', async () => {
+  it('routes connection provider callbacks through the post callback (bridge)', async () => {
     const post = vi.fn().mockResolvedValue({ success: true });
-    const getAuthToken = vi.fn().mockReturnValue('test-token');
 
-    // Mock global fetch for the no-retry path
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
+    const result = await resolveOAuthCallback(
+      {
+        origin: 'https://nodrakeinthe.house',
+        pathname: '/auth/callback/spotify',
+        search: '?code=single-use-code&state=test-state',
+      },
+      post,
+    );
+
+    expect(post).toHaveBeenCalledWith('/api/v1/connections/spotify/callback', {
+      code: 'single-use-code',
+      state: 'test-state',
+      redirect_uri: 'https://nodrakeinthe.house/auth/callback/spotify',
     });
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = mockFetch;
-
-    try {
-      const result = await resolveOAuthCallback(
-        {
-          origin: 'https://nodrakeinthe.house',
-          pathname: '/auth/callback/spotify',
-          search: '?code=single-use-code&state=test-state',
-        },
-        post,
-        getAuthToken
-      );
-
-      // post (apiClient.post with retry) should NOT have been called
-      expect(post).not.toHaveBeenCalled();
-      // raw fetch should have been called instead
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledWith('/api/v1/connections/spotify/callback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer test-token',
-        },
-        body: JSON.stringify({ code: 'single-use-code', state: 'test-state' }),
-      });
-      expect(result.status).toBe('success');
-      expect(result.provider).toBe('spotify');
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    expect(result.status).toBe('success');
+    expect(result.provider).toBe('spotify');
   });
 
-  it('falls back to post callback for connection providers when getAuthToken is not supplied', async () => {
+  it('routes youtube connection callback through the post callback', async () => {
     const post = vi.fn().mockResolvedValue({ success: true });
 
     const result = await resolveOAuthCallback(
@@ -171,13 +151,13 @@ describe('oauth callback helpers', () => {
         pathname: '/auth/callback/youtube',
         search: '?code=test-code&state=test-state',
       },
-      post
-      // no getAuthToken — simulates old callers
+      post,
     );
 
     expect(post).toHaveBeenCalledWith('/api/v1/connections/youtube/callback', {
       code: 'test-code',
       state: 'test-state',
+      redirect_uri: 'https://nodrakeinthe.house/auth/callback/youtube',
     });
     expect(result.status).toBe('success');
     expect(result.provider).toBe('youtube');

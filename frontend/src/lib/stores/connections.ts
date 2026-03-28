@@ -326,7 +326,11 @@ export const connectionActions = {
         const interval = setInterval(() => {
           if (popup.closed) {
             clearInterval(interval);
-            connectionActions.fetchConnections();
+            connectionActions.fetchConnections().then(() => {
+              // Auto-trigger library sync after successful OAuth
+              apiClient.authenticatedRequest('POST', '/api/v1/connections/spotify/library/sync')
+                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
+            });
             resolve({ success: true });
           }
         }, 500);
@@ -501,7 +505,10 @@ export const connectionActions = {
         const interval = setInterval(() => {
           if (popup.closed) {
             clearInterval(interval);
-            connectionActions.fetchConnections();
+            connectionActions.fetchConnections().then(() => {
+              apiClient.authenticatedRequest('POST', '/api/v1/connections/tidal/library/sync')
+                .catch(() => {});
+            });
             resolve({ success: true });
           }
         }, 500);
@@ -617,7 +624,10 @@ export const connectionActions = {
         const interval = setInterval(() => {
           if (popup.closed) {
             clearInterval(interval);
-            connectionActions.fetchConnections();
+            connectionActions.fetchConnections().then(() => {
+              apiClient.authenticatedRequest('POST', '/api/v1/connections/youtube/library/sync')
+                .catch(() => {});
+            });
             resolve({ success: true });
           }
         }, 500);

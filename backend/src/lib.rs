@@ -72,8 +72,7 @@ pub use ndith_db::{
     seed_test_data, DatabaseConfig, RedisConfiguration,
 };
 pub use ndith_db::{
-    liveness_check, readiness_check, HealthCheckConfig, HealthCheckResponse, HealthChecker,
-    HealthStatus, SystemInfo,
+    liveness_check, readiness_check, HealthCheckResponse, HealthStatus, SystemInfo,
 };
 pub use ndith_db::{retry_database_operation, retry_redis_operation, CircuitBreaker, RetryConfig};
 
@@ -1024,10 +1023,8 @@ async fn oauth_callback_redirect(
 
 /// Health check endpoint with comprehensive error handling
 async fn health_check(State(state): State<AppState>) -> Result<Json<HealthCheckResponse>> {
-    let config = HealthCheckConfig::default();
-    let checker = HealthChecker::new(config);
-
-    let health_response = checker
+    let health_response = state
+        .monitoring
         .check_health(&state.db_pool, &state.redis_pool)
         .await;
 

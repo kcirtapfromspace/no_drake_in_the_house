@@ -1,0 +1,17 @@
+name: Keep-alive ping
+
+on:
+  schedule:
+    # Every 10 minutes — prevents Render starter-plan spin-down (~15min idle)
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          curl -fsS --max-time 30 https://api.nodrakeinthe.house/health \
+            -o /dev/null -w "HTTP %{http_code} in %{time_total}s\n" || true

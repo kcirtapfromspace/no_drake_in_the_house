@@ -138,6 +138,15 @@ impl MonitoringSystem {
         self.redis_metrics.clone()
     }
 
+    /// Run a health check using the long-lived HealthChecker (preserves uptime)
+    pub async fn check_health(
+        &self,
+        db_pool: &sqlx::PgPool,
+        redis_pool: &deadpool_redis::Pool,
+    ) -> HealthCheckResponse {
+        self.health_checker.check_health(db_pool, redis_pool).await
+    }
+
     /// Perform comprehensive monitoring check
     pub async fn comprehensive_check(
         &self,

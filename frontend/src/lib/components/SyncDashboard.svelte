@@ -12,10 +12,6 @@
   import ServiceConnector from './ServiceConnector.svelte';
   import { billingActions } from '../stores/billing';
 
-  let selectedPlatforms: string[] = [];
-  let syncType: 'full' | 'incremental' = 'incremental';
-  let priority: 'low' | 'normal' | 'high' | 'critical' = 'normal';
-  let showTriggerModal = false;
 
   // Connection states
   let connectingPlatform: string | null = null;
@@ -1422,8 +1418,8 @@
     return source === 'live_api' ? 'Live API' : 'Imported Cache';
   }
 
-  function openTriggerModal() {
-    selectedPlatforms = connectedPlatforms
+  async function handleSyncAll() {
+    const selectedPlatforms = connectedPlatforms
       .filter(
         (platform) =>
           Boolean(platform.connectionProvider) &&
@@ -1431,26 +1427,8 @@
           !platform.disabled
       )
       .map((platform) => platform.id);
-    syncType = 'incremental';
-    priority = 'normal';
-    showTriggerModal = true;
-  }
 
-  function closeTriggerModal() {
-    showTriggerModal = false;
-  }
-
-  function togglePlatform(platformId: string) {
-    if (selectedPlatforms.includes(platformId)) {
-      selectedPlatforms = selectedPlatforms.filter(p => p !== platformId);
-    } else {
-      selectedPlatforms = [...selectedPlatforms, platformId];
-    }
-  }
-
-  async function handleTriggerSync() {
     if (selectedPlatforms.length === 0) return;
-    closeTriggerModal();
 
     const directSyncPlatforms = selectedPlatforms
       .map((platformId) => getPlatformById(platformId))
@@ -1476,8 +1454,8 @@
     if (pipelinePlatforms.length > 0) {
       const request: TriggerSyncRequest = {
         platforms: pipelinePlatforms,
-        sync_type: syncType,
-        priority,
+        sync_type: 'incremental',
+        priority: 'normal',
       };
 
       const result = await syncActions.triggerSync(request);
@@ -1796,7 +1774,7 @@
           <div class="brand-actions">
             <button
               type="button"
-              on:click={openTriggerModal}
+              on:click={handleSyncAll}
               disabled={$isAnySyncRunning || $syncStore.isTriggering}
               class="brand-button brand-button--primary"
             >
@@ -3072,115 +3050,6 @@
   </div>
 </div>
 
-<!-- Trigger Sync Modal -->
-{#if showTriggerModal}
-  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" on:click={closeTriggerModal} role="dialog" aria-modal="true">
-    <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-    <div class="bg-zinc-900 rounded-2xl max-w-lg w-full p-6 shadow-xl" on:click|stopPropagation role="document">
-      <div class="flex items-center mb-6">
-        <div class="w-14 h-14 bg-indigo-900/50 rounded-full flex items-center justify-center mr-4">
-          <svg class="w-7 h-7 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        </div>
-        <div>
-          <h3 class="text-xl font-bold text-white">Sync Libraries</h3>
-          <p class="text-zinc-400">Import your favorites, playlists, and followed artists from connected services</p>
-        </div>
-      </div>
-
-      <!-- Platform Selection -->
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-white mb-3">Select services to sync</label>
-        <div class="grid grid-cols-2 gap-2">
-          {#each platforms as platform}
-            {@const platformConnected = activeProviders.has(platform.connectionProvider || platform.id)}
-            <button
-              type="button"
-              on:click={() => !platform.disabled && platformConnected && togglePlatform(platform.id)}
-              disabled={platform.disabled || !platformConnected}
-              class="p-3 rounded-xl border-2 transition-all text-left flex items-center gap-2 {
-                platform.disabled || !platformConnected
-                  ? 'border-zinc-700 bg-zinc-800/50 cursor-not-allowed opacity-50'
-                  : selectedPlatforms.includes(platform.id)
-                    ? 'border-indigo-500 bg-indigo-900 text-zinc-300'
-                    : 'border-zinc-600 hover:border-zinc-500 text-zinc-300'
-              }"
-            >
-              <span class="text-xl font-bold text-zinc-500">{platform.abbr}</span>
-              <div class="flex flex-col">
-                <span class="font-medium">{platform.name}</span>
-                {#if platform.disabled}
-                  <span class="text-xs text-amber-400">{platform.statusLabel}</span>
-                {:else if !platformConnected}
-                  <span class="text-xs text-zinc-500">Not connected</span>
-                {:else}
-                  <span class="text-xs text-green-400">Connected</span>
-                {/if}
-              </div>
-            </button>
-          {/each}
-        </div>
-      </div>
-
-      <!-- Sync Type -->
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-white mb-3">Sync mode</label>
-        <div class="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            on:click={() => syncType = 'incremental'}
-            class="p-3 rounded-xl border-2 transition-all text-left text-zinc-300 {
-              syncType === 'incremental' ? 'border-indigo-500 bg-indigo-900' : 'border-zinc-600 hover:border-zinc-500'
-            }"
-          >
-            <div class="font-medium">Incremental</div>
-            <div class="text-xs text-zinc-400">Only new items since last sync</div>
-          </button>
-          <button
-            type="button"
-            on:click={() => syncType = 'full'}
-            class="p-3 rounded-xl border-2 transition-all text-left text-zinc-300 {
-              syncType === 'full' ? 'border-indigo-500 bg-indigo-900' : 'border-zinc-600 hover:border-zinc-500'
-            }"
-          >
-            <div class="font-medium">Full</div>
-            <div class="text-xs text-zinc-400">Re-import entire library</div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Priority (hidden by default — keep for advanced users) -->
-      <div class="mb-6 hidden">
-        <label for="priority" class="block text-sm font-medium text-white mb-2">Priority</label>
-        <select id="priority" bind:value={priority} class="w-full px-4 py-3 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-zinc-300 bg-zinc-800 border border-zinc-700" >
-          <option value="low">Low</option>
-          <option value="normal">Normal</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
-        </select>
-      </div>
-
-      <!-- Actions -->
-      <div class="flex gap-3">
-        <button type="button" on:click={closeTriggerModal} class="flex-1 px-4 py-3 text-white rounded-xl hover:bg-zinc-700 font-medium transition-colors border border-zinc-700" >
-          Cancel
-        </button>
-        <button
-          type="button"
-          on:click={handleTriggerSync}
-          disabled={selectedPlatforms.length === 0 || $syncStore.isTriggering}
-          class="flex-1 px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {#if $syncStore.isTriggering}
-            Starting...
-          {:else}
-            Start Sync
-          {/if}
-        </button>
-      </div>
-    </div>
-  </div>
-{/if}
 
 <style>
   .sync-dashboard-page {

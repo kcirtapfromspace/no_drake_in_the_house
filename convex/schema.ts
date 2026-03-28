@@ -65,6 +65,8 @@ export default defineSchema({
     metadata: blob,
     aliases: v.optional(v.array(v.string())),
     status: v.optional(v.string()),
+    lastInvestigatedAt: v.optional(v.string()),
+    investigationStatus: v.optional(v.string()),
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_legacyArtistId", ["legacyArtistId"])
@@ -552,6 +554,35 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_stripeCustomerId", ["stripeCustomerId"])
     .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
+
+  offendingArtistIndex: defineTable({
+    ...legacyFields,
+    ...lifecycleFields,
+    artistId: v.id("artists"),
+    offenseCount: v.number(),
+    highestSeverity: v.string(),
+    severityTotal: v.number(),
+    categories: v.array(v.string()),
+  })
+    .index("by_legacyKey", ["legacyKey"])
+    .index("by_artistId", ["artistId"]),
+
+  userOffenseSummaries: defineTable({
+    ...legacyFields,
+    ...lifecycleFields,
+    userId: v.id("users"),
+    totalTracks: v.number(),
+    totalArtists: v.number(),
+    flaggedArtistCount: v.number(),
+    flaggedTrackCount: v.number(),
+    offenderRatio: v.number(),
+    grade: v.string(),
+    offenders: v.array(v.any()),
+    computedAt: v.string(),
+    triggerReason: v.optional(v.string()),
+  })
+    .index("by_legacyKey", ["legacyKey"])
+    .index("by_userId", ["userId"]),
 
   billingEvents: defineTable({
     ...legacyFields,

@@ -10,6 +10,7 @@
   import { timeAgo } from '../utils/time-ago';
   import { HEAVY_LIBRARY_GROUP_TTL_MS, syncDashboardHeavyCache } from '../utils/sync-dashboard-cache';
   import ServiceConnector from './ServiceConnector.svelte';
+  import ProviderIcon from './ProviderIcon.svelte';
   import { billingActions } from '../stores/billing';
 
 
@@ -2227,7 +2228,12 @@
             <tbody class="border-t border-zinc-700">
               {#each libraryStatsRows as row}
                 <tr class="hover:bg-zinc-800">
-                  <td class="px-4 py-3 font-medium text-white">{row.providerName}</td>
+                  <td class="px-4 py-3 font-medium text-white">
+                    <span class="inline-flex items-center gap-2">
+                      <ProviderIcon provider={row.provider} size={16} />
+                      {row.providerName}
+                    </span>
+                  </td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.songs)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.albums)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.artists)}</td>
@@ -2802,7 +2808,10 @@
                             <div class="text-xs text-zinc-500">{group.secondary}</div>
                           {/if}
                           {#if group.provider && libraryGroupBy === 'playlist'}
-                            <div class="text-xs text-zinc-500">Provider: {getProviderName(group.provider)}</div>
+                            <div class="text-xs text-zinc-500 inline-flex items-center gap-1">
+                              <ProviderIcon provider={group.provider} size={12} />
+                              {getProviderName(group.provider)}
+                            </div>
                           {/if}
                         </td>
                         <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{group.count.toLocaleString()}</td>
@@ -2889,7 +2898,9 @@
                       {@const kind = kindFromImportedItem(item)}
                       {@const title = item.track_name || item.playlist_name || item.provider_track_id || '(Untitled)'}
                       <tr class="hover:bg-zinc-800">
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{providerName}</td>
+                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap" title={providerName}>
+                          <ProviderIcon provider={provider} size={18} />
+                        </td>
                         <td class="py-2 pr-4 text-white font-medium max-w-md truncate" title={title}>{title}</td>
                         <td class="py-2 pr-4 text-zinc-300 max-w-xs truncate" title={item.artist_name || ''}>{item.artist_name || '--'}</td>
                         <td class="py-2 pr-4 text-zinc-300 max-w-xs truncate" title={item.album_name || item.playlist_name || ''}>

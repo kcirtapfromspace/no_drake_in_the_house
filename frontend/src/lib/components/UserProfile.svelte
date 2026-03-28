@@ -74,9 +74,9 @@
     try {
       const result = await api.get('/users/profile');
       if (result.success) {
-        profile = result.data;
+        profile = result.data as UserProfile | null;
         editEmail = profile?.email || '';
-        editSettings = { 
+        editSettings = {
           two_factor_enabled: profile?.settings?.two_factor_enabled || false,
           email_notifications: profile?.settings?.email_notifications || true,
           privacy_mode: profile?.settings?.privacy_mode || false
@@ -104,7 +104,7 @@
       });
 
       if (result.success) {
-        profile = result.data;
+        profile = result.data as UserProfile | null;
         editingProfile = false;
         success = 'Profile updated successfully';
         // Update auth store
@@ -132,7 +132,7 @@
       });
 
       if (result.success) {
-        profile = result.data;
+        profile = result.data as UserProfile | null;
         success = 'Settings updated successfully';
       } else {
         error = result.message || 'Failed to update settings';

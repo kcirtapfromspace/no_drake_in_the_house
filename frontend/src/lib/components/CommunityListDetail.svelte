@@ -4,6 +4,8 @@
   $: list = $communityStore.currentList;
   $: isSubscribed = list ? $subscribedListIds.has(list.id) : false;
 
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+
   let showSubscriptionOptions = false;
   let versionPinned: number | null = null;
   let autoUpdate = true;
@@ -32,7 +34,7 @@
     const impact = await communityActions.getSubscriptionImpact(list.id);
     if (impact.success) {
       const confirmed = confirm(
-        `This list will add ${impact.data.artists_to_add} artists to your DNP list. Continue?`
+        `This list will add ${impact.data?.artists_to_add ?? 0} artists to your DNP list. Continue?`
       );
       if (confirmed) {
         const result = await communityActions.subscribe(
@@ -272,7 +274,7 @@
                       src={item.artist.metadata.image}
                       alt=""
                       class="w-10 h-10 rounded-full object-cover absolute inset-0"
-                      on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                      on:error={hideImgOnError}
                     />
                   {/if}
                   <div class="w-10 h-10 flex items-center justify-center">

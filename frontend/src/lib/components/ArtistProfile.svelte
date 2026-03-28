@@ -1,9 +1,7 @@
 <script lang="ts">
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import {
-    artistStore,
-    artistActions,
     getStatusColor,
     getStatusLabel,
     getConfidenceLabel,
@@ -15,7 +13,6 @@
     type ArtistStatus,
     type ConfidenceLevel,
     type Offense,
-    type Evidence,
     type SourceTier
   } from '../stores/artist';
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
@@ -28,7 +25,15 @@
   let profile: ArtistProfile | null = null;
   let isLoading = true;
   let error: string | null = null;
-  let activeTab: 'evidence' | 'catalog' | 'discography' | 'credits' | 'connections' = 'evidence';
+  type ProfileTab = 'evidence' | 'catalog' | 'discography' | 'credits' | 'connections';
+  let activeTab: ProfileTab = 'evidence';
+  const profileTabs: { key: ProfileTab; label: string }[] = [
+    { key: 'evidence', label: 'Evidence' },
+    { key: 'catalog', label: 'Full Catalog' },
+    { key: 'discography', label: 'Revenue' },
+    { key: 'credits', label: 'Credits' },
+    { key: 'connections', label: 'Connections' },
+  ];
 
   // Catalog data for tracking all artist appearances
   interface CatalogTrack {
@@ -73,9 +78,6 @@
   let connectionsLoading = false;
   let blockedNetworkArtists: Set<string> = new Set();
 
-  // Track blocking in progress
-  let trackBlockingInProgress: Set<string> = new Set();
-
   // Expandable albums state for catalog view
   let expandedCatalogAlbums: Set<string> = new Set();
 
@@ -90,16 +92,19 @@
   let prefersReducedMotion = false;
   $: slideDuration = prefersReducedMotion ? 0 : 200;
 
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+  function handleImgError(e: Event) {
+    const img = e.currentTarget as HTMLImageElement;
+    img.alt = 'Image unavailable';
+    img.style.minHeight = '200px';
+    img.style.background = 'var(--color-bg-interactive)';
+  }
+
   function hexToRgba(hex: string, alpha: number): string {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  function openAlbumCover(url: string, name: string) {
-    selectedAlbumCover = { url, name };
-    showAlbumCoverModal = true;
   }
 
   function closeAlbumCoverModal() {
@@ -1096,7 +1101,7 @@
                   alt=""
                   class="profile__photo-img"
                   style="position: absolute; inset: 0;"
-                  on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                  on:error={hideImgOnError}
                 />
               {/if}
               <div class="profile__photo-placeholder">
@@ -1296,13 +1301,7 @@
     <div class="profile__content-card">
     <!-- Tab Navigation -->
     <nav class="profile__tab-bar" aria-label="Artist profile sections">
-      {#each [
-        { key: 'evidence', label: 'Evidence' },
-        { key: 'catalog', label: 'Full Catalog' },
-        { key: 'discography', label: 'Revenue' },
-        { key: 'credits', label: 'Credits' },
-        { key: 'connections', label: 'Connections' },
-      ] as tab}
+      {#each profileTabs as tab}
         <button
           type="button"
           on:click={() => activeTab = tab.key}
@@ -1476,7 +1475,7 @@
                     >
                       <div class="cat-album__art">
                         {#if album.cover && !album.cover.includes('data:image')}
-                          <img src={album.cover} alt="" class="cat-album__art-img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          <img src={album.cover} alt="" class="cat-album__art-img" on:error={hideImgOnError} />
                         {/if}
                         <div class="cat-album__art-ph">
                           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
@@ -1593,11 +1592,11 @@
             />
           </div>
 
-          {#if profile.streaming_metrics?.platform_breakdown?.length > 0}
+          {#if (profile.streaming_metrics?.platform_breakdown?.length ?? 0) > 0}
             <div class="rounded-xl p-5 surface-panel-thin">
               <h3 class="text-lg font-semibold text-zinc-100 mb-6">Platform Distribution</h3>
               <div class="space-y-5">
-                {#each profile.streaming_metrics.platform_breakdown as platform}
+                {#each profile.streaming_metrics?.platform_breakdown ?? [] as platform}
                   <div>
                     <div class="flex justify-between text-sm mb-2">
                       <span class="text-zinc-200 capitalize font-medium">{platform.platform}</span>
@@ -1620,11 +1619,11 @@
             </div>
           {/if}
 
-          {#if profile.streaming_metrics?.top_tracks?.length > 0}
+          {#if (profile.streaming_metrics?.top_tracks?.length ?? 0) > 0}
             <div class="rounded-xl p-5 surface-panel-thin">
               <h3 class="text-lg font-semibold text-zinc-100 mb-6">Top Tracks</h3>
               <div class="space-y-3">
-                {#each profile.streaming_metrics.top_tracks.slice(0, 5) as track, index}
+                {#each (profile.streaming_metrics?.top_tracks ?? []).slice(0, 5) as track, index}
                   <div class="flex items-center gap-4 p-4 rounded-xl hover:bg-white/[0.04] transition-colors surface-panel-thin">
                     <span class="text-2xl font-bold text-zinc-400 w-8 text-center">{index + 1}</span>
                     <div class="flex-1 min-w-0">
@@ -1666,7 +1665,7 @@
               {#each profile.credits.writers as writer}
                 <div class="cred-row">
                   <div class="cred-avatar">
-                    {#if writer.image_url}<img src={writer.image_url} alt="" class="cred-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
+                    {#if writer.image_url}<img src={writer.image_url} alt="" class="cred-avatar__img" on:error={hideImgOnError} />{/if}
                     <div class="cred-avatar__ph">{writer.name.charAt(0)}</div>
                   </div>
                   <div class="cred-info">
@@ -1700,7 +1699,7 @@
               {#each profile.credits.producers as producer}
                 <div class="cred-row">
                   <div class="cred-avatar">
-                    {#if producer.image_url}<img src={producer.image_url} alt="" class="cred-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />{/if}
+                    {#if producer.image_url}<img src={producer.image_url} alt="" class="cred-avatar__img" on:error={hideImgOnError} />{/if}
                     <div class="cred-avatar__ph">{producer.name.charAt(0)}</div>
                   </div>
                   <div class="cred-info">
@@ -1770,7 +1769,7 @@
               >
                 <div class="conn-avatar">
                   {#if collab.image_url}
-                    <img src={collab.image_url} alt="" class="conn-avatar__img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    <img src={collab.image_url} alt="" class="conn-avatar__img" on:error={hideImgOnError} />
                   {/if}
                   <div class="conn-avatar__ph">{collab.name.charAt(0)}</div>
                 </div>
@@ -1896,7 +1895,7 @@
             src={selectedAlbumCover.url}
             alt={selectedAlbumCover.name}
             class="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
-            on:error={(e) => { e.currentTarget.alt = 'Image unavailable'; e.currentTarget.style.minHeight = '200px'; e.currentTarget.style.background = 'var(--color-bg-interactive)'; }}
+            on:error={handleImgError}
           />
           <div class="text-center mt-4">
             <p class="text-white font-semibold text-lg">{selectedAlbumCover.name}</p>

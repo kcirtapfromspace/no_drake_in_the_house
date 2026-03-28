@@ -4,6 +4,8 @@
   
   const dispatch = createEventDispatcher();
   
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+
   let searchQuery = '';
   let selectedArtist: any = null;
   let tags = '';
@@ -122,7 +124,7 @@
                       src={artist.metadata.image}
                       alt=""
                       class="h-8 w-8 rounded-full object-cover absolute inset-0"
-                      on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                      on:error={hideImgOnError}
                     />
                   {/if}
                   <div class="h-8 w-8 flex items-center justify-center">
@@ -178,7 +180,7 @@
               src={selectedArtist.metadata.image}
               alt=""
               class="avatar avatar--xl object-cover absolute inset-0"
-              on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+              on:error={hideImgOnError}
             />
           {/if}
           <div class="avatar avatar--xl avatar__placeholder">

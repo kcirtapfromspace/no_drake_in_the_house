@@ -3,9 +3,7 @@
   import {
     analyticsStore,
     analyticsActions,
-    type GlobalCategoryRevenue,
     type CategoryRevenue,
-    type CategoryArtistRevenue,
   } from '../stores/analytics';
 
   // Props
@@ -51,13 +49,6 @@
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(num);
-  }
-
-  function formatNumber(value: number): string {
-    return new Intl.NumberFormat('en-US', {
-      notation: 'compact',
-      compactDisplay: 'short',
-    }).format(value);
   }
 
   async function loadData() {

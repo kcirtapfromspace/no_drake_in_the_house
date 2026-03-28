@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { ArtistStatus } from '../../stores/artist';
-  import { getStatusColor } from '../../stores/artist';
   import { navigateToArtist } from '../../utils/simple-router';
 
   export let id: string;
@@ -14,8 +13,6 @@
   export let showBlockedBadge: boolean = true;
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let onClick: (() => void) | undefined = undefined;
-
-  $: statusColors = getStatusColor(status);
 
   function handleClick() {
     if (onClick) {

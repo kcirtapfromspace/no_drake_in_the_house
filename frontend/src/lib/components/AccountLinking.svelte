@@ -48,7 +48,7 @@
       const result = await api.get<LinkedAccount[]>('/auth/oauth/accounts');
 
       if (result.success) {
-        linkedAccounts = result.data;
+        linkedAccounts = result.data ?? [];
       } else {
         error = result.message || 'Failed to load linked accounts';
       }
@@ -71,11 +71,11 @@
 
       if (result.success) {
         // Store state for validation when callback returns
-        sessionStorage.setItem(`oauth_link_state_${provider}`, result.data.state);
+        sessionStorage.setItem(`oauth_link_state_${provider}`, result.data!.state);
 
         // Open OAuth flow in popup window
         const popup = window.open(
-          result.data.authorization_url,
+          result.data!.authorization_url,
           `link_${provider}`,
           'width=500,height=600,scrollbars=yes,resizable=yes'
         );

@@ -21,6 +21,7 @@
     'service-health': { label: 'Service Health', parent: 'settings' },
     'profile': { label: 'Profile', parent: 'settings' },
     'artist-profile': { label: 'Artist Profile', parent: 'dnp' },
+    'playlist-sanitizer': { label: 'Playlists', parent: 'home' },
     'oauth-callback': { label: 'Connecting', parent: 'connections' },
     'oauth-error': { label: 'Connection Error', parent: 'connections' },
   };
@@ -31,7 +32,7 @@
     let current: Route | undefined = route;
 
     while (current) {
-      const config = routeConfig[current];
+      const config: { label: string; parent?: Route } | undefined = routeConfig[current];
       if (config) {
         crumbs.unshift({ route: current, label: config.label });
         current = config.parent;

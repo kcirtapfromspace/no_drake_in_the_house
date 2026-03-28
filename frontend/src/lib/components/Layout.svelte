@@ -4,7 +4,6 @@
   import { spotifyConnection, appleMusicConnection, connectionActions } from '../stores/connections';
   import { blockingStore } from '../stores/blocking';
   import { theme, resolvedTheme } from '../stores/theme';
-  import type { Theme } from '../stores/theme';
   import BlockingToasts from './BlockingToasts.svelte';
   import { onMount, tick } from 'svelte';
   import { fly, fade } from 'svelte/transition';

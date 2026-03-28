@@ -1,12 +1,9 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
   import { navigateTo } from '../utils/simple-router';
   import { libraryActions, type ImportTrack } from '../stores/library';
 
   let activeTab: 'services' | 'import' | 'extension' = 'services';
   let importFile: File | null = null;
-  let isImporting = false;
-  let importSuccess = false;
   let importError = '';
   let importedCount = 0;
   let detectedProvider = '';
@@ -29,10 +26,6 @@
 
   async function connectYouTube() {
     alert('YouTube Music connection coming soon! We use the YouTube Data API.');
-  }
-
-  async function connectDeezer() {
-    alert('Deezer connection coming soon!');
   }
 
   function handleFileSelect(event: Event) {
@@ -231,7 +224,6 @@
       if (result) {
         importedCount = result.imported;
         parseStep = 'done';
-        importSuccess = true;
       } else {
         throw new Error('Failed to import tracks to server');
       }
@@ -247,7 +239,6 @@
     importError = '';
     parsedTracks = [];
     detectedProvider = '';
-    importSuccess = false;
     importedCount = 0;
   }
 

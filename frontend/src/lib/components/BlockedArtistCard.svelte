@@ -12,6 +12,8 @@
   export let note: string | undefined = undefined;
   export let onUnblock: () => void;
 
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+
   let isUnblocking = false;
   let confirming = false;
 
@@ -56,7 +58,7 @@
           alt=""
           class="card__img"
           style="position: absolute; inset: 0;"
-          on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+          on:error={hideImgOnError}
         />
       {/if}
       <div class="card__placeholder">

@@ -7,7 +7,7 @@
   // Subscribe to enforcement status for this artist
   $: enforcement = $blockingStore.artistEnforcements.get(artistId);
 
-  function getPlatformStyle(platform: Platform, status: EnforcementStatus | undefined) {
+  function getPlatformStyle(platform: Platform, _status: EnforcementStatus | undefined) {
     const baseStyles = {
       spotify: {
         connected: 'bg-green-500 text-white',

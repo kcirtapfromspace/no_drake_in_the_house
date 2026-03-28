@@ -9,8 +9,7 @@
     scanStats,
     severityConfig,
     categoryLabels,
-    type FlaggedArtist,
-    type OffenseSeverity
+    type FlaggedArtist
   } from '../stores/library';
   import { dnpActions } from '../stores/dnp';
 
@@ -63,7 +62,7 @@
     await libraryActions.scanLibrary();
   }
 
-  function getSeverityCount(severity: OffenseSeverity): number {
+  function getSeverityCount(severity: string): number {
     return $flaggedArtists.filter(a => a.severity === severity).length;
   }
 
@@ -86,10 +85,6 @@
     for (const artist of $flaggedArtists) {
       await blockArtist(artist);
     }
-  }
-
-  function resetScan() {
-    libraryActions.resetScan();
   }
 
   /** Map severity keys to CSS modifier classes */

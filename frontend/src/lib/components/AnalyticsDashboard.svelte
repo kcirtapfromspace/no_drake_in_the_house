@@ -3,13 +3,12 @@
   import {
     analyticsStore,
     analyticsActions,
-    isSystemHealthy,
     risingArtists,
     fallingArtists
   } from '../stores/analytics';
   import type { ReportRequest, TroubleTier } from '../stores/analytics';
   import { syncStore, syncActions, isAnySyncRunning } from '../stores/sync';
-  import { navigateTo, navigateToArtist } from '../utils/simple-router';
+  import { navigateToArtist } from '../utils/simple-router';
   import CategoryRevenueBreakdown from './CategoryRevenueBreakdown.svelte';
   import { Skeleton } from './ui';
   import { timeAgo } from '../utils/time-ago';
@@ -186,19 +185,6 @@
     return Math.abs(value).toFixed(1);
   }
 
-  function formatLastSync(value: string | undefined): string {
-    if (!value) return 'Never';
-
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Never';
-
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  }
-
   function getTrendBarHeight(
     value: number | undefined,
     points: Array<{ value: number }>
@@ -212,7 +198,7 @@
       return 0;
     }
 
-    return (value / maxValue) * 100;
+    return (value! / maxValue) * 100;
   }
 
   function getTrendIcon(trend: 'up' | 'down' | 'stable' | 'rising' | 'falling'): string {
@@ -229,14 +215,6 @@
       case 'down': case 'falling': return 'text-red-600';
       default: return 'text-zinc-300';
     }
-  }
-
-  function getHealthIcon(healthy: boolean): string {
-    return healthy ? '\u2713' : '\u2717';
-  }
-
-  function getHealthColor(healthy: boolean): string {
-    return healthy ? 'text-green-600' : 'text-red-600';
   }
 
   function getTierColor(tier: TroubleTier | undefined): string {
@@ -283,7 +261,6 @@
 
   $: dashboard = $analyticsStore.dashboard;
   $: userStats = $analyticsStore.userStats;
-  $: systemHealth = $analyticsStore.systemHealth;
   $: trendSummary = $analyticsStore.trends.summary;
   $: distribution = $analyticsStore.revenueDistribution;
   $: problematicArtists = $analyticsStore.problematicArtistRevenue;

@@ -38,8 +38,8 @@
 
     isSearching = true;
     try {
-      const result = await dnpActions.searchArtists(searchQuery);
-      searchResults = result.artists || [];
+      await dnpActions.searchArtists(searchQuery);
+      searchResults = $dnpStore.searchResults || [];
     } catch (e) {
       console.error('Search failed:', e);
       searchResults = [];

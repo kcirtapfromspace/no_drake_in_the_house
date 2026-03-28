@@ -1,6 +1,8 @@
 <script lang="ts">
   import { dnpActions, dnpStore } from '../stores/dnp';
 
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+
   let searchQuery = '';
   let searchTimeout: any;
   let isAddingArtist = false;
@@ -79,7 +81,7 @@
       aria-controls={searchQuery && $dnpStore.searchResults.length > 0 ? 'search-results-list' : undefined}
       aria-activedescendant={activeIndex >= 0 ? `search-result-${activeIndex}` : undefined}
       role="combobox"
-      aria-expanded={searchQuery && $dnpStore.searchResults.length > 0}
+      aria-expanded={!!searchQuery && $dnpStore.searchResults.length > 0}
       class="search-bar__input"
     />
 
@@ -125,7 +127,7 @@
                     alt=""
                     class="search-bar__result-img"
                     style="position: absolute; inset: 0;"
-                    on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+                    on:error={hideImgOnError}
                   />
                 {/if}
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

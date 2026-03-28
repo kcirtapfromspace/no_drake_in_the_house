@@ -1,8 +1,6 @@
 <script lang="ts">
   import { apiClient } from '../utils/api-client';
-  import { authActions, isAuthenticated } from '../stores/auth';
-  import { dnpActions } from '../stores/dnp';
-  import { connectionActions } from '../stores/connections';
+  import { isAuthenticated } from '../stores/auth';
   
   let testResults: any[] = [];
   let isRunning = false;

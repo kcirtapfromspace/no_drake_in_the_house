@@ -2,14 +2,14 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import {
-    analyticsStore,
     analyticsActions,
-    type ArtistDiscographyRevenue,
   } from '../stores/analytics';
 
   // Props
   export let artistId: string;
   export let artistName: string = '';
+
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
 
   // Local state
   let isLoading = false;
@@ -17,10 +17,6 @@
   let expandedAlbums: Set<string> = new Set();
   let prefersReducedMotion = false;
   $: slideDuration = prefersReducedMotion ? 0 : 200;
-
-  // Reactive data from store
-  $: discography = $analyticsStore.artistDiscographyRevenue;
-  $: isCurrentArtist = discography?.artist_id === artistId;
 
   function toggleAlbum(albumId: string) {
     if (expandedAlbums.has(albumId)) {
@@ -46,10 +42,6 @@
       notation: 'compact',
       compactDisplay: 'short',
     }).format(value);
-  }
-
-  function formatFullNumber(value: number): string {
-    return new Intl.NumberFormat('en-US').format(value);
   }
 
   // Album data with tracks and cover art
@@ -319,7 +311,7 @@
     isLoading = true;
     error = null;
 
-    const result = await analyticsActions.fetchArtistDiscographyRevenue(artistId);
+    await analyticsActions.fetchArtistDiscographyRevenue(artistId);
     // We'll use our local data regardless since the API returns generic data
     isLoading = false;
   }
@@ -393,7 +385,7 @@
             <div class="rev-col rev-col--album">
               <div class="rev-album__art">
                 {#if album.cover_url}
-                  <img src={album.cover_url} alt="" class="rev-album__art-img" on:error={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  <img src={album.cover_url} alt="" class="rev-album__art-img" on:error={hideImgOnError} />
                 {/if}
                 <div class="rev-album__art-ph">
                   <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>

@@ -4,7 +4,7 @@
     analyticsStore,
     analyticsActions,
   } from '../stores/analytics';
-  import type { TroubleTier, ArtistRevenueBreakdown } from '../stores/analytics';
+  import type { TroubleTier } from '../stores/analytics';
   import { navigateTo } from '../utils/simple-router';
 
   let selectedDays = 30;

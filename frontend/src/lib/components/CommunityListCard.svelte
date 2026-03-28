@@ -20,7 +20,7 @@
       const impact = await communityActions.getSubscriptionImpact(list.id);
       if (impact.success) {
         const confirmed = confirm(
-          `This list will add ${impact.data.artists_to_add} artists to your DNP list. Continue?`
+          `This list will add ${impact.data?.artists_to_add ?? 0} artists to your DNP list. Continue?`
         );
         if (confirmed) {
           const result = await communityActions.subscribe(list.id);

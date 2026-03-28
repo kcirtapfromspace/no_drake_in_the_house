@@ -7,6 +7,8 @@
   export let entry: any;
   export let selected = false;
   
+  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+
   let isEditing = false;
   let editTags = entry.tags.join(', ');
   let editNote = entry.note || '';
@@ -117,7 +119,7 @@
             src={entry.artist.metadata.image}
             alt=""
             class="avatar avatar--xl sm:avatar--lg object-cover absolute inset-0"
-            on:error={(e) => { e.currentTarget.style.display = 'none'; }}
+            on:error={hideImgOnError}
           />
         {/if}
         <div class="avatar avatar--xl sm:avatar--lg avatar__placeholder">

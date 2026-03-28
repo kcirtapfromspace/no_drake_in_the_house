@@ -1128,7 +1128,10 @@ impl TokenVaultService {
         })
     }
 
-    async fn decrypt_legacy_connection_tokens(&self, connection: &Connection) -> Result<DecryptedToken> {
+    async fn decrypt_legacy_connection_tokens(
+        &self,
+        connection: &Connection,
+    ) -> Result<DecryptedToken> {
         let encryption = OAuthTokenEncryption::new()
             .map_err(|e| anyhow!("Failed to initialize legacy OAuth token decryption: {}", e))?;
 
@@ -1136,13 +1139,12 @@ impl TokenVaultService {
             .access_token_encrypted
             .as_deref()
             .ok_or_else(|| anyhow!("No access token stored for this connection"))?;
-        let access_token =
-            Self::decrypt_legacy_token_string(access_token_str, &encryption).await?;
+        let access_token = Self::decrypt_legacy_token_string(access_token_str, &encryption).await?;
 
         let refresh_token = match connection.refresh_token_encrypted.as_deref() {
-            Some(encoded_refresh) => Some(
-                Self::decrypt_legacy_token_string(encoded_refresh, &encryption).await?,
-            ),
+            Some(encoded_refresh) => {
+                Some(Self::decrypt_legacy_token_string(encoded_refresh, &encryption).await?)
+            }
             None => None,
         };
 
@@ -1483,12 +1485,10 @@ mod tests {
         std::env::set_var("OAUTH_ENCRYPTION_KEY", key);
 
         let encryption = OAuthTokenEncryption::new().unwrap();
-        let access_token = general_purpose::STANDARD.encode(
-            encryption.encrypt_token("legacy_access_token").unwrap(),
-        );
-        let refresh_token = general_purpose::STANDARD.encode(
-            encryption.encrypt_token("legacy_refresh_token").unwrap(),
-        );
+        let access_token = general_purpose::STANDARD
+            .encode(encryption.encrypt_token("legacy_access_token").unwrap());
+        let refresh_token = general_purpose::STANDARD
+            .encode(encryption.encrypt_token("legacy_refresh_token").unwrap());
 
         let mut connection = Connection::new(
             Uuid::new_v4(),

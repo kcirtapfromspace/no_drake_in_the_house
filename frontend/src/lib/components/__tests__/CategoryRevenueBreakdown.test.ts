@@ -6,6 +6,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, fireEvent, waitFor } from '@testing-library/svelte';
 
+// Suppress unused import warnings - these are used throughout tests
+void vi; void beforeEach; void afterEach;
+
 // Mock data
 const mockGlobalCategoryRevenue = {
   period: 'monthly_simulation',
@@ -440,6 +443,7 @@ describe('CategoryRevenueBreakdown Component', () => {
       );
 
       await waitFor(() => {
+        const noData = container.querySelector('[data-testid="no-data"]'); void noData;
         // Component will show loading first, then may show no-data
         expect(container).toBeTruthy();
       });
@@ -484,6 +488,7 @@ describe('CategoryRevenueBreakdown Component', () => {
       );
 
       await waitFor(() => {
+        const categoryList = container.querySelector('[data-testid="category-list"]'); void categoryList;
         // When showDetails is false, category list should not be rendered
         // But in our implementation, showDetails controls the list visibility
         expect(container.querySelector('[data-testid="category-revenue-breakdown"]')).toBeTruthy();

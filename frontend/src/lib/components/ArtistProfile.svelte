@@ -34,6 +34,7 @@
     { key: 'credits', label: 'Credits' },
     { key: 'connections', label: 'Connections' },
   ];
+  function setTab(key: string) { activeTab = key as ProfileTab; }
 
   // Catalog data for tracking all artist appearances
   interface CatalogTrack {
@@ -1304,7 +1305,7 @@
       {#each profileTabs as tab}
         <button
           type="button"
-          on:click={() => activeTab = tab.key}
+          on:click={() => setTab(tab.key)}
           class="profile__tab"
           class:profile__tab--active={activeTab === tab.key}
           role="tab"

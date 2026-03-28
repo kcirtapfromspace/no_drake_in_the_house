@@ -8,14 +8,37 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { colors, tailwindClasses } from '../design-tokens';
+import { colors, tailwindClasses, borderRadiusRequirements } from '../design-tokens';
+void borderRadiusRequirements;
 
 // ============================================================================
 // TEST CONFIGURATION
 // ============================================================================
 
 const COMPONENTS_DIR = path.join(__dirname, '../../components');
-void path.join(__dirname, '../../components/ui');
+const UI_COMPONENTS_DIR = path.join(__dirname, '../../components/ui');
+void UI_COMPONENTS_DIR;
+
+// Allowed color patterns for dark theme
+const ALLOWED_BACKGROUND_COLORS = [
+  '#18181b', '#27272a', '#3f3f46', '#52525b', // zinc backgrounds
+  'zinc-900', 'zinc-800', 'zinc-700', 'zinc-600', // tailwind zinc
+  'transparent', 'inherit', 'currentColor',
+  'rgba(', // Allow rgba for overlays
+  'linear-gradient', // Allow gradients
+];
+
+const ALLOWED_TEXT_COLORS = [
+  '#ffffff', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#71717a', // zinc text
+  'white', 'zinc-200', 'zinc-300', 'zinc-400', 'zinc-500',
+  'inherit', 'currentColor',
+];
+
+const ALLOWED_BORDER_COLORS = [
+  '#52525b', '#3f3f46', '#71717a', // zinc borders
+  'zinc-600', 'zinc-700', 'zinc-500',
+  'transparent', 'inherit', 'currentColor',
+];
 
 // Deprecated patterns that should not be used
 const DEPRECATED_PATTERNS = [
@@ -46,6 +69,10 @@ const DEPRECATED_PATTERNS = [
 ];
 
 // Accessibility requirements - used for reference in manual audits
+
+// Suppress unused warnings for constants defined for future test use
+void ALLOWED_BACKGROUND_COLORS; void ALLOWED_TEXT_COLORS;
+void ALLOWED_BORDER_COLORS;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -103,6 +130,19 @@ function findViolations(
 
   return violations;
 }
+
+function extractStyleAttribute(content: string): string[] {
+  const styleRegex = /style="([^"]+)"/g;
+  const styles: string[] = [];
+  let match;
+
+  while ((match = styleRegex.exec(content)) !== null) {
+    styles.push(match[1]);
+  }
+
+  return styles;
+}
+void extractStyleAttribute;
 
 function extractClassAttribute(content: string): string[] {
   const classRegex = /class="([^"]+)"/g;
@@ -285,7 +325,13 @@ describe('Design System Consistency', () => {
     it('should not have sharp-cornered cards or panels', () => {
       const violations: Array<{ file: string; line: number; element: string }> = [];
 
-      // Card patterns checked inline below
+      // Patterns that indicate a container element without rounded corners
+      const cardPatterns = [
+        // Inline style background without border-radius in same element
+        { regex: /style="[^"]*background:\s*#27272a[^"]*"(?![^>]*rounded)/, name: 'zinc-800 card' },
+        { regex: /style="[^"]*background:\s*#3f3f46[^"]*"(?![^>]*rounded)/, name: 'zinc-700 panel' },
+      ];
+      void cardPatterns;
 
       componentFiles.forEach((content, filePath) => {
         const lines = content.split('\n');
@@ -384,6 +430,7 @@ describe('Design System Consistency', () => {
       componentFiles.forEach((content, filePath) => {
         const lines = content.split('\n');
         let insideModal = false;
+        let modalStartLine = -1; void modalStartLine;
         let currentElementLines: string[] = [];
         let elementStartLine = -1;
 
@@ -643,6 +690,13 @@ describe('Component Structure', () => {
 
   it('should have consistent card structure', () => {
     let cardCount = 0;
+    const cardStyles = {
+      background: /#27272a|bg-zinc-800/,
+      border: /border.*#52525b|border-zinc-600/,
+      rounded: /rounded-xl|rounded-lg/,
+    };
+    void cardStyles;
+
     componentFiles.forEach((content) => {
       // Look for card-like elements
       const cardMatches = content.match(/class="[^"]*rounded-(?:xl|lg)[^"]*"/g) || [];

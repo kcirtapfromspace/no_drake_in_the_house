@@ -5,6 +5,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { validateLink, validateLinks, clearLinkCache } from '../link-validator';
+import type { LinkCheckResult as _LinkCheckResult } from '../link-validator';
 
 describe('Link Validator', () => {
   let fetchMock: ReturnType<typeof vi.fn>;

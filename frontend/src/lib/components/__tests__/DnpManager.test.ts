@@ -1,4 +1,5 @@
-import { render } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
+void screen; // suppress unused import warning
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // Mock the imported components that don't exist yet

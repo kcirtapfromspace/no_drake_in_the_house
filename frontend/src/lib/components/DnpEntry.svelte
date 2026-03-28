@@ -6,7 +6,7 @@
   
   export let entry: any;
   export let selected = false;
-  
+
   function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
 
   let isEditing = false;

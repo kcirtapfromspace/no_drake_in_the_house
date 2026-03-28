@@ -81,7 +81,7 @@
       aria-controls={searchQuery && $dnpStore.searchResults.length > 0 ? 'search-results-list' : undefined}
       aria-activedescendant={activeIndex >= 0 ? `search-result-${activeIndex}` : undefined}
       role="combobox"
-      aria-expanded={!!searchQuery && $dnpStore.searchResults.length > 0}
+      aria-expanded={!!(searchQuery && $dnpStore.searchResults.length > 0)}
       class="search-bar__input"
     />
 

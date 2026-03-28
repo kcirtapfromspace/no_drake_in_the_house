@@ -402,8 +402,8 @@
     min-height: 100vh;
     color: var(--color-text-primary);
     background:
-      radial-gradient(circle at top left, rgba(244, 63, 94, 0.1), transparent 18rem),
-      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 14rem),
+      radial-gradient(circle at top left, var(--color-bg-glow-primary), transparent 18rem),
+      radial-gradient(circle at top right, var(--color-bg-glow-secondary), transparent 14rem),
       var(--color-bg-page);
   }
 
@@ -414,10 +414,10 @@
     z-index: calc(var(--z-sticky, 40) + 20);
     padding: 0.7rem 1rem;
     border-radius: 999px;
-    background: rgba(8, 8, 11, 0.96);
+    background: var(--color-bg-skip-link);
     color: var(--color-text-primary);
-    border: 1px solid rgba(244, 63, 94, 0.35);
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+    border: 1px solid var(--color-brand-glow-border);
+    box-shadow: var(--shadow-xl);
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.01em;
@@ -436,7 +436,7 @@
     opacity: 1;
     pointer-events: auto;
     outline: none;
-    border-color: rgba(251, 113, 133, 0.7);
+    border-color: var(--color-brand-glow-focus);
   }
 
   /* ===== NAVIGATION ===== */
@@ -483,8 +483,8 @@
     align-items: center;
     justify-content: center;
     border-radius: 999px;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), transparent 45%), rgba(244, 63, 94, 0.14);
-    box-shadow: 0 0 0 1px rgba(244, 63, 94, 0.18);
+    background: radial-gradient(circle at 30% 30%, var(--color-overlay-glass), transparent 45%), var(--color-brand-primary-muted);
+    box-shadow: 0 0 0 1px var(--color-brand-glow-ring);
   }
 
   .nav__logo-mark svg {
@@ -561,7 +561,7 @@
     width: 1rem;
     height: 2px;
     border-radius: 1px;
-    background: var(--color-brand-primary, #f43f5e);
+    background: var(--color-brand-primary);
   }
 
   .nav__actions {
@@ -685,7 +685,7 @@
 
   .nav__avatar:hover {
     background: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .nav__dropdown {

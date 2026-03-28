@@ -373,7 +373,7 @@
     font-family: var(--font-family-sans);
     font-size: var(--text-xs);
     font-weight: 600;
-    color: white;
+    color: var(--color-text-on-brand);
     background-color: var(--color-brand-primary);
     border: none;
     border-radius: var(--radius-md);
@@ -388,7 +388,7 @@
   .search-bar__block-btn:hover:not(:disabled) {
     background-color: var(--color-brand-primary-hover);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(244, 63, 94, 0.25);
+    box-shadow: 0 2px 8px var(--color-brand-glow);
   }
 
   .search-bar__block-btn:active:not(:disabled) {

@@ -239,12 +239,12 @@
   }
 
   .toast__badge--spotify {
-    background: rgba(29, 185, 84, 0.2);
+    background: var(--color-spotify-muted);
     color: var(--color-spotify);
   }
 
   .toast__badge--apple {
-    background: rgba(252, 60, 68, 0.2);
+    background: var(--color-apple-muted);
     color: var(--color-apple);
   }
 
@@ -260,7 +260,7 @@
   }
 
   .toast__dismiss:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-overlay-subtle);
   }
 
   .toast__dismiss svg {
@@ -270,7 +270,7 @@
 
   .toast__progress-track {
     height: 0.25rem;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--color-overlay-inset);
   }
 
   .toast__progress-bar {

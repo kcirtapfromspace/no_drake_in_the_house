@@ -118,7 +118,7 @@
   /* Variants */
   .btn--primary {
     background-color: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .btn--primary:not(:disabled):hover {
@@ -137,11 +137,11 @@
 
   .btn--danger {
     background-color: var(--color-error);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .btn--danger:not(:disabled):hover {
-    background-color: var(--color-error-hover, #dc2626);
+    background-color: var(--color-error-hover);
   }
 
   .btn--ghost {

@@ -121,6 +121,15 @@
 
   /* Skip link surface */
   --color-bg-skip-link: rgba(8, 8, 11, 0.96);
+
+  /* Brand gradient (block button) */
+  --color-brand-gradient: linear-gradient(135deg, #fb7185, #e11d48);
+
+  /* Blocked/success state */
+  --color-blocked-bg: rgba(20, 83, 45, 0.34);
+  --color-blocked-text: #bbf7d0;
+  --color-blocked-border: rgba(74, 222, 128, 0.2);
+  --color-blocked-border-accent: rgba(74, 222, 128, 0.18);
 }
 
 /* ===== LIGHT THEME ===== */
@@ -235,6 +244,15 @@
 
   /* Skip link surface */
   --color-bg-skip-link: rgba(248, 248, 250, 0.96);
+
+  /* Brand gradient (block button) */
+  --color-brand-gradient: linear-gradient(135deg, #fb7185, #be123c);
+
+  /* Blocked/success state */
+  --color-blocked-bg: rgba(5, 150, 105, 0.1);
+  --color-blocked-text: #065f46;
+  --color-blocked-border: rgba(5, 150, 105, 0.2);
+  --color-blocked-border-accent: rgba(5, 150, 105, 0.15);
 }
 
 /* ===== SHARED TOKENS (theme-agnostic) ===== */

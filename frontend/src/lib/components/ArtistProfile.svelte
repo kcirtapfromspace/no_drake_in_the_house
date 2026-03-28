@@ -2171,14 +2171,14 @@
   .profile__block-btn:hover:not(:disabled) { opacity: 0.9; }
 
   .profile__block-btn--unblocked {
-    background: linear-gradient(135deg, #fb7185, #e11d48);
-    color: white;
+    background: var(--color-brand-gradient);
+    color: var(--color-text-on-brand);
   }
 
   .profile__block-btn--blocked {
-    background: rgba(20, 83, 45, 0.34);
-    color: #bbf7d0;
-    border: 2px solid rgba(74, 222, 128, 0.2);
+    background: var(--color-blocked-bg);
+    color: var(--color-blocked-text);
+    border: 2px solid var(--color-blocked-border);
     border-right: none;
   }
 
@@ -2196,16 +2196,16 @@
   .profile__block-dropdown:hover { opacity: 0.9; }
 
   .profile__block-dropdown--unblocked {
-    background: linear-gradient(135deg, #fb7185, #e11d48);
-    color: white;
-    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    background: var(--color-brand-gradient);
+    color: var(--color-text-on-brand);
+    border-left: 1px solid var(--color-overlay-subtle);
   }
 
   .profile__block-dropdown--blocked {
-    background: rgba(20, 83, 45, 0.34);
-    color: #bbf7d0;
-    border: 2px solid rgba(74, 222, 128, 0.2);
-    border-left: 1px solid rgba(74, 222, 128, 0.18);
+    background: var(--color-blocked-bg);
+    color: var(--color-blocked-text);
+    border: 2px solid var(--color-blocked-border);
+    border-left: 1px solid var(--color-blocked-border-accent);
   }
 
   /* ===== Dropdown Menu ===== */

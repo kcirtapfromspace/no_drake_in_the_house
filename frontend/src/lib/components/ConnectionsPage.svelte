@@ -717,7 +717,7 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .service-card__icon svg {
@@ -816,7 +816,7 @@
 
   .btn--primary {
     background-color: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .btn--primary:hover {
@@ -836,7 +836,7 @@
 
   .btn--lastfm {
     background-color: #dc2626;
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .btn--lastfm:hover {
@@ -937,7 +937,7 @@
     justify-content: center;
     font-size: var(--text-sm);
     font-weight: 700;
-    color: white;
+    color: var(--color-text-on-brand);
     flex-shrink: 0;
   }
 

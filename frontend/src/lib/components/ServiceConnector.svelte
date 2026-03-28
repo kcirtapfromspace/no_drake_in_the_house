@@ -180,11 +180,11 @@
     gap: 0.625rem;
     padding: 1.25rem 0.75rem;
     border-radius: 1.125rem;
-    background: var(--color-bg-elevated, #111113);
-    border: 1px solid var(--color-border-subtle, #1f1f22);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-subtle);
     cursor: pointer;
     font-family: inherit;
-    color: var(--color-text-secondary, #a1a1aa);
+    color: var(--color-text-secondary);
     transition: all 0.35s cubic-bezier(0.32, 0.72, 0, 1);
     animation: tileIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-delay: var(--stagger, 0ms);
@@ -197,8 +197,8 @@
   }
 
   .sc__tile:hover {
-    border-color: color-mix(in srgb, var(--sc-color) 35%, var(--color-border-hover, #3f3f46));
-    background: color-mix(in srgb, var(--sc-color) 6%, var(--color-bg-elevated, #111113));
+    border-color: color-mix(in srgb, var(--sc-color) 35%, var(--color-border-hover));
+    background: color-mix(in srgb, var(--sc-color) 6%, var(--color-bg-elevated));
     transform: translateY(-3px) scale(1.03);
     box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--sc-color) 15%, transparent);
   }
@@ -209,7 +209,7 @@
   }
 
   .sc__tile--connected {
-    border-color: color-mix(in srgb, var(--sc-color) 25%, var(--color-border-subtle, #1f1f22));
+    border-color: color-mix(in srgb, var(--sc-color) 25%, var(--color-border-subtle));
   }
 
   .sc__tile--connected .sc__icon {
@@ -255,7 +255,7 @@
   .sc__icon {
     width: 2rem;
     height: 2rem;
-    color: var(--color-text-muted, #52525b);
+    color: var(--color-text-muted);
     transition: color 0.3s cubic-bezier(0.32, 0.72, 0, 1),
                 transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
   }
@@ -277,16 +277,16 @@
     letter-spacing: 0.01em;
     text-align: center;
     line-height: 1.2;
-    color: var(--color-text-tertiary, #71717a);
+    color: var(--color-text-tertiary);
     transition: color 0.3s;
   }
 
   .sc__tile:hover .sc__name {
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
   }
 
   .sc__tile--connected .sc__name {
-    color: var(--color-text-secondary, #a1a1aa);
+    color: var(--color-text-secondary);
   }
 
   /* Spinner */

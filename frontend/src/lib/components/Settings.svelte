@@ -1143,7 +1143,7 @@
   }
 
   .settings__service-btn--primary {
-    color: white;
+    color: var(--color-text-on-brand);
     background: var(--color-brand-primary);
     box-shadow: 0 12px 28px color-mix(in srgb, var(--color-brand-primary) 22%, transparent);
   }
@@ -1155,7 +1155,7 @@
   }
 
   .settings__service-btn--youtube {
-    color: white;
+    color: var(--color-text-on-brand);
     background: var(--color-youtube);
     box-shadow: 0 12px 28px color-mix(in srgb, var(--color-youtube) 18%, transparent);
   }
@@ -1166,7 +1166,7 @@
   }
 
   .settings__service-btn--tidal {
-    color: white;
+    color: var(--color-text-on-brand);
     background: var(--color-tidal);
     border-color: var(--color-border-default);
   }
@@ -1225,7 +1225,7 @@
   }
 
   .settings__confirm-yes {
-    color: white;
+    color: var(--color-text-on-brand);
     background: var(--color-brand-primary);
     border: none;
   }

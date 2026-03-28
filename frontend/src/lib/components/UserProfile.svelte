@@ -344,7 +344,7 @@
                     type="email"
                     id="email"
                     bind:value={editEmail}
-                    class="flex-1 min-w-0 block w-full px-3 py-2 rounded-uswds-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400" style="border: 1px solid #52525b; background: #3f3f46; color: white;"
+                    class="flex-1 min-w-0 block w-full px-3 py-2 rounded-uswds-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -653,7 +653,7 @@
                     id="confirm-email"
                     bind:value={deleteConfirmEmail}
                     placeholder={profile.email}
-                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid #52525b; background: #3f3f46; color: white;"
+                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                   />
                 </div>
 
@@ -665,7 +665,7 @@
                     id="delete-reason"
                     bind:value={deleteReason}
                     rows="3"
-                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid #52525b; background: #3f3f46; color: white;"
+                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                     placeholder="Help us improve by telling us why you're leaving..."
                   ></textarea>
                 </div>
@@ -723,7 +723,7 @@
             type="text"
             placeholder="Enter 6-digit code"
             maxlength="6"
-            class="w-full px-3 py-2 rounded-uswds-md text-center text-zinc-400 tracking-widest" style="border: 1px solid #52525b; background: #3f3f46; color: white;"
+            class="w-full px-3 py-2 rounded-uswds-md text-center text-zinc-400 tracking-widest" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
             on:input={handleTotpInput}
           />
         </div>

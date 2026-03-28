@@ -1114,12 +1114,12 @@
 
   .analytics-tab--active {
     background: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .analytics-tab--active:hover {
     background: var(--color-brand-primary-hover);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .analytics-tab__icon {

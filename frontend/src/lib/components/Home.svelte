@@ -1451,7 +1451,7 @@
     cursor: pointer;
     transition: all var(--transition-fast);
     background: var(--cat-color);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .category-panel__action-btn--active {
@@ -1616,7 +1616,7 @@
     font-size: 0.625rem;
     font-weight: 600;
     background: var(--cat-color, var(--color-brand-primary));
-    color: white;
+    color: var(--color-text-on-brand);
     border: none;
     border-radius: var(--radius-sm);
     cursor: pointer;

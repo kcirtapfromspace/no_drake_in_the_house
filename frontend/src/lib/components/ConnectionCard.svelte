@@ -219,7 +219,7 @@
 
   .conn-btn--primary {
     background: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .conn-btn--primary:hover {
@@ -228,7 +228,7 @@
 
   .conn-btn--danger {
     background: var(--color-error);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .conn-btn--danger:hover {
@@ -237,7 +237,7 @@
 
   .conn-btn--info {
     background: var(--color-info);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .conn-btn--secondary {

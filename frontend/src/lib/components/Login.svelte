@@ -396,7 +396,7 @@
   .login__icon-svg {
     width: 1.5rem;
     height: 1.5rem;
-    color: white;
+    color: var(--color-text-on-brand);
     max-width: none;
     max-height: none;
   }

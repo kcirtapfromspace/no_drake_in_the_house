@@ -368,13 +368,13 @@
 
   .picker__preview-btn:hover {
     background: var(--color-brand-primary, #f43f5e);
-    color: white;
+    color: var(--color-text-on-brand);
     box-shadow: 0 0 12px rgba(244,63,94,0.25);
   }
 
   .picker__preview-btn--playing {
     background: var(--color-brand-primary, #f43f5e);
-    color: white;
+    color: var(--color-text-on-brand);
     box-shadow: 0 0 12px rgba(244,63,94,0.3);
   }
 

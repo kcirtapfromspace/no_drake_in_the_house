@@ -234,7 +234,7 @@
 
   .card__unblock:hover:not(:disabled) {
     background-color: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
   }
 
   .card__unblock:disabled {
@@ -253,7 +253,7 @@
     font-size: var(--text-xs);
     font-weight: 600;
     font-family: var(--font-family-sans);
-    color: white;
+    color: var(--color-text-on-brand);
     background-color: var(--color-brand-primary);
     border: none;
     border-radius: var(--radius-md);

@@ -658,7 +658,7 @@
   .scan__start-btn {
     padding: 1rem 2rem;
     background-color: var(--color-brand-primary);
-    color: white;
+    color: var(--color-text-on-brand);
     font-size: var(--text-lg);
     font-weight: 500;
     border-radius: var(--radius-xl);
@@ -813,7 +813,7 @@
   /* ===== Severity Badge ===== */
   .scan__severity-badge {
     padding: 0.25rem 0.75rem;
-    color: white;
+    color: var(--color-text-on-brand);
     font-size: var(--text-xs);
     font-weight: 500;
     border-radius: var(--radius-full);
@@ -876,7 +876,7 @@
     gap: 0.375rem;
     padding: 0.5rem 1rem;
     background-color: #4f46e5;
-    color: white;
+    color: var(--color-text-on-brand);
     font-size: var(--text-sm);
     font-weight: 500;
     border-radius: var(--radius-lg);
@@ -917,7 +917,7 @@
   .scan__block-all-btn {
     padding: 0.5rem 1rem;
     background-color: var(--color-error);
-    color: white;
+    color: var(--color-text-on-brand);
     font-size: var(--text-sm);
     font-weight: 500;
     border-radius: var(--radius-lg);
@@ -1064,7 +1064,7 @@
 
   .scan__row-action--block {
     background-color: var(--color-error);
-    color: white;
+    color: var(--color-text-on-brand);
   }
   .scan__row-action--block:hover { opacity: 0.9; }
 

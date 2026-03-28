@@ -396,30 +396,6 @@
 
 <style>
   .layout {
-    --color-bg-page: #09090b;
-    --color-bg-elevated: #111113;
-    --color-bg-interactive: #18181b;
-    --color-bg-hover: #27272a;
-    --color-border-default: #27272a;
-    --color-border-subtle: #1f1f22;
-    --color-border-hover: #3f3f46;
-    --color-text-primary: #fafafa;
-    --color-text-secondary: #c4c4ce;
-    --color-text-tertiary: #8f8f99;
-    --color-text-muted: #666671;
-    --color-brand-primary: #f43f5e;
-    --color-brand-primary-hover: #e11d48;
-    --color-brand-primary-muted: rgba(244, 63, 94, 0.14);
-    --color-success: #22c55e;
-    --color-success-muted: rgba(34, 197, 94, 0.16);
-    --color-warning: #f59e0b;
-    --color-warning-muted: rgba(245, 158, 11, 0.16);
-    --color-error: #ef4444;
-    --color-error-muted: rgba(239, 68, 68, 0.18);
-    --color-overlay: rgba(0, 0, 0, 0.72);
-    --color-overlay-light: rgba(0, 0, 0, 0.42);
-    --nav-bg: rgba(12, 12, 15, 0.88);
-    --nav-border: rgba(58, 58, 68, 0.58);
     position: relative;
     isolation: isolate;
     min-height: 100vh;
@@ -527,7 +503,7 @@
   .nav__logo-kicker {
     font-size: 0.625rem;
     font-weight: 700;
-    color: #fda4af;
+    color: var(--color-brand-accent);
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }

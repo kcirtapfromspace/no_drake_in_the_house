@@ -101,9 +101,9 @@
 
   function getTrendColor(trend: 'up' | 'down' | 'stable' | 'rising' | 'falling'): string {
     switch (trend) {
-      case 'up': case 'rising': return 'text-green-400';
-      case 'down': case 'falling': return 'text-red-400';
-      default: return 'text-zinc-300';
+      case 'up': case 'rising': return 'trend-color--rising';
+      case 'down': case 'falling': return 'trend-color--falling';
+      default: return 'trend-color--stable';
     }
   }
 
@@ -189,9 +189,9 @@
 
   function getSeverityStyle(severity: string): { label: string; color: string } {
     switch (severity) {
-      case 'egregious': return { label: 'Egregious', color: '#f87171' };
-      case 'severe': return { label: 'Severe', color: '#fb923c' };
-      case 'moderate': return { label: 'Moderate', color: '#fbbf24' };
+      case 'egregious': return { label: 'Egregious', color: 'var(--color-severity-egregious)' };
+      case 'severe': return { label: 'Severe', color: 'var(--color-severity-severe)' };
+      case 'moderate': return { label: 'Moderate', color: 'var(--color-severity-moderate)' };
       default: return { label: 'Minor', color: 'var(--color-text-tertiary)' };
     }
   }
@@ -799,7 +799,7 @@
         <div class="analytics-trend-grid">
           <div class="analytics-card">
             <h2 class="analytics-card__title analytics-card__title--icon">
-              <svg class="w-5 h-5" style="color: #4ade80;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <svg class="w-5 h-5" style="color: var(--color-trend-rising);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
               Rising Artists
             </h2>
             {#if $risingArtists.length === 0}
@@ -824,7 +824,7 @@
 
           <div class="analytics-card">
             <h2 class="analytics-card__title analytics-card__title--icon">
-              <svg class="w-5 h-5" style="color: #f87171;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+              <svg class="w-5 h-5" style="color: var(--color-trend-falling);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
               Falling Artists
             </h2>
             {#if $fallingArtists.length === 0}
@@ -939,7 +939,7 @@
   .hero__title-brand {
     font-size: 0.72rem;
     font-weight: 700;
-    color: #fda4af;
+    color: var(--color-brand-accent);
     letter-spacing: 0.16em;
     text-transform: uppercase;
   }
@@ -1179,9 +1179,9 @@
   .section__count {
     font-size: var(--text-xs);
     font-weight: 500;
-    color: #fda4af;
-    background: rgba(244, 63, 94, 0.1);
-    border: 1px solid rgba(244, 63, 94, 0.18);
+    color: var(--color-brand-accent);
+    background: var(--color-brand-primary-subtle, rgba(244, 63, 94, 0.1));
+    border: 1px solid var(--color-brand-primary-muted);
     padding: 0.1rem 0.5rem;
     border-radius: var(--radius-full);
   }
@@ -1617,8 +1617,8 @@
     gap: 0.75rem;
     padding: 1.25rem;
     border-radius: 0.75rem;
-    background: var(--color-surface-secondary, #27272a);
-    border: 1px solid var(--color-border, #3f3f46);
+    background: var(--color-bg-interactive);
+    border: 1px solid var(--color-border-default);
   }
 
   .analytics-stat__icon {
@@ -1630,26 +1630,26 @@
     justify-content: center;
     flex-shrink: 0;
   }
-  .analytics-stat__icon--red { background: rgba(239, 68, 68, 0.15); color: #f87171; }
-  .analytics-stat__icon--purple { background: rgba(168, 85, 247, 0.15); color: #c084fc; }
+  .analytics-stat__icon--red { background: var(--color-chart-stat-red); color: var(--color-chart-stat-red-fg); }
+  .analytics-stat__icon--purple { background: var(--color-chart-stat-purple); color: var(--color-chart-stat-purple-fg); }
 
   .analytics-stat__value {
     display: block;
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
     line-height: 1.2;
   }
 
   .analytics-stat__label {
     display: block;
     font-size: 0.8125rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
   }
 
   .analytics-card {
-    background: var(--color-surface-secondary, #27272a);
-    border: 1px solid var(--color-border, #3f3f46);
+    background: var(--color-bg-interactive);
+    border: 1px solid var(--color-border-default);
     border-radius: 0.75rem;
     padding: 1.25rem;
   }
@@ -1664,7 +1664,7 @@
   .analytics-card__title {
     font-size: 1rem;
     font-weight: 600;
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
     margin: 0;
   }
 
@@ -1677,13 +1677,13 @@
 
   .analytics-card__sub {
     font-size: 0.8125rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
     margin: 0 0 1rem;
   }
 
   .analytics-card__empty {
     font-size: 0.8125rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
     margin: 0;
   }
 
@@ -1696,12 +1696,12 @@
 
   .analytics-bar {
     flex: 1;
-    background: #6366f1;
+    background: var(--color-chart-bar);
     border-radius: 0.25rem 0.25rem 0 0;
     transition: background 0.15s;
     min-height: 2px;
   }
-  .analytics-bar:hover { background: #818cf8; }
+  .analytics-bar:hover { background: var(--color-chart-bar-hover); }
 
   .analytics-trend-grid {
     display: grid;
@@ -1723,25 +1723,25 @@
     border-radius: 0.5rem;
     border: 1px solid transparent;
   }
-  .analytics-artist--rising { background: rgba(34, 197, 94, 0.1); border-color: rgba(34, 197, 94, 0.25); }
-  .analytics-artist--falling { background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.25); }
+  .analytics-artist--rising { background: var(--color-success-muted); border-color: rgba(34, 197, 94, 0.25); }
+  .analytics-artist--falling { background: var(--color-error-muted); border-color: rgba(239, 68, 68, 0.25); }
 
   .analytics-artist__name {
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
   }
 
   .analytics-artist__meta {
     font-size: 0.6875rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
   }
 
   .analytics-artist__stat { text-align: right; }
   .analytics-artist__count { display: block; font-weight: 600; font-size: 0.875rem; }
-  .analytics-artist__count--green { color: #4ade80; }
-  .analytics-artist__count--red { color: #f87171; }
+  .analytics-artist__count--green { color: var(--color-trend-rising); }
+  .analytics-artist__count--red { color: var(--color-trend-falling); }
 
   /* Tab toggle for Top Blocked */
   .analytics-tab-toggle {
@@ -1756,17 +1756,17 @@
     padding: 0.375rem 0.75rem;
     font-size: 0.75rem;
     font-weight: 500;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
     background: transparent;
     border: none;
     border-radius: 0.375rem;
     cursor: pointer;
     transition: all 0.15s;
   }
-  .analytics-tab-btn:hover { color: var(--color-text-secondary, #d4d4d8); }
+  .analytics-tab-btn:hover { color: var(--color-text-secondary); }
   .analytics-tab-btn--active {
     background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
   }
 
   /* Top Blocked Artists list */
@@ -1799,7 +1799,7 @@
   .top-blocked-rank {
     font-size: 0.75rem;
     font-weight: 700;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
     width: 1.75rem;
     flex-shrink: 0;
   }
@@ -1810,7 +1810,7 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--color-text-primary, #fafafa);
+    color: var(--color-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1819,23 +1819,28 @@
   .top-blocked-meta {
     display: block;
     font-size: 0.6875rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
   }
 
   .top-blocked-trend {
     font-size: 1rem;
     flex-shrink: 0;
   }
-  .top-blocked-trend--rising { color: #4ade80; }
-  .top-blocked-trend--falling { color: #f87171; }
-  .top-blocked-trend--stable { color: #a1a1aa; }
+  .top-blocked-trend--rising { color: var(--color-trend-rising); }
+  .top-blocked-trend--falling { color: var(--color-trend-falling); }
+  .top-blocked-trend--stable { color: var(--color-trend-stable); }
 
   .top-blocked-chevron {
     width: 1rem;
     height: 1rem;
-    color: var(--color-text-tertiary, #a1a1aa);
+    color: var(--color-text-tertiary);
     flex-shrink: 0;
   }
+
+  /* Trend color classes (used by getTrendColor) */
+  :global(.trend-color--rising) { color: var(--color-trend-rising); }
+  :global(.trend-color--falling) { color: var(--color-trend-falling); }
+  :global(.trend-color--stable) { color: var(--color-trend-stable); }
 
   @media (max-width: 640px) {
     .analytics-stat-row,

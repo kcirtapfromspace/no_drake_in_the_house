@@ -7,14 +7,13 @@
     fallingArtists
   } from '../stores/analytics';
   import type { ReportRequest, TroubleTier } from '../stores/analytics';
-  import { syncStore, syncActions, isAnySyncRunning } from '../stores/sync';
+  import { isAnySyncRunning } from '../stores/sync';
   import { navigateToArtist } from '../utils/simple-router';
   import CategoryRevenueBreakdown from './CategoryRevenueBreakdown.svelte';
   import { Skeleton } from './ui';
-  import { timeAgo } from '../utils/time-ago';
 
   // Tab state
-  type Tab = 'overview' | 'revenue' | 'sync';
+  type Tab = 'overview' | 'revenue';
   let activeTab: Tab = 'overview';
 
   // Overview state
@@ -28,11 +27,6 @@
   // Revenue state
   let revenueDays = 30;
   let selectedMinTier: TroubleTier = 'moderate';
-
-  // Sync state
-  let syncPlatforms: string[] = ['deezer'];
-  let syncType: 'full' | 'incremental' = 'incremental';
-  let syncPriority: 'low' | 'normal' | 'high' | 'critical' = 'normal';
 
   const timeRanges = [
     { value: 'last24h', label: 'Last 24 Hours', days: 1 },
@@ -52,14 +46,6 @@
     { value: 'moderate', label: 'Moderate+' },
     { value: 'high', label: 'High+' },
     { value: 'critical', label: 'Critical Only' },
-  ];
-
-  const platformList = [
-    { id: 'deezer', name: 'Deezer', abbr: 'DZ', alwaysAvailable: true },
-    { id: 'spotify', name: 'Spotify', abbr: 'SP', alwaysAvailable: false },
-    { id: 'apple_music', name: 'Apple Music', abbr: 'AM', alwaysAvailable: false },
-    { id: 'tidal', name: 'Tidal', abbr: 'TI', alwaysAvailable: false },
-    { id: 'youtube_music', name: 'YouTube Music', abbr: 'YT', alwaysAvailable: false },
   ];
 
   onMount(async () => {
@@ -84,20 +70,10 @@
     ]);
   }
 
-  async function loadSyncData() {
-    await Promise.all([
-      syncActions.fetchStatus(),
-      syncActions.fetchRuns(),
-      syncActions.fetchHealth(),
-    ]);
-  }
-
   async function handleTabChange(tab: Tab) {
     activeTab = tab;
     if (tab === 'revenue') {
       await loadRevenueData();
-    } else if (tab === 'sync') {
-      await loadSyncData();
     }
   }
 
@@ -119,14 +95,6 @@
 
   async function handleTierChange() {
     await analyticsActions.fetchProblematicArtistRevenue(revenueDays, selectedMinTier, 10);
-  }
-
-  async function handleTriggerSync() {
-    await syncActions.triggerSync({
-      platforms: syncPlatforms,
-      sync_type: syncType,
-      priority: syncPriority,
-    });
   }
 
   function openReportModal() {
@@ -242,23 +210,6 @@
     return tier.charAt(0).toUpperCase() + tier.slice(1);
   }
 
-  function getSyncStatusIcon(status: string): string {
-    switch (status) {
-      case 'running': return '\u21BB';
-      case 'completed': return '\u2713';
-      case 'error': case 'failed': return '\u2717';
-      default: return '\u23F8';
-    }
-  }
-
-  function togglePlatform(platformId: string) {
-    if (syncPlatforms.includes(platformId)) {
-      syncPlatforms = syncPlatforms.filter(p => p !== platformId);
-    } else {
-      syncPlatforms = [...syncPlatforms, platformId];
-    }
-  }
-
   $: dashboard = $analyticsStore.dashboard;
   $: userStats = $analyticsStore.userStats;
   $: trendSummary = $analyticsStore.trends.summary;
@@ -356,18 +307,6 @@
           <svg class="analytics-tab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           Revenue
         </button>
-        <button
-          type="button"
-          on:click={() => handleTabChange('sync')}
-          class="analytics-tab"
-          class:analytics-tab--active={activeTab === 'sync'}
-        >
-          <svg class="analytics-tab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-          Sync
-          {#if $isAnySyncRunning}
-            <span class="analytics-tab__badge">Running</span>
-          {/if}
-        </button>
       </div>
     </section>
 
@@ -385,20 +324,8 @@
       </div>
     {/if}
 
-    {#if $syncStore.error && activeTab === 'sync'}
-      <div class="brand-alert brand-alert--error mb-6">
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          <span>{$syncStore.error}</span>
-          <button type="button" on:click={syncActions.clearError} class="brand-alert__dismiss">
-            Dismiss
-          </button>
-        </div>
-      </div>
-    {/if}
-
     <!-- Loading state -->
-    {#if $analyticsStore.isLoading || $syncStore.isLoading}
+    {#if $analyticsStore.isLoading}
       <div role="status" aria-label="Loading analytics data">
         <!-- Stats skeleton -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -806,161 +733,6 @@
           />
         </div>
 
-      <!-- ==================== CATALOG SYNC TAB ==================== -->
-      {:else if activeTab === 'sync'}
-        <!-- Platform Status Overview -->
-        <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm mb-8">
-          <h2 class="text-lg font-semibold text-white mb-4">Platform Status</h2>
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {#each platformList as platform}
-              {@const status = $syncStore.status.find(s => s.platform === platform.id)}
-              <div class="text-center p-4 rounded-lg border {
-                status?.status === 'running' ? 'bg-blue-900/30 border-blue-700' :
-                status?.status === 'completed' ? 'bg-green-900/30 border-green-700' :
-                status?.status === 'error' ? 'bg-red-900/30 border-red-700' :
-                'bg-zinc-700 border-zinc-600'
-              }">
-                <div class="text-2xl mb-2">{platform.abbr}</div>
-                <div class="font-medium text-white">{platform.name}</div>
-                <div class="text-xs text-zinc-400 mt-1">
-                  {#if status?.status === 'running'}
-                    <span class="text-blue-400">Syncing...</span>
-                  {:else if status?.artists_count}
-                    {formatNumber(status.artists_count)} artists
-                  {:else if platform.alwaysAvailable}
-                    <span class="text-green-400">Ready</span>
-                  {:else}
-                    <span class="text-zinc-400">No credentials</span>
-                  {/if}
-                </div>
-                {#if status?.last_sync}
-                  <div class="text-xs text-zinc-400 mt-1">
-                    Last: {timeAgo(status.last_sync)}
-                  </div>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        </div>
-
-        <!-- Trigger Sync Controls -->
-        <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm mb-8">
-          <h2 class="text-lg font-semibold text-white mb-4">Trigger Catalog Sync</h2>
-          <p class="text-sm text-zinc-400 mb-4">
-            Sync artist catalogs from streaming platforms. Deezer is always available (no API key required).
-            Add credentials to .env to enable other platforms.
-          </p>
-
-          <!-- Platform Selection -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-zinc-300 mb-2">Select Platforms</label>
-            <div class="flex flex-wrap gap-2">
-              {#each platformList as platform}
-                <button
-                  type="button"
-                  on:click={() => togglePlatform(platform.id)}
-                  disabled={!platform.alwaysAvailable && !$syncStore.status.find(s => s.platform === platform.id)}
-                  class="px-4 py-2 rounded-lg border text-sm font-medium transition-colors {
-                    syncPlatforms.includes(platform.id)
-                      ? 'bg-indigo-900/50 border-indigo-600 text-indigo-300'
-                      : 'bg-zinc-700 border-zinc-600 text-zinc-400 hover:bg-zinc-600'
-                  } {
-                    !platform.alwaysAvailable && !$syncStore.status.find(s => s.platform === platform.id)
-                      ? 'opacity-50 cursor-not-allowed'
-                      : ''
-                  }"
-                >
-                  {platform.abbr} {platform.name}
-                </button>
-              {/each}
-            </div>
-          </div>
-
-          <!-- Sync Type -->
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <label for="sync-type" class="block text-sm font-medium text-zinc-300 mb-2">Sync Type</label>
-              <select
-                id="sync-type"
-                bind:value={syncType}
-                class="w-full px-4 py-2 border border-zinc-600 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-900 bg-zinc-700 text-white"
-              >
-                <option value="incremental">Incremental (new artists only)</option>
-                <option value="full">Full (resync all artists)</option>
-              </select>
-            </div>
-            <div>
-              <label for="sync-priority" class="block text-sm font-medium text-zinc-300 mb-2">Priority</label>
-              <select
-                id="sync-priority"
-                bind:value={syncPriority}
-                class="w-full px-4 py-2 border border-zinc-600 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-900 bg-zinc-700 text-white"
-              >
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Trigger Button -->
-          <button
-            type="button"
-            on:click={handleTriggerSync}
-            disabled={syncPlatforms.length === 0 || $syncStore.isTriggering || $isAnySyncRunning}
-            class="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
-            {#if $syncStore.isTriggering}
-              <div class="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              Triggering...
-            {:else if $isAnySyncRunning}
-              Sync in Progress...
-            {:else}
-              Start Catalog Sync
-            {/if}
-          </button>
-        </div>
-
-        <!-- Recent Sync Runs -->
-        <div class="bg-zinc-800 rounded-xl p-6 border border-zinc-600 shadow-sm">
-          <h2 class="text-lg font-semibold text-white mb-4">Recent Sync Runs</h2>
-          {#if $syncStore.runs.length === 0}
-            <div class="text-center py-8 text-zinc-400">
-              <p>No sync runs yet. Trigger a sync to populate artist catalogs.</p>
-            </div>
-          {:else}
-            <div class="space-y-3">
-              {#each $syncStore.runs as run}
-                <div class="flex items-center justify-between p-4 rounded-lg bg-zinc-700 border border-zinc-600">
-                  <div class="flex items-center gap-4">
-                    <div class="text-2xl">{getSyncStatusIcon(run.status)}</div>
-                    <div>
-                      <div class="font-medium text-white capitalize">{run.platform}</div>
-                      <div class="text-xs text-zinc-400">
-                        {run.sync_type} sync • {timeAgo(run.started_at)}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="text-right">
-                    <div class="font-semibold text-white">{formatNumber(run.artists_processed)} artists</div>
-                    <div class="text-xs text-zinc-400">
-                      {#if run.status === 'running'}
-                        <span class="text-blue-400">In progress...</span>
-                      {:else if run.status === 'completed'}
-                        <span class="text-green-400">Completed</span>
-                      {:else if run.status === 'failed'}
-                        <span class="text-red-400">{run.errors_count} errors</span>
-                      {:else}
-                        <span class="capitalize">{run.status}</span>
-                      {/if}
-                    </div>
-                  </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
       {/if}
     {/if}
     </div>

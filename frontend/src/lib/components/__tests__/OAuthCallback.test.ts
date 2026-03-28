@@ -112,7 +112,7 @@ describe('oauth callback helpers', () => {
       post
     );
 
-    expect(post).toHaveBeenCalledWith('/api/v1/connections/youtube/callback', {
+    expect(post).toHaveBeenCalledWith('/api/v1/oauth/youtube/callback', {
       code: 'test-code',
       state: 'test-state',
       redirect_uri: 'https://nodrakeinthe.house/auth/callback/youtube',
@@ -133,7 +133,7 @@ describe('oauth callback helpers', () => {
       post,
     );
 
-    expect(post).toHaveBeenCalledWith('/api/v1/connections/spotify/callback', {
+    expect(post).toHaveBeenCalledWith('/api/v1/oauth/spotify/callback', {
       code: 'single-use-code',
       state: 'test-state',
       redirect_uri: 'https://nodrakeinthe.house/auth/callback/spotify',
@@ -154,7 +154,7 @@ describe('oauth callback helpers', () => {
       post,
     );
 
-    expect(post).toHaveBeenCalledWith('/api/v1/connections/youtube/callback', {
+    expect(post).toHaveBeenCalledWith('/api/v1/oauth/youtube/callback', {
       code: 'test-code',
       state: 'test-state',
       redirect_uri: 'https://nodrakeinthe.house/auth/callback/youtube',

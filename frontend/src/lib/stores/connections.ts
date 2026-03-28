@@ -490,13 +490,7 @@ export const connectionActions = {
   },
 
   // Tidal actions
-  initiateTidalAuth: async (options?: {
-    attemptReconnect?: boolean;
-  }): Promise<{
-    success: boolean;
-    message?: string;
-    alreadyConnected?: boolean;
-  }> => {
+  initiateTidalAuth: async (): Promise<{ success: boolean; message?: string }> => {
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       state?: string;
@@ -511,57 +505,42 @@ export const connectionActions = {
       if (response.data.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
-      // Popup OAuth
+      // Popup OAuth — user stays on current page
       const popup = openCenteredPopup(response.data.authorization_url, 'tidal-auth');
       if (!popup) {
+        // Popup blocked — fall back to redirect
         window.location.href = response.data.authorization_url;
         return { success: true };
       }
+      // Poll for popup closure (callback page will close the popup)
       return new Promise((resolve) => {
         const interval = setInterval(() => {
           if (popup.closed) {
             clearInterval(interval);
             connectionActions.fetchConnections().then(() => {
+              // Auto-trigger library sync after successful OAuth
               apiClient.authenticatedRequest('POST', '/api/v1/connections/tidal/library/sync')
-                .catch(() => {});
+                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
             });
             resolve({ success: true });
           }
         }, 500);
-        setTimeout(() => { clearInterval(interval); if (!popup.closed) popup.close(); resolve({ success: false, message: 'OAuth timed out' }); }, 300000);
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(interval);
+          if (!popup.closed) popup.close();
+          resolve({ success: false, message: 'OAuth timed out' });
+        }, 300000);
       });
-    }
-
-    const message =
-      response.data?.message || response.message || 'Failed to initiate Tidal auth';
-    const normalizedMessage = message.toLowerCase();
-    const alreadyConnected =
-      response.data?.already_connected === true ||
-      (normalizedMessage.includes('already have an active') &&
-        normalizedMessage.includes('tidal'));
-
-    if (alreadyConnected) {
-      const shouldAttemptReconnect = options?.attemptReconnect !== false;
-      if (shouldAttemptReconnect) {
-        const disconnectResult = await connectionActions.disconnectTidal();
-        if (disconnectResult.success) {
-          return connectionActions.initiateTidalAuth({ attemptReconnect: false });
-        }
-      }
-
-      await connectionActions.fetchConnections();
+    } else {
+      const message =
+        response.data?.message || response.message || 'Failed to initiate Tidal auth';
       connectionsStore.update(state => ({
         ...state,
-        error: null,
+        error: message,
       }));
-      return { success: false, alreadyConnected: true, message };
+      return { success: false, message };
     }
-
-    connectionsStore.update(state => ({
-      ...state,
-      error: message,
-    }));
-    return { success: false, message };
   },
 
   handleTidalCallback: async (code: string, state: string) => {
@@ -621,41 +600,55 @@ export const connectionActions = {
   // YouTube Music actions
   initiateYouTubeAuth: async (): Promise<{ success: boolean; message?: string }> => {
     const response = await apiClient.authenticatedRequest<{
-      authorization_url: string;
-      state: string;
+      authorization_url?: string;
+      state?: string;
+      already_connected?: boolean;
+      message?: string;
     }>(
       'GET',
       '/api/v1/connections/youtube/authorize'
     );
 
     if (response.success && response.data?.authorization_url) {
-      sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
-      // Popup OAuth
+      if (response.data.state) {
+        sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
+      }
+      // Popup OAuth — user stays on current page
       const popup = openCenteredPopup(response.data.authorization_url, 'youtube-auth');
       if (!popup) {
+        // Popup blocked — fall back to redirect
         window.location.href = response.data.authorization_url;
         return { success: true };
       }
+      // Poll for popup closure (callback page will close the popup)
       return new Promise((resolve) => {
         const interval = setInterval(() => {
           if (popup.closed) {
             clearInterval(interval);
             connectionActions.fetchConnections().then(() => {
+              // Auto-trigger library sync after successful OAuth
               apiClient.authenticatedRequest('POST', '/api/v1/connections/youtube/library/sync')
-                .catch(() => {});
+                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
             });
             resolve({ success: true });
           }
         }, 500);
-        setTimeout(() => { clearInterval(interval); if (!popup.closed) popup.close(); resolve({ success: false, message: 'OAuth timed out' }); }, 300000);
+        // Timeout after 5 minutes
+        setTimeout(() => {
+          clearInterval(interval);
+          if (!popup.closed) popup.close();
+          resolve({ success: false, message: 'OAuth timed out' });
+        }, 300000);
       });
+    } else {
+      const message =
+        response.data?.message || response.message || 'Failed to initiate YouTube Music auth';
+      connectionsStore.update(state => ({
+        ...state,
+        error: message,
+      }));
+      return { success: false, message };
     }
-
-    connectionsStore.update(state => ({
-      ...state,
-      error: response.message || 'Failed to initiate YouTube Music auth',
-    }));
-    return { success: false, message: response.message };
   },
 
   handleYouTubeCallback: async (code: string, state: string) => {

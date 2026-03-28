@@ -105,7 +105,7 @@
 
     try {
       const result = await connectionActions.initiateTidalAuth();
-      if (!result.success && !result.alreadyConnected) {
+      if (!result.success) {
         error = result.message || 'Failed to initiate Tidal connection';
         isConnectingTidal = false;
       }

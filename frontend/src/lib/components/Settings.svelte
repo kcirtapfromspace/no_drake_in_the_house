@@ -286,12 +286,7 @@
 
       if (service.id === 'tidal') {
         const result = await connectionActions.initiateTidalAuth();
-        if (result.alreadyConnected) {
-          await loadConnections();
-          showConnectionSuccess(
-            'Tidal is already connected. Use Library Control to sync or disconnect to reconnect.'
-          );
-        } else if (!result.success) {
+        if (!result.success) {
           showConnectionError(result.message || 'Failed to initiate Tidal auth');
         }
       }

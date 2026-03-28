@@ -1119,34 +1119,9 @@
       } else if (platform.id === 'spotify') {
         await connectionActions.initiateSpotifyAuth();
       } else if (platform.id === 'youtube') {
-        // YouTube Music OAuth flow
-        const result: any = await connectionActions.initiateYouTubeAuth();
-        if (!result.success && isAlreadyConnectedError(result.message, platform)) {
-          await connectionActions.fetchConnections();
-          showAlreadyConnectedMessage(platform.name);
-        } else if (!result.success && isSuccessLikeMessage(result.message)) {
-          showConnectionSuccess(result.message || `${platform.name} connected successfully.`);
-        } else if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate YouTube auth');
-        }
-        // Note: If successful, page will redirect to Google OAuth
+        await connectionActions.initiateYouTubeAuth();
       } else if (platform.id === 'tidal') {
-        // Tidal OAuth flow - uses GET endpoint with auth token
-        const result = await connectionActions.initiateTidalAuth();
-        if (result.alreadyConnected) {
-          await connectionActions.fetchConnections();
-          showAlreadyConnectedMessage(platform.name);
-        } else if (!result.success) {
-          if (isAlreadyConnectedError(result.message, platform)) {
-            await connectionActions.fetchConnections();
-            showAlreadyConnectedMessage(platform.name);
-          } else if (isSuccessLikeMessage(result.message)) {
-            showConnectionSuccess(result.message || `${platform.name} connected successfully.`);
-          } else {
-            showConnectionError(result.message || 'Failed to initiate Tidal auth');
-          }
-        }
-        // Note: If successful, page will redirect to Tidal OAuth
+        await connectionActions.initiateTidalAuth();
       }
     } catch (error) {
       const errorMessage =

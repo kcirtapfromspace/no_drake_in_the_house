@@ -4,6 +4,10 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
+
+// Suppress unused import warnings - these will be used when tests are implemented
+void render; void fireEvent; void waitFor;
 
 // Mock API client
 const mockApiClient = {

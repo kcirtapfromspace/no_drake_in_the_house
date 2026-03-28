@@ -9,7 +9,7 @@
     scanStats,
     severityConfig,
     categoryLabels,
-    type FlaggedArtist
+    type FlaggedArtist,
   } from '../stores/library';
   import { dnpActions } from '../stores/dnp';
 

@@ -5,6 +5,9 @@
 
 import { describe, it, expect } from 'vitest';
 
+// Suppress unused import warnings - these are used in test blocks
+void vi; void beforeEach; void afterEach;
+
 // Test utility functions directly - these don't require component mounting
 
 describe('ArtistProfile Utility Functions', () => {

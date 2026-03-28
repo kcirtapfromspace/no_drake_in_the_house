@@ -21,7 +21,7 @@
     'service-health': { label: 'Service Health', parent: 'settings' },
     'profile': { label: 'Profile', parent: 'settings' },
     'artist-profile': { label: 'Artist Profile', parent: 'dnp' },
-    'playlist-sanitizer': { label: 'Playlists', parent: 'home' },
+    'playlist-sanitizer': { label: 'Playlist Sanitizer', parent: 'home' },
     'oauth-callback': { label: 'Connecting', parent: 'connections' },
     'oauth-error': { label: 'Connection Error', parent: 'connections' },
   };

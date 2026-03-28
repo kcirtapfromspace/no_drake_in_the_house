@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, type QueryCtx, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   decryptToken,
@@ -62,7 +62,7 @@ export const _getConnectionTokens = internalQuery({
     userId: v.id("users"),
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const connection = await ctx.db
       .query("providerConnections")
       .withIndex("by_user_provider", (q) =>
@@ -146,7 +146,7 @@ export const _clearProviderTracks = internalMutation({
     userId: v.id("users"),
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
@@ -774,7 +774,7 @@ export const syncSpotifyLibrary = internalAction({
       // ── Trigger offense summary recompute ─────────────────────────────
       await ctx.scheduler.runAfter(
         0,
-        internal.offensePipeline.recomputeUserOffenseSummary,
+        (internal as any).offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
@@ -811,7 +811,7 @@ export const syncSpotifyLibrary = internalAction({
 });
 
 // ---------------------------------------------------------------------------
-// Tidal sync action (stub — same checkpoint pattern)
+// Tidal sync action (checkpoint-based pagination)
 // ---------------------------------------------------------------------------
 
 export const syncTidalLibrary = internalAction({
@@ -929,7 +929,7 @@ export const syncTidalLibrary = internalAction({
 
       await ctx.scheduler.runAfter(
         0,
-        internal.offensePipeline.recomputeUserOffenseSummary,
+        (internal as any).offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
@@ -947,7 +947,7 @@ export const syncTidalLibrary = internalAction({
 });
 
 // ---------------------------------------------------------------------------
-// YouTube Music sync action (stub — same checkpoint pattern)
+// YouTube Music sync action (checkpoint-based pagination)
 // ---------------------------------------------------------------------------
 
 export const syncYouTubeLibrary = internalAction({
@@ -1097,7 +1097,7 @@ export const syncYouTubeLibrary = internalAction({
 
       await ctx.scheduler.runAfter(
         0,
-        internal.offensePipeline.recomputeUserOffenseSummary,
+        (internal as any).offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {

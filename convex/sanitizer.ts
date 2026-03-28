@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { requireCurrentUser } from "./lib/auth";
 
 const _computeGrade = query({
@@ -294,7 +295,7 @@ export const _getPlaylistAnalysis = query({
     playlistId: v.string(),
     flaggedTrackIds: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     // Get all offending artist IDs
@@ -375,7 +376,7 @@ export const _getConnection = query({
   args: {
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     const connection = await ctx.db

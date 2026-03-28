@@ -11,6 +11,8 @@
 import type * as analytics from "../analytics.js";
 import type * as appleMusic from "../appleMusic.js";
 import type * as artistProfile from "../artistProfile.js";
+import type * as billing from "../billing.js";
+import type * as billing_helpers from "../billing_helpers.js";
 import type * as categories from "../categories.js";
 import type * as community from "../community.js";
 import type * as crons from "../crons.js";
@@ -33,6 +35,9 @@ import type * as providerConnections from "../providerConnections.js";
 import type * as providerOAuth from "../providerOAuth.js";
 import type * as sanitizer from "../sanitizer.js";
 import type * as signing from "../signing.js";
+import type * as stripeActions from "../stripeActions.js";
+import type * as stripeHelpers from "../stripeHelpers.js";
+import type * as subscriptions from "../subscriptions.js";
 import type * as sync from "../sync.js";
 import type * as users from "../users.js";
 
@@ -46,6 +51,8 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   appleMusic: typeof appleMusic;
   artistProfile: typeof artistProfile;
+  billing: typeof billing;
+  billing_helpers: typeof billing_helpers;
   categories: typeof categories;
   community: typeof community;
   crons: typeof crons;
@@ -68,6 +75,9 @@ declare const fullApi: ApiFromModules<{
   providerOAuth: typeof providerOAuth;
   sanitizer: typeof sanitizer;
   signing: typeof signing;
+  stripeActions: typeof stripeActions;
+  stripeHelpers: typeof stripeHelpers;
+  subscriptions: typeof subscriptions;
   sync: typeof sync;
   users: typeof users;
 }>;

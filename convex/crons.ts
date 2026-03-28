@@ -19,28 +19,28 @@ crons.daily(
 crons.interval(
   "refresh-expiring-oauth-tokens",
   { minutes: 30 },
-  internal.providerOAuth.refreshExpiringTokens,
+  (internal as any).providerOAuth.refreshExpiringTokens,
   {},
 );
 
 crons.interval(
   "promote-classifications-to-offenses",
   { hours: 6 },
-  internal.offensePipeline.promoteClassifications,
+  (internal as any).offensePipeline.promoteClassifications,
   {},
 );
 
 crons.interval(
   "rebuild-offending-artist-index",
   { hours: 6 },
-  internal.offensePipeline.rebuildOffendingArtistIndex,
+  (internal as any).offensePipeline.rebuildOffendingArtistIndex,
   {},
 );
 
 crons.daily(
   "sweep-stale-offense-summaries",
   { hourUTC: 5, minuteUTC: 0 },
-  internal.offensePipeline.dailySweep,
+  (internal as any).offensePipeline.dailySweep,
 );
 
 // Daily investigation of library artists for new evidence.
@@ -49,7 +49,7 @@ crons.daily(
 crons.daily(
   "investigate-library-artists",
   { hourUTC: 3, minuteUTC: 0 },
-  "evidenceFinder:dailyInvestigation" as unknown as typeof internal.offensePipeline.dailySweep,
+  "evidenceFinder:dailyInvestigation" as any,
 );
 
 export default crons;

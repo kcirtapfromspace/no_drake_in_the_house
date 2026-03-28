@@ -225,14 +225,14 @@ export const verifyOffense = mutation({
     // Rebuild offending artist index for this artist
     await ctx.scheduler.runAfter(
       0,
-      internal.offensePipeline.rebuildOffendingArtistIndex,
+      (internal as any).offensePipeline.rebuildOffendingArtistIndex,
       {},
     );
 
     // Fan out to recompute affected users
     await ctx.scheduler.runAfter(
       100,
-      internal.offensePipeline.recomputeAffectedUsers,
+      (internal as any).offensePipeline.recomputeAffectedUsers,
       { artistId: offense.artistId },
     );
 

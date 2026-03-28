@@ -7,6 +7,7 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -19,7 +20,7 @@ export const status = query({
   args: {
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const connection = await ctx.db
       .query("providerConnections")
@@ -347,7 +348,7 @@ export const _upsertConnection = mutation({
     expiresAt: v.optional(v.string()),
     scopes: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const now = nowIso();
 

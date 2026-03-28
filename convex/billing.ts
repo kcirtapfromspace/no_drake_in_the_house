@@ -15,7 +15,7 @@ export const initiateCheckout = action({
     }
 
     // Look up the user by their auth subject
-    const user: any = await ctx.runQuery(internal.billing_helpers.getCurrentUserByAuth, {
+    const user: any = await ctx.runQuery((internal as any).billing_helpers.getCurrentUserByAuth, {
       authSubject: identity.tokenIdentifier,
     });
 
@@ -24,7 +24,7 @@ export const initiateCheckout = action({
     }
 
     const result: { sessionUrl: string } = await ctx.runAction(
-      internal.stripeActions.createCheckoutSession,
+      (internal as any).stripeActions.createCheckoutSession,
       {
         userId: user._id,
         plan: args.plan,
@@ -47,7 +47,7 @@ export const initiatePortal = action({
       throw new Error("Authentication required.");
     }
 
-    const user: any = await ctx.runQuery(internal.billing_helpers.getCurrentUserByAuth, {
+    const user: any = await ctx.runQuery((internal as any).billing_helpers.getCurrentUserByAuth, {
       authSubject: identity.tokenIdentifier,
     });
 
@@ -56,7 +56,7 @@ export const initiatePortal = action({
     }
 
     const result: { portalUrl: string } = await ctx.runAction(
-      internal.stripeActions.createCustomerPortalSession,
+      (internal as any).stripeActions.createCustomerPortalSession,
       {
         userId: user._id,
         returnUrl: args.returnUrl,

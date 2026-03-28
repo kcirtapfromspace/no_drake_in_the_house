@@ -15,5 +15,9 @@
   "include": [
     "convex/**/*.ts",
     "scripts/**/*.ts"
+  ],
+  "exclude": [
+    "convex/**/*.test.ts",
+    "convex/vitest.config.ts"
   ]
 }

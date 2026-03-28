@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -1673,7 +1674,7 @@ export const _computeImpact = query({
   args: {
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     // Get user's library tracks for this provider
@@ -1935,7 +1936,7 @@ export const _getConnection = query({
   args: {
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     const connection = await ctx.db
@@ -1965,7 +1966,7 @@ export const _updateConnectionToken = mutation({
     accessToken: v.string(),
     expiresAt: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     const connection = await ctx.db

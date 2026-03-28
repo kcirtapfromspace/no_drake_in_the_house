@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 export const list = query({
@@ -207,7 +207,7 @@ export const subscribe = mutation({
     versionPinned: v.optional(v.number()),
     autoUpdate: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const communityList = await ctx.db.get(args.listId);
     if (!communityList) {
@@ -243,7 +243,7 @@ export const unsubscribe = mutation({
   args: {
     listId: v.id("communityLists"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const existing = await ctx.db
       .query("userListSubscriptions")
@@ -266,7 +266,7 @@ export const updateSubscription = mutation({
     versionPinned: v.optional(v.number()),
     autoUpdate: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const existing = await ctx.db
       .query("userListSubscriptions")

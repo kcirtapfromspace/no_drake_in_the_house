@@ -399,13 +399,13 @@ export const investigateLibraryArtists = internalAction({
 
         // Rebuild the index
         await ctx.runMutation(
-          internal.offensePipeline.rebuildOffendingArtistIndex,
+          (internal as any).offensePipeline.rebuildOffendingArtistIndex,
           {},
         );
 
         // Recompute this user's offense summary
         await ctx.runMutation(
-          internal.offensePipeline.recomputeUserOffenseSummary,
+          (internal as any).offensePipeline.recomputeUserOffenseSummary,
           { userId, triggerReason: "investigation_complete" },
         );
 

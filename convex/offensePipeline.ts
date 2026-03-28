@@ -226,7 +226,7 @@ export const recomputeAffectedUsers = internalAction({
   handler: async (ctx, args) => {
     // Find all library tracks referencing this artist
     const tracks: Array<{ userId: string }> = await ctx.runQuery(
-      internal.offensePipeline._getTracksByArtist,
+      (internal as any).offensePipeline._getTracksByArtist,
       { artistId: args.artistId },
     );
 
@@ -240,7 +240,7 @@ export const recomputeAffectedUsers = internalAction({
       for (const userId of batch) {
         await ctx.scheduler.runAfter(
           0,
-          internal.offensePipeline.recomputeUserOffenseSummary,
+          (internal as any).offensePipeline.recomputeUserOffenseSummary,
           { userId: userId as Id<"users">, triggerReason: "offense_verified" },
         );
       }
@@ -366,7 +366,7 @@ export const promoteClassifications = internalMutation({
     if (promoted > 0) {
       await ctx.scheduler.runAfter(
         0,
-        internal.offensePipeline.rebuildOffendingArtistIndex,
+        (internal as any).offensePipeline.rebuildOffendingArtistIndex,
         {},
       );
     }
@@ -389,7 +389,7 @@ export const dailySweep = internalMutation({
       if (summary.computedAt < cutoff) {
         await ctx.scheduler.runAfter(
           0,
-          internal.offensePipeline.recomputeUserOffenseSummary,
+          (internal as any).offensePipeline.recomputeUserOffenseSummary,
           { userId: summary.userId, triggerReason: "scheduled" },
         );
         scheduled++;

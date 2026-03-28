@@ -73,7 +73,7 @@ http.route({
     const payload = await req.text();
 
     try {
-      await ctx.runAction(internal.stripeActions.handleWebhookEvent, {
+      await ctx.runAction((internal as any).stripeActions.handleWebhookEvent, {
         payload,
         signature,
       });

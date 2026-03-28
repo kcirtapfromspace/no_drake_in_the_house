@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 export const scanLibrary = query({
@@ -26,7 +27,7 @@ export const listTracks = query({
     limit: v.optional(v.number()),
     offset: v.optional(v.number()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     let tracksQuery = args.provider
       ? ctx.db
@@ -67,7 +68,7 @@ export const listItems = query({
   args: {
     provider: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const tracks = args.provider
       ? await ctx.db
@@ -144,7 +145,7 @@ export const tasteGrade = query({
     }
 
     const totalSeverity = summary.offenders.reduce(
-      (sum, o) => sum + o.severityTotal,
+      (sum: number, o: any) => sum + o.severityTotal,
       0,
     );
 
@@ -175,7 +176,7 @@ export const listOffenders = query({
     }
 
     // Already sorted by severity in the pipeline
-    const offenders = summary.offenders.map((o) => ({
+    const offenders = summary.offenders.map((o: any) => ({
       artist_id: o.artistId as string,
       artist_name: o.artistName,
       offense_count: o.categories.length,
@@ -191,7 +192,7 @@ export const listPlaylists = query({
   args: {
     provider: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     const tracks = args.provider
@@ -316,7 +317,7 @@ export const getPlaylistTracks = query({
     provider: v.string(),
     playlistName: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
     const tracks = await ctx.db
@@ -397,7 +398,7 @@ export const importTracks = mutation({
     ),
     clearExisting: v.optional(v.boolean()),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const now = nowIso();
 
@@ -457,7 +458,7 @@ export const _clearProviderTracks = internalMutation({
     userId: v.id("users"),
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>

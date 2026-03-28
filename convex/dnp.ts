@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { action, mutation, query } from "./_generated/server";
+import { action, mutation, query, type MutationCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -214,7 +214,7 @@ export const importBlocklist = mutation({
       }),
     ),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     let imported = 0;
     let skipped = 0;

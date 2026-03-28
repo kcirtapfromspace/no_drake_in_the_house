@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { action, mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
@@ -7,7 +7,7 @@ export const connect = mutation({
   args: {
     musicUserToken: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
     const now = nowIso();
 
@@ -45,7 +45,7 @@ export const connect = mutation({
 
 export const disconnect = mutation({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx: MutationCtx) => {
     const { user } = await requireCurrentUser(ctx);
 
     const existing = await ctx.db
@@ -69,7 +69,7 @@ export const disconnect = mutation({
 
 export const status = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx: QueryCtx) => {
     const { user } = await requireCurrentUser(ctx);
 
     const connection = await ctx.db

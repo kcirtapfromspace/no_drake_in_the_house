@@ -69,6 +69,16 @@
     artists_count?: number;
     playlists_count?: number;
     imported_items_count?: number;
+    // Progress fields from Convex providerSyncStatus query
+    phase?: string | null;
+    tracks_imported?: number;
+    liked_count?: number;
+    album_count?: number;
+    artist_count?: number;
+    playlist_track_count?: number;
+    duration_ms?: number | null;
+    error_message?: string | null;
+    run_id?: string;
   }
 
   interface ImportedLibraryTrack {
@@ -96,7 +106,7 @@
     totalItems: number | null;
     lastSynced?: string;
     source: 'live_api' | 'imported_cache';
-    status: 'ready' | 'error';
+    status: 'ready' | 'error' | 'syncing' | 'not_synced';
     message?: string;
   }
 
@@ -386,6 +396,11 @@
     }
 
     return null;
+  }
+
+  function getProviderSyncStatusForPlatform(platformId: string): ProviderLibrarySyncStatus | null {
+    const key = getProviderSyncPlatform(platformId);
+    return key ? (providerSyncStatusByPlatform[key] ?? null) : null;
   }
 
   function getConnectedProviderSyncPlatforms(): ProviderSyncPlatform[] {
@@ -822,7 +837,7 @@
       totalItems: tracks.length,
       lastSynced,
       source: 'imported_cache',
-      status: hasImportedData ? 'ready' : 'error',
+      status: hasImportedData ? 'ready' : 'not_synced',
       message: hasImportedData ? undefined : 'No library data synced yet. Click "Sync Library" to import your favorites and playlists.',
     };
   }
@@ -884,7 +899,16 @@
 
       const provider = platform.connectionProvider || platform.id;
       const importedTracks = await fetchImportedLibraryTracks(provider);
-      return summarizeImportedLibrary(platform, importedTracks);
+      const row = summarizeImportedLibrary(platform, importedTracks);
+
+      // Overlay "syncing" status if an active sync is in progress for this provider
+      const activeSyncStatus = getProviderSyncStatusForPlatform(platform.id);
+      if (activeSyncStatus?.state === 'running') {
+        row.status = 'syncing';
+        row.message = activeSyncStatus.message || 'Syncing...';
+      }
+
+      return row;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : `Failed to load ${platform.name} library stats`;
@@ -2047,6 +2071,47 @@
                 {:else}
                   <div class="text-zinc-500">No library data synced yet</div>
                 {/if}
+                <!-- Provider sync progress -->
+                {#if getProviderSyncStatusForPlatform(platform.id)?.state === 'running'}
+                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
+                  <div class="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 space-y-1.5">
+                    <div class="flex items-center gap-2 text-xs font-medium text-indigo-300">
+                      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                      {pss?.message || 'Syncing...'}
+                    </div>
+                    {#if pss?.phase}
+                      {@const phases = ['liked', 'albums', 'artists', 'playlists', 'playlist_tracks', 'done']}
+                      {@const currentIdx = phases.indexOf(pss.phase)}
+                      <div class="flex gap-0.5">
+                        {#each phases.slice(0, -1) as _, i}
+                          <div
+                            class="h-1 flex-1 rounded-full {i < currentIdx ? 'bg-indigo-400' : i === currentIdx ? 'bg-indigo-400 animate-pulse' : 'bg-zinc-700'}"
+                          ></div>
+                        {/each}
+                      </div>
+                      <div class="text-xs text-zinc-400 flex flex-wrap gap-x-3">
+                        {#if pss.liked_count}<span>{pss.liked_count} songs</span>{/if}
+                        {#if pss.album_count}<span>{pss.album_count} albums</span>{/if}
+                        {#if pss.artist_count}<span>{pss.artist_count} artists</span>{/if}
+                        {#if pss.playlist_track_count}<span>{pss.playlist_track_count} playlist tracks</span>{/if}
+                      </div>
+                    {/if}
+                  </div>
+                {:else if getProviderSyncStatusForPlatform(platform.id)?.state === 'failed'}
+                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
+                  <div class="text-xs text-red-400 bg-red-500/10 rounded p-2 border border-red-500/20">
+                    {pss?.error_message || pss?.message || 'Sync failed'}
+                    {#if pss?.completed_at}
+                      <span class="text-zinc-500 ml-1">({timeAgo(pss.completed_at)})</span>
+                    {/if}
+                  </div>
+                {:else if getProviderSyncStatusForPlatform(platform.id)?.state === 'completed' && getProviderSyncStatusForPlatform(platform.id)?.completed_at}
+                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
+                  <div class="flex justify-between text-xs text-zinc-400">
+                    <span>Last sync:</span>
+                    <span class="text-zinc-300">{timeAgo(pss?.completed_at ?? '')}</span>
+                  </div>
+                {/if}
                 {#if connection?.created_at || connection?.last_health_check}
                   <div class="pt-2 border-t border-zinc-700 space-y-1">
                     {#if connection?.created_at}
@@ -2222,10 +2287,29 @@
                       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
                         ✓ Ready
                       </span>
+                    {:else if row.status === 'syncing'}
+                      <div>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-500/20 text-indigo-400">
+                          <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
+                          Syncing
+                        </span>
+                        {#if row.message}
+                          <div class="text-xs text-indigo-300 mt-1">{row.message}</div>
+                        {/if}
+                      </div>
+                    {:else if row.status === 'not_synced'}
+                      <div>
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-500/20 text-zinc-400">
+                          Not synced
+                        </span>
+                        {#if row.message}
+                          <div class="text-xs text-zinc-400 mt-1">{row.message}</div>
+                        {/if}
+                      </div>
                     {:else}
                       <div>
                         <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-500/20 text-red-400">
-                          ✗ Error
+                          ✗ Failed
                         </span>
                         {#if row.message}
                           <div class="text-xs text-red-400 mt-1">{row.message}</div>
@@ -2999,22 +3083,23 @@
           <svg class="w-7 h-7 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         </div>
         <div>
-          <h3 class="text-xl font-bold text-white">Sync Multiple Libraries</h3>
-          <p class="text-zinc-400">Select platforms to sync in batch</p>
+          <h3 class="text-xl font-bold text-white">Sync Libraries</h3>
+          <p class="text-zinc-400">Import your favorites, playlists, and followed artists from connected services</p>
         </div>
       </div>
 
       <!-- Platform Selection -->
       <div class="mb-6">
-        <label class="block text-sm font-medium text-white mb-3">Platforms</label>
+        <label class="block text-sm font-medium text-white mb-3">Select services to sync</label>
         <div class="grid grid-cols-2 gap-2">
           {#each platforms as platform}
+            {@const platformConnected = activeProviders.has(platform.connectionProvider || platform.id)}
             <button
               type="button"
-              on:click={() => !platform.disabled && togglePlatform(platform.id)}
-              disabled={platform.disabled}
+              on:click={() => !platform.disabled && platformConnected && togglePlatform(platform.id)}
+              disabled={platform.disabled || !platformConnected}
               class="p-3 rounded-xl border-2 transition-all text-left flex items-center gap-2 {
-                platform.disabled
+                platform.disabled || !platformConnected
                   ? 'border-zinc-700 bg-zinc-800/50 cursor-not-allowed opacity-50'
                   : selectedPlatforms.includes(platform.id)
                     ? 'border-indigo-500 bg-indigo-900 text-zinc-300'
@@ -3026,6 +3111,10 @@
                 <span class="font-medium">{platform.name}</span>
                 {#if platform.disabled}
                   <span class="text-xs text-amber-400">{platform.statusLabel}</span>
+                {:else if !platformConnected}
+                  <span class="text-xs text-zinc-500">Not connected</span>
+                {:else}
+                  <span class="text-xs text-green-400">Connected</span>
                 {/if}
               </div>
             </button>
@@ -3035,7 +3124,7 @@
 
       <!-- Sync Type -->
       <div class="mb-6">
-        <label class="block text-sm font-medium text-white mb-3">Sync Type</label>
+        <label class="block text-sm font-medium text-white mb-3">Sync mode</label>
         <div class="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -3045,7 +3134,7 @@
             }"
           >
             <div class="font-medium">Incremental</div>
-            <div class="text-xs text-zinc-400">Only new/changed artists</div>
+            <div class="text-xs text-zinc-400">Only new items since last sync</div>
           </button>
           <button
             type="button"
@@ -3055,13 +3144,13 @@
             }"
           >
             <div class="font-medium">Full</div>
-            <div class="text-xs text-zinc-400">Complete catalog refresh</div>
+            <div class="text-xs text-zinc-400">Re-import entire library</div>
           </button>
         </div>
       </div>
 
-      <!-- Priority -->
-      <div class="mb-6">
+      <!-- Priority (hidden by default — keep for advanced users) -->
+      <div class="mb-6 hidden">
         <label for="priority" class="block text-sm font-medium text-white mb-2">Priority</label>
         <select id="priority" bind:value={priority} class="w-full px-4 py-3 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 text-zinc-300 bg-zinc-800 border border-zinc-700" >
           <option value="low">Low</option>

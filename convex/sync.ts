@@ -96,6 +96,74 @@ export const getRun = query({
   },
 });
 
+/**
+ * Returns the latest sync run for a given provider, including progress data.
+ * Used by the frontend to show meaningful sync status (phase, counts, errors).
+ */
+export const providerSyncStatus = query({
+  args: {
+    provider: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const runs = await ctx.db
+      .query("platformSyncRuns")
+      .withIndex("by_platform", (q) => q.eq("platform", args.provider))
+      .collect();
+
+    if (runs.length === 0) {
+      return { state: "idle" as const, message: "No sync history" };
+    }
+
+    runs.sort((a, b) =>
+      (b.startedAt ?? b.createdAt).localeCompare(
+        a.startedAt ?? a.createdAt,
+      ),
+    );
+
+    const latest = runs[0];
+    const checkpoint = (latest.checkpointData ?? {}) as Record<string, any>;
+    const metadata = (latest.metadata ?? {}) as Record<string, any>;
+
+    const state =
+      latest.status === "running"
+        ? ("running" as const)
+        : latest.status === "completed"
+          ? ("completed" as const)
+          : latest.status === "failed"
+            ? ("failed" as const)
+            : ("idle" as const);
+
+    const errorLog = (latest.errorLog ?? []) as Array<Record<string, any>>;
+    const lastError = errorLog.length > 0 ? errorLog[errorLog.length - 1] : null;
+
+    const message =
+      state === "running"
+        ? `Syncing${checkpoint.phase ? ` (${checkpoint.phase})` : ""}...`
+        : state === "failed"
+          ? lastError?.message ?? "Sync failed"
+          : state === "completed"
+            ? "Sync complete"
+            : "No sync history";
+
+    return {
+      state,
+      message,
+      started_at: latest.startedAt ?? latest.createdAt,
+      completed_at: latest.completedAt,
+      phase: checkpoint.phase ?? null,
+      tracks_imported: metadata.tracksImported ?? checkpoint.tracksImported ?? 0,
+      liked_count: metadata.likedCount ?? checkpoint.likedCount ?? 0,
+      album_count: metadata.albumCount ?? checkpoint.albumCount ?? 0,
+      artist_count: metadata.artistCount ?? checkpoint.artistCount ?? 0,
+      playlist_track_count:
+        metadata.playlistTrackCount ?? checkpoint.playlistTrackCount ?? 0,
+      duration_ms: metadata.durationMs ?? null,
+      error_message: state === "failed" ? (lastError?.message ?? null) : null,
+      run_id: latest._id,
+    };
+  },
+});
+
 export const health = query({
   args: {},
   handler: async (ctx) => {

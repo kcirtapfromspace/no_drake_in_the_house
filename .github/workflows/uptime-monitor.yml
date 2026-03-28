@@ -1,0 +1,59 @@
+name: Uptime Monitor
+
+on:
+  schedule:
+    # Every 5 minutes
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+env:
+  FRONTEND_URL: "https://nodrakeinthe.house"
+  BACKEND_URL: "https://api.nodrakeinthe.house/health"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check frontend
+        id: frontend
+        run: |
+          HTTP_CODE=$(curl -fsS --max-time 30 -o /dev/null -w "%{http_code}" "$FRONTEND_URL" 2>/dev/null || echo "000")
+          echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            echo "Frontend OK ($HTTP_CODE)"
+          else
+            echo "Frontend DOWN (HTTP $HTTP_CODE)"
+          fi
+
+      - name: Check backend health
+        id: backend
+        run: |
+          HTTP_CODE=$(curl -fsS --max-time 30 -o /dev/null -w "%{http_code}" "$BACKEND_URL" 2>/dev/null || echo "000")
+          echo "status=$HTTP_CODE" >> "$GITHUB_OUTPUT"
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 400 ]; then
+            echo "Backend OK ($HTTP_CODE)"
+          else
+            echo "Backend DOWN (HTTP $HTTP_CODE)"
+          fi
+
+      - name: Fail on downtime
+        env:
+          FRONTEND_STATUS: ${{ steps.frontend.outputs.status }}
+          BACKEND_STATUS: ${{ steps.backend.outputs.status }}
+        run: |
+          FAILED=0
+          if [ "$FRONTEND_STATUS" = "000" ] || [ "$FRONTEND_STATUS" -ge 400 ] 2>/dev/null; then
+            echo "ALERT: Frontend is down (HTTP $FRONTEND_STATUS)"
+            FAILED=1
+          fi
+          if [ "$BACKEND_STATUS" = "000" ] || [ "$BACKEND_STATUS" -ge 400 ] 2>/dev/null; then
+            echo "ALERT: Backend is down (HTTP $BACKEND_STATUS)"
+            FAILED=1
+          fi
+          if [ "$FAILED" = "1" ]; then
+            echo ""
+            echo "Check https://dashboard.render.com for service status."
+            exit 1
+          fi
+          echo "All services healthy."

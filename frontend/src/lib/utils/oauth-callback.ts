@@ -57,12 +57,14 @@ export function isConnectionProvider(provider: string): boolean {
 }
 
 function getCallbackEndpoint(provider: string): string {
+  // Connection providers route through Convex OAuth so tokens are stored
+  // where the Convex library sync can read them.
   if (provider === 'spotify' || provider === 'tidal') {
-    return `/api/v1/connections/${provider}/callback`;
+    return `/api/v1/oauth/${provider}/callback`;
   }
 
   if (provider === 'youtube' || provider === 'youtube_music') {
-    return '/api/v1/connections/youtube/callback';
+    return '/api/v1/oauth/youtube/callback';
   }
 
   return `/api/v1/auth/oauth/${provider}/link-callback`;
@@ -102,8 +104,8 @@ export async function resolveOAuthCallback(
   };
 
   try {
-    // All provider callbacks route through the bridge to Convex, which handles
-    // the code exchange atomically without retry.  The API client only retries
+    // Connection providers route through the Convex bridge (which calls
+    // the action directly, no HTTP retry).  The API client only retries
     // on 5xx (never 4xx), so single-use OAuth codes are safe.
     const result = await post(getCallbackEndpoint(provider), request);
 

@@ -738,10 +738,25 @@ fn sanitize_backend_base_url(candidate: String, frontend_base: &str) -> String {
         return candidate;
     };
 
+    // When the candidate URL matches the frontend URL, derive backend from frontend.
     if candidate_authority.eq_ignore_ascii_case(frontend_authority) {
         return format!(
             "{}://{}",
             scheme,
+            derive_backend_authority(frontend_authority)
+        );
+    }
+
+    // When the candidate is an auto-generated Render URL (.onrender.com) but a custom
+    // frontend domain is configured, derive the backend from the custom domain instead.
+    // RENDER_EXTERNAL_URL always uses the .onrender.com hostname even when a custom
+    // domain is attached; OAuth providers register the custom domain, so we must match it.
+    if candidate_authority.ends_with(".onrender.com")
+        && !frontend_authority.ends_with(".onrender.com")
+        && !frontend_authority.contains("localhost")
+    {
+        return format!(
+            "https://{}",
             derive_backend_authority(frontend_authority)
         );
     }
@@ -908,5 +923,39 @@ mod tests {
 
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
         std::env::remove_var("OAUTH_BACKEND_BASE_URL");
+    }
+
+    #[test]
+    fn test_public_backend_base_url_prefers_custom_domain_over_render_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::set_var("RENDER_EXTERNAL_URL", "https://ndith-backend.onrender.com");
+        std::env::remove_var("OAUTH_BACKEND_BASE_URL");
+        std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
+
+        assert_eq!(
+            public_backend_base_url(),
+            "https://api.nodrakeinthe.house"
+        );
+
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
+    }
+
+    #[test]
+    fn test_provider_callback_uri_uses_custom_domain_over_render_url() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::set_var("OAUTH_FRONTEND_BASE_URL", "https://nodrakeinthe.house");
+        std::env::set_var("RENDER_EXTERNAL_URL", "https://ndith-backend.onrender.com");
+        std::env::remove_var("OAUTH_BACKEND_BASE_URL");
+        std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
+
+        assert_eq!(
+            provider_callback_uri("spotify"),
+            "https://api.nodrakeinthe.house/auth/callback/spotify"
+        );
+
+        std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
+        std::env::remove_var("RENDER_EXTERNAL_URL");
     }
 }

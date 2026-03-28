@@ -311,6 +311,22 @@ export const callback = action({
       },
     );
 
+    // --- Auto-trigger library sync after successful connection ---
+    if (["spotify", "tidal", "youtube"].includes(args.provider)) {
+      try {
+        await ctx.runAction("sync:triggerProviderSync" as any, {
+          provider: args.provider,
+        });
+      } catch (syncErr: any) {
+        // Non-fatal: connection succeeded even if sync scheduling fails.
+        // The user can manually trigger sync from the dashboard.
+        console.warn(
+          `Auto-sync scheduling failed for ${args.provider}:`,
+          syncErr?.message ?? syncErr,
+        );
+      }
+    }
+
     return {
       success: true,
       provider: args.provider,

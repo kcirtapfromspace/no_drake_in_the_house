@@ -453,6 +453,127 @@ export const importTracks = mutation({
  * Internal mutation: delete all userLibraryTracks for a given user + provider.
  * Called once at the start of a full library sync (from scheduled sync actions).
  */
+// ---------------------------------------------------------------------------
+// Cross-provider dedup (display-layer only — never merges/deletes records)
+// ---------------------------------------------------------------------------
+
+/** Strip parenthetical suffixes like "(Deluxe Edition)", "(Remastered)", etc. */
+function stripParenSuffixes(s: string): string {
+  return s.replace(/\s*\((?:deluxe|remaster(?:ed)?|expanded|bonus|anniversary|live|explicit|clean|mono|stereo|single|ep)\b[^)]*\)/gi, "").trim();
+}
+
+/** Normalize a string for dedup grouping: lowercase, strip parens, collapse whitespace. */
+function normalizeForDedup(s: string | undefined): string {
+  if (!s) return "";
+  return stripParenSuffixes(s).toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Pick the more-complete value: longest non-empty string wins. */
+function pickBestString(a: string | undefined, b: string | undefined): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a.length >= b.length ? a : b;
+}
+
+export const listDeduplicated = query({
+  args: {
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx: QueryCtx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    const allTracks = await ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .collect();
+
+    // Group by normalized (track, artist) key
+    const groups = new Map<
+      string,
+      {
+        providers: Set<string>;
+        canonical: Doc<"userLibraryTracks">;
+        possibleDuplicate: boolean;
+      }
+    >();
+
+    for (const track of allTracks) {
+      const normTrack = normalizeForDedup(track.trackName);
+      const normArtist = normalizeForDedup(track.artistName);
+
+      // Skip rows with no meaningful identity
+      if (!normTrack && !normArtist) continue;
+
+      const key = `${normTrack}||${normArtist}`;
+      const existing = groups.get(key);
+
+      if (existing) {
+        existing.providers.add(track.provider);
+        // Keep the record with the most-complete metadata
+        const cur = existing.canonical;
+        const betterTrackName = pickBestString(cur.trackName, track.trackName);
+        const betterAlbumName = pickBestString(cur.albumName, track.albumName);
+        const betterArtistName = pickBestString(cur.artistName, track.artistName);
+
+        if (
+          betterTrackName !== cur.trackName ||
+          betterAlbumName !== cur.albumName ||
+          betterArtistName !== cur.artistName
+        ) {
+          existing.canonical = {
+            ...cur,
+            trackName: betterTrackName,
+            albumName: betterAlbumName,
+            artistName: betterArtistName,
+          };
+        }
+
+        // Flag as possible duplicate if normalization changed something
+        if (
+          track.trackName !== existing.canonical.trackName ||
+          track.artistName !== existing.canonical.artistName
+        ) {
+          existing.possibleDuplicate = true;
+        }
+      } else {
+        groups.set(key, {
+          providers: new Set([track.provider]),
+          canonical: track,
+          possibleDuplicate: false,
+        });
+      }
+    }
+
+    const deduplicated = Array.from(groups.values()).map((g) => ({
+      id: g.canonical._id,
+      track_name: g.canonical.trackName ?? null,
+      album_name: g.canonical.albumName ?? null,
+      artist_name: g.canonical.artistName ?? null,
+      artist_id: g.canonical.artistId ?? null,
+      source_type: g.canonical.sourceType ?? null,
+      playlist_name: g.canonical.playlistName ?? null,
+      added_at: g.canonical.addedAt ?? null,
+      last_synced: g.canonical.lastSyncedAt ?? null,
+      providers: [...g.providers],
+      possible_duplicate: g.possibleDuplicate,
+    }));
+
+    // Sort: multi-provider items first, then alphabetically by track name
+    deduplicated.sort((a, b) => {
+      const provDiff = b.providers.length - a.providers.length;
+      if (provDiff !== 0) return provDiff;
+      return (a.track_name ?? "").localeCompare(b.track_name ?? "");
+    });
+
+    const total = deduplicated.length;
+    const offset = args.offset ?? 0;
+    const limit = args.limit ?? 50;
+    const page = deduplicated.slice(offset, offset + limit);
+
+    return { items: page, total, offset, limit };
+  },
+});
+
 export const _clearProviderTracks = internalMutation({
   args: {
     userId: v.id("users"),

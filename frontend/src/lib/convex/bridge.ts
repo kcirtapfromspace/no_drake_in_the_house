@@ -785,6 +785,14 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    // Provider-specific sync status (replaces Rust backend endpoint)
+    const providerSyncStatusMatch = matchPath(pathname, /^\/api\/v1\/connections\/([^/]+)\/library\/sync-status$/);
+    if (providerSyncStatusMatch && method === 'GET') {
+      const provider = parseId(providerSyncStatusMatch[1]);
+      const result = await convexQuery<any>(anyApi.sync.providerSyncStatus, { provider });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     // Provider-specific sync trigger (both /api/v1/{provider}/library/sync and
     // /api/v1/connections/{provider}/library/sync route to the same Convex action)
     const providerSyncMatch = matchPath(pathname, /^\/api\/v1\/([^/]+)\/library\/sync$/);

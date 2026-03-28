@@ -8,35 +8,14 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { colors, tailwindClasses, borderRadiusRequirements } from '../design-tokens';
+import { colors, tailwindClasses } from '../design-tokens';
 
 // ============================================================================
 // TEST CONFIGURATION
 // ============================================================================
 
 const COMPONENTS_DIR = path.join(__dirname, '../../components');
-const UI_COMPONENTS_DIR = path.join(__dirname, '../../components/ui');
-
-// Allowed color patterns for dark theme
-const ALLOWED_BACKGROUND_COLORS = [
-  '#18181b', '#27272a', '#3f3f46', '#52525b', // zinc backgrounds
-  'zinc-900', 'zinc-800', 'zinc-700', 'zinc-600', // tailwind zinc
-  'transparent', 'inherit', 'currentColor',
-  'rgba(', // Allow rgba for overlays
-  'linear-gradient', // Allow gradients
-];
-
-const ALLOWED_TEXT_COLORS = [
-  '#ffffff', '#e4e4e7', '#d4d4d8', '#a1a1aa', '#71717a', // zinc text
-  'white', 'zinc-200', 'zinc-300', 'zinc-400', 'zinc-500',
-  'inherit', 'currentColor',
-];
-
-const ALLOWED_BORDER_COLORS = [
-  '#52525b', '#3f3f46', '#71717a', // zinc borders
-  'zinc-600', 'zinc-700', 'zinc-500',
-  'transparent', 'inherit', 'currentColor',
-];
+void path.join(__dirname, '../../components/ui');
 
 // Deprecated patterns that should not be used
 const DEPRECATED_PATTERNS = [
@@ -66,12 +45,7 @@ const DEPRECATED_PATTERNS = [
   { pattern: /rgba\(255,\s*255,\s*255,\s*0\.1\)/, message: 'Use #52525b for borders instead of rgba white' },
 ];
 
-// Required accessibility patterns
-const ACCESSIBILITY_REQUIREMENTS = [
-  { pattern: /<button(?![^>]*type=)/, message: 'Buttons should have explicit type attribute' },
-  { pattern: /<input(?![^>]*id=)/, message: 'Inputs should have id attribute for labels' },
-  { pattern: /<svg(?![^>]*aria-)/, message: 'SVGs should have aria-hidden or aria-label' },
-];
+// Accessibility requirements - used for reference in manual audits
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -128,18 +102,6 @@ function findViolations(
   }
 
   return violations;
-}
-
-function extractStyleAttribute(content: string): string[] {
-  const styleRegex = /style="([^"]+)"/g;
-  const styles: string[] = [];
-  let match;
-
-  while ((match = styleRegex.exec(content)) !== null) {
-    styles.push(match[1]);
-  }
-
-  return styles;
 }
 
 function extractClassAttribute(content: string): string[] {
@@ -323,12 +285,7 @@ describe('Design System Consistency', () => {
     it('should not have sharp-cornered cards or panels', () => {
       const violations: Array<{ file: string; line: number; element: string }> = [];
 
-      // Patterns that indicate a container element without rounded corners
-      const cardPatterns = [
-        // Inline style background without border-radius in same element
-        { regex: /style="[^"]*background:\s*#27272a[^"]*"(?![^>]*rounded)/, name: 'zinc-800 card' },
-        { regex: /style="[^"]*background:\s*#3f3f46[^"]*"(?![^>]*rounded)/, name: 'zinc-700 panel' },
-      ];
+      // Card patterns checked inline below
 
       componentFiles.forEach((content, filePath) => {
         const lines = content.split('\n');
@@ -427,7 +384,6 @@ describe('Design System Consistency', () => {
       componentFiles.forEach((content, filePath) => {
         const lines = content.split('\n');
         let insideModal = false;
-        let modalStartLine = -1;
         let currentElementLines: string[] = [];
         let elementStartLine = -1;
 
@@ -435,7 +391,6 @@ describe('Design System Consistency', () => {
           // Detect modal containers (backdrop)
           if (line.includes('fixed inset-0') || line.includes('z-50')) {
             insideModal = true;
-            modalStartLine = index;
           }
 
           // Track multi-line element opening
@@ -688,13 +643,7 @@ describe('Component Structure', () => {
 
   it('should have consistent card structure', () => {
     let cardCount = 0;
-    const cardStyles = {
-      background: /#27272a|bg-zinc-800/,
-      border: /border.*#52525b|border-zinc-600/,
-      rounded: /rounded-xl|rounded-lg/,
-    };
-
-    componentFiles.forEach((content, filePath) => {
+    componentFiles.forEach((content) => {
       // Look for card-like elements
       const cardMatches = content.match(/class="[^"]*rounded-(?:xl|lg)[^"]*"/g) || [];
       cardCount += cardMatches.length;

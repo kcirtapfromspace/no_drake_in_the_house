@@ -4,14 +4,14 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { validateLink, validateLinks, clearLinkCache, type LinkCheckResult } from '../link-validator';
+import { validateLink, validateLinks, clearLinkCache } from '../link-validator';
 
 describe('Link Validator', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     fetchMock = vi.fn();
-    globalThis.fetch = fetchMock;
+    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
     clearLinkCache();
     vi.useFakeTimers();
   });

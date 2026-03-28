@@ -63,6 +63,7 @@
 >
   {#each $activeToasts as toast (toast.id)}
     {@const isError = toast.type === 'error'}
+    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <div
       class="toast toast--{toast.type}"
       role="alert"

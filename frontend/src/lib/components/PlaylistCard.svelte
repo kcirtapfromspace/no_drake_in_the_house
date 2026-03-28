@@ -110,6 +110,7 @@
 
     <!-- Selection checkbox (visible in selection mode) -->
     {#if selectionMode}
+      <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
       <label class="pc__checkbox" on:click|stopPropagation>
         <input
           type="checkbox"

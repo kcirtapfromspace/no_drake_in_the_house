@@ -3,8 +3,7 @@
  * Tests for enforcement-related UI components and store
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { get } from 'svelte/store';
+import { describe, it, expect } from 'vitest';
 
 // ============================================
 // Enforcement Store Tests

@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/svelte';
-import { get } from 'svelte/store';
+import { render, fireEvent, waitFor } from '@testing-library/svelte';
 
 // Mock data
 const mockGlobalCategoryRevenue = {
@@ -441,7 +440,6 @@ describe('CategoryRevenueBreakdown Component', () => {
       );
 
       await waitFor(() => {
-        const noData = container.querySelector('[data-testid="no-data"]');
         // Component will show loading first, then may show no-data
         expect(container).toBeTruthy();
       });
@@ -486,7 +484,6 @@ describe('CategoryRevenueBreakdown Component', () => {
       );
 
       await waitFor(() => {
-        const categoryList = container.querySelector('[data-testid="category-list"]');
         // When showDetails is false, category list should not be rendered
         // But in our implementation, showDetails controls the list visibility
         expect(container.querySelector('[data-testid="category-revenue-breakdown"]')).toBeTruthy();

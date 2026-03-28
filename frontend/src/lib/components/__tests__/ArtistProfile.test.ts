@@ -3,7 +3,7 @@
  * Tests for utility functions and basic component behavior
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Test utility functions directly - these don't require component mounting
 

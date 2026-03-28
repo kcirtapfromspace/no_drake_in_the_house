@@ -2870,46 +2870,51 @@
                 {libraryItemsError}
               </div>
             {:else if libraryItems.length === 0}
-              <div class="py-8 text-center">
-                <div class="text-zinc-400 mb-2">No matching items yet.</div>
-                <div class="text-xs text-zinc-500">
-                  Click "Sync Library" above to cache your library items. Apple Music imports your full library, while Tidal/YouTube Music import favorites and playlists.
+              <div class="py-16 text-center">
+                <div class="mx-auto mb-4 w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center">
+                  <svg class="w-8 h-8 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+                  </svg>
+                </div>
+                <div class="text-lg font-medium text-zinc-300 mb-1">No library items yet</div>
+                <div class="text-sm text-zinc-500 max-w-sm mx-auto">
+                  Connect a streaming service above, then click "Sync Library" to import your favorites and playlists.
                 </div>
               </div>
             {:else}
               <div class="overflow-x-auto">
-                <table class="w-full">
-                  <thead class="border-b border-zinc-700">
-                    <tr class="text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">
-                      <th class="py-2 pr-4">Provider</th>
-                      <th class="py-2 pr-4">Title</th>
-                      <th class="py-2 pr-4">Artist</th>
-                      <th class="py-2 pr-4">Album / Notes</th>
-                      <th class="py-2 pr-4">Type</th>
-                      <th class="py-2 pr-4">Source</th>
-                      <th class="py-2 pr-4">Added</th>
-                      <th class="py-2 pr-0">Synced</th>
+                <table class="w-full library-table">
+                  <thead>
+                    <tr class="text-left text-[11px] font-semibold text-zinc-500 uppercase tracking-wider border-b border-zinc-700/60">
+                      <th class="py-2.5 pr-3 w-10"></th>
+                      <th class="py-2.5 pr-4">Title</th>
+                      <th class="py-2.5 pr-4">Artist</th>
+                      <th class="py-2.5 pr-4">Album</th>
+                      <th class="py-2.5 pr-4">Type</th>
+                      <th class="py-2.5 pr-0">Added</th>
                     </tr>
                   </thead>
-                  <tbody class="border-t border-zinc-700">
+                  <tbody>
                     {#each libraryItems as item (item.id ?? `${item.provider ?? 'unknown'}:${item.provider_track_id ?? 'unknown'}`)}
                       {@const provider = item.provider || 'unknown'}
                       {@const providerName = getProviderName(provider)}
                       {@const kind = kindFromImportedItem(item)}
                       {@const title = item.track_name || item.playlist_name || item.provider_track_id || '(Untitled)'}
-                      <tr class="hover:bg-zinc-800">
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap" title={providerName}>
-                          <ProviderIcon provider={provider} size={18} />
+                      <tr class="library-table__row">
+                        <td class="py-3 pr-3" title={providerName}>
+                          <ProviderIcon provider={provider} size={16} />
                         </td>
-                        <td class="py-2 pr-4 text-white font-medium max-w-md truncate" title={title}>{title}</td>
-                        <td class="py-2 pr-4 text-zinc-300 max-w-xs truncate" title={item.artist_name || ''}>{item.artist_name || '--'}</td>
-                        <td class="py-2 pr-4 text-zinc-300 max-w-xs truncate" title={item.album_name || item.playlist_name || ''}>
+                        <td class="py-3 pr-4 max-w-md truncate" title={title}>
+                          <span class="text-white font-medium text-sm">{title}</span>
+                        </td>
+                        <td class="py-3 pr-4 max-w-xs truncate text-sm text-zinc-400" title={item.artist_name || ''}>
+                          {item.artist_name || '--'}
+                        </td>
+                        <td class="py-3 pr-4 max-w-xs truncate text-xs text-zinc-500" title={item.album_name || item.playlist_name || ''}>
                           {item.album_name || item.playlist_name || '--'}
                         </td>
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{kind}</td>
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{item.source_type || '--'}</td>
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{item.added_at ? formatDate(item.added_at) : '--'}</td>
-                        <td class="py-2 pr-0 text-zinc-300 whitespace-nowrap">{item.last_synced ? formatDate(item.last_synced) : '--'}</td>
+                        <td class="py-3 pr-4 text-xs text-zinc-500 whitespace-nowrap">{kind}</td>
+                        <td class="py-3 pr-0 text-xs text-zinc-500 whitespace-nowrap">{item.added_at ? formatDate(item.added_at) : '--'}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -3038,6 +3043,20 @@
 
 
 <style>
+  .library-table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .library-table :global(.library-table__row) {
+    transition: background-color 0.15s ease;
+    border-bottom: 1px solid rgba(63, 63, 70, 0.4);
+  }
+
+  .library-table :global(.library-table__row:hover) {
+    background-color: rgba(63, 63, 70, 0.35);
+  }
+
   .sync-dashboard-page {
     --sync-panel-bg: linear-gradient(155deg, rgba(18, 20, 28, 0.94), rgba(11, 13, 19, 0.96));
     --sync-border: rgba(82, 88, 112, 0.46);

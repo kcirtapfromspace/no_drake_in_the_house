@@ -901,6 +901,7 @@ struct SpotifyTrackPayload {
     id: Option<String>,
     uri: Option<String>,
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     item_type: Option<String>,
     is_local: Option<bool>,
     name: String,

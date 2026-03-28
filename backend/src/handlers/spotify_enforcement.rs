@@ -366,22 +366,19 @@ pub async fn run_spotify_enforcement(
 
     // Create action batch in database
     let batch_id = Uuid::new_v4();
-    let idempotency_key = options
-        .dry_run
-        .then(|| {
-            format!(
-                "dryrun_{}_{}",
-                user_id,
-                chrono::Utc::now().timestamp_millis()
-            )
-        })
-        .unwrap_or_else(|| {
-            format!(
-                "enforce_{}_{}",
-                user_id,
-                chrono::Utc::now().timestamp_millis()
-            )
-        });
+    let idempotency_key = if options.dry_run {
+        format!(
+            "dryrun_{}_{}",
+            user_id,
+            chrono::Utc::now().timestamp_millis()
+        )
+    } else {
+        format!(
+            "enforce_{}_{}",
+            user_id,
+            chrono::Utc::now().timestamp_millis()
+        )
+    };
 
     let options_json = serde_json::to_value(&options).unwrap_or_default();
 
@@ -1486,10 +1483,6 @@ async fn execute_single_rollback_action(
                         .as_ref()
                         .and_then(|s| s.get("track_id"))
                         .and_then(|v| v.as_str())
-                        .map(|id| {
-                            // Will be formatted below
-                            id
-                        })
                 });
 
             match (playlist_id, track_uri) {
@@ -1858,6 +1851,7 @@ async fn get_blocked_artist_ids(state: &AppState, user_id: Uuid) -> Result<Vec<U
 
 /// Blocked artist info with details
 struct BlockedArtistInfo {
+    #[allow(dead_code)]
     id: Uuid,
     name: String,
     reason: String,

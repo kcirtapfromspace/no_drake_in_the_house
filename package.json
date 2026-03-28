@@ -9,6 +9,9 @@
     "migrate:convex": "tsx scripts/convex/migrate-postgres-to-convex.ts",
     "lint": "npm run lint --prefix frontend"
   },
+  "dependencies": {
+    "stripe": "^17.7.0"
+  },
   "devDependencies": {
     "@types/node": "^25.5.0",
     "@types/pg": "^8.15.5",

@@ -248,7 +248,10 @@ impl MetricsCollector {
 
         // Job queue metrics (US-022)
         let job_queue_depth = GaugeVec::new(
-            Opts::new("ndith_job_queue_depth", "Number of pending jobs by job type"),
+            Opts::new(
+                "ndith_job_queue_depth",
+                "Number of pending jobs by job type",
+            ),
             &["job_type"],
         )?;
 

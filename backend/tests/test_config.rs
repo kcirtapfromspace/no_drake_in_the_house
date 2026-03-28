@@ -3,8 +3,9 @@ use std::env;
 
 /// Get database URL for tests
 pub fn get_test_database_url() -> String {
-    env::var("TEST_DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string())
+    env::var("TEST_DATABASE_URL").unwrap_or_else(|_| {
+        "postgres://ndith:ndith_dev_password@localhost:5432/ndith_dev".to_string()
+    })
 }
 
 /// Create a test database pool

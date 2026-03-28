@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { adminStore, adminActions } from '../stores/admin';
-  import type { CategoryCoverage } from '../stores/admin';
   import { navigateTo } from '../utils/simple-router';
   import { currentUser } from '../stores/auth';
   import { get } from 'svelte/store';

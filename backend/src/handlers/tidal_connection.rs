@@ -810,9 +810,18 @@ fn map_tidal_sync_error(error: &AppError) -> String {
     let raw = error.to_string();
     let lowered = raw.to_ascii_lowercase();
 
-    if lowered.contains("rate limited") || lowered.contains("429") || lowered.contains("too many requests") {
-        "Tidal is temporarily rate-limiting requests. Please wait a few minutes and try again.".to_string()
-    } else if lowered.contains("401") || lowered.contains("403") || lowered.contains("unauthorized") || lowered.contains("forbidden") || lowered.contains("expired") {
+    if lowered.contains("rate limited")
+        || lowered.contains("429")
+        || lowered.contains("too many requests")
+    {
+        "Tidal is temporarily rate-limiting requests. Please wait a few minutes and try again."
+            .to_string()
+    } else if lowered.contains("401")
+        || lowered.contains("403")
+        || lowered.contains("unauthorized")
+        || lowered.contains("forbidden")
+        || lowered.contains("expired")
+    {
         "Tidal authorization failed. Disconnect and reconnect Tidal, then sync again.".to_string()
     } else if lowered.contains("406") || lowered.contains("not acceptable") {
         "Tidal API rejected the request. This is a known compatibility issue — the team is working on it.".to_string()

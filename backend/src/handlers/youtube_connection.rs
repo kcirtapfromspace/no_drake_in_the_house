@@ -573,7 +573,8 @@ pub async fn youtube_library_sync_handler(
         StatusCode::ACCEPTED,
         Json(YouTubeLibrarySyncResponse {
             success: true,
-            message: "YouTube Music library sync started. Check sync status for progress.".to_string(),
+            message: "YouTube Music library sync started. Check sync status for progress."
+                .to_string(),
             summary: zero_youtube_sync_summary(),
         }),
     ))
@@ -622,7 +623,11 @@ fn map_youtube_sync_error(error: &AppError) -> (String, bool) {
     let raw = error.to_string();
     let lowered = raw.to_ascii_lowercase();
 
-    if lowered.contains("rate limited") || lowered.contains("429") || lowered.contains("too many requests") || lowered.contains("quota") {
+    if lowered.contains("rate limited")
+        || lowered.contains("429")
+        || lowered.contains("too many requests")
+        || lowered.contains("quota")
+    {
         (
             "YouTube Music is temporarily rate-limiting requests. Please wait a few minutes and try again.".to_string(),
             false,

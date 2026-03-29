@@ -734,7 +734,10 @@ fn map_spotify_sync_error(error: &AppError) -> (String, bool) {
             "Spotify token is missing required library scopes. Disconnect and reconnect Spotify, then sync again.".to_string(),
             true,
         )
-    } else if lowered.contains("rate limited") || lowered.contains("429") || lowered.contains("too many requests") {
+    } else if lowered.contains("rate limited")
+        || lowered.contains("429")
+        || lowered.contains("too many requests")
+    {
         (
             "Spotify is temporarily rate-limiting requests. Please wait a few minutes and try again.".to_string(),
             false,

@@ -6,6 +6,7 @@ const { mockApiClient } = vi.hoisted(() => ({
     getAuthToken: vi.fn(),
     handleAuthError: vi.fn(),
     clearAuthToken: vi.fn(),
+    authenticatedRequest: vi.fn().mockResolvedValue({ success: false }),
   },
 }));
 

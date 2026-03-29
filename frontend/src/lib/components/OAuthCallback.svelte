@@ -8,13 +8,16 @@
     isConnectionProvider,
     resolveOAuthCallback,
   } from '../utils/oauth-callback';
+  import { OAUTH_BROADCAST_CHANNEL } from '../stores/connections';
 
   let status: 'loading' | 'success' | 'error' = 'loading';
   let errorMessage = '';
   let provider = '';
 
-  // Detect if we're running inside an OAuth popup (opened by window.open)
-  const isPopup = !!window.opener && window.opener !== window;
+  // Detect if we're running inside an OAuth popup.
+  // COOP headers (e.g. from Google) can sever window.opener, so also check
+  // if the window was opened as a popup via window.open (name is set).
+  const isPopup = (!!window.opener && window.opener !== window) || window.name.endsWith('-auth');
 
   onMount(async () => {
     provider = getProviderFromPath(window.location.pathname);
@@ -27,9 +30,12 @@
     provider = result.provider;
 
     if (result.status === 'success') {
-      // If running in a popup, close it — the parent window polls popup.closed
-      // and will refresh connections automatically.
       if (isPopup && isConnectionProvider(result.provider)) {
+        // Notify the opener via BroadcastChannel (COOP-safe: works even when
+        // window.opener was severed by Cross-Origin-Opener-Policy).
+        const channel = new BroadcastChannel(OAUTH_BROADCAST_CHANNEL);
+        channel.postMessage({ type: 'oauth-complete', provider: result.provider });
+        channel.close();
         window.close();
         return;
       }

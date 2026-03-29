@@ -3,6 +3,9 @@ import { apiClient } from '../utils/api-client';
 import config from '../utils/config';
 import * as musicKit from '../utils/musickit';
 
+/** Channel name used by the OAuth popup to signal completion back to the opener. */
+export const OAUTH_BROADCAST_CHANNEL = 'oauth-callback';
+
 /** Open a centered popup window over the current browser window. */
 function openCenteredPopup(url: string, name: string, w = 500, h = 700): Window | null {
   const left = window.screenX + Math.round((window.outerWidth - w) / 2);
@@ -11,6 +14,65 @@ function openCenteredPopup(url: string, name: string, w = 500, h = 700): Window 
     url, name,
     `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=yes,status=no`
   );
+}
+
+/**
+ * Run an OAuth popup flow with COOP-safe completion detection.
+ *
+ * Google's OAuth pages set Cross-Origin-Opener-Policy: same-origin which
+ * severs the window.opener link, making popup.closed polling unreliable.
+ * We use BroadcastChannel as the primary signal (same-origin, unaffected
+ * by COOP) and fall back to popup.closed polling.
+ */
+function runOAuthPopup(
+  authUrl: string,
+  popupName: string,
+  onSuccess: () => void,
+): Promise<{ success: boolean; message?: string }> {
+  const popup = openCenteredPopup(authUrl, popupName);
+  if (!popup) {
+    window.location.href = authUrl;
+    return Promise.resolve({ success: true });
+  }
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const settle = (result: { success: boolean; message?: string }) => {
+      if (settled) return;
+      settled = true;
+      clearInterval(closedPoll);
+      clearTimeout(timeout);
+      channel.close();
+      resolve(result);
+    };
+
+    // Primary: BroadcastChannel message from the callback page
+    const channel = new BroadcastChannel(OAUTH_BROADCAST_CHANNEL);
+    channel.onmessage = (event) => {
+      if (event.data?.type === 'oauth-complete') {
+        onSuccess();
+        settle({ success: true });
+      }
+    };
+
+    // Fallback: poll popup.closed (works when COOP doesn't block it)
+    const closedPoll = setInterval(() => {
+      try {
+        if (popup.closed) {
+          onSuccess();
+          settle({ success: true });
+        }
+      } catch {
+        // Cross-origin access error — ignore, rely on BroadcastChannel
+      }
+    }, 500);
+
+    // Timeout after 5 minutes
+    const timeout = setTimeout(() => {
+      try { if (!popup.closed) popup.close(); } catch { /* ignore */ }
+      settle({ success: false, message: 'OAuth timed out' });
+    }, 300000);
+  });
 }
 
 export interface ServiceConnection {
@@ -316,32 +378,11 @@ export const connectionActions = {
       if (response.data?.state) {
         sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
       }
-      // Popup OAuth — user stays on current page
-      const popup = openCenteredPopup(authUrl, 'spotify-auth');
-      if (!popup) {
-        // Popup blocked — fall back to redirect
-        window.location.href = authUrl;
-        return { success: true };
-      }
-      // Poll for popup closure (callback page will close the popup)
-      return new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(interval);
-            connectionActions.fetchConnections().then(() => {
-              // Auto-trigger library sync after successful OAuth
-              apiClient.authenticatedRequest('POST', '/api/v1/connections/spotify/library/sync')
-                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
-            });
-            resolve({ success: true });
-          }
-        }, 500);
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          clearInterval(interval);
-          if (!popup.closed) popup.close();
-          resolve({ success: false, message: 'OAuth timed out' });
-        }, 300000);
+      return runOAuthPopup(authUrl, 'spotify-auth', () => {
+        connectionActions.fetchConnections().then(() => {
+          apiClient.authenticatedRequest('POST', '/api/v1/connections/spotify/library/sync')
+            .catch(() => {}); // fire-and-forget; SyncDashboard polls status
+        });
       });
     } else {
       const message =
@@ -491,32 +532,11 @@ export const connectionActions = {
       if (response.data.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
-      // Popup OAuth — user stays on current page
-      const popup = openCenteredPopup(response.data.authorization_url, 'tidal-auth');
-      if (!popup) {
-        // Popup blocked — fall back to redirect
-        window.location.href = response.data.authorization_url;
-        return { success: true };
-      }
-      // Poll for popup closure (callback page will close the popup)
-      return new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(interval);
-            connectionActions.fetchConnections().then(() => {
-              // Auto-trigger library sync after successful OAuth
-              apiClient.authenticatedRequest('POST', '/api/v1/connections/tidal/library/sync')
-                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
-            });
-            resolve({ success: true });
-          }
-        }, 500);
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          clearInterval(interval);
-          if (!popup.closed) popup.close();
-          resolve({ success: false, message: 'OAuth timed out' });
-        }, 300000);
+      return runOAuthPopup(response.data.authorization_url, 'tidal-auth', () => {
+        connectionActions.fetchConnections().then(() => {
+          apiClient.authenticatedRequest('POST', '/api/v1/connections/tidal/library/sync')
+            .catch(() => {}); // fire-and-forget; SyncDashboard polls status
+        });
       });
     } else {
       const message =
@@ -599,32 +619,11 @@ export const connectionActions = {
       if (response.data.state) {
         sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
       }
-      // Popup OAuth — user stays on current page
-      const popup = openCenteredPopup(response.data.authorization_url, 'youtube-auth');
-      if (!popup) {
-        // Popup blocked — fall back to redirect
-        window.location.href = response.data.authorization_url;
-        return { success: true };
-      }
-      // Poll for popup closure (callback page will close the popup)
-      return new Promise((resolve) => {
-        const interval = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(interval);
-            connectionActions.fetchConnections().then(() => {
-              // Auto-trigger library sync after successful OAuth
-              apiClient.authenticatedRequest('POST', '/api/v1/connections/youtube/library/sync')
-                .catch(() => {}); // fire-and-forget; SyncDashboard polls status
-            });
-            resolve({ success: true });
-          }
-        }, 500);
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          clearInterval(interval);
-          if (!popup.closed) popup.close();
-          resolve({ success: false, message: 'OAuth timed out' });
-        }, 300000);
+      return runOAuthPopup(response.data.authorization_url, 'youtube-auth', () => {
+        connectionActions.fetchConnections().then(() => {
+          apiClient.authenticatedRequest('POST', '/api/v1/connections/youtube/library/sync')
+            .catch(() => {}); // fire-and-forget; SyncDashboard polls status
+        });
       });
     } else {
       const message =

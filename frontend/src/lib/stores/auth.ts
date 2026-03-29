@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
+import { setConvexAuthToken } from '../convex/client';
 
 export interface LinkedAccount {
   provider: string;
@@ -123,6 +124,7 @@ export const authActions = {
     if (result.success && result.data) {
       const { access_token, refresh_token } = result.data;
       apiClient.setAuthToken(access_token);
+      setConvexAuthToken(access_token);
       localStorage.setItem('refresh_token', refresh_token);
 
       authStore.update((state) => ({
@@ -165,6 +167,7 @@ export const authActions = {
       if (result.data?.access_token && result.data?.refresh_token) {
         const { access_token, refresh_token } = result.data;
         apiClient.setAuthToken(access_token);
+        setConvexAuthToken(access_token);
         localStorage.setItem('refresh_token', refresh_token);
 
         authStore.update((state) => ({
@@ -222,6 +225,7 @@ export const authActions = {
     }
 
     apiClient.clearAuthToken();
+    setConvexAuthToken(null);
     localStorage.removeItem('refresh_token');
     resetState();
   },
@@ -239,6 +243,7 @@ export const authActions = {
     if (result.success && result.data) {
       const { access_token, refresh_token: newRefreshToken } = result.data;
       apiClient.setAuthToken(access_token);
+      setConvexAuthToken(access_token);
       localStorage.setItem('refresh_token', newRefreshToken);
 
       authStore.update((state) => ({
@@ -397,6 +402,8 @@ export const authActions = {
         const { access_token, refresh_token } = result.data;
         localStorage.setItem('auth_token', access_token);
         localStorage.setItem('refresh_token', refresh_token);
+        apiClient.setAuthToken(access_token);
+        setConvexAuthToken(access_token);
 
         authStore.update((authState) => ({
           ...authState,
@@ -488,6 +495,7 @@ if (typeof window !== 'undefined') {
   const token = localStorage.getItem('auth_token');
   if (token) {
     apiClient.setAuthToken(token);
+    setConvexAuthToken(token);
     authStore.update((state) => ({
       ...state,
       token,

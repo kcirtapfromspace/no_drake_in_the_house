@@ -137,17 +137,25 @@ function parseIntParam(url: URL, name: string, fallback: number): number {
   return Number.isFinite(val) ? val : fallback;
 }
 
+function isUnauthenticatedRoute(pathname: string): boolean {
+  return /^\/api\/v1\/(oauth|connections)\/[^/]+\/(authorize|callback)$/.test(pathname);
+}
+
 export async function maybeHandleConvexRoute<T = unknown>(
   method: 'GET' | 'POST' | 'PUT' | 'DELETE',
   endpoint: string,
   data?: any,
 ): Promise<BridgedApiResponse<T> | null> {
-  if (!isConvexEnabled() || !hasConvexAuth()) {
+  if (!isConvexEnabled()) {
     return null;
   }
 
   const url = toUrl(endpoint);
   const { pathname } = url;
+
+  if (!hasConvexAuth() && !isUnauthenticatedRoute(pathname)) {
+    return null;
+  }
 
   try {
     await ensureConvexSession();

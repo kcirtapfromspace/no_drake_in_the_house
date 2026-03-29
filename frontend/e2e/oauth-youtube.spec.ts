@@ -127,7 +127,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await mockApi(page);
 
       // Mock YouTube callback endpoint
-      await page.route('**/api/v1/oauth/youtube/callback', async (route) => {
+      await page.route('**/api/v1/connections/youtube/callback', async (route) => {
         const body = route.request().postDataJSON();
         if (body?.code && body?.state) {
           await route.fulfill({
@@ -236,7 +236,7 @@ test.describe('YouTube Music OAuth Integration', () => {
       await mockApi(page);
 
       // Mock YouTube callback endpoint returning failure
-      await page.route('**/api/v1/oauth/youtube/callback', async (route) => {
+      await page.route('**/api/v1/connections/youtube/callback', async (route) => {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',

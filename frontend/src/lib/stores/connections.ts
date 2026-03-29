@@ -347,6 +347,31 @@ export const connectionActions = {
     if (response.success && response.data) {
       const connections = normalizeConnectionsPayload(response.data);
 
+      // Auto-refresh any Spotify connections stuck in needs_reauth/expired.
+      // The backend stores a refresh token that can restore the connection
+      // without requiring the user to re-do the OAuth popup.
+      const staleSpotify = connections.find(
+        (c) => c.provider === 'spotify' && (c.status === 'expired' || c.status === 'error')
+      );
+      if (staleSpotify) {
+        apiClient
+          .authenticatedRequest('POST', '/api/v1/connections/spotify/refresh')
+          .then((r) => {
+            if (r.success) {
+              // Re-fetch after successful refresh to get updated status
+              fetchConnectionsDirect().then((refreshed) => {
+                if (refreshed.success && refreshed.data) {
+                  connectionsStore.update((s) => ({
+                    ...s,
+                    connections: normalizeConnectionsPayload(refreshed.data!),
+                  }));
+                }
+              });
+            }
+          })
+          .catch(() => {}); // refresh failed — user will see the stale status
+      }
+
       connectionsStore.update(state => ({
         ...state,
         connections,

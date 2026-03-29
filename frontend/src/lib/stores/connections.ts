@@ -491,14 +491,16 @@ export const connectionActions = {
 
   // Tidal actions
   initiateTidalAuth: async (): Promise<{ success: boolean; message?: string }> => {
+    const callbackUrl = `${window.location.origin}/auth/callback/tidal`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
     }>(
-      'GET',
-      '/api/v1/connections/tidal/authorize'
+      'POST',
+      '/api/v1/connections/tidal/authorize',
+      { redirectUri: callbackUrl }
     );
 
     if (response.success && response.data?.authorization_url) {
@@ -599,14 +601,16 @@ export const connectionActions = {
 
   // YouTube Music actions
   initiateYouTubeAuth: async (): Promise<{ success: boolean; message?: string }> => {
+    const callbackUrl = `${window.location.origin}/auth/callback/youtube`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
     }>(
-      'GET',
-      '/api/v1/connections/youtube/authorize'
+      'POST',
+      '/api/v1/connections/youtube/authorize',
+      { redirectUri: callbackUrl }
     );
 
     if (response.success && response.data?.authorization_url) {

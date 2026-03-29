@@ -64,8 +64,14 @@ function getProviderCredentials(provider: string) {
       };
     case "youtube":
       return {
-        clientId: process.env.YOUTUBE_CLIENT_ID,
-        clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+        clientId:
+          process.env.YOUTUBE_MUSIC_CLIENT_ID ||
+          process.env.YOUTUBE_CLIENT_ID ||
+          process.env.GOOGLE_CLIENT_ID,
+        clientSecret:
+          process.env.YOUTUBE_MUSIC_CLIENT_SECRET ||
+          process.env.YOUTUBE_CLIENT_SECRET ||
+          process.env.GOOGLE_CLIENT_SECRET,
       };
     default:
       throw new Error(`Unsupported provider: ${provider}`);
@@ -123,6 +129,31 @@ function getDefaultScopes(provider: string): string[] {
   }
 }
 
+/**
+ * Resolve the redirect URI for a provider. Checks provider-specific env vars
+ * (including YOUTUBE_MUSIC_ variants for the youtube provider), then falls
+ * back to the caller-supplied value. Both authorize and callback MUST use
+ * this same function so the URI sent to the provider always matches.
+ */
+function resolveRedirectUri(
+  provider: string,
+  callerUri: string | undefined,
+): string {
+  const key = `${provider.toUpperCase()}_REDIRECT_URI`;
+  const envUri = process.env[key];
+  if (envUri) return envUri;
+
+  // YouTube Music may be configured under YOUTUBE_MUSIC_ or GOOGLE_ prefix
+  if (provider === "youtube") {
+    const alt =
+      process.env.YOUTUBE_MUSIC_REDIRECT_URI ||
+      process.env.GOOGLE_REDIRECT_URI;
+    if (alt) return alt;
+  }
+
+  return callerUri || "";
+}
+
 export const authorize = action({
   args: {
     provider: v.string(),
@@ -141,10 +172,10 @@ export const authorize = action({
     const scopes = args.scopes?.length ? args.scopes : getDefaultScopes(args.provider);
     const scopeStr = scopes.join(" ");
     const state = `nodrake_${args.provider}_${Date.now()}`;
-    // Use provider-specific redirect URI from env if not explicitly provided
-    const redirectUriEnvKey = `${args.provider.toUpperCase()}_REDIRECT_URI`;
-    const rawRedirectUri =
-      args.redirectUri || process.env[redirectUriEnvKey] || "";
+    // Resolve redirect URI: env var is authoritative (must match provider
+    // dashboard registration). Fall back to arg from frontend, then
+    // YOUTUBE_MUSIC_REDIRECT_URI for the youtube provider.
+    const rawRedirectUri = resolveRedirectUri(args.provider, args.redirectUri);
     const redirectUri = encodeURIComponent(rawRedirectUri);
 
     let authUrl = "";
@@ -203,12 +234,8 @@ export const callback = action({
     }
 
     // --- Exchange the authorization code for tokens ---
-    // Use the provider-specific redirect URI env var as the primary source,
-    // since the authorize step (which may go through the Rust backend) uses it.
-    // Fall back to the explicit arg if the env var is not set.
-    const redirectUriEnvKey = `${args.provider.toUpperCase()}_REDIRECT_URI`;
-    const redirectUri =
-      process.env[redirectUriEnvKey] || args.redirectUri || "";
+    // Must use the same redirect URI that was sent in the authorize step.
+    const redirectUri = resolveRedirectUri(args.provider, args.redirectUri);
 
     const tokenUrl = getTokenEndpoint(args.provider);
     const tokenBody = new URLSearchParams({

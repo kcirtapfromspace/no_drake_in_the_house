@@ -477,80 +477,104 @@ pub async fn youtube_library_sync_handler(
     .await?;
 
     let access_token = decrypt_connection_access_token(&encrypted_access_token).await?;
-    let summary = match sync_youtube_library_to_user_library(
-        &state.db_pool,
-        authenticated_user.id,
-        &access_token,
-    )
-    .await
-    {
-        Ok(summary) => summary,
-        Err(error) => {
-            let (message, needs_reauth) = map_youtube_sync_error(&error);
-            if let Err(update_error) = update_youtube_connection_sync_failure(
-                &state.db_pool,
-                authenticated_user.id,
-                &message,
-                needs_reauth,
-            )
-            .await
-            {
-                tracing::warn!(
-                    user_id = %authenticated_user.id,
-                    error = %update_error,
-                    "Failed to update YouTube Music connection after sync failure"
-                );
-            }
 
-            if let Err(status_error) = store_provider_library_sync_status(
-                &state.redis_pool,
-                YOUTUBE_SYNC_STATUS_KEY,
-                authenticated_user.id,
-                &ProviderLibrarySyncStatus::failed(message.clone(), started_at, Utc::now()),
-                PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
-            )
-            .await
-            {
+    // Run sync in background to avoid Cloudflare 524 timeouts.
+    // The sync makes many paginated YouTube API calls that can take minutes.
+    let db_pool = state.db_pool.clone();
+    let redis_pool = state.redis_pool.clone();
+    let user_id = authenticated_user.id;
+    tokio::spawn(async move {
+        match sync_youtube_library_to_user_library(&db_pool, user_id, &access_token).await {
+            Ok(summary) => {
+                let success_message = format!(
+                    "Synced YouTube Music library: {} imported items ({} liked videos, {} playlist items, {} subscriptions across {} playlists)",
+                    summary.imported_tracks,
+                    summary.liked_videos_synced,
+                    summary.playlist_items_synced,
+                    summary.subscriptions_synced,
+                    summary.playlists_scanned
+                );
+                tracing::info!(
+                    user_id = %user_id,
+                    imported = summary.imported_tracks,
+                    liked = summary.liked_videos_synced,
+                    playlists = summary.playlists_scanned,
+                    "YouTube Music library sync completed successfully"
+                );
+
+                if let Err(e) = update_youtube_connection_sync_success(&db_pool, user_id).await {
+                    tracing::warn!(error = %e, "Failed to update connection after YouTube sync");
+                }
+
+                if let Err(error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    YOUTUBE_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::completed(
+                        success_message,
+                        started_at,
+                        Utc::now(),
+                        youtube_sync_status_counts(&summary),
+                    ),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %error,
+                        "Failed to persist YouTube Music sync completion status"
+                    );
+                }
+            }
+            Err(error) => {
+                let (message, needs_reauth) = map_youtube_sync_error(&error);
                 tracing::error!(
-                    user_id = %authenticated_user.id,
-                    error = %status_error,
-                    "Failed to persist YouTube Music sync failure status"
+                    user_id = %user_id,
+                    error = %message,
+                    "YouTube Music library sync failed in background"
                 );
+
+                if let Err(update_error) = update_youtube_connection_sync_failure(
+                    &db_pool,
+                    user_id,
+                    &message,
+                    needs_reauth,
+                )
+                .await
+                {
+                    tracing::warn!(
+                        user_id = %user_id,
+                        error = %update_error,
+                        "Failed to update YouTube Music connection after sync failure"
+                    );
+                }
+
+                if let Err(status_error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    YOUTUBE_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::failed(message, started_at, Utc::now()),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %status_error,
+                        "Failed to persist YouTube Music sync failure status"
+                    );
+                }
             }
-
-            return Err(AppError::ExternalServiceError(message));
         }
-    };
-
-    update_youtube_connection_sync_success(&state.db_pool, authenticated_user.id).await?;
-    let success_message = format!(
-        "Synced YouTube Music library: {} imported items ({} liked videos, {} playlist items, {} subscriptions across {} playlists)",
-        summary.imported_tracks,
-        summary.liked_videos_synced,
-        summary.playlist_items_synced,
-        summary.subscriptions_synced,
-        summary.playlists_scanned
-    );
-    store_provider_library_sync_status(
-        &state.redis_pool,
-        YOUTUBE_SYNC_STATUS_KEY,
-        authenticated_user.id,
-        &ProviderLibrarySyncStatus::completed(
-            success_message.clone(),
-            started_at,
-            Utc::now(),
-            youtube_sync_status_counts(&summary),
-        ),
-        PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
-    )
-    .await?;
+    });
 
     Ok((
-        StatusCode::OK,
+        StatusCode::ACCEPTED,
         Json(YouTubeLibrarySyncResponse {
             success: true,
-            message: success_message,
-            summary,
+            message: "YouTube Music library sync started. Check sync status for progress.".to_string(),
+            summary: zero_youtube_sync_summary(),
         }),
     ))
 }
@@ -598,7 +622,12 @@ fn map_youtube_sync_error(error: &AppError) -> (String, bool) {
     let raw = error.to_string();
     let lowered = raw.to_ascii_lowercase();
 
-    if lowered.contains("401")
+    if lowered.contains("rate limited") || lowered.contains("429") || lowered.contains("too many requests") || lowered.contains("quota") {
+        (
+            "YouTube Music is temporarily rate-limiting requests. Please wait a few minutes and try again.".to_string(),
+            false,
+        )
+    } else if lowered.contains("401")
         || lowered.contains("403")
         || lowered.contains("unauthorized")
         || lowered.contains("forbidden")

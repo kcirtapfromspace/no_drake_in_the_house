@@ -702,72 +702,91 @@ pub async fn tidal_library_sync_handler(
                 .to_string(),
         ));
     }
-    let summary = match sync_tidal_library_to_user_library(
-        &state.db_pool,
-        authenticated_user.id,
-        &access_token,
-    )
-    .await
-    {
-        Ok(summary) => summary,
-        Err(error) => {
-            let message = error.to_string();
-            if let Err(status_error) = store_provider_library_sync_status(
-                &state.redis_pool,
-                TIDAL_SYNC_STATUS_KEY,
-                authenticated_user.id,
-                &ProviderLibrarySyncStatus::failed(message, started_at, Utc::now()),
-                PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
-            )
-            .await
-            {
-                tracing::error!(
-                    user_id = %authenticated_user.id,
-                    error = %status_error,
-                    "Failed to persist Tidal sync failure status"
+    // Run sync in background to avoid Cloudflare 524 timeouts.
+    let db_pool = state.db_pool.clone();
+    let redis_pool = state.redis_pool.clone();
+    let user_id = authenticated_user.id;
+    tokio::spawn(async move {
+        match sync_tidal_library_to_user_library(&db_pool, user_id, &access_token).await {
+            Ok(summary) => {
+                let success_message = format!(
+                    "Synced Tidal library: {} imported items ({} favorite tracks, {} favorite artists, {} favorite albums, {} playlists)",
+                    summary.imported_tracks,
+                    summary.favorite_tracks_synced,
+                    summary.favorite_artists_synced,
+                    summary.favorite_albums_synced,
+                    summary.playlists_synced
                 );
+                tracing::info!(
+                    user_id = %user_id,
+                    imported = summary.imported_tracks,
+                    "Tidal library sync completed successfully"
+                );
+
+                if let Err(e) = sqlx::query(
+                    "UPDATE connections SET status = 'active', last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'tidal'",
+                )
+                .bind(user_id)
+                .execute(&db_pool)
+                .await
+                {
+                    tracing::warn!(error = %e, "Failed to update connection after Tidal sync");
+                }
+
+                if let Err(error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    TIDAL_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::completed(
+                        success_message,
+                        started_at,
+                        Utc::now(),
+                        tidal_sync_status_counts(&summary),
+                    ),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %error,
+                        "Failed to persist Tidal sync completion status"
+                    );
+                }
             }
+            Err(error) => {
+                let message = map_tidal_sync_error(&error);
+                tracing::error!(
+                    user_id = %user_id,
+                    error = %message,
+                    "Tidal library sync failed in background"
+                );
 
-            return Err(error);
+                if let Err(status_error) = store_provider_library_sync_status(
+                    &redis_pool,
+                    TIDAL_SYNC_STATUS_KEY,
+                    user_id,
+                    &ProviderLibrarySyncStatus::failed(message, started_at, Utc::now()),
+                    PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+                )
+                .await
+                {
+                    tracing::error!(
+                        user_id = %user_id,
+                        error = %status_error,
+                        "Failed to persist Tidal sync failure status"
+                    );
+                }
+            }
         }
-    };
-
-    sqlx::query(
-        "UPDATE connections SET status = 'active', last_health_check = NOW(), error_code = NULL WHERE user_id = $1 AND provider = 'tidal'",
-    )
-    .bind(authenticated_user.id)
-    .execute(&state.db_pool)
-    .await
-    .map_err(AppError::DatabaseQueryFailed)?;
-
-    let success_message = format!(
-        "Synced Tidal library: {} imported items ({} favorite tracks, {} favorite artists, {} favorite albums, {} playlists)",
-        summary.imported_tracks,
-        summary.favorite_tracks_synced,
-        summary.favorite_artists_synced,
-        summary.favorite_albums_synced,
-        summary.playlists_synced
-    );
-    store_provider_library_sync_status(
-        &state.redis_pool,
-        TIDAL_SYNC_STATUS_KEY,
-        authenticated_user.id,
-        &ProviderLibrarySyncStatus::completed(
-            success_message.clone(),
-            started_at,
-            Utc::now(),
-            tidal_sync_status_counts(&summary),
-        ),
-        PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
-    )
-    .await?;
+    });
 
     Ok((
-        StatusCode::OK,
+        StatusCode::ACCEPTED,
         Json(TidalLibrarySyncResponse {
             success: true,
-            message: success_message,
-            summary,
+            message: "Tidal library sync started. Check sync status for progress.".to_string(),
+            summary: zero_tidal_sync_summary(),
         }),
     ))
 }
@@ -785,6 +804,21 @@ pub async fn tidal_library_sync_status_handler(
     .unwrap_or_else(|| ProviderLibrarySyncStatus::idle(TIDAL_PROVIDER_LABEL));
 
     Ok(Json(status))
+}
+
+fn map_tidal_sync_error(error: &AppError) -> String {
+    let raw = error.to_string();
+    let lowered = raw.to_ascii_lowercase();
+
+    if lowered.contains("rate limited") || lowered.contains("429") || lowered.contains("too many requests") {
+        "Tidal is temporarily rate-limiting requests. Please wait a few minutes and try again.".to_string()
+    } else if lowered.contains("401") || lowered.contains("403") || lowered.contains("unauthorized") || lowered.contains("forbidden") || lowered.contains("expired") {
+        "Tidal authorization failed. Disconnect and reconnect Tidal, then sync again.".to_string()
+    } else if lowered.contains("406") || lowered.contains("not acceptable") {
+        "Tidal API rejected the request. This is a known compatibility issue — the team is working on it.".to_string()
+    } else {
+        raw
+    }
 }
 
 // ============================================================================

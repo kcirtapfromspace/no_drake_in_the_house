@@ -303,14 +303,13 @@ export const connectionActions = {
   },
 
   initiateSpotifyAuth: async (): Promise<{ success: boolean; message?: string }> => {
-    const callbackUrl = `${window.location.origin}/auth/callback/spotify`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       auth_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
-    }>('GET', `/api/v1/connections/spotify/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}`);
+    }>('GET', '/api/v1/connections/spotify/authorize');
 
     const authUrl = response.data?.auth_url ?? response.data?.authorization_url;
     if (response.success && authUrl) {

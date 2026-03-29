@@ -755,10 +755,7 @@ fn sanitize_backend_base_url(candidate: String, frontend_base: &str) -> String {
         && !frontend_authority.ends_with(".onrender.com")
         && !frontend_authority.contains("localhost")
     {
-        return format!(
-            "https://{}",
-            derive_backend_authority(frontend_authority)
-        );
+        return format!("https://{}", derive_backend_authority(frontend_authority));
     }
 
     candidate
@@ -933,10 +930,7 @@ mod tests {
         std::env::remove_var("OAUTH_BACKEND_BASE_URL");
         std::env::remove_var("PUBLIC_BACKEND_BASE_URL");
 
-        assert_eq!(
-            public_backend_base_url(),
-            "https://api.nodrakeinthe.house"
-        );
+        assert_eq!(public_backend_base_url(), "https://api.nodrakeinthe.house");
 
         std::env::remove_var("OAUTH_FRONTEND_BASE_URL");
         std::env::remove_var("RENDER_EXTERNAL_URL");

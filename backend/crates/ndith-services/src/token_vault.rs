@@ -1389,9 +1389,8 @@ impl Default for TokenVaultService {
 mod tests {
     use super::*;
     use base64::engine::general_purpose;
-    use std::sync::Mutex;
 
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
     #[tokio::test]
     async fn test_store_and_retrieve_token() {
@@ -1481,7 +1480,7 @@ mod tests {
     #[tokio::test]
     async fn test_decrypt_connection_tokens_falls_back_to_legacy_oauth_format() {
         let (vault, connection) = {
-            let _guard = ENV_LOCK.lock().unwrap();
+            let _guard = ENV_LOCK.lock().await;
             let key = OAuthTokenEncryption::generate_key_base64();
             std::env::set_var("OAUTH_ENCRYPTION_KEY", key);
 
@@ -1511,7 +1510,7 @@ mod tests {
             Some("legacy_refresh_token".to_string())
         );
 
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = ENV_LOCK.lock().await;
         std::env::remove_var("OAUTH_ENCRYPTION_KEY");
     }
 }

@@ -1,5 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
+import { maybeHandleConvexRoute } from '../convex/bridge';
 import config from '../utils/config';
 import * as musicKit from '../utils/musickit';
 
@@ -356,8 +357,20 @@ export const connectionActions = {
 
   handleSpotifyCallback: async (code: string, state: string) => {
     // OAuth authorization codes are single-use — never retry this request.
-    // The default apiClient retries on 5xx which burns the single-use code.
+    // Route through Convex bridge first so tokens are stored in Convex
+    // (the bridge does not retry, so the single-use code is safe).
+    // Fall back to raw fetch only if the bridge is not available.
     try {
+      const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/spotify/callback', { code, state });
+      if (bridged) {
+        if (bridged.success) {
+          await connectionActions.fetchConnections();
+          return { success: true };
+        }
+        return { success: false, message: bridged.message || 'Spotify callback failed via Convex' };
+      }
+
+      // Fallback: raw fetch to Rust backend (legacy path)
       const token = apiClient.getAuthToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -530,9 +543,17 @@ export const connectionActions = {
   },
 
   handleTidalCallback: async (code: string, state: string) => {
-    // OAuth authorization codes are single-use — never retry this request.
-    // The default apiClient retries on 5xx which burns the single-use code.
+    // OAuth authorization codes are single-use — route through Convex bridge first.
     try {
+      const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/tidal/callback', { code, state });
+      if (bridged) {
+        if (bridged.success) {
+          await connectionActions.fetchConnections();
+          return { success: true };
+        }
+        return { success: false, message: bridged.message || 'Tidal callback failed via Convex' };
+      }
+
       const token = apiClient.getAuthToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;
@@ -638,9 +659,17 @@ export const connectionActions = {
   },
 
   handleYouTubeCallback: async (code: string, state: string) => {
-    // OAuth authorization codes are single-use — never retry this request.
-    // The default apiClient retries on 5xx which burns the single-use code.
+    // OAuth authorization codes are single-use — route through Convex bridge first.
     try {
+      const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/youtube/callback', { code, state });
+      if (bridged) {
+        if (bridged.success) {
+          await connectionActions.fetchConnections();
+          return { success: true };
+        }
+        return { success: false, message: bridged.message || 'YouTube callback failed via Convex' };
+      }
+
       const token = apiClient.getAuthToken();
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) headers['Authorization'] = `Bearer ${token}`;

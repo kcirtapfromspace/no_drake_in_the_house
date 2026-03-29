@@ -898,11 +898,14 @@
       const importedTracks = await fetchImportedLibraryTracks(provider);
       const row = summarizeImportedLibrary(platform, importedTracks);
 
-      // Overlay "syncing" status if an active sync is in progress for this provider
+      // Overlay sync status if a provider-specific sync is running or has failed
       const activeSyncStatus = getProviderSyncStatusForPlatform(platform.id);
       if (activeSyncStatus?.state === 'running') {
         row.status = 'syncing';
         row.message = activeSyncStatus.message || 'Syncing...';
+      } else if (activeSyncStatus?.state === 'failed' && row.status === 'not_synced') {
+        row.status = 'error';
+        row.message = activeSyncStatus.error_message || activeSyncStatus.message || 'Sync failed';
       }
 
       return row;

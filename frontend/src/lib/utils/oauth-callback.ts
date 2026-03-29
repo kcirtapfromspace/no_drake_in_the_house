@@ -57,14 +57,14 @@ export function isConnectionProvider(provider: string): boolean {
 }
 
 function getCallbackEndpoint(provider: string): string {
-  // Connection providers route through Convex OAuth so tokens are stored
-  // where the Convex library sync can read them.
+  // Connection providers use the Rust backend's /connections/ routes.
+  // When Convex bridge is enabled, it intercepts both /oauth/ and /connections/ paths.
   if (provider === 'spotify' || provider === 'tidal') {
-    return `/api/v1/oauth/${provider}/callback`;
+    return `/api/v1/connections/${provider}/callback`;
   }
 
   if (provider === 'youtube' || provider === 'youtube_music') {
-    return '/api/v1/oauth/youtube/callback';
+    return '/api/v1/connections/youtube/callback';
   }
 
   return `/api/v1/auth/oauth/${provider}/link-callback`;

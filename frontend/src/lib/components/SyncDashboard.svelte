@@ -1270,13 +1270,21 @@
         if (syncResult.success) {
           const payload = (syncResult.data ?? syncResult) as any;
           showConnectionSuccess(
-            payload?.message || `${platform.name} library synced successfully.`
+            payload?.message || `${platform.name} library sync started. Check status for progress.`
           );
         } else if (
           syncResult.error_code === 'HTTP_404' ||
           syncResult.error_code === 'HTTP_405'
         ) {
           await triggerGenericSync();
+        } else if (syncResult.error_code === 'HTTP_502' || syncResult.error_code === 'HTTP_504') {
+          showConnectionError(
+            `${platform.name} sync timed out. The sync may still be running — check back in a minute.`
+          );
+        } else if (syncResult.error_code === 'HTTP_429') {
+          showConnectionError(
+            `${platform.name} is rate-limiting requests. Please wait a few minutes and try again.`
+          );
         } else {
           showConnectionError(
             syncResult.message || `Failed to sync ${platform.name} library`

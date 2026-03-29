@@ -1,6 +1,7 @@
 <script lang="ts">
   import { navigateTo } from '../utils/simple-router';
   import { libraryActions, type ImportTrack } from '../stores/library';
+  import { connectionActions } from '../stores/connections';
 
   let activeTab: 'services' | 'import' | 'extension' = 'services';
   let importFile: File | null = null;
@@ -24,8 +25,14 @@
     }
   }
 
+  let youtubeConnecting = false;
   async function connectYouTube() {
-    alert('YouTube Music connection coming soon! We use the YouTube Data API.');
+    youtubeConnecting = true;
+    const result = await connectionActions.initiateYouTubeAuth();
+    youtubeConnecting = false;
+    if (!result.success) {
+      alert(result.message || 'Failed to connect YouTube Music');
+    }
   }
 
   function handleFileSelect(event: Event) {
@@ -393,8 +400,8 @@
               <p class="service-card__desc">
                 Connect with your Google account to scan your YouTube Music library.
               </p>
-              <button type="button" on:click={connectYouTube} class="btn btn--secondary btn--disabled">
-                Coming Soon
+              <button type="button" on:click={connectYouTube} class="btn btn--secondary" disabled={youtubeConnecting}>
+                {youtubeConnecting ? 'Connecting...' : 'Connect YouTube Music'}
               </button>
             </div>
           </div>

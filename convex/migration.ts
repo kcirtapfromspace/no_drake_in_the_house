@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { nowIso } from "./lib/auth";
+import { nowIso, requireOwner } from "./lib/auth";
 
 const IMPORTABLE_TABLES = new Set([
   "users",
@@ -141,6 +141,7 @@ export const tableCounts = query({
     table: v.string(),
   },
   handler: async (ctx, args) => {
+    await requireOwner(ctx);
     if (!IMPORTABLE_TABLES.has(args.table)) {
       throw new ConvexError(`Unsupported table ${args.table}.`);
     }

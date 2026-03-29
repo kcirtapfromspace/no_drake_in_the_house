@@ -22,6 +22,7 @@
     'profile': { label: 'Profile', parent: 'settings' },
     'artist-profile': { label: 'Artist Profile', parent: 'dnp' },
     'playlist-sanitizer': { label: 'Playlist Sanitizer', parent: 'home' },
+    'admin': { label: 'Admin', parent: 'home' },
     'oauth-callback': { label: 'Connecting', parent: 'connections' },
     'oauth-error': { label: 'Connection Error', parent: 'connections' },
   };

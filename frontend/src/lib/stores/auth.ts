@@ -24,6 +24,7 @@ export interface User {
   display_name?: string;
   avatar_url?: string;
   legacy_user_id?: string;
+  roles?: string[];
 }
 
 export interface AuthState {

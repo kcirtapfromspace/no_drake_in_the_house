@@ -16,6 +16,12 @@ crons.daily(
   internal.analytics.snapshotTroubleScores,
 );
 
+crons.daily(
+  "snapshot-catalog-metrics",
+  { hourUTC: 4, minuteUTC: 30 },
+  internal.analytics.snapshotCatalogMetrics,
+);
+
 crons.interval(
   "refresh-expiring-oauth-tokens",
   { minutes: 30 },

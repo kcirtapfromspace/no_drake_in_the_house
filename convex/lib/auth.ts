@@ -37,6 +37,15 @@ export async function requireCurrentUser(ctx: AnyCtx) {
   return { identity, user };
 }
 
+export async function requireOwner(ctx: AnyCtx) {
+  const { identity, user } = await requireCurrentUser(ctx);
+  const roles = user.roles ?? [];
+  if (!roles.includes("owner")) {
+    throw new ConvexError("Owner access required.");
+  }
+  return { identity, user };
+}
+
 function resolveDisplayName(identity: Awaited<ReturnType<typeof requireIdentity>>) {
   return (
     identity.name ??

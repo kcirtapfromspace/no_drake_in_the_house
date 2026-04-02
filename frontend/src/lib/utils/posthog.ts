@@ -2,10 +2,36 @@ import posthog from 'posthog-js';
 import { config } from './config';
 
 let initialized = false;
+const POSTHOG_PROXY_HOST = 'https://t.nodrakeinthe.house';
+const POSTHOG_DIRECT_HOST_PATTERN = /(^|\.)posthog\.com$/i;
+
+const resolveSafePostHogHost = (host: string): string => {
+  const normalizedHost = host.trim();
+
+  if (!normalizedHost) {
+    return config.isProduction() ? POSTHOG_PROXY_HOST : '';
+  }
+
+  if (!config.isProduction()) {
+    return normalizedHost;
+  }
+
+  try {
+    const parsed = new URL(normalizedHost);
+    if (POSTHOG_DIRECT_HOST_PATTERN.test(parsed.hostname)) {
+      console.warn('[PostHog] Blocking direct posthog.com browser ingestion in production; using managed proxy host');
+      return POSTHOG_PROXY_HOST;
+    }
+    return normalizedHost;
+  } catch {
+    console.warn('[PostHog] Invalid PostHog host in production; using managed proxy host');
+    return POSTHOG_PROXY_HOST;
+  }
+};
 
 export function initPostHog(): void {
   const apiKey = config.posthog.apiKey;
-  const apiHost = config.posthog.apiHost;
+  const apiHost = resolveSafePostHogHost(config.posthog.apiHost);
 
   if (!apiKey) {
     if (config.isDevelopment()) {

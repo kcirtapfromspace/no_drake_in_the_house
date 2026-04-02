@@ -3,6 +3,8 @@
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 const RELATIVE_API_SENTINEL = '__RELATIVE__';
 const normalizeEnvValue = (value: string) => value.replace(/^(['"])(.*)\1$/, '$2');
+const POSTHOG_PROXY_HOST = 'https://t.nodrakeinthe.house';
+const POSTHOG_DEFAULT_DIRECT_HOST = 'https://us.i.posthog.com';
 const resolveApiUrl = (value: string) => {
   const normalized = normalizeEnvValue(value);
   return normalized === RELATIVE_API_SENTINEL ? '' : normalizeBaseUrl(normalized);
@@ -14,6 +16,16 @@ const resolveOptionalBaseUrl = (value: string) => {
 };
 
 const convexUrl = resolveOptionalBaseUrl(import.meta.env.VITE_CONVEX_URL || '');
+const runtimeEnv = typeof window !== 'undefined' ? (window as any).__ENV__ : undefined;
+const isProdBuild = import.meta.env.PROD || import.meta.env.VITE_ENVIRONMENT === 'production';
+const resolvePostHogApiHost = () => {
+  const runtimeHost = normalizeEnvValue(runtimeEnv?.VITE_POSTHOG_HOST || '');
+  if (runtimeHost) {
+    return normalizeBaseUrl(runtimeHost);
+  }
+
+  return isProdBuild ? POSTHOG_PROXY_HOST : POSTHOG_DEFAULT_DIRECT_HOST;
+};
 
 export const config = {
   // API Configuration - defaults to empty string for relative URLs (nginx proxy)
@@ -22,7 +34,7 @@ export const config = {
   
   // App Configuration
   appName: normalizeEnvValue(import.meta.env.VITE_APP_NAME || 'No Drake in the House'),
-  environment: import.meta.env.VITE_ENVIRONMENT || 'development',
+  environment: import.meta.env.VITE_ENVIRONMENT || (import.meta.env.PROD ? 'production' : 'development'),
   
   // Feature Flags
   features: {
@@ -45,8 +57,8 @@ export const config = {
 
   // PostHog Analytics (runtime-injected via window.__ENV__ by render-entrypoint.sh)
   posthog: {
-    apiKey: (typeof window !== 'undefined' && (window as any).__ENV__ && (window as any).__ENV__.VITE_POSTHOG_API_KEY) || '',
-    apiHost: (typeof window !== 'undefined' && (window as any).__ENV__ && (window as any).__ENV__.VITE_POSTHOG_HOST) || 'https://us.i.posthog.com',
+    apiKey: runtimeEnv?.VITE_POSTHOG_API_KEY || '',
+    apiHost: resolvePostHogApiHost(),
   },
 
   auth: {
@@ -92,8 +104,8 @@ export const config = {
     return normalizedPath;
   },
   // Helper methods
-  isDevelopment: () => config.environment === 'development',
-  isProduction: () => config.environment === 'production',
+  isDevelopment: () => config.environment === 'development' || import.meta.env.DEV,
+  isProduction: () => config.environment === 'production' || import.meta.env.PROD,
   getApiEndpoint: (path: string) => {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     const apiPath = normalizedPath.startsWith('/api/') ? normalizedPath : `/api/${config.apiVersion}${normalizedPath}`;

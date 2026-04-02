@@ -17,14 +17,22 @@ const resolveOptionalBaseUrl = (value: string) => {
 
 const convexUrl = resolveOptionalBaseUrl(import.meta.env.VITE_CONVEX_URL || '');
 const runtimeEnv = typeof window !== 'undefined' ? (window as any).__ENV__ : undefined;
-const isProdBuild = import.meta.env.PROD || import.meta.env.VITE_ENVIRONMENT === 'production';
+const runtimeHostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+const isLocalRuntimeHost =
+  runtimeHostname === 'localhost' ||
+  runtimeHostname === '127.0.0.1' ||
+  runtimeHostname === '0.0.0.0' ||
+  runtimeHostname.endsWith('.local');
+const explicitEnvironment = normalizeEnvValue(import.meta.env.VITE_ENVIRONMENT || '').toLowerCase();
+const isProductionEnvironment = explicitEnvironment === 'production' || (!!runtimeHostname && !isLocalRuntimeHost);
+const resolvedEnvironment = isProductionEnvironment ? 'production' : (explicitEnvironment || 'development');
 const resolvePostHogApiHost = () => {
   const runtimeHost = normalizeEnvValue(runtimeEnv?.VITE_POSTHOG_HOST || '');
   if (runtimeHost) {
     return normalizeBaseUrl(runtimeHost);
   }
 
-  return isProdBuild ? POSTHOG_PROXY_HOST : POSTHOG_DEFAULT_DIRECT_HOST;
+  return isProductionEnvironment ? POSTHOG_PROXY_HOST : POSTHOG_DEFAULT_DIRECT_HOST;
 };
 
 export const config = {
@@ -34,7 +42,7 @@ export const config = {
   
   // App Configuration
   appName: normalizeEnvValue(import.meta.env.VITE_APP_NAME || 'No Drake in the House'),
-  environment: import.meta.env.VITE_ENVIRONMENT || (import.meta.env.PROD ? 'production' : 'development'),
+  environment: resolvedEnvironment,
   
   // Feature Flags
   features: {
@@ -104,8 +112,8 @@ export const config = {
     return normalizedPath;
   },
   // Helper methods
-  isDevelopment: () => config.environment === 'development' || import.meta.env.DEV,
-  isProduction: () => config.environment === 'production' || import.meta.env.PROD,
+  isDevelopment: () => config.environment === 'development',
+  isProduction: () => config.environment === 'production',
   getApiEndpoint: (path: string) => {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     const apiPath = normalizedPath.startsWith('/api/') ? normalizedPath : `/api/${config.apiVersion}${normalizedPath}`;

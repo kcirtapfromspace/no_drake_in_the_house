@@ -4,15 +4,24 @@ import { config } from './config';
 let initialized = false;
 const POSTHOG_PROXY_HOST = 'https://t.nodrakeinthe.house';
 const POSTHOG_DIRECT_HOST_PATTERN = /(^|\.)posthog\.com$/i;
+const isNonLocalRuntimeHost = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname !== 'localhost' && hostname !== '127.0.0.1' && hostname !== '0.0.0.0' && !hostname.endsWith('.local');
+};
+const shouldEnforceProxyHost = () => config.isProduction() || isNonLocalRuntimeHost();
 
 const resolveSafePostHogHost = (host: string): string => {
   const normalizedHost = host.trim();
 
   if (!normalizedHost) {
-    return config.isProduction() ? POSTHOG_PROXY_HOST : '';
+    return shouldEnforceProxyHost() ? POSTHOG_PROXY_HOST : '';
   }
 
-  if (!config.isProduction()) {
+  if (!shouldEnforceProxyHost()) {
     return normalizedHost;
   }
 

@@ -3,7 +3,7 @@ import type { AuthConfig } from "convex/server";
 export default {
   providers: [
     {
-      domain: "https://api.nodrakeinthe.house",
+      domain: process.env.AUTH_ISSUER_URL!,
       applicationID: "convex",
     },
   ],

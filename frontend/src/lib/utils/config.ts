@@ -17,7 +17,7 @@ const resolveOptionalBaseUrl = (value: string) => {
 
 const convexUrl = resolveOptionalBaseUrl(import.meta.env.VITE_CONVEX_URL || '');
 const runtimeEnv = typeof window !== 'undefined' ? (window as any).__ENV__ : undefined;
-const runtimeHostname = typeof window !== 'undefined' ? window.location.hostname.toLowerCase() : '';
+const runtimeHostname = typeof window !== 'undefined' ? (window.location?.hostname || '').toLowerCase() : '';
 const isLocalRuntimeHost =
   runtimeHostname === 'localhost' ||
   runtimeHostname === '127.0.0.1' ||

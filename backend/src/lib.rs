@@ -530,6 +530,10 @@ pub fn create_router(state: AppState) -> Router {
             get(handlers::spotify_connection::spotify_connection_status_handler),
         )
         .route(
+            "/connections/spotify/refresh",
+            post(handlers::spotify_connection::spotify_refresh_token_handler),
+        )
+        .route(
             "/connections/spotify/library/sync",
             post(handlers::spotify_connection::spotify_library_sync_handler),
         )

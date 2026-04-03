@@ -36,6 +36,13 @@ use std::collections::HashMap;
 
 const SPOTIFY_SYNC_STATUS_KEY: &str = "spotify";
 const SPOTIFY_PROVIDER_LABEL: &str = "Spotify";
+const SPOTIFY_TOKEN_REFRESH_WINDOW_MINUTES: i64 = 5;
+
+enum SpotifyRefreshFailureKind {
+    NeedsReauth(&'static str),
+    RateLimited,
+    Upstream(String),
+}
 
 /// Required Spotify scopes for DNP enforcement
 pub const SPOTIFY_CONNECTION_SCOPES: &[&str] = &[
@@ -543,56 +550,12 @@ pub async fn spotify_library_sync_handler(
             resource: "Spotify connection".to_string(),
         })?;
 
-    tracing::info!(connection_id = %connection.id, status = %connection.status, "Found Spotify connection");
+    tracing::info!(connection_id = %connection.id, "Found Spotify connection");
 
-    // Auto-refresh the access token if it is expired or about to expire.
-    // Spotify access tokens last ~1 hour; without this the sync silently
-    // fails when invoked more than an hour after the last OAuth exchange.
-    let token_expired = connection
-        .expires_at
-        .map(|exp| exp <= Utc::now() + Duration::minutes(5))
-        .unwrap_or(true); // No expiry recorded → assume stale
-
-    let access_token = if token_expired {
-        if let Some(ref refresh_enc) = connection.refresh_token_encrypted {
-            tracing::info!("Spotify access token expired or expiring soon — refreshing");
-            match refresh_spotify_access_token(
-                &state.db_pool,
-                authenticated_user.id,
-                refresh_enc,
-            )
-            .await
-            {
-                Ok(new_token) => new_token,
-                Err(e) => {
-                    tracing::error!(error = %e, "Spotify token refresh failed, trying stored token as fallback");
-                    let enc = connection.access_token_encrypted.ok_or_else(|| {
-                        AppError::ExternalServiceError(
-                            "Spotify access token unavailable and refresh failed. Reconnect Spotify.".to_string(),
-                        )
-                    })?;
-                    decrypt_connection_access_token(&enc).await?
-                }
-            }
-        } else {
-            let enc = connection.access_token_encrypted.ok_or_else(|| {
-                AppError::ExternalServiceError(
-                    "Spotify access token is unavailable. Reconnect Spotify and try again."
-                        .to_string(),
-                )
-            })?;
-            tracing::warn!("No refresh token stored — using potentially expired access token");
-            decrypt_connection_access_token(&enc).await?
-        }
-    } else {
-        let enc = connection.access_token_encrypted.ok_or_else(|| {
-            AppError::ExternalServiceError(
-                "Spotify access token is unavailable. Reconnect Spotify and try again.".to_string(),
-            )
-        })?;
-        decrypt_connection_access_token(&enc).await?
-    };
-    tracing::info!("Access token ready, starting background library sync");
+    let access_token =
+        resolve_spotify_access_token_for_sync(&state.db_pool, authenticated_user.id, &connection)
+            .await?;
+    tracing::info!("Spotify access token ready, starting background library sync");
 
     let started_at = Utc::now();
     store_provider_library_sync_status(
@@ -736,8 +699,10 @@ pub async fn spotify_library_sync_status_handler(
 }
 
 /// POST /api/v1/connections/spotify/refresh
+///
 /// Refreshes the Spotify access token using the stored refresh token.
-/// Recovers connections stuck in `needs_reauth` without requiring a full re-OAuth.
+/// This endpoint is used by authenticated sync flows to recover expired sessions
+/// without forcing a full reconnect.
 pub async fn spotify_refresh_token_handler(
     State(state): State<AppState>,
     authenticated_user: AuthenticatedUser,
@@ -748,13 +713,20 @@ pub async fn spotify_refresh_token_handler(
             resource: "Spotify connection".to_string(),
         })?;
 
-    let refresh_enc = connection.refresh_token_encrypted.ok_or_else(|| {
-        AppError::ExternalServiceError(
-            "No refresh token stored. Reconnect Spotify to restore access.".to_string(),
-        )
-    })?;
+    let refresh_token_encrypted =
+        connection
+            .refresh_token_encrypted
+            .ok_or_else(|| AppError::OperationNotAllowed {
+                reason: "No Spotify refresh token is stored. Disconnect and reconnect Spotify."
+                    .to_string(),
+            })?;
 
-    refresh_spotify_access_token(&state.db_pool, authenticated_user.id, &refresh_enc).await?;
+    refresh_spotify_access_token(
+        &state.db_pool,
+        authenticated_user.id,
+        &refresh_token_encrypted,
+    )
+    .await?;
 
     Ok(Json(serde_json::json!({
         "success": true,
@@ -812,6 +784,7 @@ fn map_spotify_sync_error(error: &AppError) -> (String, bool) {
         || lowered.contains("403")
         || lowered.contains("unauthorized")
         || lowered.contains("forbidden")
+        || lowered.contains("invalid_grant")
         || lowered.contains("expired")
     {
         (
@@ -1073,128 +1046,182 @@ async fn decrypt_connection_access_token(encoded_token: &str) -> Result<String> 
         })
 }
 
-/// Refresh a Spotify access token using the stored refresh token.
-/// Returns the new plaintext access token and updates the database.
+async fn resolve_spotify_access_token_for_sync(
+    pool: &PgPool,
+    user_id: Uuid,
+    connection: &ConnectionRecord,
+) -> Result<String> {
+    let expires_soon = connection
+        .expires_at
+        .map(|exp| exp <= Utc::now() + Duration::minutes(SPOTIFY_TOKEN_REFRESH_WINDOW_MINUTES))
+        .unwrap_or(false);
+
+    if let Some(access_token_encrypted) = connection.access_token_encrypted.as_deref() {
+        if !expires_soon {
+            return decrypt_connection_access_token(access_token_encrypted).await;
+        }
+    }
+
+    if let Some(refresh_token_encrypted) = connection.refresh_token_encrypted.as_deref() {
+        return refresh_spotify_access_token(pool, user_id, refresh_token_encrypted).await;
+    }
+
+    if let Some(access_token_encrypted) = connection.access_token_encrypted.as_deref() {
+        tracing::warn!(
+            user_id = %user_id,
+            "Spotify token is expiring but no refresh token is stored; using existing access token"
+        );
+        return decrypt_connection_access_token(access_token_encrypted).await;
+    }
+
+    mark_spotify_connection_needs_reauth(
+        pool,
+        user_id,
+        "Spotify access token is unavailable. Disconnect and reconnect Spotify.",
+    )
+    .await?;
+
+    Err(AppError::OperationNotAllowed {
+        reason: "Spotify access token is unavailable. Disconnect and reconnect Spotify."
+            .to_string(),
+    })
+}
+
 async fn refresh_spotify_access_token(
     pool: &PgPool,
     user_id: Uuid,
     refresh_token_encrypted: &str,
 ) -> Result<String> {
-    let refresh_token = decrypt_connection_access_token(refresh_token_encrypted).await.map_err(|e| {
-        tracing::error!(error = %e, "Failed to decrypt Spotify refresh token");
-        AppError::ExternalServiceError(
-            "Spotify refresh token could not be decrypted. Reconnect Spotify.".to_string(),
-        )
-    })?;
-
-    let client_id =
-        std::env::var("SPOTIFY_CLIENT_ID").map_err(|_| AppError::ConfigurationError {
-            message: "SPOTIFY_CLIENT_ID not set".to_string(),
-        })?;
-    let client_secret =
-        std::env::var("SPOTIFY_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
-            message: "SPOTIFY_CLIENT_SECRET not set".to_string(),
-        })?;
-
-    let http = reqwest::Client::new();
-    let resp = http
-        .post("https://accounts.spotify.com/api/token")
-        .form(&[
-            ("grant_type", "refresh_token"),
-            ("refresh_token", &refresh_token),
-            ("client_id", &client_id),
-            ("client_secret", &client_secret),
-        ])
-        .send()
+    let refresh_token = decrypt_connection_access_token(refresh_token_encrypted)
         .await
         .map_err(|e| {
-            AppError::ExternalServiceError(format!("Spotify token refresh request failed: {}", e))
+            AppError::ExternalServiceError(format!(
+                "Spotify refresh token could not be decrypted: {}",
+                e
+            ))
         })?;
 
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
-        tracing::error!(status = %status, body = %body, "Spotify token refresh failed");
-        if status == reqwest::StatusCode::BAD_REQUEST || status == reqwest::StatusCode::UNAUTHORIZED
-        {
-            // Refresh token is revoked — mark connection for reauth
-            let _ = sqlx::query(
-                "UPDATE connections SET status = 'needs_reauth', error_code = 'refresh_token_revoked' WHERE user_id = $1 AND provider = 'spotify'",
-            )
-            .bind(user_id)
-            .execute(pool)
-            .await;
-            return Err(AppError::ExternalServiceError(
-                "Spotify refresh token was revoked. Reconnect Spotify.".to_string(),
-            ));
-        }
-        return Err(AppError::ExternalServiceError(format!(
-            "Spotify token refresh failed with status {}",
-            status
-        )));
-    }
-
-    #[derive(Deserialize)]
-    struct RefreshResponse {
-        access_token: String,
-        expires_in: Option<i64>,
-        refresh_token: Option<String>,
-    }
-
-    let token_resp: RefreshResponse = resp.json().await.map_err(|e| {
-        AppError::ExternalServiceError(format!("Failed to parse Spotify refresh response: {}", e))
-    })?;
-
-    let encryption = OAuthTokenEncryption::new().map_err(|e| AppError::Internal {
-        message: Some(format!("Token encryption init failed: {}", e)),
-    })?;
-
-    let new_access_encrypted = encryption
-        .encrypt_token(&token_resp.access_token)
-        .map_err(|e| AppError::Internal {
-            message: Some(format!("Failed to encrypt new access token: {}", e)),
-        })?;
-    let new_access_b64 = general_purpose::STANDARD.encode(&new_access_encrypted);
-
-    let expires_at = token_resp
-        .expires_in
-        .map(|secs| Utc::now() + Duration::seconds(secs));
-
-    // If Spotify rotated the refresh token, store it too
-    let new_refresh_b64 = if let Some(ref new_refresh) = token_resp.refresh_token {
-        let encrypted = encryption.encrypt_token(new_refresh).map_err(|e| AppError::Internal {
-            message: Some(format!("Failed to encrypt rotated refresh token: {}", e)),
-        })?;
-        Some(general_purpose::STANDARD.encode(&encrypted))
-    } else {
-        None
+    let spotify_provider = create_connection_provider()?;
+    let refreshed_tokens = match spotify_provider.refresh_token(&refresh_token).await {
+        Ok(tokens) => tokens,
+        Err(error) => match classify_spotify_refresh_failure(&error.to_string()) {
+            SpotifyRefreshFailureKind::NeedsReauth(reason) => {
+                mark_spotify_connection_needs_reauth(pool, user_id, reason).await?;
+                return Err(AppError::OperationNotAllowed {
+                    reason: reason.to_string(),
+                });
+            }
+            SpotifyRefreshFailureKind::RateLimited => {
+                return Err(AppError::RateLimitExceeded {
+                    retry_after: Some(60),
+                });
+            }
+            SpotifyRefreshFailureKind::Upstream(raw) => {
+                return Err(AppError::ExternalServiceError(raw));
+            }
+        },
     };
 
-    if let Some(ref rb64) = new_refresh_b64 {
-        sqlx::query(
-            "UPDATE connections SET access_token_encrypted = $1, refresh_token_encrypted = $2, expires_at = $3, status = 'active', error_code = NULL, last_health_check = NOW() WHERE user_id = $4 AND provider = 'spotify'",
-        )
-        .bind(&new_access_b64)
-        .bind(rb64)
-        .bind(expires_at)
-        .bind(user_id)
-        .execute(pool)
-        .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
-    } else {
-        sqlx::query(
-            "UPDATE connections SET access_token_encrypted = $1, expires_at = $2, status = 'active', error_code = NULL, last_health_check = NOW() WHERE user_id = $3 AND provider = 'spotify'",
-        )
-        .bind(&new_access_b64)
-        .bind(expires_at)
-        .bind(user_id)
-        .execute(pool)
-        .await
-        .map_err(|e| AppError::DatabaseQueryFailed(e))?;
+    let encryption = OAuthTokenEncryption::new().map_err(|e| AppError::Internal {
+        message: Some(format!("Failed to initialize token encryption: {}", e)),
+    })?;
+
+    let encrypted_access_token = encryption
+        .encrypt_token(&refreshed_tokens.access_token)
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("Failed to encrypt Spotify access token: {}", e)),
+        })?;
+    let access_token_b64 = general_purpose::STANDARD.encode(&encrypted_access_token);
+
+    let refresh_token_b64 = match refreshed_tokens.refresh_token {
+        Some(new_refresh_token) => {
+            let encrypted_refresh_token =
+                encryption
+                    .encrypt_token(&new_refresh_token)
+                    .map_err(|e| AppError::Internal {
+                        message: Some(format!("Failed to encrypt Spotify refresh token: {}", e)),
+                    })?;
+            Some(general_purpose::STANDARD.encode(&encrypted_refresh_token))
+        }
+        None => None,
+    };
+
+    let expires_at = refreshed_tokens
+        .expires_in
+        .map(|seconds| Utc::now() + Duration::seconds(seconds));
+
+    sqlx::query(
+        r#"
+        UPDATE connections
+        SET access_token_encrypted = $1,
+            refresh_token_encrypted = COALESCE($2, refresh_token_encrypted),
+            expires_at = $3,
+            token_version = token_version + 1,
+            status = 'active',
+            error_code = NULL,
+            last_health_check = NOW(),
+            updated_at = NOW()
+        WHERE user_id = $4 AND provider = 'spotify'
+        "#,
+    )
+    .bind(&access_token_b64)
+    .bind(&refresh_token_b64)
+    .bind(expires_at)
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::DatabaseQueryFailed)?;
+
+    Ok(refreshed_tokens.access_token)
+}
+
+fn classify_spotify_refresh_failure(raw_error: &str) -> SpotifyRefreshFailureKind {
+    let lowered = raw_error.to_ascii_lowercase();
+
+    if lowered.contains("invalid_grant")
+        || lowered.contains("invalid refresh token")
+        || lowered.contains("refresh token revoked")
+        || lowered.contains("unauthorized")
+        || lowered.contains("forbidden")
+        || lowered.contains("expired")
+    {
+        return SpotifyRefreshFailureKind::NeedsReauth(
+            "Spotify authorization expired. Disconnect and reconnect Spotify.",
+        );
     }
 
-    tracing::info!(user_id = %user_id, "Spotify access token refreshed successfully");
-    Ok(token_resp.access_token)
+    if lowered.contains("rate limited")
+        || lowered.contains("429")
+        || lowered.contains("too many requests")
+    {
+        return SpotifyRefreshFailureKind::RateLimited;
+    }
+
+    SpotifyRefreshFailureKind::Upstream(raw_error.to_string())
+}
+
+async fn mark_spotify_connection_needs_reauth(
+    pool: &PgPool,
+    user_id: Uuid,
+    reason: &str,
+) -> Result<()> {
+    sqlx::query(
+        r#"
+        UPDATE connections
+        SET status = 'needs_reauth',
+            error_code = $1,
+            last_health_check = NOW(),
+            updated_at = NOW()
+        WHERE user_id = $2 AND provider = 'spotify'
+        "#,
+    )
+    .bind(reason)
+    .bind(user_id)
+    .execute(pool)
+    .await
+    .map_err(AppError::DatabaseQueryFailed)?;
+
+    Ok(())
 }
 
 fn parse_spotify_timestamp(value: Option<&str>) -> Option<chrono::DateTime<Utc>> {
@@ -1774,4 +1801,34 @@ async fn delete_oauth_state(redis_pool: &deadpool_redis::Pool, state: &str) -> R
     })?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn classify_refresh_invalid_grant_as_needs_reauth() {
+        let kind = classify_spotify_refresh_failure(
+            "External service error: Spotify token refresh failed: {\"error\":\"invalid_grant\"}",
+        );
+
+        assert!(matches!(kind, SpotifyRefreshFailureKind::NeedsReauth(_)));
+    }
+
+    #[test]
+    fn classify_refresh_rate_limit_as_rate_limited() {
+        let kind = classify_spotify_refresh_failure(
+            "Spotify token refresh rate limited after max retries",
+        );
+
+        assert!(matches!(kind, SpotifyRefreshFailureKind::RateLimited));
+    }
+
+    #[test]
+    fn classify_refresh_unknown_failure_as_upstream() {
+        let kind = classify_spotify_refresh_failure("Spotify refresh failure: upstream 500");
+
+        assert!(matches!(kind, SpotifyRefreshFailureKind::Upstream(_)));
+    }
 }

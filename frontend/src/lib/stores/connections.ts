@@ -137,6 +137,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   youtube: 'youtube_music',
   youtube_music: 'youtube_music',
 };
+const spotifyRefreshAttempts = new Set<string>();
 
 function normalizeProvider(provider: string): string {
   const normalized = provider.toLowerCase();
@@ -347,36 +348,50 @@ export const connectionActions = {
     if (response.success && response.data) {
       const connections = normalizeConnectionsPayload(response.data);
 
-      // Auto-refresh any Spotify connections stuck in needs_reauth/expired.
-      // The backend stores a refresh token that can restore the connection
-      // without requiring the user to re-do the OAuth popup.
-      const staleSpotify = connections.find(
-        (c) => c.provider === 'spotify' && (c.status === 'expired' || c.status === 'error')
-      );
-      if (staleSpotify) {
-        apiClient
-          .authenticatedRequest('POST', '/api/v1/connections/spotify/refresh')
-          .then((r) => {
-            if (r.success) {
-              // Re-fetch after successful refresh to get updated status
-              fetchConnectionsDirect().then((refreshed) => {
-                if (refreshed.success && refreshed.data) {
-                  connectionsStore.update((s) => ({
-                    ...s,
-                    connections: normalizeConnectionsPayload(refreshed.data!),
-                  }));
-                }
-              });
-            }
-          })
-          .catch(() => {}); // refresh failed — user will see the stale status
-      }
-
       connectionsStore.update(state => ({
         ...state,
         connections,
         isLoading: false,
       }));
+
+      // If Spotify recovered to active, allow future refresh attempts for the same row.
+      for (const connection of connections) {
+        if (connection.provider === 'spotify' && connection.status === 'active') {
+          spotifyRefreshAttempts.delete(connection.id);
+        }
+      }
+
+      // Attempt Spotify token refresh once per stale connection row to avoid refresh storms.
+      const staleSpotify = connections.find(
+        (connection) =>
+          connection.provider === 'spotify' &&
+          (connection.status === 'expired' || connection.status === 'error')
+      );
+
+      if (staleSpotify && !spotifyRefreshAttempts.has(staleSpotify.id)) {
+        spotifyRefreshAttempts.add(staleSpotify.id);
+
+        apiClient
+          .authenticatedRequest<any>('POST', '/api/v1/connections/spotify/refresh')
+          .then(async (refreshResponse) => {
+            if (!refreshResponse.success) {
+              // Keep the attempt marker so failed refreshes do not hammer the endpoint.
+              return;
+            }
+
+            const refreshed = await fetchConnectionsDirect();
+            if (refreshed.success && refreshed.data) {
+              connectionsStore.update((state) => ({
+                ...state,
+                connections: normalizeConnectionsPayload(refreshed.data),
+                error: null,
+              }));
+            }
+          })
+          .catch(() => {
+            // Ignore background refresh failures. The UI state remains actionable.
+          });
+      }
     } else {
       const shouldClearConnections =
         response.error_code === 'HTTP_401' || response.error_code === 'HTTP_403';

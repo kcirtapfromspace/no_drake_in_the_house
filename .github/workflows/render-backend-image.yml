@@ -170,12 +170,14 @@ jobs:
       - name: Trigger Render deploy hook fallback
         if: ${{ matrix.service.use_deploy_hook && steps.render_service.outputs.service_id == '' && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
+        env:
+          IMG_TAG: ${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}
         run: |
           echo "No Render service id resolved via API. Falling back to deploy hook."
+          # Render deploy hooks accept imgURL as a query param to specify the image
           curl --fail --silent --show-error \
-            --request POST \
-            --url "$RENDER_DEPLOY_HOOK_URL"
-          echo "Render backend deploy hook triggered."
+            "${RENDER_DEPLOY_HOOK_URL}?imgURL=${IMAGE_REPO}:${IMG_TAG}"
+          echo "Render backend deploy hook triggered with image ${IMAGE_REPO}:${IMG_TAG}"
 
       - name: Summarize published tags
         run: |

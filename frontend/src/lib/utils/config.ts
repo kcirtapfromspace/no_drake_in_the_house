@@ -5,6 +5,18 @@ const RELATIVE_API_SENTINEL = '__RELATIVE__';
 const normalizeEnvValue = (value: string) => value.replace(/^(['"])(.*)\1$/, '$2');
 const POSTHOG_PROXY_HOST = 'https://t.nodrakeinthe.house';
 const POSTHOG_DEFAULT_DIRECT_HOST = 'https://us.i.posthog.com';
+const ensureAbsoluteUrl = (value: string) => /^https?:\/\//i.test(value) ? value : `https://${value}`;
+const getHostname = (value: string) => {
+  try {
+    return new URL(ensureAbsoluteUrl(value)).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+};
+const isDirectPostHogHost = (value: string) => {
+  const hostname = getHostname(value);
+  return hostname === 'posthog.com' || hostname.endsWith('.posthog.com');
+};
 const resolveApiUrl = (value: string) => {
   const normalized = normalizeEnvValue(value);
   return normalized === RELATIVE_API_SENTINEL ? '' : normalizeBaseUrl(normalized);
@@ -27,9 +39,13 @@ const explicitEnvironment = normalizeEnvValue(import.meta.env.VITE_ENVIRONMENT |
 const isProductionEnvironment = explicitEnvironment === 'production' || (!!runtimeHostname && !isLocalRuntimeHost);
 const resolvedEnvironment = isProductionEnvironment ? 'production' : (explicitEnvironment || 'development');
 const resolvePostHogApiHost = () => {
-  const runtimeHost = normalizeEnvValue(runtimeEnv?.VITE_POSTHOG_HOST || '');
+  const runtimeHost = normalizeEnvValue(runtimeEnv?.VITE_POSTHOG_HOST || '').trim();
   if (runtimeHost) {
-    return normalizeBaseUrl(runtimeHost);
+    const normalizedHost = normalizeBaseUrl(ensureAbsoluteUrl(runtimeHost));
+    if (isProductionEnvironment && isDirectPostHogHost(normalizedHost)) {
+      return POSTHOG_PROXY_HOST;
+    }
+    return normalizedHost;
   }
 
   return isProductionEnvironment ? POSTHOG_PROXY_HOST : POSTHOG_DEFAULT_DIRECT_HOST;

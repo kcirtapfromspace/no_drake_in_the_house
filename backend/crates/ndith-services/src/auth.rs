@@ -1510,10 +1510,12 @@ impl AuthService {
     pub fn verify_token(&self, token: &str) -> Result<Claims> {
         // Try RS256 verification first if RSA key is configured
         if let Some(ref rsa_dec_key) = self.rsa_decoding_key {
-            let mut rs256_validation = Validation::new(Algorithm::RS256);
-            rs256_validation.set_issuer(&[&self.jwt_issuer]);
-            rs256_validation.set_audience(&["convex"]);
-            if let Ok(token_data) = decode::<Claims>(token, rsa_dec_key, &rs256_validation) {
+            let mut validation = Validation::new(Algorithm::RS256);
+            // Backend is both issuer and consumer — only verify the signature.
+            // Convex does its own iss/aud validation via OIDC discovery.
+            validation.validate_aud = false;
+            validation.set_required_spec_claims::<String>(&[]);
+            if let Ok(token_data) = decode::<Claims>(token, rsa_dec_key, &validation) {
                 let claims = token_data.claims;
                 if claims.is_expired() {
                     return Err(AppError::TokenExpired);

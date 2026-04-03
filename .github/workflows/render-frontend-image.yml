@@ -79,38 +79,11 @@ jobs:
         if: ${{ env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         continue-on-error: true
         run: |
-          set +e
-          lookup_response="$(
-            curl --silent --show-error --write-out "\n%{http_code}" \
+          response="$(
+            curl --fail --silent --show-error \
               --url "https://api.render.com/v1/services" \
               --header "Authorization: Bearer ${RENDER_API_KEY}"
           )"
-          lookup_status=$?
-          set -e
-
-          if [ "${lookup_status}" -ne 0 ]; then
-            echo "lookup_failed=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Render service lookup request failed (curl exit ${lookup_status}). Frontend image was published, but deploy trigger was skipped."
-            echo "::warning::Verify Render API availability and refresh the GitHub Actions secret RENDER_API_KEY if credentials were rotated."
-            exit 0
-          fi
-
-          lookup_http_code="$(echo "${lookup_response}" | tail -1)"
-          lookup_body="$(echo "${lookup_response}" | sed '$d')"
-
-          if [ "${lookup_http_code}" = "401" ] || [ "${lookup_http_code}" = "403" ]; then
-            echo "auth_failed=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Render service lookup returned HTTP ${lookup_http_code}. Frontend image was published, but deploy trigger was skipped."
-            echo "::warning::Rotate the Render API key, update the GitHub Actions secret RENDER_API_KEY, and rerun this workflow."
-            exit 0
-          fi
-
-          if [ "${lookup_http_code}" -ge 400 ]; then
-            echo "lookup_failed=true" >> "$GITHUB_OUTPUT"
-            echo "::warning::Render service lookup returned HTTP ${lookup_http_code}. Frontend image was published, but deploy trigger was skipped."
-            echo "::warning::Render API response: ${lookup_body}"
-            exit 0
-          fi
 
           service_id="$(
             jq -r '
@@ -121,7 +94,7 @@ jobs:
               | map(if (.service | type) == "object" then .service else . end)
               | map(select(.name == "ndith-frontend") | .id)
               | .[0] // empty
-            ' <<<"${lookup_body}"
+            ' <<<"${response}"
           )"
 
           if [ -n "${service_id}" ]; then
@@ -210,11 +183,6 @@ jobs:
             echo "Triggered Render deploy for ndith-frontend (${{ steps.render_service.outputs.service_id }})"
           elif [ "${{ steps.deploy_hook.outputs.hook_triggered }}" = "true" ]; then
             echo "Triggered Render frontend deploy via deploy hook."
-          elif [ "${{ steps.render_service.outputs.auth_failed }}" = "true" ]; then
-            echo "Render API authentication failed during service lookup; image published only."
-            echo "Rotate Render credentials and update GitHub secret RENDER_API_KEY before retrying deploy."
-          elif [ "${{ steps.render_service.outputs.lookup_failed }}" = "true" ]; then
-            echo "Render service lookup failed; image published only."
           else
             echo "Image published to GHCR only."
           fi

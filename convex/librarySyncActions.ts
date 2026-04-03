@@ -288,42 +288,14 @@ async function decryptRefreshTokenValue(
 
 /**
  * Attempt to refresh a Spotify access token using the refresh token.
- * Returns the new plaintext access token and expiry, or throws.
+ * Delegates to the unified OAuth module (body params, no Basic Auth).
  */
 async function refreshSpotifyAccessToken(
   refreshToken: string,
 ): Promise<{ accessToken: string; expiresIn: number }> {
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    throw new Error("Spotify OAuth credentials not configured.");
-  }
-
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: refreshToken,
-  });
-
-  const resp = await fetch("https://accounts.spotify.com/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-    },
-    body: body.toString(),
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Spotify token refresh failed: ${resp.status} ${text}`);
-  }
-
-  const data = (await resp.json()) as {
-    access_token: string;
-    expires_in: number;
-  };
-
-  return { accessToken: data.access_token, expiresIn: data.expires_in };
+  const { refreshAccessToken } = await import("./lib/oauth");
+  const data = await refreshAccessToken("spotify", refreshToken);
+  return { accessToken: data.access_token, expiresIn: data.expires_in ?? 3600 };
 }
 
 // ---------------------------------------------------------------------------

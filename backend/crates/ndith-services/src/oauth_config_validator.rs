@@ -323,17 +323,10 @@ impl OAuthConfigValidator {
                 .missing_variables
                 .push("GITHUB_CLIENT_SECRET".to_string());
         }
-        if redirect_uri.is_err() {
-            validation
-                .missing_variables
-                .push("GITHUB_REDIRECT_URI".to_string());
-        }
-
         // If all variables are present, validate their values
-        if let (Ok(client_id), Ok(client_secret), Ok(redirect_uri)) =
-            (client_id, client_secret, redirect_uri)
-        {
+        if let (Ok(client_id), Ok(client_secret)) = (client_id, client_secret) {
             validation.is_configured = true;
+            let redirect_uri = redirect_uri.unwrap_or_default();
 
             // Validate client ID format (GitHub client IDs are typically hex strings)
             if client_id.len() < 16 && !client_id.starts_with("demo-") {

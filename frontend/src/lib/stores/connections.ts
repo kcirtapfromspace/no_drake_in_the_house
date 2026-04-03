@@ -588,20 +588,25 @@ export const connectionActions = {
     const callbackUrl = `${window.location.origin}/auth/callback/tidal`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
+      auth_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
     }>(
       'POST',
-      '/api/v1/connections/tidal/authorize',
-      { redirectUri: callbackUrl }
+      '/api/v1/oauth/tidal/authorize',
+      {
+        redirectUri: callbackUrl,
+        scopes: ['user.read', 'collection.read', 'playlists.read'],
+      }
     );
 
-    if (response.success && response.data?.authorization_url) {
-      if (response.data.state) {
+    const authUrl = response.data?.auth_url ?? response.data?.authorization_url;
+    if (response.success && authUrl) {
+      if (response.data?.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
-      return runOAuthPopup(response.data.authorization_url, 'tidal-auth', () => {
+      return runOAuthPopup(authUrl, 'tidal-auth', () => {
         connectionActions.fetchConnections().then(() => {
           apiClient.authenticatedRequest('POST', '/api/v1/connections/tidal/library/sync')
             .catch(() => {}); // fire-and-forget; SyncDashboard polls status
@@ -685,20 +690,30 @@ export const connectionActions = {
     const callbackUrl = `${window.location.origin}/auth/callback/youtube`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
+      auth_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
     }>(
       'POST',
-      '/api/v1/connections/youtube/authorize',
-      { redirectUri: callbackUrl }
+      '/api/v1/oauth/youtube/authorize',
+      {
+        redirectUri: callbackUrl,
+        scopes: [
+          'openid', 'email', 'profile',
+          'https://www.googleapis.com/auth/youtube',
+          'https://www.googleapis.com/auth/youtube.force-ssl',
+          'https://www.googleapis.com/auth/youtube.readonly',
+        ],
+      }
     );
 
-    if (response.success && response.data?.authorization_url) {
-      if (response.data.state) {
+    const authUrl = response.data?.auth_url ?? response.data?.authorization_url;
+    if (response.success && authUrl) {
+      if (response.data?.state) {
         sessionStorage.setItem('oauth_link_state_youtube', response.data.state);
       }
-      return runOAuthPopup(response.data.authorization_url, 'youtube-auth', () => {
+      return runOAuthPopup(authUrl, 'youtube-auth', () => {
         connectionActions.fetchConnections().then(() => {
           apiClient.authenticatedRequest('POST', '/api/v1/connections/youtube/library/sync')
             .catch(() => {}); // fire-and-forget; SyncDashboard polls status

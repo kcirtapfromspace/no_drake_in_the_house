@@ -1,4 +1,4 @@
-import { ConvexError, v } from "convex/values";
+import { v } from "convex/values";
 import {
   action,
   internalAction,
@@ -15,6 +15,15 @@ import {
   getEncryptionKey,
   isEncrypted,
 } from "./lib/crypto";
+import {
+  exchangeAuthCode,
+  extractProviderUserId,
+  getDefaultScopes,
+  getProfileEndpoint,
+  getProviderConfig,
+  refreshAccessToken,
+  resolveRedirectUri,
+} from "./lib/oauth";
 
 export const status = query({
   args: {
@@ -49,110 +58,12 @@ export const status = query({
   },
 });
 
-/** Env var names per provider */
-function getProviderCredentials(provider: string) {
-  switch (provider) {
-    case "spotify":
-      return {
-        clientId: process.env.SPOTIFY_CLIENT_ID,
-        clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-      };
-    case "tidal":
-      return {
-        clientId: process.env.TIDAL_CLIENT_ID,
-        clientSecret: process.env.TIDAL_CLIENT_SECRET,
-      };
-    case "youtube":
-      return {
-        clientId:
-          process.env.YOUTUBE_MUSIC_CLIENT_ID ||
-          process.env.YOUTUBE_CLIENT_ID ||
-          process.env.GOOGLE_CLIENT_ID,
-        clientSecret:
-          process.env.YOUTUBE_MUSIC_CLIENT_SECRET ||
-          process.env.YOUTUBE_CLIENT_SECRET ||
-          process.env.GOOGLE_CLIENT_SECRET,
-      };
-    default:
-      throw new Error(`Unsupported provider: ${provider}`);
-  }
-}
-
-/** Token endpoint URLs per provider */
-function getTokenEndpoint(provider: string) {
-  switch (provider) {
-    case "spotify":
-      return "https://accounts.spotify.com/api/token";
-    case "tidal":
-      return "https://auth.tidal.com/v1/oauth2/token";
-    case "youtube":
-      return "https://oauth2.googleapis.com/token";
-    default:
-      throw new Error(`Unsupported provider: ${provider}`);
-  }
-}
-
-/** Profile endpoint URLs per provider */
-function getProfileEndpoint(provider: string) {
-  switch (provider) {
-    case "spotify":
-      return "https://api.spotify.com/v1/me";
-    case "tidal":
-      return "https://openapi.tidal.com/v2/users/me";
-    case "youtube":
-      return "https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true";
-    default:
-      return null;
-  }
-}
-
-/** Default scopes per provider (mirrors Rust backend constants) */
-function getDefaultScopes(provider: string): string[] {
-  switch (provider) {
-    case "spotify":
-      return [
-        "user-library-read",
-        "user-library-modify",
-        "playlist-read-private",
-        "playlist-read-collaborative",
-        "playlist-modify-private",
-      ];
-    case "tidal":
-      return ["r_usr", "w_usr"];
-    case "youtube":
-      return [
-        "https://www.googleapis.com/auth/youtube.readonly",
-        "https://www.googleapis.com/auth/youtube",
-      ];
-    default:
-      return [];
-  }
-}
-
-/**
- * Resolve the redirect URI for a provider. Checks provider-specific env vars
- * (including YOUTUBE_MUSIC_ variants for the youtube provider), then falls
- * back to the caller-supplied value. Both authorize and callback MUST use
- * this same function so the URI sent to the provider always matches.
- */
-function resolveRedirectUri(
-  provider: string,
-  callerUri: string | undefined,
-): string {
-  const key = `${provider.toUpperCase()}_REDIRECT_URI`;
-  const envUri = process.env[key];
-  if (envUri) return envUri;
-
-  // YouTube Music may be configured under YOUTUBE_MUSIC_ or GOOGLE_ prefix
-  if (provider === "youtube") {
-    const alt =
-      process.env.YOUTUBE_MUSIC_REDIRECT_URI ||
-      process.env.GOOGLE_REDIRECT_URI;
-    if (alt) return alt;
-  }
-
-  return callerUri || "";
-}
+/** Authorization endpoint URLs per provider */
+const AUTH_ENDPOINTS: Record<string, string> = {
+  spotify: "https://accounts.spotify.com/authorize",
+  tidal: "https://login.tidal.com/authorize",
+  youtube: "https://accounts.google.com/o/oauth2/v2/auth",
+};
 
 export const authorize = action({
   args: {
@@ -161,56 +72,28 @@ export const authorize = action({
     scopes: v.optional(v.array(v.string())),
   },
   handler: async (_ctx, args) => {
-    const { clientId } = getProviderCredentials(args.provider);
-    if (!clientId) {
-      throw new ConvexError(
-        `Missing client ID for provider ${args.provider}. ` +
-          `Set the ${args.provider.toUpperCase()}_CLIENT_ID environment variable.`,
-      );
-    }
+    const { clientId } = getProviderConfig(args.provider);
 
     const scopes = args.scopes?.length ? args.scopes : getDefaultScopes(args.provider);
     const scopeStr = scopes.join(" ");
     const state = `nodrake_${args.provider}_${Date.now()}`;
-    // Resolve redirect URI: env var is authoritative (must match provider
-    // dashboard registration). Fall back to arg from frontend, then
-    // YOUTUBE_MUSIC_REDIRECT_URI for the youtube provider.
     const rawRedirectUri = resolveRedirectUri(args.provider, args.redirectUri);
     const redirectUri = encodeURIComponent(rawRedirectUri);
 
-    let authUrl = "";
-    switch (args.provider) {
-      case "spotify":
-        authUrl =
-          `https://accounts.spotify.com/authorize` +
-          `?client_id=${encodeURIComponent(clientId)}` +
-          `&response_type=code` +
-          `&redirect_uri=${redirectUri}` +
-          `&scope=${encodeURIComponent(scopeStr)}` +
-          `&state=${state}`;
-        break;
-      case "tidal":
-        authUrl =
-          `https://login.tidal.com/authorize` +
-          `?client_id=${encodeURIComponent(clientId)}` +
-          `&response_type=code` +
-          `&redirect_uri=${redirectUri}` +
-          `&scope=${encodeURIComponent(scopeStr)}` +
-          `&state=${state}`;
-        break;
-      case "youtube":
-        authUrl =
-          `https://accounts.google.com/o/oauth2/v2/auth` +
-          `?client_id=${encodeURIComponent(clientId)}` +
-          `&response_type=code` +
-          `&redirect_uri=${redirectUri}` +
-          `&scope=${encodeURIComponent(scopeStr)}` +
-          `&access_type=offline` +
-          `&prompt=consent` +
-          `&state=${state}`;
-        break;
-      default:
-        throw new Error(`Unsupported provider: ${args.provider}`);
+    const baseUrl = AUTH_ENDPOINTS[args.provider];
+    if (!baseUrl) throw new Error(`Unsupported provider: ${args.provider}`);
+
+    let authUrl =
+      `${baseUrl}` +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&response_type=code` +
+      `&redirect_uri=${redirectUri}` +
+      `&scope=${encodeURIComponent(scopeStr)}` +
+      `&state=${state}`;
+
+    // YouTube/Google requires offline access + consent prompt
+    if (args.provider === "youtube") {
+      authUrl += `&access_type=offline&prompt=consent`;
     }
 
     return { authorization_url: authUrl, auth_url: authUrl, state, scopes };
@@ -225,58 +108,9 @@ export const callback = action({
     redirectUri: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { clientId, clientSecret } = getProviderCredentials(args.provider);
-    if (!clientId || !clientSecret) {
-      throw new ConvexError(
-        `Missing OAuth credentials for provider ${args.provider}. ` +
-          `Set ${args.provider.toUpperCase()}_CLIENT_ID and ${args.provider.toUpperCase()}_CLIENT_SECRET.`,
-      );
-    }
-
-    // --- Exchange the authorization code for tokens ---
-    // Must use the same redirect URI that was sent in the authorize step.
+    // --- Exchange the authorization code for tokens (unified, no Basic Auth) ---
     const redirectUri = resolveRedirectUri(args.provider, args.redirectUri);
-
-    const tokenUrl = getTokenEndpoint(args.provider);
-    const tokenBody = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: args.code,
-      redirect_uri: redirectUri,
-    });
-
-    // Spotify and Tidal use HTTP Basic auth; YouTube/Google uses body params
-    const headers: Record<string, string> = {
-      "Content-Type": "application/x-www-form-urlencoded",
-    };
-
-    if (args.provider === "youtube") {
-      tokenBody.set("client_id", clientId);
-      tokenBody.set("client_secret", clientSecret);
-    } else {
-      const basicAuth = btoa(`${clientId}:${clientSecret}`);
-      headers["Authorization"] = `Basic ${basicAuth}`;
-    }
-
-    const tokenResp = await fetch(tokenUrl, {
-      method: "POST",
-      headers,
-      body: tokenBody.toString(),
-    });
-
-    if (!tokenResp.ok) {
-      const errorText = await tokenResp.text();
-      throw new ConvexError(
-        `Token exchange failed for ${args.provider}: ${tokenResp.status} ${errorText}`,
-      );
-    }
-
-    const tokenData = (await tokenResp.json()) as {
-      access_token: string;
-      refresh_token?: string;
-      expires_in?: number;
-      token_type?: string;
-      scope?: string;
-    };
+    const tokenData = await exchangeAuthCode(args.provider, args.code, redirectUri);
 
     // --- Optionally fetch the user's profile to get a provider user ID ---
     let providerUserId: string | undefined;
@@ -289,19 +123,7 @@ export const callback = action({
         });
         if (profileResp.ok) {
           const profile = (await profileResp.json()) as Record<string, any>;
-          switch (args.provider) {
-            case "spotify":
-              providerUserId = profile.id;
-              break;
-            case "tidal":
-              providerUserId = profile.data?.id ?? profile.id;
-              break;
-            case "youtube": {
-              const items = profile.items as Array<Record<string, any>> | undefined;
-              providerUserId = items?.[0]?.id;
-              break;
-            }
-          }
+          providerUserId = extractProviderUserId(args.provider, profile);
         }
       } catch {
         // Profile fetch is best-effort; proceed without providerUserId
@@ -346,8 +168,6 @@ export const callback = action({
           provider: args.provider,
         });
       } catch (syncErr: any) {
-        // Non-fatal: connection succeeded even if sync scheduling fails.
-        // The user can manually trigger sync from the dashboard.
         console.warn(
           `Auto-sync scheduling failed for ${args.provider}:`,
           syncErr?.message ?? syncErr,
@@ -502,53 +322,13 @@ export const refreshExpiringTokens = internalAction({
 
     for (const conn of expiring) {
       try {
-        // Decrypt the stored refresh token (or use as-is for legacy plaintext)
-        const refreshToken = isEncrypted(conn.encryptedRefreshToken)
+        const plainRefresh = isEncrypted(conn.encryptedRefreshToken)
           ? await decryptToken(conn.encryptedRefreshToken, encryptionKey)
           : conn.encryptedRefreshToken;
 
-        // Exchange the refresh token for a new access token
-        const { clientId, clientSecret } = getProviderCredentials(
-          conn.provider,
-        );
-        if (!clientId || !clientSecret) continue;
+        // Unified refresh: body params for all providers, no Basic Auth
+        const tokenData = await refreshAccessToken(conn.provider, plainRefresh);
 
-        const tokenUrl = getTokenEndpoint(conn.provider);
-        const body = new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-        });
-
-        const headers: Record<string, string> = {
-          "Content-Type": "application/x-www-form-urlencoded",
-        };
-
-        if (conn.provider === "youtube") {
-          body.set("client_id", clientId);
-          body.set("client_secret", clientSecret);
-        } else {
-          headers["Authorization"] = `Basic ${btoa(`${clientId}:${clientSecret}`)}`;
-        }
-
-        const resp = await fetch(tokenUrl, {
-          method: "POST",
-          headers,
-          body: body.toString(),
-        });
-
-        if (!resp.ok) {
-          console.error(
-            `Token refresh failed for ${conn.provider} connection ${conn.connectionId}: ${resp.status}`,
-          );
-          continue;
-        }
-
-        const tokenData = (await resp.json()) as {
-          access_token: string;
-          expires_in?: number;
-        };
-
-        // Encrypt the new access token
         const encryptedNewAccess = await encryptToken(
           tokenData.access_token,
           encryptionKey,
@@ -558,7 +338,6 @@ export const refreshExpiringTokens = internalAction({
           ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()
           : undefined;
 
-        // Persist the encrypted token
         await ctx.runMutation(
           "providerOAuth:_updateConnectionTokenInternal" as any,
           {

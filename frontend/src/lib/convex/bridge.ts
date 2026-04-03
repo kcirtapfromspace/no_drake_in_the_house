@@ -925,7 +925,7 @@ export async function maybeHandleConvexRoute<T = unknown>(
     // =============================================
 
     if (method === 'POST' && pathname === '/api/v1/apple-music/auth/connect') {
-      const result = await convexMutation<any>(anyApi.appleMusic.connect, {
+      const result = await convexAction<any>(anyApi.appleMusic.connect, {
         musicUserToken: data?.musicUserToken ?? data?.music_user_token,
       });
       return ok(result) as BridgedApiResponse<T>;

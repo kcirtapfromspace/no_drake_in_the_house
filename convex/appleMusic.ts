@@ -1,11 +1,38 @@
 import { v } from "convex/values";
-import { action, mutation, query, MutationCtx, QueryCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
+import {
+  action,
+  mutation,
+  query,
+} from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
+import { encryptToken, getEncryptionKey } from "./lib/crypto";
 
-export const connect = mutation({
+/**
+ * Connect Apple Music. This is an action (not mutation) because it encrypts
+ * the MusicKit user token via Web Crypto before persisting.
+ */
+export const connect = action({
   args: {
     musicUserToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const encryptionKey = getEncryptionKey();
+    const encryptedToken = await encryptToken(args.musicUserToken, encryptionKey);
+
+    const result: { success: boolean; connection_id: string } =
+      await ctx.runMutation("appleMusic:_storeConnection" as any, {
+        encryptedToken,
+      });
+
+    return result;
+  },
+});
+
+/** Internal mutation: persist the already-encrypted Apple Music token. */
+export const _storeConnection = mutation({
+  args: {
+    encryptedToken: v.string(),
   },
   handler: async (ctx: MutationCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
@@ -21,7 +48,7 @@ export const connect = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         status: "active",
-        encryptedAccessToken: args.musicUserToken,
+        encryptedAccessToken: args.encryptedToken,
         updatedAt: now,
       });
       return { success: true, connection_id: existing._id };
@@ -32,7 +59,7 @@ export const connect = mutation({
       userId: user._id,
       provider: "apple_music",
       status: "active",
-      encryptedAccessToken: args.musicUserToken,
+      encryptedAccessToken: args.encryptedToken,
       scopes: ["music-library"],
       metadata: {},
       createdAt: now,
@@ -102,7 +129,8 @@ export const verify = action({
     musicUserToken: v.string(),
   },
   handler: async (_ctx, args) => {
-    const isValid = args.musicUserToken.length > 0;
+    const token = args.musicUserToken;
+    const isValid = token.length > 100 && !token.includes(" ");
     return {
       valid: isValid,
       provider: "apple_music",

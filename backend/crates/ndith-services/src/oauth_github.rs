@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::oauth::{BaseOAuthProvider, OAuthProvider};
+use ndith_core::config::provider_callback_uri;
 use ndith_core::error::{AppError, Result};
 use ndith_core::models::oauth::{
     OAuthConfig, OAuthFlowResponse, OAuthProviderType, OAuthTokens, OAuthUserInfo,
@@ -101,10 +102,8 @@ impl GitHubOAuthProvider {
             std::env::var("GITHUB_CLIENT_SECRET").map_err(|_| AppError::ConfigurationError {
                 message: "GITHUB_CLIENT_SECRET environment variable is required".to_string(),
             })?;
-        let redirect_uri =
-            std::env::var("GITHUB_REDIRECT_URI").map_err(|_| AppError::ConfigurationError {
-                message: "GITHUB_REDIRECT_URI environment variable is required".to_string(),
-            })?;
+        let redirect_uri = std::env::var("GITHUB_REDIRECT_URI")
+            .unwrap_or_else(|_| provider_callback_uri("github"));
 
         Self::with_credentials(client_id, client_secret, redirect_uri)
     }

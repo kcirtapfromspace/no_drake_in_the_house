@@ -27,7 +27,7 @@ RUNTIME_ENV="{}"
 if [ -n "${VITE_POSTHOG_API_KEY:-}" ]; then
     RUNTIME_ENV=$(printf '{"VITE_POSTHOG_API_KEY":"%s","VITE_POSTHOG_HOST":"%s"}' \
         "$VITE_POSTHOG_API_KEY" \
-        "${VITE_POSTHOG_HOST:-https://us.i.posthog.com}")
+        "${VITE_POSTHOG_HOST:-https://t.nodrakeinthe.house}")
 fi
 
 if [ -f "$INDEX_HTML" ]; then

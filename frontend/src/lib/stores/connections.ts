@@ -391,13 +391,27 @@ export const connectionActions = {
   },
 
   initiateSpotifyAuth: async (): Promise<{ success: boolean; message?: string }> => {
+    // Route through Convex OAuth so tokens are stored in Convex
+    // (required for the Convex library sync to read them)
+    const callbackUrl = `${window.location.origin}/auth/callback/spotify`;
     const response = await apiClient.authenticatedRequest<{
       authorization_url?: string;
       auth_url?: string;
       state?: string;
       already_connected?: boolean;
       message?: string;
-    }>('GET', '/api/v1/connections/spotify/authorize');
+    }>('POST', '/api/v1/oauth/spotify/authorize', {
+      redirectUri: callbackUrl,
+      scopes: [
+        'user-library-read',
+        'user-library-modify',
+        'playlist-read-private',
+        'playlist-read-collaborative',
+        'playlist-modify-private',
+        'user-follow-read',
+        'user-follow-modify',
+      ],
+    });
 
     const authUrl = response.data?.auth_url ?? response.data?.authorization_url;
     if (response.success && authUrl) {

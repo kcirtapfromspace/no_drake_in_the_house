@@ -545,10 +545,6 @@ pub fn create_router(state: AppState) -> Router {
             "/connections/spotify",
             delete(handlers::spotify_connection::spotify_disconnect_handler),
         )
-        .route(
-            "/connections/spotify/refresh",
-            post(handlers::spotify_connection::spotify_refresh_token_handler),
-        )
         // Tidal connection routes
         .route(
             "/connections/tidal/authorize",

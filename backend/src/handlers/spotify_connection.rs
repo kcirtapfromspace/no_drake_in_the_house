@@ -30,7 +30,7 @@ use crate::services::oauth_spotify::SpotifyOAuthProvider;
 use crate::services::OAuthTokenEncryption;
 use crate::services::OffenseService;
 use crate::services::PlaylistRepository;
-use crate::AppState;
+use crate::{AppState, StreamingProvider, TokenVaultService};
 use ndith_core::config::provider_callback_uri_with_override;
 use std::collections::HashMap;
 
@@ -1046,6 +1046,65 @@ async fn decrypt_connection_access_token(encoded_token: &str) -> Result<String> 
         })
 }
 
+async fn get_spotify_tokens_from_vault(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> Result<crate::DecryptedToken> {
+    let token_vault = TokenVaultService::with_pool(pool.clone());
+    token_vault
+        .get_token(user_id, StreamingProvider::Spotify)
+        .await
+        .map_err(|error| {
+            AppError::ExternalServiceError(format!(
+                "Stored Spotify token could not be decrypted via token vault: {}",
+                error
+            ))
+        })
+}
+
+async fn decrypt_spotify_access_token_with_fallback(
+    pool: &PgPool,
+    user_id: Uuid,
+    encoded_token: &str,
+) -> Result<String> {
+    match decrypt_connection_access_token(encoded_token).await {
+        Ok(token) => Ok(token),
+        Err(legacy_error) => {
+            tracing::warn!(
+                user_id = %user_id,
+                error = %legacy_error,
+                "Legacy Spotify token decode failed; attempting token-vault compatibility fallback"
+            );
+            let decrypted = get_spotify_tokens_from_vault(pool, user_id).await?;
+            Ok(decrypted.access_token)
+        }
+    }
+}
+
+async fn resolve_spotify_refresh_token_with_fallback(
+    pool: &PgPool,
+    user_id: Uuid,
+    refresh_token_encrypted: &str,
+) -> Result<String> {
+    match decrypt_connection_access_token(refresh_token_encrypted).await {
+        Ok(token) => Ok(token),
+        Err(legacy_error) => {
+            tracing::warn!(
+                user_id = %user_id,
+                error = %legacy_error,
+                "Legacy Spotify refresh token decode failed; attempting token-vault compatibility fallback"
+            );
+            let decrypted = get_spotify_tokens_from_vault(pool, user_id).await?;
+            decrypted
+                .refresh_token
+                .ok_or_else(|| AppError::OperationNotAllowed {
+                    reason: "No Spotify refresh token is stored. Disconnect and reconnect Spotify."
+                        .to_string(),
+                })
+        }
+    }
+}
+
 async fn resolve_spotify_access_token_for_sync(
     pool: &PgPool,
     user_id: Uuid,
@@ -1058,7 +1117,12 @@ async fn resolve_spotify_access_token_for_sync(
 
     if let Some(access_token_encrypted) = connection.access_token_encrypted.as_deref() {
         if !expires_soon {
-            return decrypt_connection_access_token(access_token_encrypted).await;
+            return decrypt_spotify_access_token_with_fallback(
+                pool,
+                user_id,
+                access_token_encrypted,
+            )
+            .await;
         }
     }
 
@@ -1071,7 +1135,8 @@ async fn resolve_spotify_access_token_for_sync(
             user_id = %user_id,
             "Spotify token is expiring but no refresh token is stored; using existing access token"
         );
-        return decrypt_connection_access_token(access_token_encrypted).await;
+        return decrypt_spotify_access_token_with_fallback(pool, user_id, access_token_encrypted)
+            .await;
     }
 
     mark_spotify_connection_needs_reauth(
@@ -1092,14 +1157,15 @@ async fn refresh_spotify_access_token(
     user_id: Uuid,
     refresh_token_encrypted: &str,
 ) -> Result<String> {
-    let refresh_token = decrypt_connection_access_token(refresh_token_encrypted)
-        .await
-        .map_err(|e| {
-            AppError::ExternalServiceError(format!(
-                "Spotify refresh token could not be decrypted: {}",
-                e
-            ))
-        })?;
+    let refresh_token =
+        resolve_spotify_refresh_token_with_fallback(pool, user_id, refresh_token_encrypted)
+            .await
+            .map_err(|e| {
+                AppError::ExternalServiceError(format!(
+                    "Spotify refresh token could not be decrypted: {}",
+                    e
+                ))
+            })?;
 
     let spotify_provider = create_connection_provider()?;
     let refreshed_tokens = match spotify_provider.refresh_token(&refresh_token).await {

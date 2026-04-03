@@ -6,6 +6,7 @@ pub mod dnp;
 pub mod enforcement;
 pub mod login_health;
 pub mod oauth;
+pub mod oidc;
 pub mod offense;
 pub mod playlist_sanitizer;
 pub mod provider_library_sync_status;

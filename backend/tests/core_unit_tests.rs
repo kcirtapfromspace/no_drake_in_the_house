@@ -344,6 +344,9 @@ fn test_claims_model() {
         jti: Uuid::new_v4().to_string(),
         token_type: TokenType::Access,
         scopes: vec!["read".to_string(), "write".to_string()],
+        role: Default::default(),
+        iss: String::new(),
+        aud: String::new(),
     };
 
     assert_eq!(claims.sub, user_id.to_string());

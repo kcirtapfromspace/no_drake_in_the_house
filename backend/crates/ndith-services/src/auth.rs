@@ -15,7 +15,10 @@ use crate::registration_performance::RegistrationPerformanceService;
 use anyhow::anyhow;
 use bcrypt::{hash, verify};
 use chrono::{Duration, Utc};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use rsa::pkcs8::DecodePrivateKey;
+use rsa::traits::PublicKeyParts;
 use ndith_core::models::oauth::{
     AccountLinkRequest, OAuthAccount, OAuthAccountHealth, OAuthConnectionStatus, OAuthFlowResponse,
     OAuthProviderType, OAuthState, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
@@ -42,6 +45,13 @@ pub struct AuthService {
     jwt_secret: String,
     access_token_ttl: i64,  // seconds (24 hours)
     refresh_token_ttl: i64, // seconds (30 days)
+
+    // RS256 JWT signing (for Convex verification via OIDC/JWKS)
+    rsa_encoding_key: Option<EncodingKey>,
+    rsa_decoding_key: Option<DecodingKey>,
+    rsa_public_key_n: Option<String>,
+    rsa_public_key_e: Option<String>,
+    jwt_issuer: String,
 
     // Performance optimization services
     performance_service: Arc<RegistrationPerformanceService>,
@@ -131,11 +141,68 @@ impl AuthService {
             OAuthTokenEncryption::with_key(&key).unwrap()
         }));
 
+        // Initialize RS256 keys for Convex JWT verification (optional)
+        let jwt_issuer = std::env::var("PUBLIC_BACKEND_BASE_URL")
+            .unwrap_or_else(|_| "https://api.nodrakeinthe.house".to_string());
+
+        let (rsa_encoding_key, rsa_decoding_key, rsa_public_key_n, rsa_public_key_e) =
+            match std::env::var("JWT_RSA_PRIVATE_KEY") {
+                Ok(pem) => {
+                    // Normalize PEM: env vars may use literal \n instead of newlines
+                    let pem = pem.replace("\\n", "\n");
+                    let pem_bytes = pem.as_bytes();
+                    match (
+                        EncodingKey::from_rsa_pem(pem_bytes),
+                        DecodingKey::from_rsa_pem(pem_bytes),
+                    ) {
+                        (Ok(enc), Ok(dec)) => {
+                            // Extract public key components for JWKS
+                            match rsa::RsaPrivateKey::from_pkcs8_pem(&pem) {
+                                Ok(private_key) => {
+                                    let public_key = private_key.to_public_key();
+                                    let n = URL_SAFE_NO_PAD
+                                        .encode(public_key.n().to_bytes_be());
+                                    let e = URL_SAFE_NO_PAD
+                                        .encode(public_key.e().to_bytes_be());
+                                    tracing::info!(
+                                        "✅ RS256 JWT signing initialized (issuer: {})",
+                                        jwt_issuer
+                                    );
+                                    (Some(enc), Some(dec), Some(n), Some(e))
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "❌ Failed to parse RSA private key for JWKS: {}",
+                                        e
+                                    );
+                                    (None, None, None, None)
+                                }
+                            }
+                        }
+                        (Err(e), _) | (_, Err(e)) => {
+                            tracing::error!("❌ Failed to create RSA JWT keys: {}", e);
+                            (None, None, None, None)
+                        }
+                    }
+                }
+                Err(_) => {
+                    tracing::info!(
+                        "RS256 JWT signing not configured (JWT_RSA_PRIVATE_KEY not set), using HS256 only"
+                    );
+                    (None, None, None, None)
+                }
+            };
+
         let auth_service = Self {
             db_pool,
             jwt_secret,
             access_token_ttl: 24 * 60 * 60, // 24 hours as required
             refresh_token_ttl: 30 * 24 * 60 * 60, // 30 days
+            rsa_encoding_key,
+            rsa_decoding_key,
+            rsa_public_key_n,
+            rsa_public_key_e,
+            jwt_issuer,
             performance_service,
             login_performance_service,
             oauth_providers: oauth_providers_arc,
@@ -1357,13 +1424,23 @@ impl AuthService {
     // Generate JWT token pair with database storage
     async fn generate_token_pair(&self, user_id: Uuid, email: &str) -> Result<TokenPair> {
         // Generate access token (24-hour expiration as required)
-        let access_claims =
+        let mut access_claims =
             Claims::new_access_token(user_id, email.to_string(), self.access_token_ttl);
-        let access_token = encode(
-            &Header::default(),
-            &access_claims,
-            &EncodingKey::from_secret(self.jwt_secret.as_ref()),
-        )?;
+
+        // Use RS256 if RSA key is configured, otherwise HS256
+        let access_token = if let Some(ref rsa_key) = self.rsa_encoding_key {
+            access_claims.iss = self.jwt_issuer.clone();
+            access_claims.aud = "convex".to_string();
+            let mut header = Header::new(Algorithm::RS256);
+            header.kid = Some("ndith-1".to_string());
+            encode(&header, &access_claims, rsa_key)?
+        } else {
+            encode(
+                &Header::default(),
+                &access_claims,
+                &EncodingKey::from_secret(self.jwt_secret.as_ref()),
+            )?
+        };
 
         // Generate refresh token
         let refresh_token_raw = format!("{}_{}", Uuid::new_v4(), rand::thread_rng().gen::<u64>());
@@ -1429,8 +1506,23 @@ impl AuthService {
             .await
     }
 
-    // Verify JWT token
+    // Verify JWT token (tries RS256 first if configured, falls back to HS256)
     pub fn verify_token(&self, token: &str) -> Result<Claims> {
+        // Try RS256 verification first if RSA key is configured
+        if let Some(ref rsa_dec_key) = self.rsa_decoding_key {
+            let mut rs256_validation = Validation::new(Algorithm::RS256);
+            rs256_validation.set_issuer(&[&self.jwt_issuer]);
+            rs256_validation.set_audience(&["convex"]);
+            if let Ok(token_data) = decode::<Claims>(token, rsa_dec_key, &rs256_validation) {
+                let claims = token_data.claims;
+                if claims.is_expired() {
+                    return Err(AppError::TokenExpired);
+                }
+                return Ok(claims);
+            }
+        }
+
+        // Fall back to HS256 verification
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
@@ -1445,6 +1537,28 @@ impl AuthService {
         }
 
         Ok(claims)
+    }
+
+    /// Returns the JWT issuer URL used for RS256 tokens
+    pub fn jwt_issuer(&self) -> &str {
+        &self.jwt_issuer
+    }
+
+    /// Returns the JWKS JSON response containing the RSA public key
+    pub fn jwks_response(&self) -> serde_json::Value {
+        match (&self.rsa_public_key_n, &self.rsa_public_key_e) {
+            (Some(n), Some(e)) => serde_json::json!({
+                "keys": [{
+                    "kty": "RSA",
+                    "use": "sig",
+                    "alg": "RS256",
+                    "kid": "ndith-1",
+                    "n": n,
+                    "e": e,
+                }]
+            }),
+            _ => serde_json::json!({ "keys": [] }),
+        }
     }
 
     // Setup TOTP for user with temporary secret storage

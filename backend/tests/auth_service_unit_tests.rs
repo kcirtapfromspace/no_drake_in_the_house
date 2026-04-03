@@ -86,6 +86,8 @@ async fn test_validate_access_token_rejects_expired_token() {
             token_type: TokenType::Access,
             scopes: vec!["read".to_string()],
             role: Default::default(),
+            iss: String::new(),
+            aud: String::new(),
         },
         &EncodingKey::from_secret(TEST_JWT_SECRET.as_bytes()),
     )

@@ -52,6 +52,12 @@ pub struct Claims {
     /// User's role for RBAC (defaults to User if not present for backwards compatibility)
     #[serde(default)]
     pub role: UserRole,
+    /// JWT issuer (RS256 tokens for Convex verification)
+    #[serde(default)]
+    pub iss: String,
+    /// JWT audience (RS256 tokens for Convex verification)
+    #[serde(default)]
+    pub aud: String,
 }
 
 #[async_trait::async_trait]
@@ -121,6 +127,8 @@ impl Claims {
             token_type: TokenType::Access,
             scopes: vec!["read".to_string(), "write".to_string()],
             role: UserRole::User,
+            iss: String::new(),
+            aud: String::new(),
         }
     }
 
@@ -155,6 +163,8 @@ impl Claims {
             token_type: TokenType::Refresh,
             scopes: vec!["refresh".to_string()],
             role: UserRole::User,
+            iss: String::new(),
+            aud: String::new(),
         }
     }
 

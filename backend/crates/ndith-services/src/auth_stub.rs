@@ -74,6 +74,9 @@ impl AuthService {
             jti: Uuid::new_v4().to_string(),
             token_type: ndith_core::models::TokenType::Access,
             scopes: vec!["read".to_string(), "write".to_string()],
+            role: Default::default(),
+            iss: String::new(),
+            aud: String::new(),
         })
     }
 

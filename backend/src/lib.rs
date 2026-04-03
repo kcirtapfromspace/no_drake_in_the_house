@@ -607,6 +607,12 @@ pub fn create_router(state: AppState) -> Router {
         .route("/:offense_id", get(handlers::offense::get_offense));
 
     Router::new()
+        // OIDC discovery + JWKS (must be top-level, public, for Convex JWT verification)
+        .route(
+            "/.well-known/openid-configuration",
+            get(handlers::oidc::openid_configuration),
+        )
+        .route("/.well-known/jwks.json", get(handlers::oidc::jwks))
         // Health check endpoints
         .route("/health", get(health_check))
         .route("/health/ready", get(readiness_check_endpoint))

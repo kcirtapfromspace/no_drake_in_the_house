@@ -54,6 +54,7 @@ sha2 = "0.10"
 md5 = "0.7"
 aes-gcm = "0.10"
 ring = "0.17"
+rsa = { version = "0.9", features = ["pem"] }
 base64 = "0.21"
 
 # HTTP client

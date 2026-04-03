@@ -6006,6 +6006,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "ring",
+ "rsa",
  "rust_decimal",
  "serde",
  "serde_json",

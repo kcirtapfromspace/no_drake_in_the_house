@@ -104,6 +104,7 @@ export const getLibraryStats = query({
         st === "liked_video" ||
         st === "playlist_item" ||
         st === "library_song" ||
+        st === "library" ||
         st === ""
       ) {
         songs++;

@@ -50,7 +50,7 @@
 
   let appleLibrarySyncStatus: AppleLibrarySyncStatus | null = null;
 
-  type ProviderSyncPlatform = 'spotify' | 'tidal' | 'youtube';
+  type ProviderSyncPlatform = 'spotify' | 'tidal' | 'youtube' | 'apple_music';
 
   interface ProviderLibrarySyncStatus {
     state: 'idle' | 'running' | 'completed' | 'failed';
@@ -366,6 +366,10 @@
   function getProviderSyncPlatform(platformId: string): ProviderSyncPlatform | null {
     if (platformId === 'spotify' || platformId === 'tidal' || platformId === 'youtube') {
       return platformId;
+    }
+    // Map apple → apple_music for the sync status lookup
+    if (platformId === 'apple') {
+      return 'apple_music' as ProviderSyncPlatform;
     }
 
     return null;
@@ -800,8 +804,15 @@
       const activeSyncStatus = getProviderSyncStatusForPlatform(platform.id);
       if (activeSyncStatus?.state === 'running') {
         row.status = 'syncing';
-        row.message = activeSyncStatus.message || 'Syncing...';
-      } else if (activeSyncStatus?.state === 'failed' && row.status === 'not_synced') {
+        const imported = activeSyncStatus.tracks_imported ?? 0;
+        const phase = activeSyncStatus.phase;
+        const parts: string[] = [];
+        if (imported > 0) parts.push(`${imported.toLocaleString()} tracks imported`);
+        if (phase && phase !== 'done') parts.push(phase);
+        row.message = parts.length > 0
+          ? `Syncing... (${parts.join(', ')})`
+          : 'Syncing...';
+      } else if (activeSyncStatus?.state === 'failed') {
         row.status = 'error';
         row.message = activeSyncStatus.error_message || activeSyncStatus.message || 'Sync failed';
       }

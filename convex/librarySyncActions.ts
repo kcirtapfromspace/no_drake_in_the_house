@@ -44,8 +44,8 @@ interface CheckpointData {
 const BATCH_SIZE = 50;
 const SPOTIFY_PAGE_SIZE = 50;
 const PLAYLIST_TRACK_PAGE_SIZE = 100;
-const MAX_RETRIES = 3;
-const MAX_RETRY_WAIT_SECS = 60;
+const MAX_RETRIES = 6;
+const MAX_RETRY_WAIT_SECS = 120;
 // Leave a 5-minute buffer before the 30-minute Convex action limit
 const SAFE_RUNTIME_MS = 25 * 60 * 1000;
 
@@ -869,18 +869,22 @@ export const syncTidalLibrary = internalAction({
         );
       }
 
-      // Step 2: Paginate through favorites/tracks using the user-scoped endpoint
-      let offset = 0;
+      // Step 2: Paginate through userCollections (favorites) using JSON:API cursor pagination
+      let cursor: string | null = null;
       let hasMore = true;
 
       while (hasMore) {
-        const url =
-          `https://openapi.tidal.com/v2/users/${tidalUserId}/favorites/tracks` +
-          `?countryCode=${countryCode}&limit=50&offset=${offset}`;
+        let url =
+          `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/tracks` +
+          `?countryCode=${countryCode}&include=tracks`;
+        if (cursor) {
+          url += `&page[cursor]=${encodeURIComponent(cursor)}`;
+        }
+
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
+            Accept: "application/vnd.api+json",
           },
         });
 
@@ -888,26 +892,58 @@ export const syncTidalLibrary = internalAction({
           throw new Error(`Tidal API error ${res.status}: ${(await res.text()).substring(0, 300)}`);
         }
 
-        const data = (await res.json()) as {
-          data: Array<{
+        const body = (await res.json()) as {
+          data?: Array<{
             id: string;
-            resource: {
-              id: string;
-              title: string;
-              artists?: Array<{ name: string }>;
-              album?: { title: string };
+            type: string;
+          }>;
+          included?: Array<{
+            id: string;
+            type: string;
+            attributes?: {
+              title?: string;
+              duration?: string;
+            };
+            relationships?: {
+              artists?: { data?: Array<{ id: string }> };
+              albums?: { data?: Array<{ id: string }> };
             };
           }>;
-          metadata?: { total?: number };
+          links?: {
+            next?: string;
+            meta?: { nextCursor?: string };
+          };
         };
 
-        for (const item of data.data ?? []) {
-          const resource = item.resource;
+        // Build a lookup of included resources
+        const includedById = new Map<string, any>();
+        for (const inc of body.included ?? []) {
+          includedById.set(`${inc.type}:${inc.id}`, inc);
+        }
+
+        for (const item of body.data ?? []) {
+          const track = includedById.get(`tracks:${item.id}`);
+          const attrs = track?.attributes;
+
+          // Resolve artist name from included resources
+          const artistRel = track?.relationships?.artists?.data?.[0];
+          const artistResource = artistRel
+            ? includedById.get(`artists:${artistRel.id}`)
+            : undefined;
+          const artistName = artistResource?.attributes?.name ?? "Unknown Artist";
+
+          // Resolve album name
+          const albumRel = track?.relationships?.albums?.data?.[0];
+          const albumResource = albumRel
+            ? includedById.get(`albums:${albumRel.id}`)
+            : undefined;
+          const albumName = albumResource?.attributes?.title;
+
           pendingTracks.push({
-            providerTrackId: `liked:${resource.id}`,
-            trackName: resource.title,
-            albumName: resource.album?.title,
-            artistName: resource.artists?.[0]?.name ?? "Unknown Artist",
+            providerTrackId: `liked:${item.id}`,
+            trackName: attrs?.title,
+            albumName,
+            artistName,
             sourceType: "liked",
           });
           if (pendingTracks.length >= BATCH_SIZE) {
@@ -915,8 +951,13 @@ export const syncTidalLibrary = internalAction({
           }
         }
 
-        hasMore = (data.data ?? []).length >= 50;
-        offset += 50;
+        // Cursor-based pagination
+        const nextCursor = body.links?.meta?.nextCursor;
+        if (nextCursor && (body.data?.length ?? 0) > 0) {
+          cursor = nextCursor;
+        } else {
+          hasMore = false;
+        }
       }
 
       await flushTracks();

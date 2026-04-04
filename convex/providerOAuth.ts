@@ -8,6 +8,7 @@ import {
   query,
 } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
@@ -212,7 +213,7 @@ export const callback = action({
       : undefined;
 
     // --- Persist the connection with encrypted tokens ---
-    const connectionId = await ctx.runMutation(
+    const connectionId: any = await ctx.runMutation(
       api.providerOAuth._upsertConnection,
       {
         provider: args.provider,
@@ -238,7 +239,7 @@ export const callback = action({
         const { runId, userId } = (await ctx.runMutation(
           api.sync._createRunWithUser,
           { platform: args.provider },
-        )) as { runId: string; userId: string };
+        )) as any;
         await ctx.scheduler.runAfter(0, syncActionRef, { runId, userId });
       } catch (syncErr: any) {
         console.warn(
@@ -382,7 +383,7 @@ export const refreshExpiringTokens = internalAction({
   args: {},
   handler: async (ctx) => {
     const expiring: Array<{
-      connectionId: string;
+      connectionId: Id<"providerConnections">;
       provider: string;
       encryptedRefreshToken: string;
     }> = await ctx.runQuery(

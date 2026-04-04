@@ -551,7 +551,7 @@ export const syncSpotifyLibrary = internalAction({
         const encryptionKey = getEncryptionKey();
         const encrypted = await encryptToken(refreshed.accessToken, encryptionKey);
         await ctx.runMutation(internal.librarySyncActions._updateConnectionTokenFromSync, {
-          connectionId: conn.connectionId,
+          connectionId: conn!.connectionId,
           encryptedAccessToken: encrypted,
           expiresAt,
         });

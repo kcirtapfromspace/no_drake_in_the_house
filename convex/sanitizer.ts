@@ -57,7 +57,7 @@ export const gradePlaylist = action({
     playlistId: v.string(),
   },
   handler: async (ctx, args) => {
-    const grade = await ctx.runQuery(
+    const grade: any = await ctx.runQuery(
       api.sanitizer.computeGrade,
       { provider: args.provider, playlistId: args.playlistId },
     );
@@ -73,7 +73,7 @@ export const suggestReplacements = action({
   },
   handler: async (ctx, args) => {
     // Fetch playlist data and identify flagged vs. clean tracks
-    const playlistData = await ctx.runQuery(
+    const playlistData: any = await ctx.runQuery(
       api.sanitizer._getPlaylistAnalysis,
       {
         provider: args.provider,
@@ -92,7 +92,7 @@ export const suggestReplacements = action({
     }
 
     // Get the user's connection for the access token
-    const connection = await ctx.runQuery(
+    const connection: any = await ctx.runQuery(
       api.sanitizer._getConnection,
       { provider: args.provider },
     );

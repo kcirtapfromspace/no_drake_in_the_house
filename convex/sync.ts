@@ -208,11 +208,37 @@ export const health = query({
     const failedRecent = recentRuns.filter((r) => r.status === "failed").length;
     const runningCount = allRuns.filter((r) => r.status === "running").length;
 
+    const healthy = failedRecent < 5 && runningCount < 10;
+    const overall_status = healthy
+      ? "healthy" as const
+      : failedRecent < 10
+        ? "degraded" as const
+        : "unhealthy" as const;
+
+    // Build per-platform health from most recent run per platform
+    const latestByPlatform = new Map<string, (typeof recentRuns)[0]>();
+    for (const run of recentRuns) {
+      if (!latestByPlatform.has(run.platform)) {
+        latestByPlatform.set(run.platform, run);
+      }
+    }
+
+    const platforms = [...latestByPlatform.entries()].map(([platform, run]) => ({
+      platform,
+      is_healthy: run.status === "completed",
+      last_check: run.completedAt ?? run.startedAt ?? run.createdAt,
+      error: run.status === "failed"
+        ? ((run.errorLog as any)?.[0]?.message ?? "Sync failed")
+        : undefined,
+    }));
+
     return {
-      healthy: failedRecent < 5 && runningCount < 10,
+      overall_status,
+      healthy,
       total_runs: allRuns.length,
       running: runningCount,
       recent_failures: failedRecent,
+      platforms,
       last_run: recentRuns[0]
         ? {
             platform: recentRuns[0].platform,

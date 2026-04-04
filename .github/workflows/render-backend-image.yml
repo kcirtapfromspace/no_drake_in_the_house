@@ -132,9 +132,8 @@ jobs:
         env:
           IMG_TAG: ${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}
         run: |
-          echo "Triggering Render deploy for ${IMAGE_REPO}:${IMG_TAG}..."
-          curl --fail --silent --show-error \
-            "${RENDER_DEPLOY_HOOK_URL}?imgURL=${IMAGE_REPO}:${IMG_TAG}"
+          echo "Triggering Render deploy..."
+          curl --fail --silent --show-error "${RENDER_DEPLOY_HOOK_URL}"
           echo "Render deploy triggered."
 
       - name: Summarize published tags

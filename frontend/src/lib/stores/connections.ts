@@ -361,37 +361,9 @@ export const connectionActions = {
         }
       }
 
-      // Attempt Spotify token refresh once per stale connection row to avoid refresh storms.
-      // Deferred with setTimeout so it never interferes with Svelte component hydration.
-      const staleSpotify = connections.find(
-        (connection) =>
-          connection.provider === 'spotify' &&
-          (connection.status === 'expired' || connection.status === 'error')
-      );
-
-      if (staleSpotify && !spotifyRefreshAttempts.has(staleSpotify.id)) {
-        spotifyRefreshAttempts.add(staleSpotify.id);
-
-        setTimeout(() => {
-          apiClient
-            .authenticatedRequest<any>('POST', '/api/v1/connections/spotify/refresh')
-            .then(async (refreshResponse) => {
-              if (!refreshResponse.success) return;
-
-              const refreshed = await fetchConnectionsDirect();
-              if (refreshed.success && refreshed.data) {
-                connectionsStore.update((state) => ({
-                  ...state,
-                  connections: normalizeConnectionsPayload(refreshed.data),
-                  error: null,
-                }));
-              }
-            })
-            .catch(() => {
-              // Ignore background refresh failures. The UI state remains actionable.
-            });
-        }, 2000);
-      }
+      // Auto-refresh disabled: stale connections should be disconnected and
+      // reconnected via the OAuth flow rather than silently refreshed in the
+      // background (which 502s when the backend token vault is out of sync).
     } else {
       const shouldClearConnections =
         response.error_code === 'HTTP_401' || response.error_code === 'HTTP_403';

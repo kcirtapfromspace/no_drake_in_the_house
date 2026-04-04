@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import { Id } from "./_generated/dataModel";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 /** Check if a sync is already running for a given provider. */
@@ -279,7 +280,7 @@ export const triggerSync = action({
     platform: v.string(),
   },
   handler: async (ctx, args) => {
-    const runId = await ctx.runMutation(
+    const runId: Id<"platformSyncRuns"> = await ctx.runMutation(
       api.sync._createRun,
       { platform: args.platform },
     );
@@ -297,7 +298,12 @@ export const triggerProviderSync = action({
   args: {
     provider: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{
+    run_id: Id<"platformSyncRuns">;
+    provider: string;
+    status: string;
+    message: string;
+  }> => {
     const provider = args.provider;
 
     // Normalize apple-music → apple_music for DB consistency
@@ -305,7 +311,7 @@ export const triggerProviderSync = action({
       provider === "apple-music" ? "apple_music" : provider;
 
     // Guard: reject if a sync is already running for this provider
-    const existingRun = await ctx.runQuery(
+    const existingRun: { runId: Id<"platformSyncRuns"> } | null = await ctx.runQuery(
       internal.sync._getRunningSync,
       { platform: normalizedProvider },
     );
@@ -319,10 +325,10 @@ export const triggerProviderSync = action({
     }
 
     // Create the sync run record and get the user ID in one mutation
-    const { runId, userId } = (await ctx.runMutation(
+    const { runId, userId }: { runId: Id<"platformSyncRuns">; userId: Id<"users"> } = await ctx.runMutation(
       api.sync._createRunWithUser,
       { platform: normalizedProvider },
-    )) as { runId: string; userId: string };
+    );
 
     // Schedule the appropriate provider-specific sync action
     switch (normalizedProvider) {
@@ -374,11 +380,15 @@ export const triggerProviderSync = action({
  */
 export const triggerInvestigation = action({
   args: {},
-  handler: async (ctx) => {
-    const { runId, userId } = (await ctx.runMutation(
+  handler: async (ctx): Promise<{
+    run_id: Id<"platformSyncRuns">;
+    status: string;
+    message: string;
+  }> => {
+    const { runId, userId }: { runId: Id<"platformSyncRuns">; userId: Id<"users"> } = await ctx.runMutation(
       api.sync._createRunWithUser,
       { platform: "evidence_finder" },
-    )) as { runId: string; userId: string };
+    );
 
     await ctx.scheduler.runAfter(
       0,

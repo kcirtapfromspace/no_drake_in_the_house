@@ -399,7 +399,7 @@ export const importAndBlockSpotifyArtist = action({
   },
   handler: async (ctx, args) => {
     // Check if artist already exists by Spotify external ID
-    const artistId: Id<"artists"> | null = await ctx.runMutation(
+    const artistId: any = await ctx.runMutation(
       api.dnp._upsertSpotifyArtist,
       {
         spotifyId: args.spotifyId,
@@ -414,7 +414,7 @@ export const importAndBlockSpotifyArtist = action({
     }
 
     if (args.blockAfterImport !== false) {
-      await ctx.runMutation(api.dnp.addArtistBlock, {
+      const _blockResult: any = await ctx.runMutation(api.dnp.addArtistBlock, {
         artistId,
         tags: args.tags ?? [],
         note: args.note,

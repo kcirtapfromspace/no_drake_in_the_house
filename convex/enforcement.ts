@@ -283,7 +283,7 @@ export const planEnforcement = action({
     const provider = args.providers[0] ?? "spotify";
 
     // Create the batch record first
-    const batchId = await ctx.runMutation(
+    const batchId: any = await ctx.runMutation(
       api.enforcement._createBatch,
       {
         provider,
@@ -293,7 +293,7 @@ export const planEnforcement = action({
     );
 
     // Compute the real impact by cross-referencing the user's library with blocks
-    const impact = await ctx.runQuery(
+    const impact: any = await ctx.runQuery(
       api.enforcement._computeImpact,
       { provider },
     );
@@ -1165,7 +1165,7 @@ export const rollback = action({
       { batchId: args.batchId },
     );
 
-    const provider = batch?.provider ?? "spotify";
+    const provider: string = batch?.provider ?? "spotify";
     let rolledBack = 0;
     let rollbackFailed = 0;
 

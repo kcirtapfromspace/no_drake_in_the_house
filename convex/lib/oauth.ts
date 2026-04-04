@@ -104,15 +104,22 @@ export function getProfileEndpoint(provider: string): string | null {
  * Resolve the redirect URI for a provider.
  *
  * Priority:
- * 1. Provider-specific env var (e.g. SPOTIFY_REDIRECT_URI)
- * 2. Computed from OAUTH_CALLBACK_BASE_URL + /auth/callback/{provider}
- * 3. Caller-supplied value (frontend origin fallback)
+ * 1. Caller-supplied value (frontend sends the correct origin)
+ * 2. Provider-specific env var (legacy, may point to old Rust backend)
+ * 3. Computed from OAUTH_CALLBACK_BASE_URL + /auth/callback/{provider}
+ *
+ * The caller-supplied URI takes priority because the OAuth callback must
+ * land on the FRONTEND (where OAuthCallback.svelte closes the popup),
+ * not on the Rust backend which may redirect elsewhere.
  */
 export function resolveRedirectUri(
   provider: string,
   callerUri: string | undefined,
 ): string {
-  // 1. Explicit per-provider override
+  // 1. Prefer caller-supplied value (frontend origin)
+  if (callerUri) return callerUri;
+
+  // 2. Explicit per-provider override
   const key = `${provider.toUpperCase()}_REDIRECT_URI`;
   const envUri = process.env[key];
   if (envUri) return envUri;
@@ -124,15 +131,14 @@ export function resolveRedirectUri(
     if (alt) return alt;
   }
 
-  // 2. Compute from base URL (e.g. https://api.nodrakeinthe.house)
+  // 3. Compute from base URL
   const baseUrl = process.env.OAUTH_CALLBACK_BASE_URL;
   if (baseUrl) {
     const providerSlug = provider === "youtube" ? "youtube" : provider;
     return `${baseUrl.replace(/\/+$/, "")}/auth/callback/${providerSlug}`;
   }
 
-  // 3. Fallback to caller-supplied value
-  return callerUri || "";
+  return "";
 }
 
 // -----------------------------------------------------------------------

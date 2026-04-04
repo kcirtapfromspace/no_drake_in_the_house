@@ -2345,8 +2345,8 @@
           <div class="flex flex-col md:flex-row gap-6 md:items-center">
             <div class="flex items-center justify-center w-28 h-28 rounded-full border-2 {overallColor}">
               <div class="text-center">
-                <div class="text-3xl font-extrabold leading-none">{tasteGrade.overall_grade}</div>
-                <div class="text-xs opacity-80 mt-1">{tasteGrade.overall_score.toFixed(2)}</div>
+                <div class="text-3xl font-extrabold leading-none">{overallGrade}</div>
+                <div class="text-xs opacity-80 mt-1">{(tasteGrade.overall_score ?? 0).toFixed(2)}</div>
               </div>
             </div>
 
@@ -2373,12 +2373,12 @@
                     </tr>
                   </thead>
                   <tbody class="border-t border-zinc-700">
-                    {#each tasteGrade.components as component (component.id)}
+                    {#each (tasteGrade.components ?? []) as component (component.id)}
                       <tr class="hover:bg-zinc-800/60">
                         <td class="px-4 py-3 text-white font-medium">{component.label}</td>
                         <td class="px-4 py-3 text-zinc-300">{component.grade}</td>
-                        <td class="px-4 py-3 text-zinc-300">{component.score.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-zinc-400">{Math.round(component.weight * 100)}%</td>
+                        <td class="px-4 py-3 text-zinc-300">{(component.score ?? 0).toFixed(2)}</td>
+                        <td class="px-4 py-3 text-zinc-400">{Math.round((component.weight ?? 0) * 100)}%</td>
                         <td class="px-4 py-3 text-zinc-400">{component.summary}</td>
                       </tr>
                     {/each}
@@ -2391,11 +2391,11 @@
           <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-zinc-950/40 rounded-xl border border-zinc-700 p-4">
               <div class="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-2">Signals</div>
-              {#if tasteGrade.signals.length === 0}
+              {#if (tasteGrade.signals ?? []).length === 0}
                 <div class="text-sm text-zinc-500">No signals yet.</div>
               {:else}
                 <div class="space-y-1 text-sm text-zinc-300">
-                  {#each tasteGrade.signals as s}
+                  {#each (tasteGrade.signals ?? []) as s}
                     <div>• {s}</div>
                   {/each}
                 </div>
@@ -2404,11 +2404,11 @@
 
             <div class="bg-zinc-950/40 rounded-xl border border-zinc-700 p-4">
               <div class="text-xs font-medium text-zinc-400 uppercase tracking-wide mb-2">Recommendations</div>
-              {#if tasteGrade.recommendations.length === 0}
+              {#if (tasteGrade.recommendations ?? []).length === 0}
                 <div class="text-sm text-zinc-500">Looking good. No recommendations right now.</div>
               {:else}
                 <div class="space-y-1 text-sm text-zinc-300">
-                  {#each tasteGrade.recommendations as r}
+                  {#each (tasteGrade.recommendations ?? []) as r}
                     <div>• {r}</div>
                   {/each}
                 </div>
@@ -2475,7 +2475,7 @@
         <div class="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-sm text-red-300">
           {libraryOffendersError}
         </div>
-      {:else if !libraryOffenders || libraryOffenders.offenders.length === 0}
+      {:else if !libraryOffenders || (libraryOffenders.offenders ?? []).length === 0}
         <div class="bg-zinc-900 rounded-xl border border-zinc-700 p-8 text-center">
           <p class="text-zinc-400">No verified offenders detected in your library.</p>
           <p class="text-xs text-zinc-500 mt-2">This card only considers artists with verified incidents in our offense database.</p>
@@ -2486,8 +2486,8 @@
         <div class="bg-zinc-900 rounded-xl border border-zinc-700 p-6">
           <div class="flex items-center justify-between gap-4 mb-4">
             <div class="text-sm text-zinc-400">
-              Top {libraryOffenders.offenders.length} of {libraryOffenders.total_flagged_artists.toLocaleString()} flagged artists
-              ({libraryOffenders.total_flagged_tracks.toLocaleString()} {unitLabel} impacted)
+              Top {(libraryOffenders.offenders ?? []).length} of {(libraryOffenders.total_flagged_artists ?? 0).toLocaleString()} flagged artists
+              ({(libraryOffenders.total_flagged_tracks ?? 0).toLocaleString()} {unitLabel} impacted)
             </div>
             <div class="text-xs text-zinc-500">
               Computed {formatDate(libraryOffenders.computed_at)}
@@ -2510,7 +2510,7 @@
           {/if}
 
           <div class="space-y-3">
-            {#each libraryOffenders.offenders as offender (offender.id)}
+            {#each (libraryOffenders.offenders ?? []) as offender (offender.id)}
               <div class="bg-zinc-950/40 rounded-xl border border-zinc-700 p-4">
                 <div class="flex items-start justify-between gap-4">
                   <div class="min-w-0">
@@ -2523,7 +2523,7 @@
                       {offender.name}
                     </button>
                     <div class="text-xs text-zinc-400 mt-1 flex flex-wrap gap-x-2 gap-y-1">
-                      <span>{offender.track_count.toLocaleString()} {unitLabel} in your library</span>
+                      <span>{(offender.track_count ?? 0).toLocaleString()} {unitLabel} in your library</span>
                       {#if libraryOffenders.playcounts_available}
                         <span class="text-zinc-600">•</span>
                         <span>
@@ -2532,9 +2532,9 @@
                         </span>
                         <span class="text-zinc-600">•</span>
                         <span>{formatCurrency(offender.estimated_revenue)} est. payout</span>
-                        {#if offender.percentage_of_user_spend !== null}
+                        {#if offender.percentage_of_user_spend != null}
                           <span class="text-zinc-600">•</span>
-                          <span>{offender.percentage_of_user_spend.toFixed(1)}% of your est. payout</span>
+                          <span>{(offender.percentage_of_user_spend ?? 0).toFixed(1)}% of your est. payout</span>
                         {/if}
                       {/if}
                     </div>
@@ -2545,9 +2545,9 @@
                   </span>
                 </div>
 
-                {#if offender.offenses.length > 0}
+                {#if (offender.offenses ?? []).length > 0}
                   <div class="mt-3 space-y-1 text-xs text-zinc-300">
-                    {#each offender.offenses as o (o.title)}
+                    {#each (offender.offenses ?? []) as o (o.title)}
                       <div class="flex gap-2">
                         <span class="text-zinc-500">•</span>
                         <div class="min-w-0">
@@ -2825,7 +2825,7 @@
                             </div>
                           {/if}
                         </td>
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{group.count.toLocaleString()}</td>
+                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{(group.count ?? 0).toLocaleString()}</td>
                         <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{formatDate(group.last_synced)}</td>
                         <td class="py-2 pr-0">
                           <div class="flex items-center gap-2">
@@ -3011,8 +3011,8 @@
                     </span>
                   </td>
                   <td class="px-4 py-3 text-zinc-300">
-                    {run.artists_processed.toLocaleString()}
-                    {#if run.errors_count > 0}
+                    {(run.artists_processed ?? 0).toLocaleString()}
+                    {#if (run.errors_count ?? 0) > 0}
                       <span class="text-red-500 ml-1">({run.errors_count} errors)</span>
                     {/if}
                   </td>

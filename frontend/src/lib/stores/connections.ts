@@ -1,7 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { apiClient } from '../utils/api-client';
 import { maybeHandleConvexRoute } from '../convex/bridge';
-import config from '../utils/config';
 import * as musicKit from '../utils/musickit';
 
 /** Channel name used by the OAuth popup to signal completion back to the opener. */
@@ -224,45 +223,30 @@ async function parseConnectionsResponse(response: Response): Promise<Connections
 }
 
 async function fetchConnectionsDirect(): Promise<ConnectionsFetchResponse> {
-  const requestConnections = async (): Promise<ConnectionsFetchResponse> => {
-    const token = apiClient.getAuthToken();
-    const headers: Record<string, string> = {};
+  // Route through the apiClient so the Convex bridge can intercept.
+  // Convex is the canonical data store for connections.
+  try {
+    const response = await apiClient.authenticatedRequest<ConnectionsHealthPayload>(
+      'GET',
+      '/api/v1/connections',
+    );
 
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
+    if (response.success && response.data) {
+      return { success: true, data: response.data };
     }
 
-    try {
-      const response = await fetch(config.resolveUrl('/api/v1/connections'), {
-        method: 'GET',
-        headers,
-      });
-
-      return await parseConnectionsResponse(response);
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Failed to fetch connections',
-        error_code: 'NETWORK_ERROR',
-      };
-    }
-  };
-
-  let result = await requestConnections();
-
-  if (!result.success && result.error_code === 'HTTP_401') {
-    const refreshed = await apiClient.handleAuthError();
-
-    if (refreshed) {
-      result = await requestConnections();
-    } else {
-      apiClient.clearAuthToken();
-      localStorage.removeItem('refresh_token');
-      emitAuthLogout();
-    }
+    return {
+      success: false,
+      message: response.message || 'Failed to fetch connections',
+      error_code: response.error_code,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to fetch connections',
+      error_code: 'NETWORK_ERROR',
+    };
   }
-
-  return result;
 }
 
 export function isConnectionActive(connection: Pick<ServiceConnection, 'status'> | null | undefined): boolean {

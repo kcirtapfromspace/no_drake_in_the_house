@@ -125,60 +125,65 @@ jobs:
           cache-from: type=gha,scope=render-backend-image-${{ matrix.service.render_service_name }}
           cache-to: type=gha,mode=max,scope=render-backend-image-${{ matrix.service.render_service_name }}
 
-      - name: Resolve Render service id
-        id: render_service
-        continue-on-error: true
+      - name: Deploy to Render
+        id: render_deploy
         if: ${{ env.RENDER_API_KEY != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
+        env:
+          SERVICE_NAME: ${{ matrix.service.render_service_name }}
+          IMG_TAG: ${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}
+          USE_HOOK: ${{ matrix.service.use_deploy_hook }}
         run: |
+          # Step 1: Resolve service ID via Render API
+          echo "Resolving Render service '${SERVICE_NAME}'..."
           response="$(
-            curl --fail --silent --show-error \
+            curl --silent --show-error --write-out "\n%{http_code}" \
               --url "https://api.render.com/v1/services" \
               --header "Authorization: Bearer ${RENDER_API_KEY}"
           )"
+          http_code="$(echo "${response}" | tail -1)"
+          body="$(echo "${response}" | sed '$d')"
+
+          if [ "${http_code}" -ge 400 ]; then
+            echo "::warning::Render API returned HTTP ${http_code}. Regenerate RENDER_API_KEY in Render dashboard → Account Settings → API Keys."
+          fi
 
           service_id="$(
-            jq -r --arg target "${{ matrix.service.render_service_name }}" '
+            echo "${body}" | jq -r --arg target "${SERVICE_NAME}" '
               (if type == "array" then .
-               elif type == "object" then (.services // .items // .results // [.] )
+               elif type == "object" then (.services // .items // .results // [.])
                else []
                end)
               | map(if (.service | type) == "object" then .service else . end)
               | map(select(.name == $target) | .id)
               | .[0] // empty
-            ' <<<"${response}"
+            ' 2>/dev/null || true
           )"
 
+          # Step 2: Deploy via API if service found
           if [ -n "${service_id}" ]; then
-            echo "service_id=${service_id}" >> "$GITHUB_OUTPUT"
-            echo "Resolved Render service id ${service_id} for ${{ matrix.service.render_service_name }}"
-          else
-            echo "Render service ${{ matrix.service.render_service_name }} not found yet; publish only."
+            echo "Deploying ${SERVICE_NAME} (${service_id}) with image ${IMAGE_REPO}:${IMG_TAG}..."
+            curl --fail --silent --show-error \
+              --request POST \
+              --url "https://api.render.com/v1/services/${service_id}/deploys" \
+              --header "Authorization: Bearer ${RENDER_API_KEY}" \
+              --header "Content-Type: application/json" \
+              --data "{\"imageUrl\": \"${IMAGE_REPO}:${IMG_TAG}\"}"
+            echo "Render API deploy triggered for ${SERVICE_NAME}."
+            exit 0
           fi
 
-      - name: Trigger Render deploy via API
-        if: ${{ steps.render_service.outputs.service_id != '' }}
-        shell: bash
-        run: |
-          curl --fail --silent --show-error \
-            --request POST \
-            --url "https://api.render.com/v1/services/${{ steps.render_service.outputs.service_id }}/deploys" \
-            --header "Authorization: Bearer ${RENDER_API_KEY}" \
-            --header "Content-Type: application/json" \
-            --data '{}'
+          # Step 3: Fall back to deploy hook
+          if [ "${USE_HOOK}" = "true" ] && [ -n "${RENDER_DEPLOY_HOOK_URL}" ]; then
+            echo "Service not found via API. Trying deploy hook..."
+            curl --fail --silent --show-error \
+              "${RENDER_DEPLOY_HOOK_URL}?imgURL=${IMAGE_REPO}:${IMG_TAG}"
+            echo "Render deploy hook triggered."
+            exit 0
+          fi
 
-      - name: Trigger Render deploy hook fallback
-        continue-on-error: true
-        if: ${{ matrix.service.use_deploy_hook && steps.render_service.outputs.service_id == '' && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
-        shell: bash
-        env:
-          IMG_TAG: ${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}
-        run: |
-          echo "No Render service id resolved via API. Falling back to deploy hook."
-          # Render deploy hooks accept imgURL as a query param to specify the image
-          curl --fail --silent --show-error \
-            "${RENDER_DEPLOY_HOOK_URL}?imgURL=${IMAGE_REPO}:${IMG_TAG}"
-          echo "Render backend deploy hook triggered with image ${IMAGE_REPO}:${IMG_TAG}"
+          echo "::error::Could not deploy ${SERVICE_NAME}. Render API key returned ${http_code} and no deploy hook configured. Fix RENDER_API_KEY or RENDER_NDITH_BACKEND_DEPLOY_HOOK_URL in GitHub secrets."
+          exit 1
 
       - name: Summarize published tags
         run: |

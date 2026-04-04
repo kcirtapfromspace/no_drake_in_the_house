@@ -2332,7 +2332,7 @@
           <p class="text-zinc-400">Sync a library to generate a taste grade.</p>
         </div>
       {:else}
-        {@const overallGrade = tasteGrade.overall_grade}
+        {@const overallGrade = tasteGrade.overall_grade ?? '?'}
         {@const overallColor =
           overallGrade.startsWith('A') ? 'border-green-500/40 bg-green-500/10 text-green-300' :
           overallGrade.startsWith('B') ? 'border-lime-500/40 bg-lime-500/10 text-lime-300' :

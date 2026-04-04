@@ -65,6 +65,34 @@ const AUTH_ENDPOINTS: Record<string, string> = {
   youtube: "https://accounts.google.com/o/oauth2/v2/auth",
 };
 
+/** Generate a PKCE code verifier and challenge (S256). */
+async function generatePkce(): Promise<{
+  codeVerifier: string;
+  codeChallenge: string;
+}> {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const codeVerifier = Array.from(array, (b) =>
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~".charAt(
+      b % 66,
+    ),
+  ).join("");
+
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(codeVerifier),
+  );
+  const codeChallenge = btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  return { codeVerifier, codeChallenge };
+}
+
+/** Providers that require PKCE (OAuth 2.1). */
+const PKCE_PROVIDERS = new Set(["tidal"]);
+
 export const authorize = action({
   args: {
     provider: v.string(),
@@ -96,7 +124,21 @@ export const authorize = action({
       authUrl += `&access_type=offline&prompt=consent`;
     }
 
-    return { authorization_url: authUrl, auth_url: authUrl, state, scopes };
+    // Tidal (OAuth 2.1) requires PKCE
+    let codeVerifier: string | undefined;
+    if (PKCE_PROVIDERS.has(args.provider)) {
+      const pkce = await generatePkce();
+      codeVerifier = pkce.codeVerifier;
+      authUrl += `&code_challenge=${pkce.codeChallenge}&code_challenge_method=S256`;
+    }
+
+    return {
+      authorization_url: authUrl,
+      auth_url: authUrl,
+      state,
+      scopes,
+      code_verifier: codeVerifier,
+    };
   },
 });
 
@@ -106,11 +148,17 @@ export const callback = action({
     code: v.string(),
     state: v.optional(v.string()),
     redirectUri: v.optional(v.string()),
+    codeVerifier: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     // --- Exchange the authorization code for tokens (unified, no Basic Auth) ---
     const redirectUri = resolveRedirectUri(args.provider, args.redirectUri);
-    const tokenData = await exchangeAuthCode(args.provider, args.code, redirectUri);
+    const tokenData = await exchangeAuthCode(
+      args.provider,
+      args.code,
+      redirectUri,
+      args.codeVerifier,
+    );
 
     // --- Optionally fetch the user's profile to get a provider user ID ---
     let providerUserId: string | undefined;

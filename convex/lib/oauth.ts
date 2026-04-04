@@ -150,6 +150,7 @@ export async function exchangeAuthCode(
   provider: string,
   code: string,
   redirectUri: string,
+  codeVerifier?: string,
 ): Promise<TokenResponse> {
   const { clientId, clientSecret, tokenEndpoint } =
     getProviderConfig(provider);
@@ -161,6 +162,11 @@ export async function exchangeAuthCode(
     client_id: clientId,
     client_secret: clientSecret,
   });
+
+  // PKCE: include code_verifier for OAuth 2.1 providers (e.g. Tidal)
+  if (codeVerifier) {
+    body.set("code_verifier", codeVerifier);
+  }
 
   const resp = await fetch(tokenEndpoint, {
     method: "POST",

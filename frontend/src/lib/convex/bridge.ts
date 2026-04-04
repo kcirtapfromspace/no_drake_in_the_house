@@ -903,6 +903,7 @@ export async function maybeHandleConvexRoute<T = unknown>(
         code: data?.code,
         state: data?.state,
         redirectUri: data?.redirect_uri ?? data?.redirectUri,
+        codeVerifier: data?.codeVerifier ?? data?.code_verifier,
       });
       return ok(result) as BridgedApiResponse<T>;
     }

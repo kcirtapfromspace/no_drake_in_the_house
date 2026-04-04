@@ -8,6 +8,7 @@ export interface OAuthCallbackRequest {
   code: string;
   state: string;
   redirect_uri?: string;
+  codeVerifier?: string;
 }
 
 export interface OAuthCallbackResponse {
@@ -97,10 +98,20 @@ export async function resolveOAuthCallback(
     };
   }
 
+  // Retrieve PKCE code_verifier if stored during authorize (e.g. Tidal)
+  const codeVerifier =
+    (typeof sessionStorage !== 'undefined' &&
+      sessionStorage.getItem(`oauth_code_verifier_${provider}`)) ||
+    undefined;
+  if (codeVerifier && typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem(`oauth_code_verifier_${provider}`);
+  }
+
   const request: OAuthCallbackRequest = {
     code,
     state,
     redirect_uri: location.origin + location.pathname,
+    codeVerifier,
   };
 
   try {

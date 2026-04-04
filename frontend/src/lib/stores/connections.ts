@@ -590,6 +590,7 @@ export const connectionActions = {
       authorization_url?: string;
       auth_url?: string;
       state?: string;
+      code_verifier?: string;
       already_connected?: boolean;
       message?: string;
     }>(
@@ -605,6 +606,10 @@ export const connectionActions = {
     if (response.success && authUrl) {
       if (response.data?.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
+      }
+      // Store PKCE code_verifier for the callback
+      if (response.data?.code_verifier) {
+        sessionStorage.setItem('oauth_code_verifier_tidal', response.data.code_verifier);
       }
       return runOAuthPopup(authUrl, 'tidal-auth', () => {
         connectionActions.fetchConnections().then(() => {
@@ -625,8 +630,10 @@ export const connectionActions = {
 
   handleTidalCallback: async (code: string, state: string) => {
     // OAuth authorization codes are single-use — route through Convex bridge first.
+    const codeVerifier = sessionStorage.getItem('oauth_code_verifier_tidal') || undefined;
+    sessionStorage.removeItem('oauth_code_verifier_tidal');
     try {
-      const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/tidal/callback', { code, state });
+      const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/tidal/callback', { code, state, codeVerifier });
       if (bridged) {
         if (bridged.success) {
           await connectionActions.fetchConnections();

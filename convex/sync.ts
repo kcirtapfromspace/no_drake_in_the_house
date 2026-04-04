@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
-import { nowIso, requireCurrentUser, requireOwner } from "./lib/auth";
+import { nowIso, requireCurrentUser } from "./lib/auth";
 
 export const status = query({
   args: {},
@@ -45,7 +45,7 @@ export const listRuns = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    await requireCurrentUser(ctx);
     let runsQuery = args.platform
       ? ctx.db
           .query("platformSyncRuns")
@@ -80,7 +80,7 @@ export const getRun = query({
     runId: v.id("platformSyncRuns"),
   },
   handler: async (ctx, args) => {
-    await requireOwner(ctx);
+    await requireCurrentUser(ctx);
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
 
@@ -169,7 +169,7 @@ export const providerSyncStatus = query({
 export const health = query({
   args: {},
   handler: async (ctx) => {
-    await requireOwner(ctx);
+    await requireCurrentUser(ctx);
     const allRuns = await ctx.db.query("platformSyncRuns").collect();
     const recentRuns = allRuns
       .sort((a, b) =>

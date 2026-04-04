@@ -544,8 +544,8 @@ export const connectionActions = {
 
   handleTidalCallback: async (code: string, state: string) => {
     // OAuth authorization codes are single-use — route through Convex bridge first.
-    const codeVerifier = sessionStorage.getItem('oauth_code_verifier_tidal') || undefined;
-    sessionStorage.removeItem('oauth_code_verifier_tidal');
+    const codeVerifier = localStorage.getItem('oauth_code_verifier_tidal') || undefined;
+    localStorage.removeItem('oauth_code_verifier_tidal');
     try {
       const bridged = await maybeHandleConvexRoute<any>('POST', '/api/v1/connections/tidal/callback', { code, state, codeVerifier });
       if (bridged) {

@@ -104,36 +104,28 @@ export const _batchImportTracks = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
-    let imported = 0;
 
+    // All sync actions clear tracks before importing, so skip per-track
+    // dedup queries — they would always find nothing and just waste reads.
     for (const track of args.tracks) {
-      const legacyKey = `runtime:track:${args.userId}:${args.provider}:${track.providerTrackId}`;
-      const existing = await ctx.db
-        .query("userLibraryTracks")
-        .withIndex("by_legacyKey", (q) => q.eq("legacyKey", legacyKey))
-        .unique();
-
-      if (!existing) {
-        await ctx.db.insert("userLibraryTracks", {
-          legacyKey,
-          userId: args.userId,
-          provider: args.provider,
-          providerTrackId: track.providerTrackId,
-          trackName: track.trackName,
-          albumName: track.albumName,
-          artistName: track.artistName,
-          sourceType: track.sourceType,
-          playlistName: track.playlistName,
-          lastSyncedAt: now,
-          metadata: {},
-          createdAt: now,
-          updatedAt: now,
-        });
-        imported++;
-      }
+      await ctx.db.insert("userLibraryTracks", {
+        legacyKey: `runtime:track:${args.userId}:${args.provider}:${track.providerTrackId}`,
+        userId: args.userId,
+        provider: args.provider,
+        providerTrackId: track.providerTrackId,
+        trackName: track.trackName,
+        albumName: track.albumName,
+        artistName: track.artistName,
+        sourceType: track.sourceType,
+        playlistName: track.playlistName,
+        lastSyncedAt: now,
+        metadata: {},
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
-    return { imported };
+    return { imported: args.tracks.length };
   },
 });
 

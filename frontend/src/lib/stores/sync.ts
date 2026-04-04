@@ -82,17 +82,17 @@ export const syncStore = writable<SyncState>(initialState);
 // Derived stores
 export const isAnySyncRunning = derived(
   syncStore,
-  ($sync) => $sync.status.some(s => s.status === 'running')
+  ($sync) => Array.isArray($sync.status) && $sync.status.some(s => s.status === 'running')
 );
 
 export const platformsStatus = derived(
   syncStore,
-  ($sync) => $sync.status
+  ($sync) => Array.isArray($sync.status) ? $sync.status : []
 );
 
 export const recentRuns = derived(
   syncStore,
-  ($sync) => $sync.runs.slice(0, 10)
+  ($sync) => Array.isArray($sync.runs) ? $sync.runs.slice(0, 10) : []
 );
 
 // Actions

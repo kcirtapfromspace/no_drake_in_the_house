@@ -13,8 +13,15 @@ export const getDeveloperToken = internalAction({
       process.env.APPLE_MUSIC_KEY_ID || process.env.APPLE_KEY_ID;
     const privateKey =
       process.env.APPLE_MUSIC_PRIVATE_KEY || process.env.APPLE_PRIVATE_KEY;
-    const bundleId =
-      process.env.APPLE_MUSIC_BUNDLE_ID || process.env.APPLE_BUNDLE_ID;
+    // For MusicKit Web, the origin claim must be a web origin (e.g. https://example.com).
+    // APPLE_MUSIC_ORIGIN is preferred; APPLE_MUSIC_BUNDLE_ID is only used if it
+    // looks like a URL (not an iOS bundle ID like com.example.app).
+    const rawOrigin =
+      process.env.APPLE_MUSIC_ORIGIN ||
+      process.env.APPLE_MUSIC_BUNDLE_ID ||
+      process.env.APPLE_BUNDLE_ID;
+    const webOrigin =
+      rawOrigin && rawOrigin.startsWith("http") ? rawOrigin : undefined;
 
     if (!teamId || !keyId || !privateKey) {
       const missing = [
@@ -38,7 +45,7 @@ export const getDeveloperToken = internalAction({
         iss: teamId,
         iat: now,
         exp: now + 15777000, // 6 months
-        ...(bundleId ? { origin: [bundleId] } : {}),
+        ...(webOrigin ? { origin: [webOrigin] } : {}),
       }),
     ).toString("base64url");
 

@@ -77,7 +77,7 @@ export const listTracks = query({
 
     return {
       tracks: paginated,
-      total: allTracks.length,
+      total: offset + paginated.length + (paginated.length >= limit ? 1 : 0),
       offset,
       limit,
     };

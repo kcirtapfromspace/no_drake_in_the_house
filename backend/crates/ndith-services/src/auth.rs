@@ -1511,10 +1511,10 @@ impl AuthService {
         // Try RS256 verification first if RSA key is configured
         if let Some(ref rsa_dec_key) = self.rsa_decoding_key {
             let mut validation = Validation::new(Algorithm::RS256);
-            // Backend is both issuer and consumer — only verify the signature.
-            // Convex does its own iss/aud validation via OIDC discovery.
-            validation.validate_aud = false;
-            validation.set_required_spec_claims::<String>(&[]);
+            // Validate audience matches what we issued (rejects forged tokens)
+            validation.set_audience(&["convex"]);
+            // iss validation skipped — backend is self-issuing; Convex
+            // validates iss independently via OIDC discovery.
             if let Ok(token_data) = decode::<Claims>(token, rsa_dec_key, &validation) {
                 let claims = token_data.claims;
                 if claims.is_expired() {

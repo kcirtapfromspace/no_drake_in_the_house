@@ -82,14 +82,20 @@ export const getLibraryStats = query({
       .collect();
 
     let songs = 0;
-    let albums = 0;
-    let artists = 0;
+    let explicitAlbums = 0;
+    let explicitArtists = 0;
     let playlistEntries = 0;
     const playlistNames = new Set<string>();
+    const uniqueAlbums = new Set<string>();
+    const uniqueArtists = new Set<string>();
 
     for (const t of tracks) {
       const st = (t.sourceType ?? "").toLowerCase();
       if (t.playlistName) playlistNames.add(t.playlistName);
+
+      // Collect unique album/artist names from all tracks
+      if (t.albumName) uniqueAlbums.add(t.albumName);
+      if (t.artistName && t.artistName !== "Unknown Artist") uniqueArtists.add(t.artistName);
 
       if (
         st === "favorite_track" ||
@@ -106,13 +112,13 @@ export const getLibraryStats = query({
         st === "saved_album" ||
         st === "library_album"
       ) {
-        albums++;
+        explicitAlbums++;
       } else if (
         st === "favorite_artist" ||
         st === "followed_artist" ||
         st === "subscription"
       ) {
-        artists++;
+        explicitArtists++;
       }
 
       if (st.includes("playlist") || st === "library_playlist") {
@@ -120,6 +126,9 @@ export const getLibraryStats = query({
       }
     }
 
+    // Use explicit counts if available, otherwise derive from track metadata
+    const albums = explicitAlbums > 0 ? explicitAlbums : uniqueAlbums.size;
+    const artists = explicitArtists > 0 ? explicitArtists : uniqueArtists.size;
     const playlists = playlistNames.size > 0 ? playlistNames.size : playlistEntries;
     const lastSynced = tracks.reduce((latest, t) => {
       const ts = t.lastSyncedAt ?? t.createdAt ?? "";

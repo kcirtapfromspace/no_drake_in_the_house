@@ -139,7 +139,10 @@ function parseIntParam(url: URL, name: string, fallback: number): number {
 }
 
 function isUnauthenticatedRoute(pathname: string): boolean {
-  return /^\/api\/v1\/(oauth|connections)\/[^/]+\/(authorize|callback)$/.test(pathname);
+  return (
+    /^\/api\/v1\/(oauth|connections)\/[^/]+\/(authorize|callback)$/.test(pathname) ||
+    pathname === '/api/v1/apple-music/auth/developer-token'
+  );
 }
 
 export async function maybeHandleConvexRoute<T = unknown>(
@@ -924,6 +927,11 @@ export async function maybeHandleConvexRoute<T = unknown>(
     // =============================================
     // Apple Music (Phase 6b)
     // =============================================
+
+    if (method === 'GET' && pathname === '/api/v1/apple-music/auth/developer-token') {
+      const result = await convexAction<any>(anyApi.appleMusic.getDeveloperToken, {});
+      return ok(result) as BridgedApiResponse<T>;
+    }
 
     if (method === 'POST' && pathname === '/api/v1/apple-music/auth/connect') {
       const result = await convexAction<any>(anyApi.appleMusic.connect, {

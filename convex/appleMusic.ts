@@ -4,9 +4,21 @@ import {
   mutation,
   query,
 } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import { encryptToken, getEncryptionKey } from "./lib/crypto";
+
+/**
+ * Public wrapper for the internal getDeveloperToken action.
+ * Called by the frontend bridge to get the Apple Music developer token.
+ */
+export const getDeveloperToken = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.runAction(internal.signing.getDeveloperToken, {});
+  },
+});
 
 /**
  * Connect Apple Music. This is an action (not mutation) because it encrypts

@@ -58,6 +58,7 @@ declare namespace MusicKit {
 let musickitLoaded = false;
 let musickitConfigured = false;
 let musicKitInstance: MusicKit.MusicKitInstance | null = null;
+let developerTokenUnavailable = false;
 
 /**
  * Load the MusicKit JS script
@@ -102,10 +103,15 @@ export async function loadMusicKitScript(): Promise<void> {
  * Get developer token from backend
  */
 export async function getDeveloperToken(): Promise<string> {
+  if (developerTokenUnavailable) {
+    throw new Error(
+      'Apple Music is not configured on the server. Set APPLE_MUSIC_TEAM_ID, APPLE_MUSIC_KEY_ID, and APPLE_MUSIC_PRIVATE_KEY.',
+    );
+  }
+
   console.log('[MusicKit] Fetching developer token from backend...');
-  const response = await apiClient.get<{developer_token: string; expires_at: string}>(
+  const response = await apiClient.get<{developer_token: string | null; error?: string; expires_at?: string}>(
     '/api/v1/apple-music/auth/developer-token',
-    false // Don't include auth for this public endpoint
   );
 
   if (response.success && response.data?.developer_token) {
@@ -113,8 +119,14 @@ export async function getDeveloperToken(): Promise<string> {
     return response.data.developer_token;
   }
 
-  console.error('[MusicKit] Failed to get developer token:', response.message);
-  throw new Error(response.message || 'Failed to get developer token');
+  // Cache the failure so we don't spam the endpoint
+  developerTokenUnavailable = true;
+  const message =
+    response.data?.error ||
+    response.message ||
+    'Apple Music is not configured on the server. Set APPLE_MUSIC_TEAM_ID, APPLE_MUSIC_KEY_ID, and APPLE_MUSIC_PRIVATE_KEY.';
+  console.error('[MusicKit] Failed to get developer token:', message);
+  throw new Error(message);
 }
 
 /**

@@ -150,16 +150,19 @@ impl AuthService {
                 Ok(pem) => {
                     // Normalize PEM: env vars may use literal \n instead of newlines
                     let pem = pem.replace("\\n", "\n");
-                    let pem_bytes = pem.as_bytes();
-                    match (
-                        EncodingKey::from_rsa_pem(pem_bytes),
-                        DecodingKey::from_rsa_pem(pem_bytes),
-                    ) {
-                        (Ok(enc), Ok(dec)) => {
-                            // Extract public key components for JWKS
-                            match rsa::RsaPrivateKey::from_pkcs8_pem(&pem) {
-                                Ok(private_key) => {
-                                    let public_key = private_key.to_public_key();
+                    match rsa::RsaPrivateKey::from_pkcs8_pem(&pem) {
+                        Ok(private_key) => {
+                            let public_key = private_key.to_public_key();
+                            // Encode the public key as PKCS#1 PEM for jsonwebtoken DecodingKey
+                            let pub_pem = rsa::pkcs1::EncodeRsaPublicKey::to_pkcs1_pem(
+                                &public_key,
+                                rsa::pkcs1::LineEnding::LF,
+                            );
+                            match (
+                                EncodingKey::from_rsa_pem(pem.as_bytes()),
+                                pub_pem.map(|p| DecodingKey::from_rsa_pem(p.as_bytes())),
+                            ) {
+                                (Ok(enc), Ok(Ok(dec))) => {
                                     let n = URL_SAFE_NO_PAD.encode(public_key.n().to_bytes_be());
                                     let e = URL_SAFE_NO_PAD.encode(public_key.e().to_bytes_be());
                                     tracing::info!(
@@ -168,17 +171,25 @@ impl AuthService {
                                     );
                                     (Some(enc), Some(dec), Some(n), Some(e))
                                 }
-                                Err(e) => {
+                                (Err(e), _) => {
+                                    tracing::error!("❌ Failed to create RSA encoding key: {}", e);
+                                    (None, None, None, None)
+                                }
+                                (_, Err(e)) => {
+                                    tracing::error!("❌ Failed to create RSA decoding key: {}", e);
+                                    (None, None, None, None)
+                                }
+                                (_, Ok(Err(e))) => {
                                     tracing::error!(
-                                        "❌ Failed to parse RSA private key for JWKS: {}",
+                                        "❌ Failed to create RSA decoding key from PEM: {}",
                                         e
                                     );
                                     (None, None, None, None)
                                 }
                             }
                         }
-                        (Err(e), _) | (_, Err(e)) => {
-                            tracing::error!("❌ Failed to create RSA JWT keys: {}", e);
+                        Err(e) => {
+                            tracing::error!("❌ Failed to parse RSA private key: {}", e);
                             (None, None, None, None)
                         }
                     }

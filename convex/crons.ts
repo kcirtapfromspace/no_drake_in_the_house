@@ -25,37 +25,35 @@ crons.daily(
 crons.interval(
   "refresh-expiring-oauth-tokens",
   { minutes: 30 },
-  (internal as any).providerOAuth.refreshExpiringTokens,
+  internal.providerOAuth.refreshExpiringTokens,
   {},
 );
 
 crons.interval(
   "promote-classifications-to-offenses",
   { hours: 6 },
-  (internal as any).offensePipeline.promoteClassifications,
+  internal.offensePipeline.promoteClassifications,
   {},
 );
 
 crons.interval(
   "rebuild-offending-artist-index",
   { hours: 6 },
-  (internal as any).offensePipeline.rebuildOffendingArtistIndex,
+  internal.offensePipeline.rebuildOffendingArtistIndex,
   {},
 );
 
 crons.daily(
   "sweep-stale-offense-summaries",
   { hourUTC: 5, minuteUTC: 0 },
-  (internal as any).offensePipeline.dailySweep,
+  internal.offensePipeline.dailySweep,
 );
 
 // Daily investigation of library artists for new evidence.
-// Uses string reference because evidenceFinder is new and not yet in generated types.
-// After running `npx convex dev` once, replace with: internal.evidenceFinder.dailyInvestigation
 crons.daily(
   "investigate-library-artists",
   { hourUTC: 3, minuteUTC: 0 },
-  "evidenceFinder:dailyInvestigation" as any,
+  internal.evidenceFinder.dailyInvestigation,
 );
 
 export default crons;

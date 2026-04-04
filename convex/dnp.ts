@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query, type MutationCtx } from "./_generated/server";
+import { api } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -324,7 +325,7 @@ export const searchSpotifyArtists = action({
   },
   handler: async (ctx, args) => {
     const connection: any = await ctx.runQuery(
-      "enforcement:_getConnection" as any,
+      api.enforcement._getConnection,
       { provider: "spotify" },
     );
 
@@ -399,7 +400,7 @@ export const importAndBlockSpotifyArtist = action({
   handler: async (ctx, args) => {
     // Check if artist already exists by Spotify external ID
     const artistId: Id<"artists"> | null = await ctx.runMutation(
-      "dnp:_upsertSpotifyArtist" as any,
+      api.dnp._upsertSpotifyArtist,
       {
         spotifyId: args.spotifyId,
         name: args.name,
@@ -413,7 +414,7 @@ export const importAndBlockSpotifyArtist = action({
     }
 
     if (args.blockAfterImport !== false) {
-      await ctx.runMutation("dnp:addArtistBlock" as any, {
+      await ctx.runMutation(api.dnp.addArtistBlock, {
         artistId,
         tags: args.tags ?? [],
         note: args.note,

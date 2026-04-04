@@ -232,7 +232,7 @@ async function clearAllProviderTracks(
   let hasMore = true;
   while (hasMore) {
     const result: { deleted: number; hasMore: boolean } =
-      await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
+      await ctx.runMutation(internal.librarySyncActions._clearProviderTracks, {
         userId,
         provider,
       });
@@ -272,6 +272,35 @@ async function spotifyFetchWithRetry(
     return res;
   }
   throw new Error("spotifyFetchWithRetry: unreachable");
+}
+
+/**
+ * Generic fetch with 429 retry for Tidal / YouTube / Apple Music.
+ */
+async function apiFetchWithRetry(
+  url: string,
+  headers: Record<string, string>,
+  label: string,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const res = await fetch(url, { headers });
+
+    if (res.status === 429) {
+      if (attempt === MAX_RETRIES) {
+        throw new Error(`${label} rate limited after ${MAX_RETRIES} retries on ${url}`);
+      }
+      const retryAfter = res.headers.get("retry-after");
+      const waitSecs = Math.min(
+        parseInt(retryAfter || "5", 10) || 5,
+        MAX_RETRY_WAIT_SECS,
+      );
+      await new Promise((r) => setTimeout(r, waitSecs * 1000));
+      continue;
+    }
+
+    return res;
+  }
+  throw new Error(`${label} apiFetchWithRetry: unreachable`);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,7 +408,7 @@ export const syncSpotifyLibrary = internalAction({
 
     // ── Retrieve and check the run status ──────────────────────────────
     const run = await ctx.runQuery(
-      "librarySyncActions:_getSyncRun" as any,
+      internal.librarySyncActions._getSyncRun,
       { runId },
     );
     if (!run || run.status === "cancelled") return;
@@ -398,12 +427,12 @@ export const syncSpotifyLibrary = internalAction({
 
     // ── Get the connection tokens ──────────────────────────────────────
     const conn = await ctx.runQuery(
-      "librarySyncActions:_getConnectionTokens" as any,
+      internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "spotify" },
     );
 
     if (!conn || !conn.encryptedAccessToken) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -419,13 +448,36 @@ export const syncSpotifyLibrary = internalAction({
       accessToken = await decryptAccessToken(conn.encryptedAccessToken);
       refreshToken = await decryptRefreshTokenValue(conn.encryptedRefreshToken);
     } catch (err: any) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
         errorLog: [{ message: `Token decryption failed: ${err.message}`, ts: new Date().toISOString() }],
       });
       return;
+    }
+
+    // Proactive refresh if token expires within 5 minutes
+    if (conn.expiresAt) {
+      const expiryMs = new Date(conn.expiresAt).getTime();
+      if (expiryMs - Date.now() < 5 * 60 * 1000) {
+        if (refreshToken) {
+          try {
+            const refreshed = await refreshSpotifyAccessToken(refreshToken);
+            accessToken = refreshed.accessToken;
+            const expiresAt = new Date(Date.now() + refreshed.expiresIn * 1000).toISOString();
+            const encryptionKey = getEncryptionKey();
+            const encrypted = await encryptToken(refreshed.accessToken, encryptionKey);
+            await ctx.runMutation(internal.librarySyncActions._updateConnectionTokenFromSync, {
+              connectionId: conn.connectionId,
+              encryptedAccessToken: encrypted,
+              expiresAt,
+            });
+          } catch {
+            // Fall through — the reactive 401 handler will retry
+          }
+        }
+      }
     }
 
     // Helper: handle 401 by refreshing the token
@@ -437,7 +489,7 @@ export const syncSpotifyLibrary = internalAction({
         const expiresAt = new Date(Date.now() + refreshed.expiresIn * 1000).toISOString();
         const encryptionKey = getEncryptionKey();
         const encrypted = await encryptToken(refreshed.accessToken, encryptionKey);
-        await ctx.runMutation("librarySyncActions:_updateConnectionTokenFromSync" as any, {
+        await ctx.runMutation(internal.librarySyncActions._updateConnectionTokenFromSync, {
           connectionId: conn.connectionId,
           encryptedAccessToken: encrypted,
           expiresAt,
@@ -475,7 +527,7 @@ export const syncSpotifyLibrary = internalAction({
 
     // Helper: save checkpoint and optionally schedule continuation
     async function saveCheckpoint(pause: boolean) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         checkpointData: checkpoint,
         metadata: {
@@ -491,7 +543,7 @@ export const syncSpotifyLibrary = internalAction({
         // Schedule a continuation
         await ctx.scheduler.runAfter(
           0,
-          "librarySyncActions:syncSpotifyLibrary" as any,
+          internal.librarySyncActions.syncSpotifyLibrary,
           { runId, userId },
         );
       }
@@ -504,7 +556,7 @@ export const syncSpotifyLibrary = internalAction({
       if (pendingTracks.length === 0) return;
       const batch = pendingTracks.splice(0, pendingTracks.length);
       const result: { imported: number } = await ctx.runMutation(
-        "librarySyncActions:_batchImportTracks" as any,
+        internal.librarySyncActions._batchImportTracks,
         { userId, provider: "spotify", tracks: batch },
       );
       checkpoint.tracksImported += result.imported;
@@ -736,7 +788,7 @@ export const syncSpotifyLibrary = internalAction({
       await flushTracks();
 
       // ── Mark sync as completed ─────────────────────────────────────────
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
@@ -754,7 +806,7 @@ export const syncSpotifyLibrary = internalAction({
       // ── Trigger offense summary recompute ─────────────────────────────
       await ctx.scheduler.runAfter(
         0,
-        (internal as any).offensePipeline.recomputeUserOffenseSummary,
+        internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
@@ -765,7 +817,7 @@ export const syncSpotifyLibrary = internalAction({
         // Ignore flush errors during failure handling
       }
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -803,12 +855,12 @@ export const syncTidalLibrary = internalAction({
     const { runId, userId } = args;
 
     const conn = await ctx.runQuery(
-      "librarySyncActions:_getConnectionTokens" as any,
+      internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "tidal" },
     );
 
     if (!conn || !conn.encryptedAccessToken) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -821,7 +873,7 @@ export const syncTidalLibrary = internalAction({
     try {
       accessToken = await decryptAccessToken(conn.encryptedAccessToken);
     } catch (err: any) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -839,7 +891,7 @@ export const syncTidalLibrary = internalAction({
       if (pendingTracks.length === 0) return;
       const batch = pendingTracks.splice(0, pendingTracks.length);
       const result: { imported: number } = await ctx.runMutation(
-        "librarySyncActions:_batchImportTracks" as any,
+        internal.librarySyncActions._batchImportTracks,
         { userId, provider: "tidal", tracks: batch },
       );
       tracksImported += result.imported;
@@ -881,12 +933,10 @@ export const syncTidalLibrary = internalAction({
           url += `&page[cursor]=${encodeURIComponent(cursor)}`;
         }
 
-        const res = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/vnd.api+json",
-          },
-        });
+        const res = await apiFetchWithRetry(url, {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.api+json",
+        }, "Tidal");
 
         if (!res.ok) {
           throw new Error(`Tidal API error ${res.status}: ${(await res.text()).substring(0, 300)}`);
@@ -948,6 +998,12 @@ export const syncTidalLibrary = internalAction({
           });
           if (pendingTracks.length >= BATCH_SIZE) {
             await flushTracks();
+            // Save progress checkpoint so frontend can show progress
+            await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+              runId,
+              checkpointData: { tracksImported, phase: "liked" },
+              metadata: { tracksImported },
+            });
           }
         }
 
@@ -962,7 +1018,7 @@ export const syncTidalLibrary = internalAction({
 
       await flushTracks();
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
@@ -971,13 +1027,13 @@ export const syncTidalLibrary = internalAction({
 
       await ctx.scheduler.runAfter(
         0,
-        (internal as any).offensePipeline.recomputeUserOffenseSummary,
+        internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1006,12 +1062,12 @@ export const syncAppleMusicLibrary = internalAction({
 
     // Get stored Music User Token
     const conn = await ctx.runQuery(
-      "librarySyncActions:_getConnectionTokens" as any,
+      internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "apple_music" },
     );
 
     if (!conn || !conn.encryptedAccessToken) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1024,7 +1080,7 @@ export const syncAppleMusicLibrary = internalAction({
     try {
       musicUserToken = await decryptAccessToken(conn.encryptedAccessToken);
     } catch (err: any) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1038,7 +1094,7 @@ export const syncAppleMusicLibrary = internalAction({
       await ctx.runAction(internal.signing.getDeveloperToken, {});
 
     if (!devTokenResult.developer_token) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1061,7 +1117,7 @@ export const syncAppleMusicLibrary = internalAction({
       if (pendingTracks.length === 0) return;
       const batch = pendingTracks.splice(0, pendingTracks.length);
       const result: { imported: number } = await ctx.runMutation(
-        "librarySyncActions:_batchImportTracks" as any,
+        internal.librarySyncActions._batchImportTracks,
         { userId, provider: "apple_music", tracks: batch },
       );
       tracksImported += result.imported;
@@ -1073,13 +1129,11 @@ export const syncAppleMusicLibrary = internalAction({
         "https://api.music.apple.com/v1/me/library/songs?limit=100";
 
       while (nextUrl) {
-        const res = await fetch(nextUrl, {
-          headers: {
-            Authorization: `Bearer ${developerToken}`,
-            "Music-User-Token": musicUserToken,
-            Accept: "application/json",
-          },
-        });
+        const res = await apiFetchWithRetry(nextUrl, {
+          Authorization: `Bearer ${developerToken}`,
+          "Music-User-Token": musicUserToken,
+          Accept: "application/json",
+        }, "Apple Music");
 
         if (!res.ok) {
           throw new Error(
@@ -1110,6 +1164,11 @@ export const syncAppleMusicLibrary = internalAction({
           });
           if (pendingTracks.length >= BATCH_SIZE) {
             await flushTracks();
+            await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+              runId,
+              checkpointData: { tracksImported, phase: "library" },
+              metadata: { tracksImported },
+            });
           }
         }
 
@@ -1121,7 +1180,7 @@ export const syncAppleMusicLibrary = internalAction({
 
       await flushTracks();
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
@@ -1130,13 +1189,13 @@ export const syncAppleMusicLibrary = internalAction({
 
       await ctx.scheduler.runAfter(
         0,
-        (internal as any).offensePipeline.recomputeUserOffenseSummary,
+        internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1156,12 +1215,12 @@ export const syncYouTubeLibrary = internalAction({
     const { runId, userId } = args;
 
     const conn = await ctx.runQuery(
-      "librarySyncActions:_getConnectionTokens" as any,
+      internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "youtube" },
     );
 
     if (!conn || !conn.encryptedAccessToken) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1174,7 +1233,7 @@ export const syncYouTubeLibrary = internalAction({
     try {
       accessToken = await decryptAccessToken(conn.encryptedAccessToken);
     } catch (err: any) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -1192,7 +1251,7 @@ export const syncYouTubeLibrary = internalAction({
       if (pendingTracks.length === 0) return;
       const batch = pendingTracks.splice(0, pendingTracks.length);
       const result: { imported: number } = await ctx.runMutation(
-        "librarySyncActions:_batchImportTracks" as any,
+        internal.librarySyncActions._batchImportTracks,
         { userId, provider: "youtube", tracks: batch },
       );
       tracksImported += result.imported;
@@ -1203,9 +1262,9 @@ export const syncYouTubeLibrary = internalAction({
       // First, get the user's "liked videos" playlist ID
       const channelUrl =
         "https://www.googleapis.com/youtube/v3/channels?part=contentDetails&mine=true";
-      const channelRes = await fetch(channelUrl, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const channelRes = await apiFetchWithRetry(channelUrl, {
+        Authorization: `Bearer ${accessToken}`,
+      }, "YouTube");
 
       if (!channelRes.ok) {
         throw new Error(
@@ -1236,9 +1295,9 @@ export const syncYouTubeLibrary = internalAction({
             url += `&pageToken=${pageToken}`;
           }
 
-          const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
+          const res = await apiFetchWithRetry(url, {
+            Authorization: `Bearer ${accessToken}`,
+          }, "YouTube");
 
           if (!res.ok) {
             throw new Error(
@@ -1271,6 +1330,11 @@ export const syncYouTubeLibrary = internalAction({
             });
             if (pendingTracks.length >= BATCH_SIZE) {
               await flushTracks();
+              await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+                runId,
+                checkpointData: { tracksImported, phase: "liked" },
+                metadata: { tracksImported },
+              });
             }
           }
 
@@ -1281,7 +1345,7 @@ export const syncYouTubeLibrary = internalAction({
 
       await flushTracks();
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
@@ -1290,13 +1354,13 @@ export const syncYouTubeLibrary = internalAction({
 
       await ctx.scheduler.runAfter(
         0,
-        (internal as any).offensePipeline.recomputeUserOffenseSummary,
+        internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),

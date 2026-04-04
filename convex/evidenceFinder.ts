@@ -218,7 +218,7 @@ export const investigateLibraryArtists = internalAction({
 
     // Check if run was cancelled
     const run: any = await ctx.runQuery(
-      "librarySyncActions:_getSyncRun" as any,
+      internal.librarySyncActions._getSyncRun,
       { runId },
     );
     if (!run || run.status === "cancelled") return;
@@ -237,7 +237,7 @@ export const investigateLibraryArtists = internalAction({
     const shouldPause = () => Date.now() - startTime > SAFE_RUNTIME_MS;
 
     const saveCheckpoint = async () => {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         checkpointData: checkpoint,
         metadata: {
@@ -255,7 +255,7 @@ export const investigateLibraryArtists = internalAction({
         // First resolve unresolved artist names
         const unresolved: Array<{ name: string; count: number }> =
           await ctx.runQuery(
-            "evidenceFinder:_getUnresolvedArtistNames" as any,
+            internal.evidenceFinder._getUnresolvedArtistNames,
             { userId },
           );
 
@@ -264,31 +264,31 @@ export const investigateLibraryArtists = internalAction({
             await saveCheckpoint();
             await ctx.scheduler.runAfter(
               0,
-              "evidenceFinder:investigateLibraryArtists" as any,
+              internal.evidenceFinder.investigateLibraryArtists,
               { runId, userId },
             );
             return;
           }
 
           const artistId: Id<"artists"> = await ctx.runMutation(
-            "evidenceFinder:_resolveOrCreateArtist" as any,
+            internal.evidenceFinder._resolveOrCreateArtist,
             { name },
           );
           await ctx.runMutation(
-            "evidenceFinder:_linkTracksToArtist" as any,
+            internal.evidenceFinder._linkTracksToArtist,
             { userId, artistName: name, artistId },
           );
         }
 
         // Now get all resolved artist IDs
         const allArtistIds: string[] = await ctx.runQuery(
-          "evidenceFinder:_getLibraryArtistIds" as any,
+          internal.evidenceFinder._getLibraryArtistIds,
           { userId },
         );
 
         // Filter to those needing investigation
         const needsInvestigation: string[] = await ctx.runQuery(
-          "evidenceFinder:_filterArtistsNeedingInvestigation" as any,
+          internal.evidenceFinder._filterArtistsNeedingInvestigation,
           { artistIds: allArtistIds },
         );
 
@@ -315,7 +315,7 @@ export const investigateLibraryArtists = internalAction({
               await saveCheckpoint();
               await ctx.scheduler.runAfter(
                 0,
-                "evidenceFinder:investigateLibraryArtists" as any,
+                internal.evidenceFinder.investigateLibraryArtists,
                 { runId, userId },
               );
               return;
@@ -325,7 +325,7 @@ export const investigateLibraryArtists = internalAction({
 
             // Get artist name for research
             const artist: any = await ctx.runQuery(
-              "evidenceFinder:_getArtistById" as any,
+              internal.evidenceFinder._getArtistById,
               { artistId },
             );
             if (!artist) {
@@ -335,7 +335,7 @@ export const investigateLibraryArtists = internalAction({
 
             // Mark as in_progress
             await ctx.runMutation(
-              "evidenceFinder:_markArtistInvestigated" as any,
+              internal.evidenceFinder._markArtistInvestigated,
               { artistId, status: "in_progress" },
             );
 
@@ -360,20 +360,20 @@ export const investigateLibraryArtists = internalAction({
                   result.offenses_detected ?? result.total_offenses_detected ?? 0;
 
                 await ctx.runMutation(
-                  "evidenceFinder:_markArtistInvestigated" as any,
+                  internal.evidenceFinder._markArtistInvestigated,
                   { artistId, status: "completed" },
                 );
               } else {
                 checkpoint.failed++;
                 await ctx.runMutation(
-                  "evidenceFinder:_markArtistInvestigated" as any,
+                  internal.evidenceFinder._markArtistInvestigated,
                   { artistId, status: "failed" },
                 );
               }
             } catch {
               checkpoint.failed++;
               await ctx.runMutation(
-                "evidenceFinder:_markArtistInvestigated" as any,
+                internal.evidenceFinder._markArtistInvestigated,
                 { artistId, status: "failed" },
               );
             }
@@ -393,19 +393,19 @@ export const investigateLibraryArtists = internalAction({
       if (checkpoint.phase === "promote") {
         // Convert any new high-confidence classifications into offenses
         await ctx.runMutation(
-          "offensePipeline:promoteClassifications" as any,
+          internal.offensePipeline.promoteClassifications,
           {},
         );
 
         // Rebuild the index
         await ctx.runMutation(
-          (internal as any).offensePipeline.rebuildOffendingArtistIndex,
+          internal.offensePipeline.rebuildOffendingArtistIndex,
           {},
         );
 
         // Recompute this user's offense summary
         await ctx.runMutation(
-          (internal as any).offensePipeline.recomputeUserOffenseSummary,
+          internal.offensePipeline.recomputeUserOffenseSummary,
           { userId, triggerReason: "investigation_complete" },
         );
 
@@ -414,7 +414,7 @@ export const investigateLibraryArtists = internalAction({
       }
 
       // ── Done ────────────────────────────────────────────────────────
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
@@ -429,7 +429,7 @@ export const investigateLibraryArtists = internalAction({
         },
       });
     } catch (err: any) {
-      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
         status: "failed",
         completedAt: new Date().toISOString(),
@@ -499,7 +499,7 @@ export const dailyInvestigation = internalMutation({
       // Stagger by 30 seconds per user to avoid thundering herd
       await ctx.scheduler.runAfter(
         scheduled * 30_000,
-        "evidenceFinder:investigateLibraryArtists" as any,
+        internal.evidenceFinder.investigateLibraryArtists,
         { runId, userId: userId as Id<"users"> },
       );
       scheduled++;

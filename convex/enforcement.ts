@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -35,7 +36,7 @@ async function getAccessToken(
   provider: string,
 ): Promise<{ accessToken: string; refreshToken?: string; connection: any }> {
   const connection = await ctx.runQuery(
-    "enforcement:_getConnection" as any,
+    api.enforcement._getConnection,
     { provider },
   );
   if (!connection || !connection.accessToken) {
@@ -108,7 +109,7 @@ async function spotifyFetch(
     );
 
     // Persist the encrypted token
-    await ctx.runMutation("enforcement:_updateConnectionToken" as any, {
+    await ctx.runMutation(api.enforcement._updateConnectionToken, {
       provider,
       accessToken: encryptedNewToken,
       expiresAt,
@@ -283,7 +284,7 @@ export const planEnforcement = action({
 
     // Create the batch record first
     const batchId = await ctx.runMutation(
-      "enforcement:_createBatch" as any,
+      api.enforcement._createBatch,
       {
         provider,
         options: args.options,
@@ -293,7 +294,7 @@ export const planEnforcement = action({
 
     // Compute the real impact by cross-referencing the user's library with blocks
     const impact = await ctx.runQuery(
-      "enforcement:_computeImpact" as any,
+      api.enforcement._computeImpact,
       { provider },
     );
 
@@ -303,7 +304,7 @@ export const planEnforcement = action({
       impact.blockedArtistIds.length > 0 ||
       impact.playlistTrackRemovals.length > 0
     ) {
-      await ctx.runMutation("enforcement:_createPlanItems" as any, {
+      await ctx.runMutation(api.enforcement._createPlanItems, {
         batchId,
         flaggedTracks: impact.flaggedTracks,
         blockedArtistIds: impact.blockedArtistIds,
@@ -317,7 +318,7 @@ export const planEnforcement = action({
       impact.blockedArtistIds.length +
       impact.playlistTrackRemovals.length;
 
-    await ctx.runMutation("enforcement:_updateBatchSummary" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchSummary, {
       batchId,
       summary: {
         totalItems,
@@ -360,7 +361,7 @@ export const executePlan = action({
     const dryRun = args.dryRun ?? false;
 
     // Mark batch as running
-    await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchStatus, {
       batchId: args.planId,
       status: "running",
     });
@@ -372,13 +373,13 @@ export const executePlan = action({
       entityId: string;
       action: string;
       beforeState: any;
-    }> = await ctx.runQuery("enforcement:_getPendingItems" as any, {
+    }> = await ctx.runQuery(api.enforcement._getPendingItems, {
       batchId: args.planId,
     });
 
     // Fetch the batch to know the provider
     const batch: { provider: string } | null = await ctx.runQuery(
-      "enforcement:_getBatch" as any,
+      api.enforcement._getBatch,
       { batchId: args.planId },
     );
 
@@ -406,7 +407,7 @@ export const executePlan = action({
     } else if (dryRun) {
       // In dry-run mode, mark all items as skipped
       for (const item of items) {
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "skipped",
           afterState: { dryRun: true },
@@ -418,7 +419,7 @@ export const executePlan = action({
 
     // If we suspended due to time limit, schedule a continuation
     if (suspended) {
-      await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateBatchStatus, {
         batchId: args.planId,
         status: "suspended",
       });
@@ -426,7 +427,7 @@ export const executePlan = action({
       // Schedule immediate continuation
       await ctx.scheduler.runAfter(
         0,
-        "enforcement:resumeExecution" as any,
+        api.enforcement.resumeExecution,
         { batchId: args.planId },
       );
 
@@ -445,7 +446,7 @@ export const executePlan = action({
       ? "failed"
       : "completed";
 
-    await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchStatus, {
       batchId: args.planId,
       status: finalStatus,
     });
@@ -474,7 +475,7 @@ export const resumeExecution = action({
     const startTime = Date.now();
 
     // Mark batch as running again
-    await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchStatus, {
       batchId: args.batchId,
       status: "running",
     });
@@ -486,13 +487,13 @@ export const resumeExecution = action({
       entityId: string;
       action: string;
       beforeState: any;
-    }> = await ctx.runQuery("enforcement:_getPendingItems" as any, {
+    }> = await ctx.runQuery(api.enforcement._getPendingItems, {
       batchId: args.batchId,
     });
 
     if (items.length === 0) {
       // Nothing left to process
-      await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateBatchStatus, {
         batchId: args.batchId,
         status: "completed",
       });
@@ -506,7 +507,7 @@ export const resumeExecution = action({
     }
 
     const batch: { provider: string } | null = await ctx.runQuery(
-      "enforcement:_getBatch" as any,
+      api.enforcement._getBatch,
       { batchId: args.batchId },
     );
 
@@ -533,14 +534,14 @@ export const resumeExecution = action({
     }
 
     if (suspended) {
-      await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateBatchStatus, {
         batchId: args.batchId,
         status: "suspended",
       });
 
       await ctx.scheduler.runAfter(
         0,
-        "enforcement:resumeExecution" as any,
+        api.enforcement.resumeExecution,
         { batchId: args.batchId },
       );
 
@@ -558,7 +559,7 @@ export const resumeExecution = action({
       ? "failed"
       : "completed";
 
-    await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchStatus, {
       batchId: args.batchId,
       status: finalStatus,
     });
@@ -612,7 +613,7 @@ async function executeSpotifyEnforcement(
   } catch {
     // Mark all items as failed
     for (const item of items) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: `No active ${provider} connection.`,
@@ -672,7 +673,7 @@ async function executeSpotifyEnforcement(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "completed",
@@ -690,7 +691,7 @@ async function executeSpotifyEnforcement(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "failed",
@@ -708,7 +709,7 @@ async function executeSpotifyEnforcement(
         );
         if (item) {
           await ctx.runMutation(
-            "enforcement:_updateItemStatus" as any,
+            api.enforcement._updateItemStatus,
             {
               itemId: item.id,
               status: "failed",
@@ -746,7 +747,7 @@ async function executeSpotifyEnforcement(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "completed",
@@ -765,7 +766,7 @@ async function executeSpotifyEnforcement(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "failed",
@@ -784,7 +785,7 @@ async function executeSpotifyEnforcement(
         );
         if (item) {
           await ctx.runMutation(
-            "enforcement:_updateItemStatus" as any,
+            api.enforcement._updateItemStatus,
             {
               itemId: item.id,
               status: "failed",
@@ -829,7 +830,7 @@ async function executeSpotifyEnforcement(
         if (resp.ok || resp.status === 200) {
           for (const entry of chunk) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: entry.itemRef.id,
                 status: "completed",
@@ -842,7 +843,7 @@ async function executeSpotifyEnforcement(
           const errText = await resp.text();
           for (const entry of chunk) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: entry.itemRef.id,
                 status: "failed",
@@ -855,7 +856,7 @@ async function executeSpotifyEnforcement(
       } catch (err: any) {
         for (const entry of chunk) {
           await ctx.runMutation(
-            "enforcement:_updateItemStatus" as any,
+            api.enforcement._updateItemStatus,
             {
               itemId: entry.itemRef.id,
               status: "failed",
@@ -897,7 +898,7 @@ async function executeTidalEnforcement(
     tokenInfo = await getAccessToken(ctx, provider);
   } catch {
     for (const item of items) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: `No active ${provider} connection.`,
@@ -910,7 +911,7 @@ async function executeTidalEnforcement(
   const tidalUserId = tokenInfo.connection?.providerUserId;
   if (!tidalUserId) {
     for (const item of items) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: "Tidal user ID not found on connection record.",
@@ -966,7 +967,7 @@ async function executeTidalEnforcement(
         const playlistId = item.beforeState?.playlistId;
         const playlistItemId = item.beforeState?.playlistItemId ?? item.entityId;
         if (!playlistId) {
-          await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+          await ctx.runMutation(api.enforcement._updateItemStatus, {
             itemId: item.id,
             status: "failed",
             errorMessage: "Missing playlistId in beforeState.",
@@ -980,7 +981,7 @@ async function executeTidalEnforcement(
         );
       } else {
         // Unknown action type, skip
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "skipped",
           afterState: { reason: "unsupported_action" },
@@ -996,7 +997,7 @@ async function executeTidalEnforcement(
               ? { unfollowed: true }
               : { removed: true };
 
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "completed",
           afterState,
@@ -1004,7 +1005,7 @@ async function executeTidalEnforcement(
         completedCount++;
       } else {
         const errText = await resp.text();
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "failed",
           errorMessage: `Tidal API error ${resp.status}: ${errText.substring(0, 200)}`,
@@ -1012,7 +1013,7 @@ async function executeTidalEnforcement(
         failedCount++;
       }
     } catch (err: any) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: err.message?.substring(0, 200) ?? "Unknown error",
@@ -1048,7 +1049,7 @@ async function executeYouTubeEnforcement(
     tokenInfo = await getAccessToken(ctx, provider);
   } catch {
     for (const item of items) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: `No active ${provider} connection.`,
@@ -1095,7 +1096,7 @@ async function executeYouTubeEnforcement(
           tokenInfo.accessToken,
         );
       } else {
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "skipped",
           afterState: { reason: "unsupported_action" },
@@ -1111,7 +1112,7 @@ async function executeYouTubeEnforcement(
               ? { unsubscribed: true }
               : { unliked: true };
 
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "completed",
           afterState,
@@ -1119,7 +1120,7 @@ async function executeYouTubeEnforcement(
         completedCount++;
       } else {
         const errText = await resp.text();
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "failed",
           errorMessage: `YouTube API error ${resp.status}: ${errText.substring(0, 200)}`,
@@ -1127,7 +1128,7 @@ async function executeYouTubeEnforcement(
         failedCount++;
       }
     } catch (err: any) {
-      await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateItemStatus, {
         itemId: item.id,
         status: "failed",
         errorMessage: err.message?.substring(0, 200) ?? "Unknown error",
@@ -1155,12 +1156,12 @@ export const rollback = action({
       entityId: string;
       action: string;
       beforeState: any;
-    }> = await ctx.runQuery("enforcement:_getCompletedItems" as any, {
+    }> = await ctx.runQuery(api.enforcement._getCompletedItems, {
       batchId: args.batchId,
     });
 
     const batch: { provider: string } | null = await ctx.runQuery(
-      "enforcement:_getBatch" as any,
+      api.enforcement._getBatch,
       { batchId: args.batchId },
     );
 
@@ -1169,7 +1170,7 @@ export const rollback = action({
     let rollbackFailed = 0;
 
     if (completedItems.length === 0) {
-      await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateBatchStatus, {
         batchId: args.batchId,
         status: "rolled_back",
       });
@@ -1186,7 +1187,7 @@ export const rollback = action({
     try {
       tokenInfo = await getAccessToken(ctx, provider);
     } catch {
-      await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+      await ctx.runMutation(api.enforcement._updateBatchStatus, {
         batchId: args.batchId,
         status: "failed",
       });
@@ -1212,7 +1213,7 @@ export const rollback = action({
       rollbackFailed = result.failed;
     }
 
-    await ctx.runMutation("enforcement:_updateBatchStatus" as any, {
+    await ctx.runMutation(api.enforcement._updateBatchStatus, {
       batchId: args.batchId,
       status: "rolled_back",
     });
@@ -1270,7 +1271,7 @@ async function rollbackSpotify(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "rolled_back",
@@ -1313,7 +1314,7 @@ async function rollbackSpotify(
           );
           if (item) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "rolled_back",
@@ -1372,7 +1373,7 @@ async function rollbackSpotify(
           rolledBack += chunk.length;
           for (const item of chunk) {
             await ctx.runMutation(
-              "enforcement:_updateItemStatus" as any,
+              api.enforcement._updateItemStatus,
               {
                 itemId: item.id,
                 status: "rolled_back",
@@ -1456,7 +1457,7 @@ async function rollbackTidal(
 
       if (resp.ok || resp.status === 200 || resp.status === 201 || resp.status === 204) {
         rolledBack++;
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "rolled_back",
           afterState: { restored: true },
@@ -1551,7 +1552,7 @@ async function rollbackYouTube(
 
       if (resp.ok || resp.status === 200 || resp.status === 204) {
         rolledBack++;
-        await ctx.runMutation("enforcement:_updateItemStatus" as any, {
+        await ctx.runMutation(api.enforcement._updateItemStatus, {
           itemId: item.id,
           status: "rolled_back",
           afterState: { restored: true },

@@ -8,6 +8,7 @@ import {
   query,
 } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -211,7 +212,7 @@ export const callback = action({
 
     // --- Persist the connection with encrypted tokens ---
     const connectionId = await ctx.runMutation(
-      "providerOAuth:_upsertConnection" as any,
+      api.providerOAuth._upsertConnection,
       {
         provider: args.provider,
         status: "active",
@@ -224,20 +225,20 @@ export const callback = action({
     );
 
     // --- Auto-trigger library sync after successful connection ---
-    const syncProviders: Record<string, string> = {
-      spotify: "librarySyncActions:syncSpotifyLibrary",
-      tidal: "librarySyncActions:syncTidalLibrary",
-      youtube: "librarySyncActions:syncYouTubeLibrary",
-      apple_music: "librarySyncActions:syncAppleMusicLibrary",
+    const syncProviders: Record<string, typeof internal.librarySyncActions.syncSpotifyLibrary> = {
+      spotify: internal.librarySyncActions.syncSpotifyLibrary,
+      tidal: internal.librarySyncActions.syncTidalLibrary,
+      youtube: internal.librarySyncActions.syncYouTubeLibrary,
+      apple_music: internal.librarySyncActions.syncAppleMusicLibrary,
     };
-    const syncAction = syncProviders[args.provider];
-    if (syncAction) {
+    const syncActionRef = syncProviders[args.provider];
+    if (syncActionRef) {
       try {
         const { runId, userId } = (await ctx.runMutation(
-          "sync:_createRunWithUser" as any,
+          api.sync._createRunWithUser,
           { platform: args.provider },
         )) as { runId: string; userId: string };
-        await ctx.scheduler.runAfter(0, syncAction as any, { runId, userId });
+        await ctx.scheduler.runAfter(0, syncActionRef, { runId, userId });
       } catch (syncErr: any) {
         console.warn(
           `Auto-sync scheduling failed for ${args.provider}:`,
@@ -384,7 +385,7 @@ export const refreshExpiringTokens = internalAction({
       provider: string;
       encryptedRefreshToken: string;
     }> = await ctx.runQuery(
-      "providerOAuth:_getExpiringConnections" as any,
+      internal.providerOAuth._getExpiringConnections,
     );
 
     if (expiring.length === 0) return;
@@ -410,7 +411,7 @@ export const refreshExpiringTokens = internalAction({
           : undefined;
 
         await ctx.runMutation(
-          "providerOAuth:_updateConnectionTokenInternal" as any,
+          internal.providerOAuth._updateConnectionTokenInternal,
           {
             connectionId: conn.connectionId,
             encryptedAccessToken: encryptedNewAccess,

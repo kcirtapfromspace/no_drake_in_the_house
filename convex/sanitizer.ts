@@ -1,6 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { action, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
+import { api } from "./_generated/api";
 import { requireCurrentUser } from "./lib/auth";
 
 const _computeGrade = query({
@@ -57,7 +58,7 @@ export const gradePlaylist = action({
   },
   handler: async (ctx, args) => {
     const grade = await ctx.runQuery(
-      "sanitizer:computeGrade" as any,
+      api.sanitizer.computeGrade,
       { provider: args.provider, playlistId: args.playlistId },
     );
     return grade;
@@ -73,7 +74,7 @@ export const suggestReplacements = action({
   handler: async (ctx, args) => {
     // Fetch playlist data and identify flagged vs. clean tracks
     const playlistData = await ctx.runQuery(
-      "sanitizer:_getPlaylistAnalysis" as any,
+      api.sanitizer._getPlaylistAnalysis,
       {
         provider: args.provider,
         playlistId: args.playlistId,
@@ -92,7 +93,7 @@ export const suggestReplacements = action({
 
     // Get the user's connection for the access token
     const connection = await ctx.runQuery(
-      "sanitizer:_getConnection" as any,
+      api.sanitizer._getConnection,
       { provider: args.provider },
     );
 

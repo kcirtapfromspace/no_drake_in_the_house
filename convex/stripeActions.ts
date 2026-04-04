@@ -68,7 +68,7 @@ export const createCustomerPortalSession = internalAction({
 
     // Look up the user's Stripe customer ID from their subscription
     const subscription: any = await ctx.runQuery(
-      (internal as any).stripeHelpers.getSubscriptionByUserId,
+      internal.stripeHelpers.getSubscriptionByUserId,
       { userId: args.userId },
     );
 
@@ -107,7 +107,7 @@ export const handleWebhookEvent = internalAction({
     );
 
     // Record the billing event (idempotent)
-    await ctx.runMutation((internal as any).subscriptions.recordBillingEvent, {
+    await ctx.runMutation(internal.subscriptions.recordBillingEvent, {
       stripeEventId: event.id,
       eventType: event.type,
       payload: event.data.object,
@@ -130,7 +130,7 @@ export const handleWebhookEvent = internalAction({
           unpaid: "past_due",
         };
 
-        await ctx.runMutation((internal as any).subscriptions.syncSubscription, {
+        await ctx.runMutation(internal.subscriptions.syncSubscription, {
           stripeCustomerId:
             typeof subscription.customer === "string"
               ? subscription.customer

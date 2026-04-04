@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { action, internalQuery, mutation, query } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 /** Check if a sync is already running for a given provider. */
@@ -244,7 +245,7 @@ export const triggerSync = action({
   },
   handler: async (ctx, args) => {
     const runId = await ctx.runMutation(
-      "sync:_createRun" as any,
+      api.sync._createRun,
       { platform: args.platform },
     );
 
@@ -270,7 +271,7 @@ export const triggerProviderSync = action({
 
     // Guard: reject if a sync is already running for this provider
     const existingRun = await ctx.runQuery(
-      "sync:_getRunningSync" as any,
+      internal.sync._getRunningSync,
       { platform: normalizedProvider },
     );
     if (existingRun) {
@@ -284,7 +285,7 @@ export const triggerProviderSync = action({
 
     // Create the sync run record and get the user ID in one mutation
     const { runId, userId } = (await ctx.runMutation(
-      "sync:_createRunWithUser" as any,
+      api.sync._createRunWithUser,
       { platform: normalizedProvider },
     )) as { runId: string; userId: string };
 
@@ -293,28 +294,28 @@ export const triggerProviderSync = action({
       case "spotify":
         await ctx.scheduler.runAfter(
           0,
-          "librarySyncActions:syncSpotifyLibrary" as any,
+          internal.librarySyncActions.syncSpotifyLibrary,
           { runId, userId },
         );
         break;
       case "tidal":
         await ctx.scheduler.runAfter(
           0,
-          "librarySyncActions:syncTidalLibrary" as any,
+          internal.librarySyncActions.syncTidalLibrary,
           { runId, userId },
         );
         break;
       case "youtube":
         await ctx.scheduler.runAfter(
           0,
-          "librarySyncActions:syncYouTubeLibrary" as any,
+          internal.librarySyncActions.syncYouTubeLibrary,
           { runId, userId },
         );
         break;
       case "apple_music":
         await ctx.scheduler.runAfter(
           0,
-          "librarySyncActions:syncAppleMusicLibrary" as any,
+          internal.librarySyncActions.syncAppleMusicLibrary,
           { runId, userId },
         );
         break;
@@ -340,13 +341,13 @@ export const triggerInvestigation = action({
   args: {},
   handler: async (ctx) => {
     const { runId, userId } = (await ctx.runMutation(
-      "sync:_createRunWithUser" as any,
+      api.sync._createRunWithUser,
       { platform: "evidence_finder" },
     )) as { runId: string; userId: string };
 
     await ctx.scheduler.runAfter(
       0,
-      "evidenceFinder:investigateLibraryArtists" as any,
+      internal.evidenceFinder.investigateLibraryArtists,
       { runId, userId },
     );
 

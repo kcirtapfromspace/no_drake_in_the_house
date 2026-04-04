@@ -1521,12 +1521,17 @@ impl AuthService {
             validation.set_audience(&["convex"]);
             // iss validation skipped — backend is self-issuing; Convex
             // validates iss independently via OIDC discovery.
-            if let Ok(token_data) = decode::<Claims>(token, rsa_dec_key, &validation) {
-                let claims = token_data.claims;
-                if claims.is_expired() {
-                    return Err(AppError::TokenExpired);
+            match decode::<Claims>(token, rsa_dec_key, &validation) {
+                Ok(token_data) => {
+                    let claims = token_data.claims;
+                    if claims.is_expired() {
+                        return Err(AppError::TokenExpired);
+                    }
+                    return Ok(claims);
                 }
-                return Ok(claims);
+                Err(e) => {
+                    tracing::warn!("RS256 token verification failed: {}", e);
+                }
             }
         }
 

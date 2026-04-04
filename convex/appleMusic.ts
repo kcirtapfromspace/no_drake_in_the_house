@@ -15,7 +15,7 @@ import { encryptToken, getEncryptionKey } from "./lib/crypto";
  */
 export const getDeveloperToken = action({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ developer_token: string | null; error?: string; expires_in?: number }> => {
     return await ctx.runAction(internal.signing.getDeveloperToken, {});
   },
 });

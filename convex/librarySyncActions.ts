@@ -842,16 +842,19 @@ export const syncTidalLibrary = internalAction({
     }
 
     try {
-      // Tidal API: GET /v2/favorites/tracks (paginated)
+      // Tidal Open API: GET /v2/favorites/tracks (paginated)
       let offset = 0;
       let hasMore = true;
 
       while (hasMore) {
-        const url = `https://openapi.tidal.com/v2/favorites/tracks?limit=50&offset=${offset}`;
+        const url =
+          `https://openapi.tidal.com/v2/favorites/tracks` +
+          `?countryCode=US&limit=50&offset=${offset}`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
+            Accept: "application/vnd.tidal.v1+json",
+            "Content-Type": "application/vnd.tidal.v1+json",
           },
         });
 

@@ -101,7 +101,9 @@
 
   onMount(() => {
     theme.init();
-    connectionActions.fetchConnections();
+    connectionActions.fetchConnections().catch(() => {
+      // Never let a failed connection fetch kill the app
+    });
     blockingStore.init();
   });
 

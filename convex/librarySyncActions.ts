@@ -34,7 +34,6 @@ interface CheckpointData {
   albumCount: number;
   artistCount: number;
   playlistTrackCount: number;
-  clearedExisting: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -105,28 +104,50 @@ export const _batchImportTracks = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
+    let inserted = 0;
+    let updated = 0;
 
-    // All sync actions clear tracks before importing, so skip per-track
-    // dedup queries — they would always find nothing and just waste reads.
+    // Upsert: existing data stays visible while sync runs.
+    // After sync completes, _cleanupStaleTracks removes items not seen.
     for (const track of args.tracks) {
-      await ctx.db.insert("userLibraryTracks", {
-        legacyKey: `runtime:track:${args.userId}:${args.provider}:${track.providerTrackId}`,
-        userId: args.userId,
-        provider: args.provider,
-        providerTrackId: track.providerTrackId,
-        trackName: track.trackName,
-        albumName: track.albumName,
-        artistName: track.artistName,
-        sourceType: track.sourceType,
-        playlistName: track.playlistName,
-        lastSyncedAt: now,
-        metadata: {},
-        createdAt: now,
-        updatedAt: now,
-      });
+      const legacyKey = `runtime:track:${args.userId}:${args.provider}:${track.providerTrackId}`;
+      const existing = await ctx.db
+        .query("userLibraryTracks")
+        .withIndex("by_legacyKey", (q) => q.eq("legacyKey", legacyKey))
+        .unique();
+
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          trackName: track.trackName,
+          albumName: track.albumName,
+          artistName: track.artistName,
+          sourceType: track.sourceType,
+          playlistName: track.playlistName,
+          lastSyncedAt: now,
+          updatedAt: now,
+        });
+        updated++;
+      } else {
+        await ctx.db.insert("userLibraryTracks", {
+          legacyKey,
+          userId: args.userId,
+          provider: args.provider,
+          providerTrackId: track.providerTrackId,
+          trackName: track.trackName,
+          albumName: track.albumName,
+          artistName: track.artistName,
+          sourceType: track.sourceType,
+          playlistName: track.playlistName,
+          lastSyncedAt: now,
+          metadata: {},
+          createdAt: now,
+          updatedAt: now,
+        });
+        inserted++;
+      }
     }
 
-    return { imported: args.tracks.length };
+    return { imported: inserted + updated, inserted, updated };
   },
 });
 
@@ -152,6 +173,37 @@ export const _clearProviderTracks = internalMutation({
     }
 
     return { deleted: batch.length, hasMore: batch.length === 500 };
+  },
+});
+
+/**
+ * Remove tracks that were NOT updated during this sync run.
+ * Called AFTER a successful sync so old data remains visible until replaced.
+ */
+export const _cleanupStaleTracks = internalMutation({
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+    syncStartedAt: v.string(),
+  },
+  handler: async (ctx: MutationCtx, args) => {
+    const tracks = await ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )
+      .take(500);
+
+    let deleted = 0;
+    for (const track of tracks) {
+      if ((track.lastSyncedAt ?? "") < args.syncStartedAt) {
+        await ctx.db.delete(track._id);
+        deleted++;
+      }
+    }
+
+    const hasMore = tracks.length === 500 && deleted > 0;
+    return { deleted, hasMore };
   },
 });
 
@@ -224,20 +276,30 @@ export const _updateConnectionTokenFromSync = internalMutation({
 // Shared helpers
 // ---------------------------------------------------------------------------
 
-async function clearAllProviderTracks(
+/**
+ * After a successful sync, remove tracks not touched in this run.
+ * Old data stays visible throughout the sync and is only pruned after
+ * the new data is fully imported — like a catalog that's always available.
+ */
+async function cleanupStaleTracks(
   ctx: { runMutation: (ref: any, args: any) => Promise<any> },
   userId: string,
   provider: string,
-): Promise<void> {
+  syncStartedAt: string,
+): Promise<number> {
+  let totalDeleted = 0;
   let hasMore = true;
   while (hasMore) {
     const result: { deleted: number; hasMore: boolean } =
-      await ctx.runMutation(internal.librarySyncActions._clearProviderTracks, {
+      await ctx.runMutation(internal.librarySyncActions._cleanupStaleTracks, {
         userId,
         provider,
+        syncStartedAt,
       });
+    totalDeleted += result.deleted;
     hasMore = result.hasMore;
   }
+  return totalDeleted;
 }
 
 // ---------------------------------------------------------------------------
@@ -422,7 +484,6 @@ export const syncSpotifyLibrary = internalAction({
       albumCount: 0,
       artistCount: 0,
       playlistTrackCount: 0,
-      clearedExisting: false,
     };
 
     // ── Get the connection tokens ──────────────────────────────────────
@@ -569,12 +630,10 @@ export const syncSpotifyLibrary = internalAction({
       }
     }
 
-    // ── Clear existing tracks (once per sync) ──────────────────────────
+    // Record sync start time for stale track cleanup after success
+    const syncStartedAt = new Date().toISOString();
+
     try {
-      if (!checkpoint.clearedExisting) {
-        await clearAllProviderTracks(ctx, userId, "spotify");
-        checkpoint.clearedExisting = true;
-      }
 
       // ── Phase: Liked songs ─────────────────────────────────────────────
       if (checkpoint.phase === "liked") {
@@ -787,6 +846,9 @@ export const syncSpotifyLibrary = internalAction({
       // ── Flush remaining tracks ─────────────────────────────────────────
       await flushTracks();
 
+      // ── Clean up tracks not seen in this sync ──────────────────────────
+      await cleanupStaleTracks(ctx, userId, "spotify", syncStartedAt);
+
       // ── Mark sync as completed ─────────────────────────────────────────
       await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
@@ -882,8 +944,7 @@ export const syncTidalLibrary = internalAction({
       return;
     }
 
-    await clearAllProviderTracks(ctx, userId, "tidal");
-
+    const syncStartedAt = new Date().toISOString();
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;
 
@@ -1017,6 +1078,7 @@ export const syncTidalLibrary = internalAction({
       }
 
       await flushTracks();
+      await cleanupStaleTracks(ctx, userId, "tidal", syncStartedAt);
 
       await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
@@ -1108,8 +1170,7 @@ export const syncAppleMusicLibrary = internalAction({
 
     const developerToken = devTokenResult.developer_token;
 
-    await clearAllProviderTracks(ctx, userId, "apple_music");
-
+    const syncStartedAt = new Date().toISOString();
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;
 
@@ -1179,6 +1240,7 @@ export const syncAppleMusicLibrary = internalAction({
       }
 
       await flushTracks();
+      await cleanupStaleTracks(ctx, userId, "apple_music", syncStartedAt);
 
       await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
@@ -1242,8 +1304,7 @@ export const syncYouTubeLibrary = internalAction({
       return;
     }
 
-    await clearAllProviderTracks(ctx, userId, "youtube");
-
+    const syncStartedAt = new Date().toISOString();
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;
 
@@ -1344,6 +1405,7 @@ export const syncYouTubeLibrary = internalAction({
       }
 
       await flushTracks();
+      await cleanupStaleTracks(ctx, userId, "youtube", syncStartedAt);
 
       await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,

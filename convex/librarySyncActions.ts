@@ -959,33 +959,61 @@ export const syncTidalLibrary = internalAction({
     }
 
     try {
-      // Step 1: Resolve Tidal user ID from stored connection or JWT token
+      // Step 1: Resolve Tidal user ID — try /users/me first, fall back to JWT
       let tidalUserId: string | null = conn.providerUserId ? String(conn.providerUserId) : null;
       let countryCode = "US";
 
+      // Try the /users/me endpoint to get user ID and country
       if (!tidalUserId) {
-        // Decode the JWT access token to extract the user ID (sub claim)
+        try {
+          const meRes = await apiFetchWithRetry(
+            "https://openapi.tidal.com/v2/users/me",
+            { Authorization: `Bearer ${accessToken}`, Accept: "application/vnd.api+json" },
+            "Tidal",
+          );
+          if (meRes.ok) {
+            const meBody = (await meRes.json()) as {
+              data?: { id: string; attributes?: { country?: string } };
+            };
+            if (meBody.data?.id) {
+              tidalUserId = String(meBody.data.id);
+              countryCode = meBody.data.attributes?.country ?? "US";
+              console.log(`[Tidal sync] Got user from /users/me: id=${tidalUserId}, country=${countryCode}`);
+            }
+          } else {
+            console.warn(`[Tidal sync] /users/me returned ${meRes.status}, falling back to JWT`);
+          }
+        } catch (e: any) {
+          console.warn(`[Tidal sync] /users/me failed: ${e.message}, falling back to JWT`);
+        }
+      }
+
+      // Fallback: decode the JWT access token
+      if (!tidalUserId) {
         try {
           const parts = accessToken.split(".");
           if (parts.length === 3) {
             const payload = JSON.parse(atob(parts[1]));
             const raw = payload.sub ?? payload.uid;
             tidalUserId = raw != null ? String(raw) : null;
+            console.log(`[Tidal sync] Got user from JWT: id=${tidalUserId}`);
           }
         } catch {
-          // Not a JWT or malformed — ignore
+          // Not a JWT or malformed
         }
       }
 
       if (!tidalUserId) {
         throw new Error(
-          "Could not determine Tidal user ID. The profile was not stored during OAuth and the access token is not a decodable JWT. Try disconnecting and reconnecting Tidal.",
+          "Could not determine Tidal user ID. Try disconnecting and reconnecting Tidal.",
         );
       }
 
-      // Step 2: Paginate through userCollections (favorites) using JSON:API cursor pagination
+      // Step 2: Fetch favorite tracks via userCollections
+      // The collection ID for a user's favorites IS the user ID
       let cursor: string | null = null;
       let hasMore = true;
+      let pageCount = 0;
 
       while (hasMore) {
         let url =
@@ -1001,21 +1029,21 @@ export const syncTidalLibrary = internalAction({
         }, "Tidal");
 
         if (!res.ok) {
-          throw new Error(`Tidal API error ${res.status}: ${(await res.text()).substring(0, 300)}`);
+          const errText = await res.text();
+          // If userCollections returns 404, the user may have no favorites
+          if (res.status === 404) {
+            console.warn(`[Tidal sync] userCollections/${tidalUserId} returned 404 — user may have no favorites`);
+            break;
+          }
+          throw new Error(`Tidal API error ${res.status}: ${errText.substring(0, 300)}`);
         }
 
         const body = (await res.json()) as {
-          data?: Array<{
-            id: string;
-            type: string;
-          }>;
+          data?: Array<{ id: string; type: string }>;
           included?: Array<{
             id: string;
             type: string;
-            attributes?: {
-              title?: string;
-              duration?: string;
-            };
+            attributes?: { title?: string; name?: string };
             relationships?: {
               artists?: { data?: Array<{ id: string }> };
               albums?: { data?: Array<{ id: string }> };
@@ -1027,24 +1055,30 @@ export const syncTidalLibrary = internalAction({
           };
         };
 
+        pageCount++;
+        const items = body.data ?? [];
+        console.log(`[Tidal sync] Page ${pageCount}: ${items.length} items, included: ${body.included?.length ?? 0}`);
+
+        if (items.length === 0 && pageCount === 1) {
+          console.warn(`[Tidal sync] First page returned 0 items. Response keys: ${Object.keys(body).join(", ")}`);
+        }
+
         // Build a lookup of included resources
         const includedById = new Map<string, any>();
         for (const inc of body.included ?? []) {
           includedById.set(`${inc.type}:${inc.id}`, inc);
         }
 
-        for (const item of body.data ?? []) {
+        for (const item of items) {
           const track = includedById.get(`tracks:${item.id}`);
           const attrs = track?.attributes;
 
-          // Resolve artist name from included resources
           const artistRel = track?.relationships?.artists?.data?.[0];
           const artistResource = artistRel
             ? includedById.get(`artists:${artistRel.id}`)
             : undefined;
           const artistName = artistResource?.attributes?.name ?? "Unknown Artist";
 
-          // Resolve album name
           const albumRel = track?.relationships?.albums?.data?.[0];
           const albumResource = albumRel
             ? includedById.get(`albums:${albumRel.id}`)
@@ -1060,7 +1094,6 @@ export const syncTidalLibrary = internalAction({
           });
           if (pendingTracks.length >= BATCH_SIZE) {
             await flushTracks();
-            // Save progress checkpoint so frontend can show progress
             await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
               runId,
               checkpointData: { tracksImported, phase: "liked" },
@@ -1071,7 +1104,7 @@ export const syncTidalLibrary = internalAction({
 
         // Cursor-based pagination
         const nextCursor = body.links?.meta?.nextCursor;
-        if (nextCursor && (body.data?.length ?? 0) > 0) {
+        if (nextCursor && items.length > 0) {
           cursor = nextCursor;
         } else {
           hasMore = false;

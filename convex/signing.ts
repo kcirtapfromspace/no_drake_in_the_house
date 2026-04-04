@@ -12,9 +12,14 @@ export const getDeveloperToken = internalAction({
     const privateKey = process.env.APPLE_MUSIC_PRIVATE_KEY;
 
     if (!teamId || !keyId || !privateKey) {
+      const missing = [
+        !teamId && "APPLE_MUSIC_TEAM_ID",
+        !keyId && "APPLE_MUSIC_KEY_ID",
+        !privateKey && "APPLE_MUSIC_PRIVATE_KEY",
+      ].filter(Boolean);
       return {
         developer_token: null,
-        error: "Apple Music credentials not configured.",
+        error: `Apple Music credentials not configured. Missing: ${missing.join(", ")}`,
       };
     }
 

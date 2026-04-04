@@ -736,17 +736,25 @@ impl AuthService {
             .generate_optimized_refresh_token()
             .await?;
 
-        // Generate access token (this is fast, no need to optimize)
-        let access_claims = Claims::new_access_token(
+        // Generate access token using the shared helper (RS256 when configured)
+        let mut access_claims = Claims::new_access_token(
             cached_user.user_id,
             cached_user.email.clone(),
             self.access_token_ttl,
         );
-        let access_token = encode(
-            &Header::default(),
-            &access_claims,
-            &EncodingKey::from_secret(self.jwt_secret.as_ref()),
-        )?;
+        let access_token = if let Some(ref rsa_key) = self.rsa_encoding_key {
+            access_claims.iss = self.jwt_issuer.clone();
+            access_claims.aud = "convex".to_string();
+            let mut header = Header::new(Algorithm::RS256);
+            header.kid = Some("ndith-1".to_string());
+            encode(&header, &access_claims, rsa_key)?
+        } else {
+            encode(
+                &Header::default(),
+                &access_claims,
+                &EncodingKey::from_secret(self.jwt_secret.as_ref()),
+            )?
+        };
 
         // Batch all database operations in a single transaction
         self.login_performance_service

@@ -100,13 +100,18 @@ export function getProfileEndpoint(provider: string): string | null {
 }
 
 /**
- * Resolve the redirect URI for a provider. Provider-specific env var takes
- * precedence, then YouTube-specific variants, then the caller-supplied value.
+ * Resolve the redirect URI for a provider.
+ *
+ * Priority:
+ * 1. Provider-specific env var (e.g. SPOTIFY_REDIRECT_URI)
+ * 2. Computed from OAUTH_CALLBACK_BASE_URL + /auth/callback/{provider}
+ * 3. Caller-supplied value (frontend origin fallback)
  */
 export function resolveRedirectUri(
   provider: string,
   callerUri: string | undefined,
 ): string {
+  // 1. Explicit per-provider override
   const key = `${provider.toUpperCase()}_REDIRECT_URI`;
   const envUri = process.env[key];
   if (envUri) return envUri;
@@ -118,6 +123,14 @@ export function resolveRedirectUri(
     if (alt) return alt;
   }
 
+  // 2. Compute from base URL (e.g. https://api.nodrakeinthe.house)
+  const baseUrl = process.env.OAUTH_CALLBACK_BASE_URL;
+  if (baseUrl) {
+    const providerSlug = provider === "youtube" ? "youtube" : provider;
+    return `${baseUrl.replace(/\/+$/, "")}/auth/callback/${providerSlug}`;
+  }
+
+  // 3. Fallback to caller-supplied value
   return callerUri || "";
 }
 

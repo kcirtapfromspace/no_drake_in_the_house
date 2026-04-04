@@ -961,7 +961,7 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
-    if (method === 'POST' && pathname === '/api/v1/apple-music/auth/disconnect') {
+    if ((method === 'POST' || method === 'DELETE') && pathname === '/api/v1/apple-music/auth/disconnect') {
       const result = await convexMutation<any>(anyApi.appleMusic.disconnect, {});
       return ok(result) as BridgedApiResponse<T>;
     }

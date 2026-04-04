@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import {
   action,
+  internalMutation,
   mutation,
   query,
 } from "./_generated/server";
@@ -33,7 +34,7 @@ export const connect = action({
     const encryptedToken = await encryptToken(args.musicUserToken, encryptionKey);
 
     const result: { success: boolean; connection_id: string } =
-      await ctx.runMutation("appleMusic:_storeConnection" as any, {
+      await ctx.runMutation(internal.appleMusic._storeConnection, {
         encryptedToken,
       });
 
@@ -42,7 +43,7 @@ export const connect = action({
 });
 
 /** Internal mutation: persist the already-encrypted Apple Music token. */
-export const _storeConnection = mutation({
+export const _storeConnection = internalMutation({
   args: {
     encryptedToken: v.string(),
   },

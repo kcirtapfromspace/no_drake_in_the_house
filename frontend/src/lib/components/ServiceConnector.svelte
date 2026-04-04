@@ -1,16 +1,5 @@
 <script lang="ts">
   import { connectionActions, spotifyConnection, appleMusicConnection, tidalConnection, youtubeConnection } from '../stores/connections';
-  import { createEventDispatcher } from 'svelte';
-
-  const dispatch = createEventDispatcher();
-
-  interface Service {
-    id: string;
-    name: string;
-    color: string;
-    connected: boolean;
-    needsReconnect: boolean;
-  }
 
   $: services = [
     {
@@ -69,11 +58,11 @@
       connected: false,
       needsReconnect: false,
     },
-  ] as Service[];
+  ];
 
   let connectingId: string | null = null;
 
-  async function handleConnect(service: Service) {
+  async function handleConnect(service: typeof services[0]) {
     if (connectingId) return;
     connectingId = service.id;
 
@@ -90,9 +79,6 @@
           break;
         case 'youtube':
           await connectionActions.initiateYouTubeAuth();
-          break;
-        default:
-          dispatch('unsupported', { service: service.id });
           break;
       }
     } finally {

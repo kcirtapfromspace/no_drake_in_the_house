@@ -89,20 +89,14 @@
   }
 
   async function handleRevenuePeriodChange() {
-    await analyticsActions.fetchRevenueDistribution(revenueDays);
-    await analyticsActions.fetchProblematicArtistRevenue(revenueDays, selectedMinTier, 10);
+    await Promise.all([
+      analyticsActions.fetchRevenueDistribution(revenueDays),
+      analyticsActions.fetchProblematicArtistRevenue(revenueDays, selectedMinTier, 10),
+    ]);
   }
 
   async function handleTierChange() {
     await analyticsActions.fetchProblematicArtistRevenue(revenueDays, selectedMinTier, 10);
-  }
-
-  function openReportModal() {
-    showReportModal = true;
-  }
-
-  function closeReportModal() {
-    showReportModal = false;
   }
 
   async function handleGenerateReport() {
@@ -116,7 +110,7 @@
     const result = await analyticsActions.generateReport(request);
     if (result.success && result.reportId) {
       pollReportStatus(result.reportId);
-      closeReportModal();
+      showReportModal = false;
     }
   }
 
@@ -267,7 +261,7 @@
               </select>
               <button
                 type="button"
-                on:click={openReportModal}
+                on:click={() => showReportModal = true}
                 class="brand-button brand-button--primary analytics-toolbar__button"
               >
                 <svg class="analytics-toolbar__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
@@ -742,7 +736,7 @@
 <!-- Report Modal -->
 {#if showReportModal}
   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
-  <div class="analytics-modal-backdrop fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" on:click={closeReportModal} role="dialog" aria-modal="true">
+  <div class="analytics-modal-backdrop fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50" on:click={() => showReportModal = false} role="dialog" aria-modal="true">
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
     <div class="analytics-modal bg-zinc-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-zinc-600" on:click|stopPropagation role="document">
       <div class="flex items-center mb-6">
@@ -805,7 +799,7 @@
       <div class="flex gap-3">
         <button
           type="button"
-          on:click={closeReportModal}
+          on:click={() => showReportModal = false}
           class="flex-1 px-4 py-3 border border-zinc-600 text-zinc-300 rounded-xl hover:bg-zinc-700 font-medium transition-colors"
         >
           Cancel
@@ -898,17 +892,6 @@
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
-  }
-
-  .analytics-tab__badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.125rem 0.5rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    background: rgba(34, 197, 94, 0.2);
-    color: #4ade80;
   }
 
   .analytics-modal-backdrop {

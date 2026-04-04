@@ -20,14 +20,16 @@
   $: passwordLowercase = /[a-z]/.test(password);
   $: passwordNumber = /\d/.test(password);
   $: passwordSpecial = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-  
-  $: passwordStrength = [
-    passwordLength,
-    passwordUppercase,
-    passwordLowercase,
-    passwordNumber,
-    passwordSpecial
-  ].filter(Boolean).length;
+
+  $: requirements = [
+    { met: passwordLength, label: 'At least 8 characters' },
+    { met: passwordUppercase, label: 'One uppercase letter' },
+    { met: passwordLowercase, label: 'One lowercase letter' },
+    { met: passwordNumber, label: 'One number' },
+    { met: passwordSpecial, label: 'One special character (!@#$%^&*)' },
+  ] as const;
+
+  $: passwordStrength = requirements.filter(r => r.met).length;
   
   $: passwordStrengthText = passwordStrength === 0 ? '' :
     passwordStrength <= 2 ? 'Weak' :
@@ -87,19 +89,12 @@
         class:form-input--error={!emailValid}
         placeholder="Enter your email"
       />
-      {#if fieldErrors.email}
+      {#if fieldErrors.email || !emailValid}
         <div class="validation-message validation-message--error">
           <svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
           </svg>
-          {fieldErrors.email}
-        </div>
-      {:else if !emailValid}
-        <div class="validation-message validation-message--error">
-          <svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-          </svg>
-          Please enter a valid email address
+          {fieldErrors.email || 'Please enter a valid email address'}
         </div>
       {/if}
     </div>
@@ -143,100 +138,26 @@
           </div>
           
           <div class="requirements-grid">
-            <div class="requirement-item">
-              <div class="requirement-icon">
-                {#if passwordLength}
-                  <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
-                    <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
+            {#each requirements as req}
+              <div class="requirement-item">
+                <div class="requirement-icon">
+                  {#if req.met}
+                    <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                     </svg>
-                  </div>
-                {/if}
+                  {:else}
+                    <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
+                      <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
+                      </svg>
+                    </div>
+                  {/if}
+                </div>
+                <span class="requirement-text" class:requirement-text--satisfied={req.met}>
+                  {req.label}
+                </span>
               </div>
-              <span class="requirement-text" class:requirement-text--satisfied={passwordLength}>
-                At least 8 characters
-              </span>
-            </div>
-            
-            <div class="requirement-item">
-              <div class="requirement-icon">
-                {#if passwordUppercase}
-                  <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
-                    <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
-                    </svg>
-                  </div>
-                {/if}
-              </div>
-              <span class="requirement-text" class:requirement-text--satisfied={passwordUppercase}>
-                One uppercase letter
-              </span>
-            </div>
-            
-            <div class="requirement-item">
-              <div class="requirement-icon">
-                {#if passwordLowercase}
-                  <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
-                    <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
-                    </svg>
-                  </div>
-                {/if}
-              </div>
-              <span class="requirement-text" class:requirement-text--satisfied={passwordLowercase}>
-                One lowercase letter
-              </span>
-            </div>
-            
-            <div class="requirement-item">
-              <div class="requirement-icon">
-                {#if passwordNumber}
-                  <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
-                    <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
-                    </svg>
-                  </div>
-                {/if}
-              </div>
-              <span class="requirement-text" class:requirement-text--satisfied={passwordNumber}>
-                One number
-              </span>
-            </div>
-            
-            <div class="requirement-item">
-              <div class="requirement-icon">
-                {#if passwordSpecial}
-                  <svg class="icon-uswds icon-uswds--sm icon-uswds--success" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <div class="icon-uswds icon-uswds--sm icon-uswds--neutral">
-                    <svg class="icon-uswds icon-uswds--sm" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                      <circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="2" fill="none" />
-                    </svg>
-                  </div>
-                {/if}
-              </div>
-              <span class="requirement-text" class:requirement-text--satisfied={passwordSpecial}>
-                One special character (!@#$%^&*)
-              </span>
-            </div>
+            {/each}
           </div>
         </div>
       {/if}
@@ -267,19 +188,12 @@
         class:form-input--error={!passwordsMatch && confirmPassword.length > 0}
         placeholder="Confirm your password"
       />
-      {#if fieldErrors.confirm_password}
+      {#if fieldErrors.confirm_password || (!passwordsMatch && confirmPassword.length > 0)}
         <div class="validation-message validation-message--error">
           <svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
           </svg>
-          {fieldErrors.confirm_password}
-        </div>
-      {:else if !passwordsMatch && confirmPassword.length > 0}
-        <div class="validation-message validation-message--error">
-          <svg class="icon-uswds icon-uswds--sm icon-uswds--error" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-          </svg>
-          Passwords do not match
+          {fieldErrors.confirm_password || 'Passwords do not match'}
         </div>
       {/if}
     </div>
@@ -309,8 +223,6 @@
         </label>
         {#if fieldErrors.terms_accepted}
           <p class="mt-1 text-red-400">{fieldErrors.terms_accepted}</p>
-        {:else if !termsAccepted && formValid === false}
-          <p class="mt-1 text-red-400">You must accept the terms to continue</p>
         {/if}
       </div>
     </div>
@@ -356,7 +268,7 @@
       <button
         type="button"
         on:click={() => dispatch('switchMode')}
-        class="text-indigo-600 hover:text-indigo-500 text-zinc-400 font-medium"
+        class="text-indigo-600 hover:text-indigo-500 font-medium"
       >
         Already have an account? Sign in
       </button>

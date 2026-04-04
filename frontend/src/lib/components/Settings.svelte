@@ -229,6 +229,15 @@
     return 'settings__status-pill--idle';
   }
 
+  const connectBtnVariants: Record<string, string> = {
+    tidal: 'settings__service-btn--tidal',
+    youtube: 'settings__service-btn--youtube',
+  };
+
+  function connectBtnClass(icon: string): string {
+    return `settings__service-btn ${connectBtnVariants[icon] ?? 'settings__service-btn--primary'}`;
+  }
+
   function requestDisconnect(serviceId: ServiceId) {
     confirmingDisconnect = serviceId;
   }
@@ -254,6 +263,12 @@
     connectionError = null;
     connectionSuccess = null;
 
+    const oauthActions: Record<string, () => Promise<{ success: boolean; message?: string }>> = {
+      spotify: () => connectionActions.initiateSpotifyAuth(),
+      youtube: () => connectionActions.initiateYouTubeAuth(),
+      tidal: () => connectionActions.initiateTidalAuth(),
+    };
+
     try {
       if (service.id === 'apple') {
         const result = await connectionActions.connectAppleMusic();
@@ -268,26 +283,11 @@
         return;
       }
 
-      if (service.id === 'spotify') {
-        const result = await connectionActions.initiateSpotifyAuth();
+      const initiateAuth = oauthActions[service.id];
+      if (initiateAuth) {
+        const result = await initiateAuth();
         if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate Spotify auth');
-        }
-        return;
-      }
-
-      if (service.id === 'youtube') {
-        const result = await connectionActions.initiateYouTubeAuth();
-        if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate YouTube Music auth');
-        }
-        return;
-      }
-
-      if (service.id === 'tidal') {
-        const result = await connectionActions.initiateTidalAuth();
-        if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate Tidal auth');
+          showConnectionError(result.message || `Failed to initiate ${service.name} auth`);
         }
       }
     } catch (error) {
@@ -307,17 +307,14 @@
 
     connectingProvider = provider;
     try {
-      let result: { success: boolean; message?: string };
+      const disconnectActions: Record<string, () => Promise<{ success: boolean; message?: string }>> = {
+        apple: () => connectionActions.disconnectAppleMusic(),
+        youtube: () => connectionActions.disconnectYouTube(),
+        tidal: () => connectionActions.disconnectTidal(),
+        spotify: () => connectionActions.disconnectSpotify(),
+      };
 
-      if (service.id === 'apple') {
-        result = await connectionActions.disconnectAppleMusic();
-      } else if (service.id === 'youtube') {
-        result = await connectionActions.disconnectYouTube();
-      } else if (service.id === 'tidal') {
-        result = await connectionActions.disconnectTidal();
-      } else {
-        result = await connectionActions.disconnectSpotify();
-      }
+      const result = await (disconnectActions[service.id] ?? disconnectActions.spotify)();
 
       if (result.success || isSuccessLikeMessage(result.message)) {
         await loadConnections();
@@ -552,13 +549,7 @@
                 {:else}
                   <button
                     type="button"
-                    class={`settings__service-btn ${
-                      service.icon === 'tidal'
-                        ? 'settings__service-btn--tidal'
-                        : service.icon === 'youtube'
-                          ? 'settings__service-btn--youtube'
-                          : 'settings__service-btn--primary'
-                    }`}
+                    class={connectBtnClass(service.icon)}
                     on:click={() => connectService(service)}
                     disabled={connectingProvider === service.connectionProvider}
                   >

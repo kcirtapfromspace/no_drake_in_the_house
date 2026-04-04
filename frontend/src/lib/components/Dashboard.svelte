@@ -25,9 +25,8 @@
     { label: 'Other', icon: '\u2710' },
   ];
 
-  onMount(async () => {
-    await dnpActions.fetchDnpList();
-    await connectionActions.fetchConnections();
+  onMount(() => {
+    Promise.all([dnpActions.fetchDnpList(), connectionActions.fetchConnections()]);
   });
 
   async function handleSearch() {
@@ -59,10 +58,6 @@
     selectedArtist = null;
     blockReason = '';
     blockEvidence = '';
-  }
-
-  function selectReason(reason: string) {
-    blockReason = reason;
   }
 
   async function confirmBlock() {
@@ -210,7 +205,7 @@
           <h3 class="text-lg font-semibold text-white">Your Blocklist</h3>
           <button
             type="button"
-            on:click={() => navigateTo('blocklist')}
+            on:click={() => navigateTo('dnp')}
             class="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
           >
             View all →
@@ -257,26 +252,6 @@
       </div>
     {/if}
 
-    <!-- Community lists teaser -->
-    <button
-      type="button"
-      on:click={() => navigateTo('community')}
-      class="w-full rounded-2xl p-6 shadow-sm hover:border-indigo-200 transition-colors text-left surface-card"
-     
-    >
-      <div class="flex items-center">
-        <div class="w-14 h-14 bg-purple-900/50 rounded-xl flex items-center justify-center mr-4">
-          <svg class="w-7 h-7 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        </div>
-        <div class="flex-1">
-          <h3 class="font-semibold text-white mb-1">Community Lists</h3>
-          <p class="text-sm text-zinc-400">
-            Browse lists curated by other parents and advocates. Subscribe to stay updated.
-          </p>
-        </div>
-        <div class="text-zinc-400 ml-4">→</div>
-      </div>
-    </button>
   </div>
 </div>
 
@@ -299,7 +274,7 @@
         {#each commonReasons as reason}
           <button
             type="button"
-            on:click={() => selectReason(reason.label)}
+            on:click={() => blockReason = reason.label}
             class="p-3 rounded-lg border-2 transition-all text-left text-zinc-300 {
               blockReason === reason.label
                 ? 'border-indigo-500 bg-indigo-900'

@@ -77,9 +77,9 @@
         profile = result.data as UserProfile | null;
         editEmail = profile?.email || '';
         editSettings = {
-          two_factor_enabled: profile?.settings?.two_factor_enabled || false,
-          email_notifications: profile?.settings?.email_notifications || true,
-          privacy_mode: profile?.settings?.privacy_mode || false
+          two_factor_enabled: profile?.settings?.two_factor_enabled ?? false,
+          email_notifications: profile?.settings?.email_notifications ?? true,
+          privacy_mode: profile?.settings?.privacy_mode ?? false
         };
       } else {
         error = result.message || 'Failed to load profile';
@@ -208,10 +208,6 @@
     success = '2FA enabled successfully';
   }
 
-  function handle2FASetupCancel() {
-    show2FASetup = false;
-  }
-
   async function handle2FADisable(code: string) {
     try {
       const result = await authActions.disable2FA(code);
@@ -272,11 +268,11 @@
   {#if success}
     <div class="mb-6 bg-green-50 border border-green-200 rounded-uswds-md p-uswds-4">
       <div class="flex">
-        <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
+        <svg aria-hidden="true" class="icon-uswds icon-uswds--md text-green-400" viewBox="0 0 20 20" fill="currentColor">
           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
         </svg>
         <div class="ml-3">
-          <p class="text-red-400">{success}</p>
+          <p class="text-green-400">{success}</p>
         </div>
       </div>
     </div>
@@ -291,36 +287,20 @@
     <!-- Tab Navigation -->
     <div class="mb-6" style="border-bottom: 1px solid #52525b;">
       <nav class="-mb-px flex space-x-8">
-        <button
-          on:click={() => activeTab = 'profile'}
-          class="py-2 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'profile' ? 'border-indigo-500 text-primary' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
-        >
-          Profile
-        </button>
-        <button
-          on:click={() => activeTab = 'security'}
-          class="py-2 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'security' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
-        >
-          Security
-        </button>
-        <button
-          on:click={() => activeTab = 'accounts'}
-          class="py-2 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'accounts' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
-        >
-          Linked Accounts
-        </button>
-        <button
-          on:click={() => activeTab = 'preferences'}
-          class="py-2 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'preferences' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
-        >
-          Preferences
-        </button>
-        <button
-          on:click={() => activeTab = 'data'}
-          class="py-2 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'data' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
-        >
-          Data & Privacy
-        </button>
+        {#each [
+          { id: 'profile', label: 'Profile' },
+          { id: 'security', label: 'Security' },
+          { id: 'accounts', label: 'Linked Accounts' },
+          { id: 'preferences', label: 'Preferences' },
+          { id: 'data', label: 'Data & Privacy' },
+        ] as tab}
+          <button
+            on:click={() => activeTab = tab.id}
+            class="py-2 px-1 border-b-2 font-medium {activeTab === tab.id ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-white hover:border-zinc-500'}"
+          >
+            {tab.label}
+          </button>
+        {/each}
       </nav>
     </div>
 
@@ -328,8 +308,8 @@
     {#if activeTab === 'profile'}
       <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
         <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
-          <h3 class="text-zinc-400 font-medium text-white">Profile Information</h3>
-          <p class="mt-1 text-red-400">
+          <h3 class="font-medium text-white">Profile Information</h3>
+          <p class="mt-1 text-zinc-400">
             Update your account's profile information and email address.
           </p>
         </div>
@@ -337,14 +317,14 @@
           <div class="space-y-6">
             <!-- Email -->
             <div>
-              <label for="email" class="block text-zinc-400 font-medium text-zinc-300">Email</label>
+              <label for="email" class="block font-medium text-zinc-300">Email</label>
               {#if editingProfile}
                 <div class="mt-1 flex rounded-uswds-md shadow-sm">
                   <input
                     type="email"
                     id="email"
                     bind:value={editEmail}
-                    class="flex-1 min-w-0 block w-full px-3 py-2 rounded-uswds-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
+                    class="flex-1 min-w-0 block w-full px-3 py-2 rounded-uswds-md focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                     placeholder="Enter your email"
                   />
                 </div>
@@ -353,7 +333,7 @@
                   <span class="text-zinc-300">{profile.email}</span>
                   <button
                     on:click={() => editingProfile = true}
-                    class="text-zinc-400 text-indigo-600 hover:text-indigo-500"
+                    class="text-indigo-600 hover:text-indigo-500"
                   >
                     Edit
                   </button>
@@ -364,17 +344,17 @@
             <!-- Account Info -->
             <div class="grid grid-cols-1 gap-uswds-6 sm:grid-cols-2">
               <div>
-                <span class="block text-zinc-400 font-medium text-zinc-300">Account Created</span>
-                <p class="mt-1 text-red-400">{formatDate(profile.created_at)}</p>
+                <span class="block font-medium text-zinc-300">Account Created</span>
+                <p class="mt-1 text-zinc-400">{formatDate(profile.created_at)}</p>
               </div>
               <div>
-                <span class="block text-zinc-400 font-medium text-zinc-300">Last Updated</span>
-                <p class="mt-1 text-red-400">{formatDate(profile.updated_at)}</p>
+                <span class="block font-medium text-zinc-300">Last Updated</span>
+                <p class="mt-1 text-zinc-400">{formatDate(profile.updated_at)}</p>
               </div>
               {#if profile.last_login}
                 <div>
-                  <span class="block text-zinc-400 font-medium text-zinc-300">Last Login</span>
-                  <p class="mt-1 text-red-400">{formatDate(profile.last_login)}</p>
+                  <span class="block font-medium text-zinc-300">Last Login</span>
+                  <p class="mt-1 text-zinc-400">{formatDate(profile.last_login)}</p>
                 </div>
               {/if}
             </div>
@@ -387,14 +367,14 @@
                     editingProfile = false;
                     editEmail = profile?.email || '';
                   }}
-                  class="px-4 py-2 rounded-uswds-md text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
+                  class="px-4 py-2 rounded-uswds-md font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
                 >
                   Cancel
                 </button>
                 <button
                   on:click={updateProfile}
                   disabled={isLoading}
-                  class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"
+                  class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-primary hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {isLoading ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -411,20 +391,20 @@
         <!-- Two-Factor Authentication -->
         <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
-            <h3 class="text-zinc-400 font-medium text-white">Two-Factor Authentication</h3>
-            <p class="mt-1 text-red-400">
+            <h3 class="font-medium text-white">Two-Factor Authentication</h3>
+            <p class="mt-1 text-zinc-400">
               Add an extra layer of security to your account with 2FA.
             </p>
           </div>
           <div class="px-6 py-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-zinc-400 font-medium text-zinc-300">
+                <p class="font-medium text-zinc-300">
                   Status: {profile.totp_enabled ? 'Enabled' : 'Disabled'}
                 </p>
-                <p class="text-red-400">
-                  {profile.totp_enabled 
-                    ? 'Your account is protected with 2FA' 
+                <p class="text-zinc-400">
+                  {profile.totp_enabled
+                    ? 'Your account is protected with 2FA'
                     : 'Enable 2FA to secure your account'}
                 </p>
               </div>
@@ -432,14 +412,14 @@
                 {#if profile.totp_enabled}
                   <button
                     on:click={() => show2FADisable = true}
-                    class="px-4 py-2 border border-red-300 rounded-uswds-md text-zinc-400 font-medium text-zinc-400 hover:bg-red-50"
+                    class="px-4 py-2 border border-red-300 rounded-uswds-md font-medium text-zinc-400 hover:bg-red-50"
                   >
                     Disable 2FA
                   </button>
                 {:else}
                   <button
                     on:click={() => show2FASetup = true}
-                    class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white btn btn-primary"
+                    class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm font-medium text-white btn btn-primary"
                   >
                     Enable 2FA
                   </button>
@@ -455,10 +435,10 @@
     {#if activeTab === 'accounts'}
       <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
         <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
-          <h3 class="text-zinc-400 leading-6 font-medium text-white">
+          <h3 class="leading-6 font-medium text-white">
             Linked Accounts
           </h3>
-          <p class="mt-1 text-red-400">
+          <p class="mt-1 text-zinc-400">
             Manage your connected social accounts for easier sign-in and profile synchronization.
           </p>
         </div>
@@ -534,8 +514,8 @@
     {#if activeTab === 'preferences'}
       <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
         <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
-          <h3 class="text-zinc-400 font-medium text-white">Preferences</h3>
-          <p class="mt-1 text-red-400">
+          <h3 class="font-medium text-white">Preferences</h3>
+          <p class="mt-1 text-zinc-400">
             Customize your experience and notification settings.
           </p>
         </div>
@@ -544,8 +524,8 @@
             <!-- Email Notifications -->
             <div class="flex items-center justify-between">
               <div>
-                <span class="text-zinc-400 font-medium text-zinc-300">Email Notifications</span>
-                <p class="text-red-400">Receive email updates about your account activity</p>
+                <span class="font-medium text-zinc-300">Email Notifications</span>
+                <p class="text-zinc-400">Receive email updates about your account activity</p>
               </div>
               <label class="relative flex items-center cursor-pointer">
                 <input
@@ -560,8 +540,8 @@
             <!-- Privacy Mode -->
             <div class="flex items-center justify-between">
               <div>
-                <span class="text-zinc-400 font-medium text-zinc-300">Privacy Mode</span>
-                <p class="text-red-400">Hide your activity from other users</p>
+                <span class="font-medium text-zinc-300">Privacy Mode</span>
+                <p class="text-zinc-400">Hide your activity from other users</p>
               </div>
               <label class="relative inline-flex items-center cursor-pointer">
                 <input
@@ -578,7 +558,7 @@
               <button
                 on:click={updateSettings}
                 disabled={isLoading}
-                class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+                class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
               >
                 {isLoading ? 'Saving...' : 'Save Preferences'}
               </button>
@@ -594,8 +574,8 @@
         <!-- Data Export -->
         <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4" style="border-bottom: 1px solid #52525b;">
-            <h3 class="text-zinc-400 font-medium text-white">Data Export</h3>
-            <p class="mt-1 text-red-400">
+            <h3 class="font-medium text-white">Data Export</h3>
+            <p class="mt-1 text-zinc-400">
               Download a copy of all your data for your records.
             </p>
           </div>
@@ -603,7 +583,7 @@
             <button
               on:click={exportData}
               disabled={exportLoading}
-              class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+              class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
             >
               {exportLoading ? 'Exporting...' : 'Export My Data'}
             </button>
@@ -611,9 +591,9 @@
         </div>
 
         <!-- Account Deletion -->
-        <div class="rounded-xl border-red-200" style="background: #27272a; border: 2px solid #52525b;">
+        <div class="rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
           <div class="px-6 py-4 border-b border-red-200">
-            <h3 class="text-zinc-400 font-medium text-zinc-400">Delete Account</h3>
+            <h3 class="font-medium text-zinc-400">Delete Account</h3>
             <p class="mt-1 text-red-400">
               Permanently delete your account and all associated data.
             </p>
@@ -622,7 +602,7 @@
             {#if !showDeleteConfirm}
               <button
                 on:click={() => showDeleteConfirm = true}
-                class="px-4 py-2 border border-red-300 rounded-uswds-md text-zinc-400 font-medium text-zinc-400 hover:bg-red-50"
+                class="px-4 py-2 border border-red-300 rounded-uswds-md font-medium text-zinc-400 hover:bg-red-50"
               >
                 Delete Account
               </button>
@@ -634,7 +614,7 @@
                       <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                     </svg>
                     <div class="ml-3">
-                      <h3 class="text-zinc-400 font-medium text-zinc-400">
+                      <h3 class="font-medium text-zinc-400">
                         This action cannot be undone
                       </h3>
                       <p class="mt-2 text-red-400">
@@ -645,7 +625,7 @@
                 </div>
 
                 <div>
-                  <label for="confirm-email" class="block text-zinc-400 font-medium text-zinc-300">
+                  <label for="confirm-email" class="block font-medium text-zinc-300">
                     Confirm your email address
                   </label>
                   <input
@@ -653,19 +633,19 @@
                     id="confirm-email"
                     bind:value={deleteConfirmEmail}
                     placeholder={profile.email}
-                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
+                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                   />
                 </div>
 
                 <div>
-                  <label for="delete-reason" class="block text-zinc-400 font-medium text-zinc-300">
+                  <label for="delete-reason" class="block font-medium text-zinc-300">
                     Reason for deletion (optional)
                   </label>
                   <textarea
                     id="delete-reason"
                     bind:value={deleteReason}
                     rows="3"
-                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-zinc-400" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
+                    class="mt-1 block w-full px-3 py-2 rounded-uswds-md shadow-sm focus:ring-red-500 focus:border-red-500 sm:text-sm" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
                     placeholder="Help us improve by telling us why you're leaving..."
                   ></textarea>
                 </div>
@@ -677,14 +657,14 @@
                       deleteConfirmEmail = '';
                       deleteReason = '';
                     }}
-                    class="px-4 py-2 rounded-uswds-md text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
+                    class="px-4 py-2 rounded-uswds-md font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
                   >
                     Cancel
                   </button>
                   <button
                     on:click={deleteAccount}
                     disabled={deleteLoading || deleteConfirmEmail !== profile.email}
-                    class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-error hover:bg-red-700 disabled:opacity-50"
+                    class="px-4 py-2 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-error hover:bg-red-700 disabled:opacity-50"
                   >
                     {deleteLoading ? 'Deleting...' : 'Delete Account'}
                   </button>
@@ -702,7 +682,7 @@
 {#if show2FASetup}
   <TwoFactorSetup
     on:complete={handle2FASetupComplete}
-    on:cancel={handle2FASetupCancel}
+    on:cancel={() => show2FASetup = false}
   />
 {/if}
 
@@ -711,10 +691,10 @@
   <div class="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
     <div class="relative top-uswds-20 mx-auto p-5 w-96 shadow-lg rounded-xl" style="background: #27272a; border: 2px solid #52525b;">
       <div class="mt-3 text-center">
-        <h3 class="text-zinc-400 font-medium text-white mb-4">
+        <h3 class="font-medium text-white mb-4">
           Disable Two-Factor Authentication
         </h3>
-        <p class="text-red-400 mb-6">
+        <p class="text-zinc-400 mb-6">
           Enter your 2FA code to disable two-factor authentication
         </p>
 
@@ -723,7 +703,7 @@
             type="text"
             placeholder="Enter 6-digit code"
             maxlength="6"
-            class="w-full px-3 py-2 rounded-uswds-md text-center text-zinc-400 tracking-widest" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
+            class="w-full px-3 py-2 rounded-uswds-md text-center tracking-widest" style="border: 1px solid var(--color-border-default); background: var(--color-bg-interactive); color: var(--color-text-primary);"
             on:input={handleTotpInput}
           />
         </div>
@@ -731,7 +711,7 @@
         <div class="flex justify-center space-x-3">
           <button
             on:click={() => show2FADisable = false}
-            class="px-4 py-2 rounded-uswds-md text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
+            class="px-4 py-2 rounded-uswds-md font-medium text-zinc-300 hover:bg-zinc-700" style="border: 1px solid #52525b;"
           >
             Cancel
           </button>

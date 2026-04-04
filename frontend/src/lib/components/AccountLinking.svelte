@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { currentUser } from '../stores/auth';
   import { api } from '../utils/api';
 
@@ -27,12 +27,6 @@
     authorization_url: string;
     state: string;
   }
-
-  onMount(() => {
-    if (isVisible) {
-      loadLinkedAccounts();
-    }
-  });
 
   $: if (isVisible) {
     loadLinkedAccounts();

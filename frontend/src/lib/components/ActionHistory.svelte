@@ -16,21 +16,15 @@
     }
   }
 
+  const STATUS_COLORS: Record<string, string> = {
+    running:   'text-blue-400 bg-blue-400/15',
+    completed: 'text-green-400 bg-green-400/15',
+    failed:    'text-red-400 bg-red-400/15',
+    cancelled: 'text-yellow-400 bg-yellow-400/15',
+  };
+
   function getStatusColor(status: string) {
-    switch (status) {
-      case 'pending':
-        return 'text-zinc-400 bg-zinc-400/15';
-      case 'running':
-        return 'text-blue-400 bg-blue-400/15';
-      case 'completed':
-        return 'text-green-400 bg-green-400/15';
-      case 'failed':
-        return 'text-red-400 bg-red-400/15';
-      case 'cancelled':
-        return 'text-yellow-400 bg-yellow-400/15';
-      default:
-        return 'text-zinc-400 bg-zinc-400/15';
-    }
+    return STATUS_COLORS[status] ?? 'text-zinc-400 bg-zinc-400/15';
   }
 
   function formatDate(dateString: string) {
@@ -77,8 +71,8 @@
     </div>
   {:else}
     <!-- History List -->
-    <div class="overflow-hidden rounded-lg surface-card" >
-    <ul class="divide-y divide-zinc-800">
+    <div class="overflow-hidden rounded-lg surface-card">
+      <ul class="divide-y divide-zinc-800">
         {#each actionHistory as batch}
           <li>
             <div class="px-4 py-4 sm:px-6">
@@ -131,7 +125,6 @@
                       type="button"
                       on:click={() => rollbackBatch(batch.id)}
                       class="inline-flex items-center px-3 py-2 text-sm leading-4 font-medium rounded-lg text-zinc-300 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-rose-500 surface-panel-thin"
-                     
                     >
                       <svg aria-hidden="true" class="-ml-0.5 mr-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -145,19 +138,19 @@
               <!-- Detailed Stats -->
               <div class="mt-4">
                 <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
+                  <div class="text-center p-2 rounded-lg bg-zinc-700">
                     <div class="text-lg font-semibold text-white">{batch.summary.totalItems}</div>
                     <div class="text-xs text-zinc-400">Total</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
+                  <div class="text-center p-2 rounded-lg bg-zinc-700">
                     <div class="text-lg font-semibold text-green-400">{batch.summary.completedItems}</div>
                     <div class="text-xs text-zinc-400">Completed</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
+                  <div class="text-center p-2 rounded-lg bg-zinc-700">
                     <div class="text-lg font-semibold text-red-400">{batch.summary.failedItems}</div>
                     <div class="text-xs text-zinc-400">Failed</div>
                   </div>
-                  <div class="text-center p-2 rounded-lg bg-zinc-700" >
+                  <div class="text-center p-2 rounded-lg bg-zinc-700">
                     <div class="text-lg font-semibold text-yellow-400">{batch.summary.skippedItems}</div>
                     <div class="text-xs text-zinc-400">Skipped</div>
                   </div>
@@ -165,7 +158,7 @@
               </div>
 
               <!-- Options Used -->
-              <div class="mt-3 pt-3 border-t border-zinc-700" >
+              <div class="mt-3 pt-3 border-t border-zinc-700">
                 <div class="text-xs text-zinc-400">
                   <span class="font-medium text-zinc-300">Options:</span>
                   {batch.options.aggressiveness} aggressiveness
@@ -182,7 +175,7 @@
   {/if}
 
   <!-- Info Box -->
-  <div class="rounded-lg p-4 bg-indigo-900/30 border border-rose-500/40" >
+  <div class="rounded-lg p-4 bg-indigo-900/30 border border-rose-500/40">
     <div class="flex">
       <div class="flex-shrink-0">
         <svg aria-hidden="true" class="w-5 h-5 text-rose-400" viewBox="0 0 20 20" fill="currentColor">

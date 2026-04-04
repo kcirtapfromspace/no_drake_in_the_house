@@ -46,8 +46,6 @@
         return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
     }
   }
-
-
 </script>
 
 <div class="space-y-6">
@@ -57,7 +55,7 @@
       <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
       </svg>
-      <h3 class="mt-2 text-zinc-400 font-medium text-zinc-300">No enforcement plan available</h3>
+      <h3 class="mt-2 font-medium text-zinc-300">No enforcement plan available</h3>
       <p class="mt-1 text-zinc-300">Create a plan first to execute enforcement.</p>
     </div>
   {:else if currentBatch}
@@ -65,12 +63,12 @@
     <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h3 class="text-zinc-400 font-medium text-zinc-300">Enforcement Execution</h3>
+          <h3 class="font-medium text-zinc-300">Enforcement Execution</h3>
           <p class="text-zinc-300">
             Batch ID: <span class="font-mono">{currentBatch.id.slice(0, 8)}...</span>
           </p>
         </div>
-        <span class="flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getStatusColor(currentBatch.status)}">
+        <span class="flex items-center px-2.5 py-0.5 rounded-full font-medium {getStatusColor(currentBatch.status)}">
           {currentBatch.status}
         </span>
       </div>
@@ -99,15 +97,15 @@
       <!-- Batch Summary -->
       <div class="grid grid-cols-1 gap-uswds-4 sm:grid-cols-4 mb-6">
         <div class="bg-zinc-800 rounded-uswds-lg p-uswds-3 text-center">
-          <div class="text-zinc-400 font-semibold text-zinc-300">{currentBatch.summary.totalItems}</div>
+          <div class="font-semibold text-zinc-300">{currentBatch.summary.totalItems}</div>
           <div class="text-zinc-300">Total Items</div>
         </div>
         <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
-          <div class="text-zinc-400 font-semibold text-zinc-400">{currentBatch.summary.completedItems}</div>
+          <div class="font-semibold text-zinc-400">{currentBatch.summary.completedItems}</div>
           <div class="text-zinc-300">Completed</div>
         </div>
         <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
-          <div class="text-zinc-400 font-semibold text-zinc-400">{currentBatch.summary.failedItems}</div>
+          <div class="font-semibold text-zinc-400">{currentBatch.summary.failedItems}</div>
           <div class="text-zinc-300">Failed</div>
         </div>
         <div class="rounded-uswds-lg p-uswds-3 text-center" style="background: #3f3f46;">
@@ -119,7 +117,7 @@
       <!-- Recent Actions -->
       {#if currentBatch.items.length > 0}
         <div>
-          <h4 class="text-zinc-400 font-medium text-zinc-300 mb-3">Recent Actions</h4>
+          <h4 class="font-medium text-zinc-300 mb-3">Recent Actions</h4>
           <div class="space-y-2 max-h-64 overflow-y-auto">
             {#each currentBatch.items.slice(0, 10) as item}
               <div class="flex items-center justify-between py-2 px-3 bg-zinc-800 rounded-uswds-md">
@@ -128,7 +126,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={getActionIcon(item.action)} />
                   </svg>
                   <div>
-                    <div class="text-zinc-400 font-medium text-zinc-300">
+                    <div class="font-medium text-zinc-300">
                       {item.action.replace(/_/g, ' ')}
                     </div>
                     <div class="text-zinc-300">
@@ -137,7 +135,7 @@
                   </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                  <span class="inline-flex items-center px-2 py-0.5 rounded text-zinc-400 font-medium {getStatusColor(item.status)}">
+                  <span class="inline-flex items-center px-2 py-0.5 rounded font-medium {getStatusColor(item.status)}">
                     {item.status}
                   </span>
                   {#if item.status === 'failed' && item.errorMessage}
@@ -164,7 +162,7 @@
         <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.01M15 10h1.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <h3 class="mt-2 text-zinc-400 font-medium text-zinc-300">Ready to Execute</h3>
+        <h3 class="mt-2 font-medium text-zinc-300">Ready to Execute</h3>
         <p class="mt-1 text-zinc-300">
           Your enforcement plan is ready. Click execute to apply changes to your music library.
         </p>
@@ -173,7 +171,7 @@
           <button
             on:click={executePlan}
             disabled={$enforcementStore.isExecuting}
-            class="inline-flex items-center px-6 py-3 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-error hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="inline-flex items-center px-6 py-3 border border-transparent font-medium rounded-uswds-md shadow-sm text-white bg-error hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {#if $enforcementStore.isExecuting}
               <svg aria-hidden="true" class="animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

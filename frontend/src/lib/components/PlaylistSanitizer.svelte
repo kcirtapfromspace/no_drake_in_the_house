@@ -9,6 +9,7 @@
   import BatchScrubProgress from './BatchScrubProgress.svelte';
   import { billingActions } from '../stores/billing';
   import { navigateTo } from '../utils/simple-router';
+  import { formatDurationMs } from '../utils/playlist-helpers';
 
   let topView: 'browse' | 'sanitize' = 'browse';
   let showConfetti = false;
@@ -29,6 +30,22 @@
     );
   }
 
+  function resetBrowseState() {
+    topView = 'browse';
+    isExternalPlaylist = false;
+    urlInput = '';
+    urlError = '';
+    gradeGateReason = null;
+    sanitizerActions.reset();
+  }
+
+  function enterSanitizeMode(external: boolean = false) {
+    gradeGateReason = null;
+    topView = 'sanitize';
+    isExternalPlaylist = external;
+    sanitizerActions.reset();
+  }
+
   function handleUrlSubmit() {
     const trimmed = urlInput.trim();
     if (!trimmed) return;
@@ -39,10 +56,7 @@
     }
 
     urlError = '';
-    isExternalPlaylist = true;
-    gradeGateReason = null;
-    topView = 'sanitize';
-    sanitizerActions.reset();
+    enterSanitizeMode(true);
     sanitizerActions.suggestReplacements(trimmed, 'spotify');
   }
 
@@ -65,47 +79,20 @@
     playlistBrowserActions.selectPlaylist(e.detail);
   }
 
-  function handleBack() {
-    playlistBrowserActions.backToGrid();
-  }
-
   function handleSanitize(e: CustomEvent<{ provider: string; playlistName: string }>) {
-    gradeGateReason = null;
-    topView = 'sanitize';
-    sanitizerActions.reset();
+    enterSanitizeMode();
     sanitizerActions.suggestReplacements(e.detail.playlistName, e.detail.provider);
-  }
-
-  function handleBackToPlaylists() {
-    topView = 'browse';
-    isExternalPlaylist = false;
-    urlInput = '';
-    urlError = '';
-    gradeGateReason = null;
-    sanitizerActions.reset();
   }
 
   async function handlePublish() {
     await sanitizerActions.confirmAndPublish();
-    // Trigger celebration
     showConfetti = true;
     setTimeout(() => { showConfetti = false; }, 3000);
   }
 
   function handleReset() {
-    sanitizerActions.reset();
-    topView = 'browse';
-    isExternalPlaylist = false;
-    urlInput = '';
-    urlError = '';
-    gradeGateReason = null;
+    resetBrowseState();
     playlistBrowserActions.backToGrid();
-  }
-
-  function formatDuration(ms: number): string {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   function handleProviderFilter(provider: string) {
@@ -114,58 +101,20 @@
     );
   }
 
-  function handleToggleSelect(e: CustomEvent<PlaylistSummary>) {
-    playlistBrowserActions.togglePlaylistSelection(e.detail.id);
-  }
-
   function handleQuickScrubSingle(e: CustomEvent<PlaylistSummary>) {
     const p = e.detail;
-    gradeGateReason = null;
-    topView = 'sanitize';
-    isExternalPlaylist = false;
-    sanitizerActions.reset();
+    enterSanitizeMode();
     sanitizerActions.suggestReplacements(
       p.provider_playlist_id || p.playlist_name || p.name,
       p.provider
     );
   }
 
-  function handleScrubSelected() {
-    const playlists = $selectedPlaylists;
+  function startBatchScrub(playlists: PlaylistSummary[]) {
     if (playlists.length === 0) return;
     playlistBrowserActions.exitSelectionMode();
-    gradeGateReason = null;
-    topView = 'sanitize';
-    isExternalPlaylist = false;
-    sanitizerActions.reset();
+    enterSanitizeMode();
     sanitizerActions.startBatchScrub(playlists);
-  }
-
-  function handleScrubAll() {
-    const playlists = $filteredPlaylists;
-    if (playlists.length === 0) return;
-    playlistBrowserActions.exitSelectionMode();
-    gradeGateReason = null;
-    topView = 'sanitize';
-    isExternalPlaylist = false;
-    sanitizerActions.reset();
-    sanitizerActions.startBatchScrub(playlists);
-  }
-
-  function handleToggleSelectionMode() {
-    if ($playlistBrowserStore.selectionMode) {
-      playlistBrowserActions.exitSelectionMode();
-    } else {
-      playlistBrowserActions.enterSelectionMode();
-    }
-  }
-
-  function handleSelectAll() {
-    if ($allFilteredSelected) {
-      playlistBrowserActions.deselectAll();
-    } else {
-      playlistBrowserActions.selectAllFiltered($filteredPlaylists.map((p) => p.id));
-    }
   }
 
   function handleBatchBack() {
@@ -173,13 +122,7 @@
     topView = 'browse';
   }
 
-  // Detect playlists that need a re-sync when provider metadata says tracks exist
-  // but normalized playlist detail rows were not imported successfully.
-  $: needsResyncPlaylists = (() => {
-    const all = $playlistBrowserStore.playlists;
-    return all.some((playlist) => playlist.tracks_out_of_sync);
-  })();
-
+  $: needsResyncPlaylists = $playlistBrowserStore.playlists.some((p) => p.tracks_out_of_sync);
   $: stepIndex = $sanitizerStore.step === 'grade' ? 0 : $sanitizerStore.step === 'replace' ? 1 : 2;
 </script>
 
@@ -290,7 +233,7 @@
               type="button"
               class="browser__select-toggle"
               class:browser__select-toggle--active={$playlistBrowserStore.selectionMode}
-              on:click={handleToggleSelectionMode}
+              on:click={() => $playlistBrowserStore.selectionMode ? playlistBrowserActions.exitSelectionMode() : playlistBrowserActions.enterSelectionMode()}
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
@@ -304,7 +247,7 @@
               <button
                 type="button"
                 class="browser__select-all"
-                on:click={handleSelectAll}
+                on:click={() => $allFilteredSelected ? playlistBrowserActions.deselectAll() : playlistBrowserActions.selectAllFiltered($filteredPlaylists.map((p) => p.id))}
               >
                 {$allFilteredSelected ? 'Deselect All' : 'Select All'}
               </button>
@@ -313,7 +256,7 @@
           <button
             type="button"
             class="browser__scrub-all"
-            on:click={handleScrubAll}
+            on:click={() => startBatchScrub($filteredPlaylists)}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -360,7 +303,7 @@
               selectionMode={$playlistBrowserStore.selectionMode}
               selected={$playlistBrowserStore.selectedPlaylistIds.has(playlist.id)}
               on:select={handleSelectPlaylist}
-              on:toggleSelect={handleToggleSelect}
+              on:toggleSelect={(e) => playlistBrowserActions.togglePlaylistSelection(e.detail.id)}
               on:quickScrub={handleQuickScrubSingle}
             />
           {/each}
@@ -382,7 +325,7 @@
                 <button
                   type="button"
                   class="browser__sticky-scrub"
-                  on:click={handleScrubSelected}
+                  on:click={() => startBatchScrub($selectedPlaylists)}
                 >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -402,7 +345,7 @@
           playlist={$playlistBrowserStore.selectedPlaylist}
           tracks={$playlistBrowserStore.tracks}
           isLoading={$playlistBrowserStore.isLoadingTracks}
-          on:back={handleBack}
+          on:back={() => playlistBrowserActions.backToGrid()}
           on:sanitize={handleSanitize}
         />
       {/if}
@@ -420,7 +363,7 @@
       <BatchScrubProgress on:back={handleBatchBack} />
     {:else}
 
-    <button type="button" class="sanitizer__back-btn" on:click={handleBackToPlaylists}>
+    <button type="button" class="sanitizer__back-btn" on:click={resetBrowseState}>
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back to Playlists
     </button>
@@ -564,7 +507,7 @@
                     <span class="blocked-track-row__pos">#{track.position + 1}</span>
                     <span class="blocked-track-row__name">{track.track_name}</span>
                     <span class="blocked-track-row__artist">{track.all_artist_names.join(', ')}</span>
-                    <span class="blocked-track-row__dur">{formatDuration(track.duration_ms)}</span>
+                    <span class="blocked-track-row__dur">{formatDurationMs(track.duration_ms)}</span>
                   </div>
                 {/each}
               </div>

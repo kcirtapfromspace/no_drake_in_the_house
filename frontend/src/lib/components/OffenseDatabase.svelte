@@ -17,22 +17,7 @@
     type AddEvidenceRequest,
   } from '../stores/library';
 
-  // State
-  let flaggedArtists: FlaggedArtist[] = [];
-  let loading = true;
-  let error: string | null = null;
-  let severityFilter: OffenseSeverity | null = null;
-
-  // View modes
-  type ViewMode = 'browse' | 'detail' | 'submit-offense' | 'add-evidence';
-  let viewMode: ViewMode = 'browse';
-
-  // Detail view state
-  let selectedOffense: OffenseWithEvidence | null = null;
-  let loadingDetail = false;
-
-  // Submit offense form state
-  let offenseForm: Partial<CreateOffenseRequest> = {
+  const DEFAULT_OFFENSE_FORM: Partial<CreateOffenseRequest> = {
     category: 'domestic_violence',
     severity: 'moderate',
     title: '',
@@ -43,13 +28,8 @@
     convicted: false,
     settled: false,
   };
-  let artistSearchQuery = '';
-  let artistSearchResults: { id: string; name: string }[] = [];
-  let selectedArtist: { id: string; name: string } | null = null;
-  let submittingOffense = false;
 
-  // Add evidence form state
-  let evidenceForm: Partial<AddEvidenceRequest> = {
+  const DEFAULT_EVIDENCE_FORM: Partial<AddEvidenceRequest> = {
     url: '',
     source_name: '',
     source_type: 'news_article',
@@ -57,8 +37,6 @@
     excerpt: '',
     is_primary_source: false,
   };
-  let selectedOffenseId: string | null = null;
-  let submittingEvidence = false;
 
   const sourceTypes = [
     { value: 'news_article', label: 'News Article' },
@@ -70,28 +48,35 @@
     { value: 'other', label: 'Other' },
   ];
 
-  const categories: { value: OffenseCategory; label: string }[] = [
-    { value: 'domestic_violence', label: 'Domestic Violence' },
-    { value: 'sexual_misconduct', label: 'Sexual Misconduct' },
-    { value: 'sexual_assault', label: 'Sexual Assault' },
-    { value: 'child_abuse', label: 'Child Abuse' },
-    { value: 'hate_speech', label: 'Hate Speech' },
-    { value: 'racism', label: 'Racism' },
-    { value: 'homophobia', label: 'Homophobia' },
-    { value: 'antisemitism', label: 'Antisemitism' },
-    { value: 'violent_crime', label: 'Violent Crime' },
-    { value: 'drug_trafficking', label: 'Drug Trafficking' },
-    { value: 'fraud', label: 'Fraud' },
-    { value: 'animal_abuse', label: 'Animal Abuse' },
-    { value: 'other', label: 'Other' },
-  ];
+  const categories = Object.entries(categoryLabels).map(([value, label]) => ({
+    value: value as OffenseCategory,
+    label,
+  }));
 
-  const severities: { value: OffenseSeverity; label: string; description: string }[] = [
-    { value: 'minor', label: 'Minor', description: 'Controversial statements' },
-    { value: 'moderate', label: 'Moderate', description: 'Arrests, credible allegations' },
-    { value: 'severe', label: 'Severe', description: 'Convictions, proven abuse' },
-    { value: 'egregious', label: 'Egregious', description: 'Multiple severe offenses, ongoing patterns' },
-  ];
+  const severities = (Object.entries(severityConfig) as [OffenseSeverity, typeof severityConfig[OffenseSeverity]][])
+    .reverse()
+    .map(([value, cfg]) => ({ value, label: cfg.label, description: cfg.description }));
+
+  let flaggedArtists: FlaggedArtist[] = [];
+  let loading = true;
+  let error: string | null = null;
+  let severityFilter: OffenseSeverity | null = null;
+
+  type ViewMode = 'browse' | 'detail' | 'submit-offense' | 'add-evidence';
+  let viewMode: ViewMode = 'browse';
+
+  let selectedOffense: OffenseWithEvidence | null = null;
+  let loadingDetail = false;
+
+  let offenseForm: Partial<CreateOffenseRequest> = { ...DEFAULT_OFFENSE_FORM };
+  let artistSearchQuery = '';
+  let artistSearchResults: { id: string; name: string }[] = [];
+  let selectedArtist: { id: string; name: string } | null = null;
+  let submittingOffense = false;
+
+  let evidenceForm: Partial<AddEvidenceRequest> = { ...DEFAULT_EVIDENCE_FORM };
+  let selectedOffenseId: string | null = null;
+  let submittingEvidence = false;
 
   onMount(async () => {
     await loadArtists();
@@ -123,29 +108,12 @@
 
   function openAddEvidenceForm(offenseId: string) {
     selectedOffenseId = offenseId;
-    evidenceForm = {
-      url: '',
-      source_name: '',
-      source_type: 'news_article',
-      title: '',
-      excerpt: '',
-      is_primary_source: false,
-    };
+    evidenceForm = { ...DEFAULT_EVIDENCE_FORM };
     viewMode = 'add-evidence';
   }
 
   function openSubmitOffenseForm() {
-    offenseForm = {
-      category: 'domestic_violence',
-      severity: 'moderate',
-      title: '',
-      description: '',
-      incident_date_approximate: true,
-      arrested: false,
-      charged: false,
-      convicted: false,
-      settled: false,
-    };
+    offenseForm = { ...DEFAULT_OFFENSE_FORM };
     selectedArtist = null;
     artistSearchQuery = '';
     artistSearchResults = [];
@@ -230,16 +198,7 @@
       });
 
       if (result) {
-        // Clear form for another evidence
-        evidenceForm = {
-          url: '',
-          source_name: '',
-          source_type: 'news_article',
-          title: '',
-          excerpt: '',
-          is_primary_source: false,
-        };
-        // Show success message
+        evidenceForm = { ...DEFAULT_EVIDENCE_FORM };
         alert('Evidence submitted successfully! Add more or go back to browse.');
       } else {
         error = 'Failed to submit evidence';

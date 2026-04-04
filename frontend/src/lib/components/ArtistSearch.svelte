@@ -1,10 +1,9 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { dnpActions, dnpStore } from '../stores/dnp';
-  
+  import { getProviderBadges, hideImgOnError } from '../utils/artist-helpers';
+
   const dispatch = createEventDispatcher();
-  
-  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
 
   let searchQuery = '';
   let selectedArtist: any = null;
@@ -12,14 +11,15 @@
   let note = '';
   let isAdding = false;
   let error = '';
-  
-  let searchTimeout: any;
-  
+
+  let searchTimeout: ReturnType<typeof setTimeout>;
+
   $: {
-    if (searchTimeout) clearTimeout(searchTimeout);
+    clearTimeout(searchTimeout);
+    const q = searchQuery;
     searchTimeout = setTimeout(() => {
-      if (searchQuery.trim()) {
-        dnpActions.searchArtists(searchQuery);
+      if (q.trim()) {
+        dnpActions.searchArtists(q);
       } else {
         dnpActions.clearSearch();
       }
@@ -47,8 +47,8 @@
     isAdding = true;
     error = '';
 
-    const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
-    
+    const tagArray = tags.split(',').map(t => t.trim()).filter(Boolean);
+
     const result = await dnpActions.addArtist(
       searchQuery,
       tagArray,
@@ -56,7 +56,6 @@
     );
 
     if (result.success) {
-      // Reset form
       searchQuery = '';
       selectedArtist = null;
       tags = '';
@@ -67,14 +66,6 @@
     }
 
     isAdding = false;
-  }
-
-  function getProviderBadges(artist: any) {
-    const badges = [];
-    if (artist?.external_ids?.spotify) badges.push({ name: 'Spotify', color: 'bg-green-900 text-green-300' });
-    if (artist?.external_ids?.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
-    if (artist?.external_ids?.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-indigo-900 text-indigo-300' });
-    return badges;
   }
 </script>
 

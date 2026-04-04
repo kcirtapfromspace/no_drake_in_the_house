@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import type { PlaylistSummary } from '../stores/playlist-browser';
+  import { getGradeColor, getGradeGlow, hashString } from '../utils/playlist-helpers';
 
   export let playlist: PlaylistSummary;
   export let index: number = 0;
@@ -14,21 +15,7 @@
   }>();
 
   function handleClick() {
-    if (selectionMode) {
-      dispatch('toggleSelect', playlist);
-    } else {
-      dispatch('select', playlist);
-    }
-  }
-
-  function handleCheckbox(e: Event) {
-    e.stopPropagation();
-    dispatch('toggleSelect', playlist);
-  }
-
-  function handleQuickScrub(e: Event) {
-    e.stopPropagation();
-    dispatch('quickScrub', playlist);
+    dispatch(selectionMode ? 'toggleSelect' : 'select', playlist);
   }
 
   $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
@@ -37,40 +24,8 @@
   $: gradeGlow = getGradeGlow(playlist.grade);
   $: images = playlist.cover_images || [];
   $: cleanPct = Math.round(playlist.clean_ratio * 100);
-
-  // Deterministic gradient from playlist name when no images
   $: gradientHue = hashString(playlist.playlist_name) % 360;
   $: gradientHue2 = (gradientHue + 40 + (hashString(playlist.provider) % 60)) % 360;
-
-  function hashString(s: string): number {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) {
-      h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-    }
-    return Math.abs(h);
-  }
-
-  function getGradeColor(g: string): string {
-    switch (g) {
-      case 'A+': return '#4ade80';
-      case 'A': return '#22c55e';
-      case 'B': return '#3b82f6';
-      case 'C': return '#eab308';
-      case 'D': return '#f97316';
-      default: return '#ef4444';
-    }
-  }
-
-  function getGradeGlow(g: string): string {
-    switch (g) {
-      case 'A+': case 'A': return '0 0 12px rgba(34,197,94,0.4)';
-      case 'B': return '0 0 12px rgba(59,130,246,0.35)';
-      case 'C': return '0 0 12px rgba(234,179,8,0.3)';
-      case 'D': return '0 0 12px rgba(249,115,22,0.3)';
-      default: return '0 0 12px rgba(239,68,68,0.35)';
-    }
-  }
-
   $: flaggedPreview = playlist.flagged_artists.slice(0, 2);
   $: flaggedMore = playlist.flagged_artists.length - 2;
 </script>
@@ -115,7 +70,7 @@
         <input
           type="checkbox"
           checked={selected}
-          on:change={handleCheckbox}
+          on:change|stopPropagation={() => dispatch('toggleSelect', playlist)}
           class="pc__checkbox-input"
         />
         <span class="pc__checkbox-box" class:pc__checkbox-box--checked={selected}>
@@ -132,7 +87,7 @@
         type="button"
         class="pc__quick-scrub"
         title="Scrub this playlist"
-        on:click|stopPropagation={handleQuickScrub}
+        on:click|stopPropagation={() => dispatch('quickScrub', playlist)}
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
           <path d="M13.5 2.5l-1.2 1.2M8.5 7.5l-3.3 3.3a1.5 1.5 0 0 1-2.1-2.1l3.3-3.3m2.1 2.1l3.8-3.8m-3.8 3.8L6.4 5.4m5.9-2.9l.7 2.2-2.2.8m-6.6 5.4L2 13l2.1-2.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>

@@ -3,24 +3,17 @@ import { writable, derived } from 'svelte/store';
 // Route definitions
 export type Route =
   | 'home'
-  | 'dashboard'
   | 'settings'
   | 'service-health'
-  | 'profile'
-  | 'blocklist'
   | 'library-scan'
   | 'offense-database'
   | 'connections'
-  | 'community'
   | 'sync'
-  | 'analytics'
   | 'revenue-impact'
   | 'graph'
   | 'oauth-callback'
   | 'oauth-error'
-  | 'overview'
   | 'dnp'
-  | 'enforcement'
   | 'playlist-sanitizer'
   | 'artist-profile'
   | 'admin';
@@ -29,46 +22,32 @@ export type Route =
 const pathToRoute: Record<string, Route> = {
   '/': 'home',
   '/home': 'home',
-  '/dashboard': 'dashboard',
   '/settings': 'settings',
   '/service-health': 'service-health',
-  '/profile': 'profile',
-  '/blocklist': 'blocklist',
   '/library-scan': 'library-scan',
   '/offense-database': 'offense-database',
   '/connections': 'connections',
-  '/community': 'community',
   '/sync': 'sync',
-  '/analytics': 'analytics',
   '/revenue-impact': 'revenue-impact',
   '/graph': 'graph',
-  '/overview': 'overview',
   '/dnp': 'dnp',
-  '/enforcement': 'enforcement',
   '/playlist-sanitizer': 'playlist-sanitizer',
   '/admin': 'admin',
 };
 
 const routeToPath: Record<Route, string> = {
   'home': '/',
-  'dashboard': '/dashboard',
   'settings': '/settings',
   'service-health': '/service-health',
-  'profile': '/profile',
-  'blocklist': '/blocklist',
   'library-scan': '/library-scan',
   'offense-database': '/offense-database',
   'connections': '/connections',
-  'community': '/community',
   'sync': '/sync',
-  'analytics': '/analytics',
   'revenue-impact': '/revenue-impact',
   'graph': '/graph',
   'oauth-callback': '/auth/callback',
   'oauth-error': '/auth/error',
-  'overview': '/overview',
   'dnp': '/dnp',
-  'enforcement': '/enforcement',
   'playlist-sanitizer': '/playlist-sanitizer',
   'artist-profile': '/artist',
   'admin': '/admin',
@@ -77,24 +56,17 @@ const routeToPath: Record<Route, string> = {
 // Route metadata
 const routeMeta: Record<Route, { title: string; description: string }> = {
   'home': { title: 'Home', description: 'Your music blocklist dashboard' },
-  'dashboard': { title: 'Dashboard', description: 'Your music blocklist dashboard' },
   'settings': { title: 'Settings', description: 'Account and connection settings' },
   'service-health': { title: 'Service Health', description: 'Backend and service health' },
-  'profile': { title: 'Profile', description: 'Your profile settings' },
-  'blocklist': { title: 'Blocklist', description: 'Manage your blocked artists' },
   'library-scan': { title: 'Scan Library', description: 'Scan your music library' },
   'offense-database': { title: 'Database', description: 'Browse offense database' },
   'connections': { title: 'Connections', description: 'Manage streaming connections' },
-  'community': { title: 'Community', description: 'Community lists' },
   'sync': { title: 'Catalog Sync', description: 'Synchronize artist catalogs across platforms' },
-  'analytics': { title: 'Analytics', description: 'View system metrics and trends' },
   'revenue-impact': { title: 'Revenue Impact', description: 'See where your streaming revenue goes' },
   'graph': { title: 'Graph Explorer', description: 'Explore artist collaboration networks' },
   'oauth-callback': { title: 'Connecting...', description: 'Processing authentication' },
   'oauth-error': { title: 'Connection Error', description: 'There was a problem connecting' },
-  'overview': { title: 'Overview', description: 'Dashboard overview' },
   'dnp': { title: 'DNP List', description: 'Your Do Not Play list' },
-  'enforcement': { title: 'Enforcement', description: 'Blocklist enforcement status' },
   'playlist-sanitizer': { title: 'Playlists', description: 'Browse, grade, and sanitize your playlists' },
   'artist-profile': { title: 'Artist Profile', description: 'View artist details and evidence' },
   'admin': { title: 'Admin Dashboard', description: 'Owner metrics and catalog health' },
@@ -118,24 +90,19 @@ export function navigateTo(routeOrPath: Route | string, params?: Record<string, 
   if (typeof routeOrPath === 'string' && routeOrPath.startsWith('/')) {
     const parsed = parseRoute(routeOrPath);
     route = parsed.route;
-    resolvedParams = Object.keys(resolvedParams).length > 0 ? resolvedParams : parsed.params;
-    path = route === 'artist-profile' && resolvedParams.id
-      ? `/artist/${resolvedParams.id}`
-      : routeToPath[route] || routeOrPath;
+    if (!params) resolvedParams = parsed.params;
   } else {
     route = routeOrPath as Route;
-    path = routeToPath[route] || '/';
   }
+
+  path = route === 'artist-profile' && resolvedParams.id
+    ? `/artist/${resolvedParams.id}`
+    : routeToPath[route] || '/';
 
   currentRoute.set(route);
   routeParams.set(resolvedParams);
 
   if (typeof window !== 'undefined') {
-    // Handle dynamic routes
-    if (route === 'artist-profile' && resolvedParams?.id) {
-      path = `/artist/${resolvedParams.id}`;
-    }
-
     const meta = routeMeta[route];
     window.history.pushState({ route, params: resolvedParams }, meta.title, path);
     document.title = `${meta.title} - No Drake`;

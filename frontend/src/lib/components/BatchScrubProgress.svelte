@@ -17,10 +17,8 @@
   }
 
   function handleBack() {
-    sanitizerActions.clearBatch();
     dispatch('back');
   }
-
 </script>
 
 <div class="batch">

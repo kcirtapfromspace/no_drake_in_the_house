@@ -37,8 +37,6 @@
 
   interface SearchResponse {
     artists: SearchArtist[];
-    total: number;
-    sources?: { local: number; catalog: number };
   }
 
   interface BlockedArtist {
@@ -64,7 +62,6 @@
   let isLoadingBlocked = false;
   let blockedError: string | null = null;
 
-  let dnpList: Set<string> = new Set();
   let exceptedArtists: Set<string> = new Set();
 
   // Analytics
@@ -132,12 +129,6 @@
     return extractArray<BlockedArtist>(value, ['artists', 'blocked_artists', 'entries', 'items', 'data']);
   }
 
-  function normalizeDnpArtistIds(value: unknown): string[] {
-    return extractArray<{ artist_id?: string; id?: string }>(value, ['entries', 'artists', 'items', 'data'])
-      .map((item) => item.artist_id || item.id || '')
-      .filter(Boolean);
-  }
-
   function loadExceptions() {
     try {
       const stored = localStorage.getItem('exceptedArtists');
@@ -157,14 +148,10 @@
     }
   }
 
-  $: uniqueBlockedArtists = (Array.isArray(blockedArtists) ? blockedArtists : []).reduce((acc, artist) => {
-    if (!acc.some(a => a.id === artist.id) && !exceptedArtists.has(artist.id)) {
-      acc.push(artist);
-    }
-    return acc;
-  }, [] as BlockedArtist[]);
-  $: activeCategoryCount = (Array.isArray(categoryLists) ? categoryLists : []).filter(category => category.subscribed).length;
-  $: connectedPlatformCount = $activeConnectionCount;
+  $: uniqueBlockedArtists = blockedArtists.filter((artist, i, arr) =>
+    arr.findIndex(a => a.id === artist.id) === i && !exceptedArtists.has(artist.id)
+  );
+  $: activeCategoryCount = categoryLists.filter(category => category.subscribed).length;
 
   const categoryColors: Record<string, { icon: string; bg: string }> = {
     domestic_violence: { icon: '#F43F5E', bg: 'rgba(244, 63, 94, 0.15)' },
@@ -201,7 +188,6 @@
     await Promise.all([
       loadCategories(),
       loadBlockedArtists(),
-      loadDnpList(),
       connectionActions.fetchConnections(),
       analyticsActions.fetchDashboard('last7days'),
       analyticsActions.fetchTrendSummary(7),
@@ -245,17 +231,6 @@
       blockedError = 'Could not connect to server. Please try again.';
     } finally {
       isLoadingBlocked = false;
-    }
-  }
-
-  async function loadDnpList() {
-    try {
-      const result = await apiClient.get<Array<{artist_id: string}>>('/api/v1/dnp/list');
-      if (result.success) {
-        dnpList = new Set(normalizeDnpArtistIds(result.data));
-      }
-    } catch (e) {
-      console.error('Failed to load DNP list:', e);
     }
   }
 
@@ -341,10 +316,6 @@
     }
   }
 
-  async function goToArtist(artistId: string) {
-    navigateToArtist(artistId);
-  }
-
   async function unblockArtist(artistId: string, event: MouseEvent | KeyboardEvent, artistName?: string) {
     event.stopPropagation();
     event.preventDefault();
@@ -355,8 +326,6 @@
     saveExceptions();
     try {
       await apiClient.delete(`/api/v1/dnp/list/${artistId}`);
-      dnpList.delete(artistId);
-      dnpList = dnpList;
     } catch (e) { /* ignore */ }
   }
 
@@ -426,8 +395,8 @@
 
           <div class="brand-meta">
             <span class="brand-meta__item">
-              {connectedPlatformCount > 0
-                ? `${connectedPlatformCount} connected service${connectedPlatformCount === 1 ? '' : 's'}`
+              {$activeConnectionCount > 0
+                ? `${$activeConnectionCount} connected service${$activeConnectionCount === 1 ? '' : 's'}`
                 : 'No services connected yet'}
             </span>
             <span class="brand-meta__item">{activeCategoryCount} active categories</span>
@@ -444,7 +413,7 @@
             <span class="brand-stat__label">Artists blocked</span>
           </div>
           <div class="brand-stat">
-            <span class="brand-stat__value">{connectedPlatformCount}</span>
+            <span class="brand-stat__value">{$activeConnectionCount}</span>
             <span class="brand-stat__label">Connected services</span>
           </div>
         </div>
@@ -481,7 +450,7 @@
                 <button
                   type="button"
                   class="search__result"
-                  on:click={() => goToArtist(artist.id)}
+                  on:click={() => navigateToArtist(artist.id)}
                 >
                   <div class="search__result-info">
                     <span class="search__result-name">{artist.canonical_name}</span>
@@ -515,22 +484,13 @@
           <span class="quick-action__desc">Find and block by name</span>
         </div>
       </button>
-      <button type="button" class="quick-action" on:click={() => navigateTo('blocklist')}>
+      <button type="button" class="quick-action" on:click={() => navigateTo('dnp')}>
         <div class="quick-action__icon quick-action__icon--blocklist">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         </div>
         <div class="quick-action__copy">
           <span class="quick-action__title">View Blocklist</span>
           <span class="quick-action__desc">{uniqueBlockedArtists.length} artists blocked</span>
-        </div>
-      </button>
-      <button type="button" class="quick-action" on:click={() => navigateTo('community')}>
-        <div class="quick-action__icon quick-action__icon--community">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-        </div>
-        <div class="quick-action__copy">
-          <span class="quick-action__title">Community Lists</span>
-          <span class="quick-action__desc">Browse curated blocklists</span>
         </div>
       </button>
     </div>
@@ -654,7 +614,7 @@
                         {#each blockedInCategory as artist}
                           {@const sev = getSeverityStyle(artist.severity)}
                           <div class="artist-tile group">
-                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id)}>
+                            <button type="button" class="artist-tile__main" on:click={() => navigateToArtist(artist.id)}>
                               <span class="artist-tile__name">{artist.name}</span>
                               <EnforcementBadges artistId={artist.id} compact={true} />
                               <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
@@ -679,7 +639,7 @@
                       <div class="artist-grid">
                         {#each exceptedInCategory as artist}
                           <div class="artist-tile artist-tile--excepted group">
-                            <button type="button" class="artist-tile__main" on:click={() => goToArtist(artist.id)}>
+                            <button type="button" class="artist-tile__main" on:click={() => navigateToArtist(artist.id)}>
                               <span class="artist-tile__name">{artist.name}</span>
                               <span class="artist-tile__severity">Excepted</span>
                             </button>
@@ -701,7 +661,7 @@
                     <div class="artist-grid">
                       {#each categoryArtists as artist}
                         {@const sev = getSeverityStyle(artist.severity)}
-                        <button type="button" class="artist-tile" on:click={() => goToArtist(artist.id)}>
+                        <button type="button" class="artist-tile" on:click={() => navigateToArtist(artist.id)}>
                           <span class="artist-tile__name">{artist.name}</span>
                           <span class="artist-tile__severity" style="color: {sev.color}">{sev.label}</span>
                         </button>
@@ -754,7 +714,7 @@
                   type="button"
                   class="blocked-chip__name"
                   data-testid="blocked-artist-name"
-                  on:click={() => goToArtist(artist.id)}
+                  on:click={() => navigateToArtist(artist.id)}
                   title="View artist profile"
                 >{artist.name}</button>
                 <EnforcementBadges artistId={artist.id} compact={true} />
@@ -904,7 +864,7 @@
               <p class="analytics-card__empty">No trending blocked artists yet.</p>
             {:else}
               <div class="top-blocked-list">
-                {#each ($risingArtists.length > 0 ? $risingArtists : [...$risingArtists, ...$fallingArtists]).slice(0, 8) as artist, i}
+                {#each ($risingArtists.length > 0 ? $risingArtists : $fallingArtists).slice(0, 8) as artist, i}
                   <div class="top-blocked-row">
                     <span class="top-blocked-rank">#{i + 1}</span>
                     <div class="top-blocked-info">
@@ -927,7 +887,7 @@
                   <button
                     type="button"
                     class="top-blocked-row top-blocked-row--clickable"
-                    on:click={() => goToArtist(artist.id)}
+                    on:click={() => navigateToArtist(artist.id)}
                   >
                     <span class="top-blocked-rank">#{i + 1}</span>
                     <div class="top-blocked-info">
@@ -1165,7 +1125,7 @@
   /* ===== QUICK ACTIONS ===== */
   .quick-actions {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
     margin-top: 0.75rem;
   }
@@ -1221,11 +1181,6 @@
   .quick-action__icon--blocklist {
     background: rgba(239, 68, 68, 0.12);
     color: var(--color-error, #ef4444);
-  }
-
-  .quick-action__icon--community {
-    background: rgba(139, 92, 246, 0.12);
-    color: #8b5cf6;
   }
 
   .quick-action__copy {
@@ -1654,6 +1609,10 @@
   }
 
   .blocked-chip__name {
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
     font-size: var(--text-xs);
     font-weight: 500;
     color: var(--color-text-secondary);
@@ -1665,6 +1624,9 @@
     justify-content: center;
     width: 1rem;
     height: 1rem;
+    padding: 0;
+    background: none;
+    border: none;
     border-radius: var(--radius-full);
     color: var(--color-text-muted);
     opacity: 0.4;

@@ -11,17 +11,12 @@
   let parsedTracks: ImportTrack[] = [];
   let parseStep: 'idle' | 'parsing' | 'ready' | 'importing' | 'done' = 'idle';
 
-  // Connection states
-  let connections = {
-    lastfm: { connected: false, username: '' },
-    youtube: { connected: false, email: '' },
-    deezer: { connected: false, username: '' }
-  };
+  let lastfm = { connected: false, username: '' };
 
   async function connectLastFm() {
     const username = prompt('Enter your Last.fm username:');
     if (username) {
-      connections.lastfm = { connected: true, username };
+      lastfm = { connected: true, username };
     }
   }
 
@@ -283,7 +278,7 @@
         <div class="brand-hero__aside">
           <div class="brand-stat-grid brand-stat-grid--compact" aria-label="Connection overview">
             <div class="brand-stat">
-              <span class="brand-stat__value">{connections.lastfm.connected ? '1' : '0'}</span>
+              <span class="brand-stat__value">{lastfm.connected ? '1' : '0'}</span>
               <span class="brand-stat__label">Live sources</span>
             </div>
             <div class="brand-stat">
@@ -336,20 +331,20 @@
             <div class="service-card__content">
               <div class="service-card__name-row">
                 <h3 class="service-card__name">Last.fm</h3>
-                {#if connections.lastfm.connected}
+                {#if lastfm.connected}
                   <span class="service-card__status">Connected</span>
                 {/if}
               </div>
               <p class="service-card__desc">
-                {#if connections.lastfm.connected}
-                  Connected as @{connections.lastfm.username}. We can see your complete listening history.
+                {#if lastfm.connected}
+                  Connected as @{lastfm.username}. We can see your complete listening history.
                 {:else}
                   Last.fm tracks your listening across ALL services (Spotify, Apple Music, etc.).
                   Connect to scan your complete listening history.
                 {/if}
               </p>
               <div class="service-card__actions">
-                {#if connections.lastfm.connected}
+                {#if lastfm.connected}
                   <button
                     type="button"
                     on:click={() => navigateTo('library-scan')}
@@ -359,7 +354,7 @@
                   </button>
                   <button
                     type="button"
-                    on:click={() => connections.lastfm = { connected: false, username: '' }}
+                    on:click={() => lastfm = { connected: false, username: '' }}
                     class="btn btn--secondary"
                   >
                     Disconnect
@@ -848,11 +843,6 @@
 
   .btn--lastfm:hover {
     background-color: #b91c1c;
-  }
-
-  .btn--disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   /* ===== NOTICE ===== */

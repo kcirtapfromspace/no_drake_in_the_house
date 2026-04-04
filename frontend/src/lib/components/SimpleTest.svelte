@@ -48,9 +48,9 @@
       <div class="flex gap-2 flex-wrap">
         <button
           class="btn btn-primary text-sm"
-          on:click={() => testNavigation('overview')}
+          on:click={() => testNavigation('home')}
         >
-          Test Overview
+          Test Home
         </button>
         <button
           class="btn btn-primary text-sm"
@@ -63,12 +63,6 @@
           on:click={() => testNavigation('dnp')}
         >
           Test DNP
-        </button>
-        <button
-          class="btn btn-primary text-sm"
-          on:click={() => testNavigation('community')}
-        >
-          Test Community
         </button>
       </div>
     </div>

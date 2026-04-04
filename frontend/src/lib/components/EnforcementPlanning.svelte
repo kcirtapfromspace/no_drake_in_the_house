@@ -43,9 +43,6 @@
     await enforcementActions.createPlan(providers, true);
   }
 
-  function setActiveTab(tab: string) {
-    activeTab = tab;
-  }
 </script>
 
 <div class="px-4 py-6 sm:px-0">
@@ -66,7 +63,7 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-zinc-400 font-medium text-yellow-400">
+          <h3 class="font-medium text-yellow-400">
             Setup Required
           </h3>
           <div class="mt-2 text-zinc-300">
@@ -89,21 +86,21 @@
   <div class="shadow-sm rounded-uswds-lg mb-6" style="background: #27272a;">
     <nav class="flex space-x-8 px-6" aria-label="Tabs">
       <button
-        on:click={() => setActiveTab('plan')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'plan' ? 'border-indigo-500 text-primary' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
+        on:click={() => activeTab = 'plan'}
+        class="py-4 px-1 border-b-2 font-medium {activeTab === 'plan' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400 hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Plan Enforcement
       </button>
       <button
-        on:click={() => setActiveTab('execute')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
+        on:click={() => activeTab = 'execute'}
+        class="py-4 px-1 border-b-2 font-medium {activeTab === 'execute' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400 hover:text-zinc-300 hover:border-zinc-500'}"
         disabled={!$hasActivePlan}
       >
         Execute Plan
       </button>
       <button
-        on:click={() => setActiveTab('history')}
-        class="py-4 px-1 border-b-2 font-medium text-zinc-400 {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-300 hover:text-zinc-300 hover:border-zinc-500'}"
+        on:click={() => activeTab = 'history'}
+        class="py-4 px-1 border-b-2 font-medium {activeTab === 'history' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-zinc-400 hover:text-zinc-300 hover:border-zinc-500'}"
       >
         Action History
       </button>
@@ -115,7 +112,7 @@
     <div class="space-y-6">
       <!-- Enforcement Options -->
       <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
-        <h3 class="text-zinc-400 font-medium text-zinc-300 mb-4">Enforcement Options</h3>
+        <h3 class="font-medium text-zinc-300 mb-4">Enforcement Options</h3>
         <EnforcementOptions />
       </div>
 
@@ -123,7 +120,7 @@
       {#if $hasActivePlan}
         <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="text-zinc-400 font-medium text-zinc-300">Enforcement Preview</h3>
+            <h3 class="font-medium text-zinc-300">Enforcement Preview</h3>
             <button
               on:click={() => enforcementActions.clearPlan()}
               class="text-zinc-300 hover:text-zinc-300"
@@ -136,7 +133,7 @@
       {:else}
         <!-- Create Plan -->
         <div class="shadow rounded-uswds-lg p-uswds-6" style="background: #27272a;">
-          <h3 class="text-zinc-400 font-medium text-zinc-300 mb-4">Create Enforcement Plan</h3>
+          <h3 class="font-medium text-zinc-300 mb-4">Create Enforcement Plan</h3>
           <p class="text-zinc-300 mb-4">
             Generate a dry-run preview to see what changes will be made to your music library.
           </p>
@@ -194,7 +191,7 @@
           <button
             on:click={createPlan}
             disabled={$enforcementStore.isPlanning || !hasAnyConnection || $dnpCount === 0 || !hasSelectedProvider}
-            class="flex items-center px-4 py-2 border border-transparent text-zinc-400 font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="flex items-center px-4 py-2 border border-transparent font-medium rounded-uswds-md shadow-sm text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {#if $enforcementStore.isPlanning}
               <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

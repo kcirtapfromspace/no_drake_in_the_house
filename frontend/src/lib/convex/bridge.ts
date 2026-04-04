@@ -380,6 +380,20 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    const artistCatalogMatch = matchPath(pathname, /^\/api\/v1\/artists\/([^/]+)\/catalog$/);
+    if (artistCatalogMatch && method === 'GET') {
+      const artistId = parseId(artistCatalogMatch[1]);
+      const result = await convexQuery<any>(anyApi.artistProfile.getCatalog, { artistId });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    const artistCreditsMatch = matchPath(pathname, /^\/api\/v1\/artists\/([^/]+)\/credits$/);
+    if (artistCreditsMatch && method === 'GET') {
+      const artistId = parseId(artistCreditsMatch[1]);
+      const result = await convexQuery<any>(anyApi.artistProfile.getCredits, { artistId });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     // =============================================
     // Connections
     // =============================================

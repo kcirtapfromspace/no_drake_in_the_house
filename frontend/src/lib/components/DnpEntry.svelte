@@ -1,13 +1,12 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { dnpActions } from '../stores/dnp';
-  
+  import { getProviderBadges, hideImgOnError, formatDate } from '../utils/artist-helpers';
+
   const dispatch = createEventDispatcher();
-  
+
   export let entry: any;
   export let selected = false;
-
-  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
 
   let isEditing = false;
   let editTags = entry.tags.join(', ');
@@ -15,10 +14,6 @@
   let isUpdating = false;
   let isRemoving = false;
   let error = '';
-
-  function toggleSelect() {
-    dispatch('toggleSelect');
-  }
 
   function startEdit() {
     isEditing = true;
@@ -29,8 +24,6 @@
 
   function cancelEdit() {
     isEditing = false;
-    editTags = entry.tags.join(', ');
-    editNote = entry.note || '';
     error = '';
   }
 
@@ -38,8 +31,8 @@
     isUpdating = true;
     error = '';
 
-    const tagArray = editTags.split(',').map((t: string) => t.trim()).filter((t: string) => t);
-    
+    const tagArray = editTags.split(',').map((t: string) => t.trim()).filter(Boolean);
+
     const result = await dnpActions.updateEntry(
       entry.artist.id,
       tagArray,
@@ -61,26 +54,14 @@
     }
 
     isRemoving = true;
-    
+
     const result = await dnpActions.removeArtist(entry.artist.id);
-    
+
     if (!result.success) {
       error = result.message || 'Failed to remove artist';
     }
-    
+
     isRemoving = false;
-  }
-
-  function getProviderBadges(artist: any) {
-    const badges = [];
-    if (artist.external_ids.spotify) badges.push({ name: 'Spotify', color: 'bg-green-100 text-green-800' });
-    if (artist.external_ids.apple) badges.push({ name: 'Apple', color: 'bg-zinc-700 text-zinc-300' });
-    if (artist.external_ids.musicbrainz) badges.push({ name: 'MusicBrainz', color: 'bg-indigo-100 text-indigo-300' });
-    return badges;
-  }
-
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString();
   }
 </script>
 
@@ -88,7 +69,7 @@
   <div class="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4">
     <!-- Mobile: Checkbox and Actions Row -->
     <div class="flex items-center justify-between sm:hidden">
-      <input type="checkbox" checked={selected} on:change={toggleSelect} class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 rounded-lg border border-zinc-700" />
+      <input type="checkbox" checked={selected} on:change={() => dispatch('toggleSelect')} class="icon-uswds icon-uswds--sm text-primary focus:ring-indigo-500 rounded-lg border border-zinc-700" />
       <div class="flex items-center space-x-2">
         {#if !isEditing}
           <button type="button"
@@ -109,7 +90,7 @@
     </div>
 
     <!-- Desktop: Checkbox -->
-    <input type="checkbox" checked={selected} on:change={toggleSelect} class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg border border-zinc-700" />
+    <input type="checkbox" checked={selected} on:change={() => dispatch('toggleSelect')} class="hidden sm:block icon-uswds icon-uswds--sm text-indigo-600 focus:ring-indigo-500 rounded-lg border border-zinc-700" />
 
     <!-- Artist Image -->
     <div class="flex-shrink-0">

@@ -13,11 +13,9 @@
 	import ArtistProfile from "./lib/components/ArtistProfile.svelte";
 	import ConnectionsPage from "./lib/components/ConnectionsPage.svelte";
 	import LibraryScan from "./lib/components/LibraryScan.svelte";
-	import CommunityLists from "./lib/components/CommunityLists.svelte";
 	import OffenseDatabase from "./lib/components/OffenseDatabase.svelte";
 	import ServiceHealthDashboard from "./lib/components/ServiceHealthDashboard.svelte";
 	import PlaylistSanitizer from "./lib/components/PlaylistSanitizer.svelte";
-	import BlocklistPage from "./lib/components/BlocklistPage.svelte";
 	import AdminDashboard from "./lib/components/AdminDashboard.svelte";
 	import Layout from "./lib/components/Layout.svelte";
 	import config from "./lib/utils/config";
@@ -38,11 +36,11 @@
 		const controller = new AbortController();
 		const timeoutId = setTimeout(() => controller.abort(), BACKEND_HEALTH_TIMEOUT_MS);
 
-			try {
-				const response = await fetch(config.getBackendEndpoint("/health"), {
-					method: "GET",
-					cache: "no-store",
-					signal: controller.signal
+		try {
+			const response = await fetch(config.getBackendEndpoint("/health"), {
+				method: "GET",
+				cache: "no-store",
+				signal: controller.signal,
 			});
 			return response.ok;
 		} catch (error) {
@@ -277,8 +275,6 @@
 		{#key `${$currentRoute}:${$routeParams.id || ''}`}
 			{#if $currentRoute === 'artist-profile'}
 				<ArtistProfile artistId={$routeParams.id || ''} />
-			{:else if $currentRoute === 'blocklist'}
-				<BlocklistPage />
 			{:else if $currentRoute === 'settings'}
 				<Settings />
 			{:else if $currentRoute === 'connections'}
@@ -291,8 +287,6 @@
 				<AnalyticsDashboard />
 			{:else if $currentRoute === 'graph'}
 				<GraphExplorer />
-			{:else if $currentRoute === 'community'}
-				<CommunityLists />
 			{:else if $currentRoute === 'offense-database'}
 				<OffenseDatabase />
 			{:else if $currentRoute === 'service-health'}

@@ -51,12 +51,10 @@
     ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
     : false;
 
-  const navItems: { route: Route; label: string; icon: string }[] = [
-    { route: 'home', label: 'Home', icon: 'home' },
-    { route: 'blocklist', label: 'Blocklist', icon: 'blocklist' },
-    { route: 'sync', label: 'Library', icon: 'library' },
-    { route: 'playlist-sanitizer', label: 'Playlists', icon: 'playlist' },
-    { route: 'community', label: 'Community', icon: 'community' },
+  const navItems: { route: Route; label: string }[] = [
+    { route: 'home', label: 'Home' },
+    { route: 'sync', label: 'Library' },
+    { route: 'playlist-sanitizer', label: 'Playlists' },
   ];
 
   function handleNavigation(route: Route) {
@@ -100,14 +98,11 @@
   }
 
   onMount(() => {
-    theme.init();
-    connectionActions.fetchConnections().catch(() => {
-      // Never let a failed connection fetch kill the app
-    });
+    connectionActions.fetchConnections().catch(() => {});
     blockingStore.init();
   });
 
-  async function handleSpotifyClick() {
+  function handleSpotifyClick() {
     if ($spotifyConnection?.status === 'active') {
       navigateTo('connections');
     } else {
@@ -126,9 +121,7 @@
   }
 
   function isActiveRoute(route: Route): boolean {
-    if ($currentRoute === route) return true;
-    if ($currentRoute === 'revenue-impact' && route === 'analytics') return true;
-    return false;
+    return $currentRoute === route;
   }
 
   $: themeIcon = $theme === 'system' ? 'auto' : $resolvedTheme === 'dark' ? 'sun' : 'moon';

@@ -3,26 +3,15 @@
   import { adminStore, adminActions } from '../stores/admin';
   import { navigateTo } from '../utils/simple-router';
   import { currentUser } from '../stores/auth';
+  import { categoryLabels } from '../stores/library';
   import { get } from 'svelte/store';
 
   let isLoading = true;
   let accessDenied = false;
 
   const CATEGORY_NAMES: Record<string, string> = {
-    domestic_violence: 'Domestic Violence',
-    sexual_misconduct: 'Sexual Misconduct',
-    sexual_assault: 'Sexual Assault',
-    child_abuse: 'Child Abuse',
-    hate_speech: 'Hate Speech',
-    racism: 'Racism',
-    antisemitism: 'Antisemitism',
-    violent_crime: 'Violent Crime',
-    drug_trafficking: 'Drug Trafficking',
-    fraud: 'Fraud',
+    ...categoryLabels,
     certified_creeper: 'Certified Creeper',
-    homophobia: 'Homophobia',
-    animal_abuse: 'Animal Abuse',
-    other: 'Other',
   };
 
   const CRON_JOBS = [
@@ -36,29 +25,38 @@
     { name: 'Investigate library artists', interval: 'Daily 3:00 UTC' },
   ];
 
+  async function refreshData() {
+    isLoading = true;
+    await Promise.all([
+      adminActions.fetchMetrics(),
+      adminActions.fetchHistory(),
+    ]);
+    isLoading = false;
+  }
+
   onMount(async () => {
-    // Check owner role client-side
     const user = get(currentUser);
     if (!user?.roles?.includes('owner')) {
       accessDenied = true;
       navigateTo('home');
       return;
     }
-
-    await Promise.all([
-      adminActions.fetchMetrics(),
-      adminActions.fetchHistory(),
-    ]);
-    isLoading = false;
+    await refreshData();
   });
 
   $: metrics = $adminStore.metrics;
   $: history = $adminStore.history;
   $: error = $adminStore.error;
+  $: pipelinePct = metrics
+    ? (() => {
+        const { investigated, never_investigated, stale } = metrics.pipeline;
+        const total = investigated + never_investigated + stale;
+        return total > 0 ? Math.round((investigated / total) * 100) : 0;
+      })()
+    : 0;
 
   function formatDelta(delta: number | undefined | null): string {
-    if (delta === undefined || delta === null) return '';
-    if (delta === 0) return '';
+    if (delta == null || delta === 0) return '';
     return delta > 0 ? `+${delta.toLocaleString()}` : delta.toLocaleString();
   }
 
@@ -67,34 +65,16 @@
     return delta > 0 ? 'delta-up' : 'delta-down';
   }
 
-  function pipelineProgressPct(): number {
-    if (!metrics) return 0;
-    const { investigated, never_investigated, stale } = metrics.pipeline;
-    const total = investigated + never_investigated + stale;
-    return total > 0 ? Math.round((investigated / total) * 100) : 0;
-  }
-
   function estimateDocs(currentCount: number, dailyDelta: number, days: number): string {
-    const est = currentCount + (dailyDelta * days);
-    return est.toLocaleString();
+    return (currentCount + dailyDelta * days).toLocaleString();
   }
 
   function formatDate(iso: string): string {
     try {
-      const d = new Date(iso);
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     } catch {
       return iso.slice(0, 10);
     }
-  }
-
-  async function handleRefresh() {
-    isLoading = true;
-    await Promise.all([
-      adminActions.fetchMetrics(),
-      adminActions.fetchHistory(),
-    ]);
-    isLoading = false;
   }
 </script>
 
@@ -132,7 +112,7 @@
           <div class="brand-actions">
             <button
               type="button"
-              on:click={handleRefresh}
+              on:click={refreshData}
               disabled={isLoading}
               class="brand-button brand-button--secondary"
             >
@@ -249,9 +229,9 @@
 
         <div class="pipeline-progress">
           <div class="pipeline-progress__bar">
-            <div class="pipeline-progress__fill" style="width: {pipelineProgressPct()}%"></div>
+            <div class="pipeline-progress__fill" style="width: {pipelinePct}%"></div>
           </div>
-          <span class="pipeline-progress__label">{pipelineProgressPct()}% investigated</span>
+          <span class="pipeline-progress__label">{pipelinePct}% investigated</span>
         </div>
 
         <div class="admin-stats-grid">

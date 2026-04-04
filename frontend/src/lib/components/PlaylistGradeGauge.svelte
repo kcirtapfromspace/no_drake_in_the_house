@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getGradeColor, getGlowColor } from '../utils/playlist-helpers';
 
   export let score: number = 0;
   export let grade: string = 'F';
@@ -15,28 +16,6 @@
   $: dashOffset = animated && mounted ? targetOffset : circumference;
   $: gradeColor = getGradeColor(grade);
   $: glowColor = getGlowColor(grade);
-
-  function getGradeColor(g: string): string {
-    switch (g) {
-      case 'A+': return '#4ade80';
-      case 'A':  return '#22c55e';
-      case 'B':  return '#3b82f6';
-      case 'C':  return '#eab308';
-      case 'D':  return '#f97316';
-      default:   return '#ef4444';
-    }
-  }
-
-  function getGlowColor(g: string): string {
-    switch (g) {
-      case 'A+': return 'rgba(74, 222, 128, 0.35)';
-      case 'A':  return 'rgba(34, 197, 94, 0.3)';
-      case 'B':  return 'rgba(59, 130, 246, 0.3)';
-      case 'C':  return 'rgba(234, 179, 8, 0.25)';
-      case 'D':  return 'rgba(249, 115, 22, 0.25)';
-      default:   return 'rgba(239, 68, 68, 0.3)';
-    }
-  }
 </script>
 
 <div class="gauge" style="width: {size}px; height: {size}px;">

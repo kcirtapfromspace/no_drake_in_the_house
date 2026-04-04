@@ -4,7 +4,7 @@
   import { syncStore, syncActions, isAnySyncRunning, platformsStatus, recentRuns } from '../stores/sync';
   import type { TriggerSyncRequest } from '../stores/sync';
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
-  import { connectionsStore, connectionActions, type ServiceConnection } from '../stores/connections';
+  import { connectionsStore, connectionActions } from '../stores/connections';
   import { apiClient } from '../utils/api-client';
   import { blockingStore } from '../stores/blocking';
   import { timeAgo } from '../utils/time-ago';
@@ -15,8 +15,6 @@
 
 
   // Connection states
-  let connectingPlatform: string | null = null;
-  let syncingLibrary: string | null = null;
   let connectionSuccess: string | null = null;
   let connectionError: string | null = null;
   let connectionBannerTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -33,9 +31,7 @@
   }
 
   let appleLibrary: AppleLibraryPreview | null = null;
-  let appleLibraryLoading = false;
   let appleLibraryError: string | null = null;
-  let appleLibraryRequested = false;
   let appleLibrarySyncPolling = false;
 
   interface AppleLibrarySyncStatus {
@@ -289,13 +285,8 @@
   // Important: avoid relying on helper functions (e.g. getConnectedPlatforms()) inside markup
   // because Svelte's dependency tracking is static and won't see store usage inside function
   // bodies, which can leave the UI stuck in a stale branch.
-  let connectionsByProvider = new Map<string, ServiceConnection>();
   let activeProviders = new Set<string>();
   let connectedPlatforms: Platform[] = [];
-
-  $: connectionsByProvider = new Map<string, ServiceConnection>(
-    ($connectionsStore.connections ?? []).map((conn) => [conn.provider, conn])
-  );
 
   $: activeProviders = new Set<string>(
     ($connectionsStore.connections ?? [])
@@ -322,15 +313,6 @@
 
   function getPlatformById(platformId: string): Platform | undefined {
     return platforms.find((platform) => platform.id === platformId);
-  }
-
-  function getPlatformStatusColor(status: PlatformStatus): string {
-    switch (status) {
-      case 'ready': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'paused': return 'bg-amber-500/20 text-amber-400 border-amber-500/30';
-      case 'catalog-only': return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30';
-      default: return 'bg-zinc-500/20 text-zinc-400 border-zinc-500/30';
-    }
   }
 
   // Use when you need the latest connection state immediately after an async fetch.
@@ -361,14 +343,8 @@
     return normalized.replace(/\b\w/g, (c) => c.toUpperCase());
   }
 
-  function formatSeverity(value: OffenderArtist['severity']): string {
-    switch (value) {
-      case 'egregious': return 'Egregious';
-      case 'severe': return 'Severe';
-      case 'moderate': return 'Moderate';
-      case 'minor': return 'Minor';
-      default: return value;
-    }
+  function formatSeverity(value: string): string {
+    return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
   function severityBadgeClass(value: OffenderArtist['severity']): string {
@@ -523,14 +499,6 @@
     scheduleProviderSyncPoll(0);
   }
 
-  function buildLibraryItemsCacheKey(): string {
-    return buildLibraryItemsEndpoint(0, libraryItemsLimit);
-  }
-
-  function buildLibraryGroupsCacheKey(): string {
-    return buildLibraryGroupsEndpoint(0, libraryGroupsLimit);
-  }
-
   function hydrateHeavyLibraryViewsFromCache(options: { allowStale?: boolean } = {}): boolean {
     const { allowStale = false } = options;
 
@@ -541,8 +509,8 @@
     ) {
       return false;
     }
-    if (syncDashboardHeavyCache.libraryItemsKey !== buildLibraryItemsCacheKey()) return false;
-    if (syncDashboardHeavyCache.libraryGroupsKey !== buildLibraryGroupsCacheKey()) return false;
+    if (syncDashboardHeavyCache.libraryItemsKey !== buildLibraryItemsEndpoint(0, libraryItemsLimit)) return false;
+    if (syncDashboardHeavyCache.libraryGroupsKey !== buildLibraryGroupsEndpoint(0, libraryGroupsLimit)) return false;
     if (syncDashboardHeavyCache.libraryOffendersScope !== libraryOffendersScope) return false;
     if (syncDashboardHeavyCache.libraryOffendersDays !== libraryOffendersDays) return false;
 
@@ -576,11 +544,11 @@
     syncDashboardHeavyCache.libraryItems = libraryItems;
     syncDashboardHeavyCache.libraryItemsTotal = libraryItemsTotal;
     syncDashboardHeavyCache.libraryItemsOffset = libraryItemsOffset;
-    syncDashboardHeavyCache.libraryItemsKey = buildLibraryItemsCacheKey();
+    syncDashboardHeavyCache.libraryItemsKey = buildLibraryItemsEndpoint(0, libraryItemsLimit);
     syncDashboardHeavyCache.libraryGroups = libraryGroups;
     syncDashboardHeavyCache.libraryGroupsTotal = libraryGroupsTotal;
     syncDashboardHeavyCache.libraryGroupsOffset = libraryGroupsOffset;
-    syncDashboardHeavyCache.libraryGroupsKey = buildLibraryGroupsCacheKey();
+    syncDashboardHeavyCache.libraryGroupsKey = buildLibraryGroupsEndpoint(0, libraryGroupsLimit);
   }
 
   async function runProviderSyncPoll(): Promise<void> {
@@ -684,56 +652,6 @@
       }
     } finally {
       genericSyncPolling = false;
-    }
-  }
-
-  async function loadAppleLibraryPreview(force = false): Promise<AppleLibraryPreview | null> {
-    if (!hasActiveConnection('apple_music')) return null;
-    if (appleLibraryLoading) return appleLibrary;
-    if (!force && appleLibraryRequested) return appleLibrary;
-
-    appleLibraryRequested = true;
-    appleLibraryLoading = true;
-    appleLibraryError = null;
-
-    try {
-      const result = await apiClient.authenticatedRequest<any>(
-        'GET',
-        '/api/v1/apple-music/library?limit=100'
-      );
-      if (result.success) {
-        const payload = (result.data ?? result) as any;
-        const tracks = Array.isArray(payload?.tracks) ? payload.tracks : [];
-        const albums = Array.isArray(payload?.albums) ? payload.albums : [];
-        const playlists = Array.isArray(payload?.playlists) ? payload.playlists : [];
-        const tracksTotal = Number(payload?.tracks_total ?? tracks.length);
-        const albumsTotal = Number(payload?.albums_total ?? albums.length);
-        const artistsTotal = Number(payload?.artists_total ?? 0);
-        const playlistsTotal = Number(payload?.playlists_total ?? playlists.length);
-
-        appleLibrary = {
-          tracks,
-          albums,
-          playlists,
-          tracksCount: Number.isFinite(tracksTotal) ? tracksTotal : tracks.length,
-          albumsCount: Number.isFinite(albumsTotal) ? albumsTotal : albums.length,
-          artistsCount: Number.isFinite(artistsTotal) && artistsTotal > 0 ? artistsTotal : 0,
-          playlistsCount: Number.isFinite(playlistsTotal) ? playlistsTotal : playlists.length,
-          scannedAt: payload?.scanned_at,
-        };
-        return appleLibrary;
-      } else {
-        const isServerError = result.error_code?.startsWith('HTTP_5');
-        appleLibraryError = isServerError
-          ? 'Apple Music connection may need to be refreshed. Try disconnecting and reconnecting.'
-          : (result.message || 'Failed to load Apple Music library');
-        return null;
-      }
-    } catch (error) {
-      appleLibraryError = error instanceof Error ? error.message : 'Failed to load Apple Music library';
-      return null;
-    } finally {
-      appleLibraryLoading = false;
     }
   }
 
@@ -928,12 +846,8 @@
     }
   }
 
-  function getAppleLibraryStatsRow(): ProviderLibraryStatsRow | undefined {
-    return libraryStatsByProvider.get('apple_music');
-  }
-
   function hasAppleImportedCache(): boolean {
-    const row = getAppleLibraryStatsRow();
+    const row = libraryStatsByProvider.get('apple_music');
     return Boolean(row && row.source === 'imported_cache' && (row.totalItems ?? 0) > 0);
   }
 
@@ -1024,37 +938,6 @@
     }
   }
 
-  // Connect to a platform
-  function getProviderHints(platform: Platform): string[] {
-    const hints = [platform.id, platform.name, platform.connectionProvider ?? '']
-      .map(value => value.toLowerCase())
-      .filter(Boolean);
-
-    if (platform.id === 'apple') hints.push('apple');
-    if (platform.id === 'youtube') hints.push('youtube', 'youtube music');
-
-    return hints;
-  }
-
-  function isAlreadyConnectedError(message: string | undefined, platform: Platform): boolean {
-    if (!message) return false;
-
-    const normalized = message.toLowerCase();
-    if (!normalized.includes('already have an active')) return false;
-    if (normalized.includes('disconnect first to reconnect')) return true;
-
-    return getProviderHints(platform).some(hint => {
-      const normalizedHint = hint.replace(/[_-]/g, ' ');
-      return normalized.includes(hint) || normalized.includes(normalizedHint);
-    });
-  }
-
-  function showAlreadyConnectedMessage(platformName: string): void {
-    showConnectionSuccess(
-      `${platformName} is already connected. Use "Sync Library" or disconnect first to reconnect.`
-    );
-  }
-
   function clearConnectionBannerTimer(): void {
     if (connectionBannerTimeout) {
       clearTimeout(connectionBannerTimeout);
@@ -1080,97 +963,6 @@
     connectionError = message;
   }
 
-  function isSuccessLikeMessage(message: string | undefined): boolean {
-    if (!message) return false;
-    const normalized = message.toLowerCase();
-    return (
-      normalized.includes('connected successfully') ||
-      normalized.includes('library imported') ||
-      normalized.includes('synced successfully') ||
-      normalized.includes('sync complete')
-    );
-  }
-
-  async function connectPlatform(platform: Platform) {
-    if (!platform.connectionProvider || platform.disabled) return;
-
-    connectingPlatform = platform.id;
-    connectionError = null;
-    connectionSuccess = null;
-
-    try {
-      // Refresh connection state before triggering OAuth to avoid reconnect loops
-      // when the page is refreshed and local UI state is stale.
-      await connectionActions.fetchConnections();
-      if (hasActiveConnection(platform.connectionProvider)) {
-        showAlreadyConnectedMessage(platform.name);
-        return;
-      }
-
-      if (platform.id === 'apple') {
-        const result = await connectionActions.connectAppleMusic();
-        if (result.success || isSuccessLikeMessage(result.message)) {
-          showConnectionSuccess(
-            `${platform.name} connected successfully. Click "Sync Library" to fetch your library.`
-          );
-          appleLibraryRequested = false;
-        } else if (isAlreadyConnectedError(result.message, platform)) {
-          await connectionActions.fetchConnections();
-          showAlreadyConnectedMessage(platform.name);
-        } else {
-          showConnectionError(result.message || `Failed to connect ${platform.name}`);
-        }
-      } else if (platform.id === 'spotify') {
-        await connectionActions.initiateSpotifyAuth();
-      } else if (platform.id === 'youtube') {
-        await connectionActions.initiateYouTubeAuth();
-      } else if (platform.id === 'tidal') {
-        await connectionActions.initiateTidalAuth();
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : `Failed to connect ${platform.name}`;
-      if (isAlreadyConnectedError(errorMessage, platform)) {
-        await connectionActions.fetchConnections();
-        showAlreadyConnectedMessage(platform.name);
-      } else {
-        showConnectionError(errorMessage);
-      }
-    } finally {
-      await refreshHeavyLibraryViews({ force: true });
-      connectingPlatform = null;
-    }
-  }
-
-  // Disconnect from a platform
-  async function disconnectPlatform(platform: Platform) {
-    if (!platform.connectionProvider) return;
-
-    connectingPlatform = platform.id;
-
-    try {
-      if (platform.id === 'apple') {
-        await connectionActions.disconnectAppleMusic();
-        appleLibrary = null;
-        appleLibraryError = null;
-        appleLibraryRequested = false;
-      } else if (platform.id === 'spotify') {
-        await connectionActions.disconnectSpotify();
-      } else if (platform.id === 'tidal') {
-        await connectionActions.disconnectTidal();
-      } else if (platform.id === 'youtube') {
-        await connectionActions.disconnectYouTube();
-      } else {
-        await connectionActions.fetchConnections();
-      }
-    } catch (error) {
-      console.error(`Failed to disconnect ${platform.name}:`, error);
-    } finally {
-      await refreshHeavyLibraryViews({ force: true });
-      connectingPlatform = null;
-    }
-  }
-
   // Sync library from a platform
   async function syncLibrary(platform: Platform) {
     if (!platform.connectionProvider) return;
@@ -1183,7 +975,6 @@
       return;
     }
 
-    syncingLibrary = platform.id;
     connectionError = null;
     connectionSuccess = null;
     let shouldQueueGenericSyncRefresh = false;
@@ -1329,7 +1120,6 @@
       } else if (platform.id !== 'apple' && shouldQueueGenericSyncRefresh) {
         queueGenericSyncPolling();
       }
-      syncingLibrary = null;
     }
   }
 
@@ -1353,35 +1143,28 @@
     }
   });
 
-  function getStatusColor(status: string): string {
-    switch (status) {
-      case 'running': return 'bg-rose-500/10 text-rose-400';
-      case 'completed': return 'bg-green-500/20 text-green-400';
-      case 'error': case 'failed': return 'bg-red-500/20 text-red-400';
-      case 'cancelled': return 'bg-zinc-500/20 text-zinc-300';
-      default: return 'bg-zinc-500/20 text-zinc-300';
-    }
-  }
-
-  function getStatusIcon(status: string): string {
-    switch (status) {
-      case 'running': return '\u21BB';
-      case 'completed': return '\u2713';
-      case 'error': case 'failed': return '\u2717';
-      case 'cancelled': return '\u25A0';
-      default: return '\u2026';
-    }
-  }
+  const STATUS_COLORS: Record<string, string> = {
+    running: 'bg-rose-500/10 text-rose-400',
+    completed: 'bg-green-500/20 text-green-400',
+    error: 'bg-red-500/20 text-red-400',
+    failed: 'bg-red-500/20 text-red-400',
+    cancelled: 'bg-zinc-500/20 text-zinc-300',
+  };
+  const STATUS_ICONS: Record<string, string> = {
+    running: '\u21BB',
+    completed: '\u2713',
+    error: '\u2717',
+    failed: '\u2717',
+    cancelled: '\u25A0',
+  };
+  const DEFAULT_STATUS_COLOR = 'bg-zinc-500/20 text-zinc-300';
+  const DEFAULT_STATUS_ICON = '\u2026';
 
   function formatDuration(ms?: number): string {
     if (!ms) return '-';
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
     return `${(ms / 60000).toFixed(1)}m`;
-  }
-
-  function formatDate(dateStr?: string): string {
-    return timeAgo(dateStr);
   }
 
   function formatMetric(value: number | null): string {
@@ -1399,10 +1182,6 @@
       minimumFractionDigits: 2,
       maximumFractionDigits: 4,
     }).format(num);
-  }
-
-  function getStatsSourceLabel(source: ProviderLibraryStatsRow['source']): string {
-    return source === 'live_api' ? 'Live API' : 'Imported Cache';
   }
 
   async function handleSyncAll() {
@@ -1452,10 +1231,6 @@
         queueGenericSyncPolling();
       }
     }
-  }
-
-  async function handleCancelRun(runId: string) {
-    await syncActions.cancelRun(runId);
   }
 
   $: healthStatus = $syncStore.health?.overall_status ?? 'unknown';
@@ -1852,345 +1627,6 @@
       <ServiceConnector />
     </div>
 
-    <!-- Legacy Platform Status Grid (hidden — replaced by ServiceConnector above) -->
-    <div class="mb-8 hidden">
-      <h2 class="text-xl font-semibold text-white mb-4">Your Music Services</h2>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {#each platforms as platform}
-          {@const syncStatus = $platformsStatus.find(s => s.platform === platform.id)}
-          {@const provider = platform.connectionProvider || platform.id}
-          {@const connection = connectionsByProvider.get(provider) ?? null}
-          {@const libraryRow = libraryStatsByProvider.get(provider) ?? null}
-          {@const connected = connection?.status === 'active'}
-          {@const needsReconnect = connection && connection.status !== 'active'}
-          <div class="surface-card rounded-xl p-5 {platform.disabled ? 'opacity-60' : ''} transition-all hover:border-zinc-600" >
-            <!-- Header with icon and status -->
-            <div class="flex items-start justify-between mb-4">
-              <div class="flex items-center gap-3">
-                <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background-color: {platform.color}20; border: 1px solid {platform.color}40;">
-                  {#if platform.icon === 'spotify'}
-                    <svg class="w-6 h-6" fill="{platform.color}" viewBox="0 0 24 24">
-                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-                    </svg>
-                  {:else if platform.icon === 'apple'}
-                    <svg class="w-6 h-6" fill="{platform.color}" viewBox="0 0 24 24">
-                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                    </svg>
-                  {:else if platform.icon === 'youtube'}
-                    <svg class="w-6 h-6" fill="{platform.color}" viewBox="0 0 24 24">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                    </svg>
-                  {:else if platform.icon === 'tidal'}
-                    <svg class="w-6 h-6" fill="white" viewBox="0 0 24 24">
-                      <path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996 4.004 12l4.004-4.004L12.012 12l4.004-4.004L12.012 3.992zM12.012 12l-4.004 4.004L12.012 20.008l4.004-4.004L12.012 12zM20.02 7.996L16.016 3.992l-4.004 4.004 4.004 4.004 4.004-4.004L24.024 3.992 20.02 7.996z"/>
-                    </svg>
-                  {:else if platform.icon === 'deezer'}
-                    <svg class="w-6 h-6" fill="{platform.color}" viewBox="0 0 24 24">
-                      <path d="M18.81 4.16v3.03H24V4.16h-5.19zM6.27 8.38v3.027h5.189V8.38h-5.19zm12.54 0v3.027H24V8.38h-5.19zM6.27 12.594v3.027h5.189v-3.027h-5.19zm6.271 0v3.027h5.19v-3.027h-5.19zm6.27 0v3.027H24v-3.027h-5.19zM0 16.81v3.028h5.19v-3.027H0zm6.27 0v3.028h5.189v-3.027h-5.19zm6.271 0v3.028h5.19v-3.027h-5.19zm6.27 0v3.028H24v-3.027h-5.19z"/>
-                    </svg>
-                  {/if}
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <span class="font-semibold text-white">{platform.name}</span>
-                  </div>
-                  <div class="flex items-center gap-2 mt-1">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border {getPlatformStatusColor(platform.status)}">
-                      {platform.statusLabel}
-                    </span>
-                    {#if connected}
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                        Connected
-                      </span>
-                    {:else if needsReconnect}
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        Reconnect Required
-                      </span>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Connection/Sync Status -->
-            {#if platform.disabled}
-              <div class="text-sm text-zinc-500 italic mb-4">
-                Developer portal unavailable — integration paused
-              </div>
-              <button
-                type="button"
-                disabled
-                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-500 bg-zinc-800 border border-zinc-700 cursor-not-allowed"
-              >
-                {platform.statusLabel}
-              </button>
-            {:else if connected}
-              <!-- Connected state -->
-              <div class="space-y-2 text-sm text-zinc-400 mb-4">
-                {#if platform.id === 'apple' && appleLibrary}
-                  <div class="flex justify-between">
-                    <span>Preview songs:</span>
-                    <span class="font-medium text-zinc-300">{appleLibrary.tracksCount.toLocaleString()}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Preview albums:</span>
-                    <span class="font-medium text-zinc-300">{appleLibrary.albumsCount.toLocaleString()}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Preview playlists:</span>
-                    <span class="font-medium text-zinc-300">{appleLibrary.playlistsCount.toLocaleString()}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Preview refreshed:</span>
-                    <span class="font-medium text-zinc-300">{formatDate(appleLibrary.scannedAt)}</span>
-                  </div>
-                  {#if libraryRow && libraryRow.source === 'imported_cache'}
-                    <div class="flex justify-between">
-                      <span>Imported items:</span>
-                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.totalItems)}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span>Imported songs:</span>
-                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.songs)}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span>Imported albums:</span>
-                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.albums)}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span>Imported playlists:</span>
-                      <span class="font-medium text-zinc-300">{formatMetric(libraryRow.playlists)}</span>
-                    </div>
-                    <div class="flex justify-between">
-                      <span>Imported cache:</span>
-                      <span class="font-medium text-zinc-300">{formatDate(libraryRow.lastSynced)}</span>
-                    </div>
-                  {:else}
-                    <div class="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-                      Apple preview is loaded, but the cached library is still empty. Use <span class="font-semibold text-white">Sync Library</span> or <span class="font-semibold text-white">Sync All</span> to import items for the sections below.
-                    </div>
-                  {/if}
-                  <button
-                    type="button"
-                    on:click={async () => {
-                      await loadAppleLibraryPreview(true);
-                      await refreshLibraryStats();
-                    }}
-                    class="text-xs text-zinc-400 hover:text-white transition-colors"
-                    disabled={appleLibraryLoading}
-                  >
-                    {appleLibraryLoading ? 'Refreshing library preview...' : 'Refresh library preview'}
-                  </button>
-                  {#if appleLibrary.playlists.length > 0}
-                    <div class="text-xs text-zinc-500 pt-2 border-t border-zinc-700">
-                      <div class="mb-1 font-medium text-zinc-400">Playlists</div>
-                      <div class="text-zinc-400">{appleLibrary.playlists.slice(0, 3).map(p => p.name).filter(Boolean).join(' • ')}</div>
-                    </div>
-                  {/if}
-                  {#if appleLibrary.tracks.length > 0}
-                    <div class="text-xs text-zinc-500">
-                      <div class="mb-1 font-medium text-zinc-400">Songs</div>
-                      <div class="text-zinc-400">{appleLibrary.tracks.slice(0, 3).map(t => t.name).filter(Boolean).join(' • ')}</div>
-                    </div>
-                  {/if}
-                {:else if libraryRow && libraryRow.status === 'ready'}
-                  <div class="flex justify-between">
-                    <span>Library songs:</span>
-                    <span class="font-medium text-zinc-300">{formatMetric(libraryRow.songs)}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Library albums:</span>
-                    <span class="font-medium text-zinc-300">{formatMetric(libraryRow.albums)}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Library artists:</span>
-                    <span class="font-medium text-zinc-300">{formatMetric(libraryRow.artists)}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Library playlists:</span>
-                    <span class="font-medium text-zinc-300">{formatMetric(libraryRow.playlists)}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Last synced:</span>
-                    <span class="font-medium text-zinc-300">{formatDate(libraryRow.lastSynced)}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Source:</span>
-                    <span class="font-medium text-zinc-300">{getStatsSourceLabel(libraryRow.source)}</span>
-                  </div>
-                {:else if platform.id === 'apple' && appleLibraryLoading}
-                  <div class="text-zinc-500">Loading Apple Music library...</div>
-                {:else if platform.id === 'apple' && appleLibraryError}
-                  <div class="text-xs text-red-400 bg-red-500/10 rounded p-2 border border-red-500/20">
-                    {appleLibraryError}
-                  </div>
-                {:else if syncStatus}
-                  <div class="flex justify-between">
-                    <span>Catalog artists synced:</span>
-                    <span class="font-medium text-zinc-300">{syncStatus.artists_count?.toLocaleString() ?? 0}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Last synced:</span>
-                    <span class="font-medium text-zinc-300">{formatDate(syncStatus.last_sync)}</span>
-                  </div>
-                {:else}
-                  <div class="text-zinc-500">No library data synced yet</div>
-                {/if}
-                <!-- Provider sync progress -->
-                {#if getProviderSyncStatusForPlatform(platform.id)?.state === 'running'}
-                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
-                  <div class="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 space-y-1.5">
-                    <div class="flex items-center gap-2 text-xs font-medium text-indigo-300">
-                      <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                      {pss?.message || 'Syncing...'}
-                    </div>
-                    {#if pss?.phase}
-                      {@const phases = ['liked', 'albums', 'artists', 'playlists', 'playlist_tracks', 'done']}
-                      {@const currentIdx = phases.indexOf(pss.phase)}
-                      <div class="flex gap-0.5">
-                        {#each phases.slice(0, -1) as _, i}
-                          <div
-                            class="h-1 flex-1 rounded-full {i < currentIdx ? 'bg-indigo-400' : i === currentIdx ? 'bg-indigo-400 animate-pulse' : 'bg-zinc-700'}"
-                          ></div>
-                        {/each}
-                      </div>
-                      <div class="text-xs text-zinc-400 flex flex-wrap gap-x-3">
-                        {#if pss.liked_count}<span>{pss.liked_count} songs</span>{/if}
-                        {#if pss.album_count}<span>{pss.album_count} albums</span>{/if}
-                        {#if pss.artist_count}<span>{pss.artist_count} artists</span>{/if}
-                        {#if pss.playlist_track_count}<span>{pss.playlist_track_count} playlist tracks</span>{/if}
-                      </div>
-                    {/if}
-                  </div>
-                {:else if getProviderSyncStatusForPlatform(platform.id)?.state === 'failed'}
-                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
-                  <div class="text-xs text-red-400 bg-red-500/10 rounded p-2 border border-red-500/20">
-                    {pss?.error_message || pss?.message || 'Sync failed'}
-                    {#if pss?.completed_at}
-                      <span class="text-zinc-500 ml-1">({timeAgo(pss.completed_at)})</span>
-                    {/if}
-                  </div>
-                {:else if getProviderSyncStatusForPlatform(platform.id)?.state === 'completed' && getProviderSyncStatusForPlatform(platform.id)?.completed_at}
-                  {@const pss = getProviderSyncStatusForPlatform(platform.id)}
-                  <div class="flex justify-between text-xs text-zinc-400">
-                    <span>Last sync:</span>
-                    <span class="text-zinc-300">{timeAgo(pss?.completed_at ?? '')}</span>
-                  </div>
-                {/if}
-                {#if connection?.created_at || connection?.last_health_check}
-                  <div class="pt-2 border-t border-zinc-700 space-y-1">
-                    {#if connection?.created_at}
-                      <div class="flex justify-between">
-                        <span>Connected:</span>
-                        <span class="font-medium text-zinc-300">{formatDate(connection.created_at)}</span>
-                      </div>
-                    {/if}
-                    {#if connection?.last_health_check}
-                      <div class="flex justify-between">
-                        <span>Last check:</span>
-                        <span class="font-medium text-zinc-300">{formatDate(connection.last_health_check)}</span>
-                      </div>
-                    {/if}
-                  </div>
-                {/if}
-                {#if syncStatus?.error_message}
-                  <div class="text-xs text-red-400 bg-red-500/10 rounded p-2 border border-red-500/20">
-                    {syncStatus.error_message}
-                  </div>
-                {/if}
-              </div>
-              <!-- Action buttons -->
-              <div class="flex gap-2">
-                <button
-                  type="button"
-                  on:click={() => syncLibrary(platform)}
-                  disabled={syncingLibrary === platform.id || $isAnySyncRunning}
-                  class="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  style="background-color: {platform.color}; opacity: {syncingLibrary === platform.id || $isAnySyncRunning ? 0.5 : 1};"
-                >
-                  {#if syncingLibrary === platform.id}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Syncing...
-                  {:else}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Sync Library
-                  {/if}
-                </button>
-                <button
-                  type="button"
-                  on:click={() => disconnectPlatform(platform)}
-                  disabled={connectingPlatform === platform.id}
-                  class="px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-400 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 hover:text-white transition-all disabled:opacity-50"
-                >
-                  {#if connectingPlatform === platform.id}
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  {:else}
-                    Disconnect
-                  {/if}
-                </button>
-              </div>
-            {:else if platform.status === 'catalog-only'}
-              <!-- Catalog only - no connection needed -->
-              <div class="text-sm text-zinc-500 mb-4">
-                Public API — no account connection required
-              </div>
-              <button
-                type="button"
-                on:click={() => navigateTo('home')}
-                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-zinc-200 bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 transition-colors"
-              >
-                No account needed &mdash; search from Home
-              </button>
-            {:else}
-              <!-- Not connected state -->
-              <div class="text-sm text-zinc-500 mb-4">
-                {#if needsReconnect && connection?.error_code}
-                  <div class="text-xs text-amber-300 bg-amber-500/10 rounded p-2 border border-amber-500/20">
-                    {connection.error_code}
-                  </div>
-                {:else}
-                  Connect your account to sync your playlists and favorites
-                {/if}
-              </div>
-              <button
-                type="button"
-                on:click={() => connectPlatform(platform)}
-                disabled={connectingPlatform === platform.id || $connectionsStore.isLoading}
-                class="w-full px-4 py-2.5 rounded-lg text-sm font-medium text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                style="background-color: {platform.color};"
-              >
-                {#if connectingPlatform === platform.id}
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Connecting...
-                {:else if $connectionsStore.isLoading}
-                  <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Checking...
-                {:else}
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                  </svg>
-                  {needsReconnect ? 'Reconnect Account' : 'Connect Account'}
-                {/if}
-              </button>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    </div>
 
     <!-- Connected library stats -->
     <div class="mb-8">
@@ -2250,8 +1686,8 @@
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.artists)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.playlists)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.totalItems)}</td>
-                  <td class="px-4 py-3 text-zinc-300">{formatDate(row.lastSynced)}</td>
-                  <td class="px-4 py-3 text-zinc-300">{getStatsSourceLabel(row.source)}</td>
+                  <td class="px-4 py-3 text-zinc-300">{timeAgo(row.lastSynced)}</td>
+                  <td class="px-4 py-3 text-zinc-300">{row.source === 'live_api' ? 'Live API' : 'Imported Cache'}</td>
                   <td class="px-4 py-3">
                     {#if row.status === 'ready'}
                       <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
@@ -2357,7 +1793,7 @@
                   <div class="text-lg font-semibold text-white">Music Taste Score</div>
                 </div>
                 <div class="text-xs text-zinc-500">
-                  Computed {formatDate(tasteGrade.computed_at)}
+                  Computed {timeAgo(tasteGrade.computed_at)}
                 </div>
               </div>
 
@@ -2490,7 +1926,7 @@
               ({(libraryOffenders.total_flagged_tracks ?? 0).toLocaleString()} {unitLabel} impacted)
             </div>
             <div class="text-xs text-zinc-500">
-              Computed {formatDate(libraryOffenders.computed_at)}
+              Computed {timeAgo(libraryOffenders.computed_at)}
             </div>
           </div>
 
@@ -2826,7 +2262,7 @@
                           {/if}
                         </td>
                         <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{(group.count ?? 0).toLocaleString()}</td>
-                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{formatDate(group.last_synced)}</td>
+                        <td class="py-2 pr-4 text-zinc-300 whitespace-nowrap">{timeAgo(group.last_synced)}</td>
                         <td class="py-2 pr-0">
                           <div class="flex items-center gap-2">
                             <button
@@ -2925,7 +2361,7 @@
                           {item.album_name || item.playlist_name || '--'}
                         </td>
                         <td class="py-3 pr-4 text-xs text-zinc-500 whitespace-nowrap">{kind}</td>
-                        <td class="py-3 pr-0 text-xs text-zinc-500 whitespace-nowrap">{item.added_at ? formatDate(item.added_at) : '--'}</td>
+                        <td class="py-3 pr-0 text-xs text-zinc-500 whitespace-nowrap">{item.added_at ? timeAgo(item.added_at) : '--'}</td>
                       </tr>
                     {/each}
                   </tbody>
@@ -3006,8 +2442,8 @@
                     </span>
                   </td>
                   <td class="px-4 py-3">
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {getStatusColor(run.status)}">
-                      {getStatusIcon(run.status)} {run.status}
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium {STATUS_COLORS[run.status] || DEFAULT_STATUS_COLOR}">
+                      {STATUS_ICONS[run.status] || DEFAULT_STATUS_ICON} {run.status}
                     </span>
                   </td>
                   <td class="px-4 py-3 text-zinc-300">
@@ -3020,13 +2456,13 @@
                     {formatDuration(run.duration_ms)}
                   </td>
                   <td class="px-4 py-3 text-zinc-300">
-                    {formatDate(run.started_at)}
+                    {timeAgo(run.started_at)}
                   </td>
                   <td class="px-4 py-3">
                     {#if run.status === 'running' || run.status === 'pending'}
                       <button
                         type="button"
-                        on:click={() => handleCancelRun(run.id)}
+                        on:click={() => syncActions.cancelRun(run.id)}
                         class="brand-text-action brand-text-action--danger"
                       >
                         Cancel
@@ -3421,10 +2857,6 @@
 
   .sync-dashboard-page .space-y-1 > * + * {
     margin-top: 0.25rem;
-  }
-
-  .sync-dashboard-page .space-y-2 > * + * {
-    margin-top: 0.5rem;
   }
 
   .sync-dashboard-page .space-y-3 > * + * {

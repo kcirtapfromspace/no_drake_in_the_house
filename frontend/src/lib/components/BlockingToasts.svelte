@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { activeToasts, blockingStore, type Toast } from '../stores/blocking';
+  import { activeToasts, blockingStore } from '../stores/blocking';
   import { fly, fade } from 'svelte/transition';
 
   let toastTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
@@ -17,12 +17,6 @@
     ? { duration: 0 }
     : { duration: 200 };
 
-  function handleKeydown(event: KeyboardEvent, toastId: string) {
-    if (event.key === 'Escape') {
-      dismissToast(toastId);
-    }
-  }
-
   function dismissToast(id: string) {
     blockingStore.removeToast(id);
     const timer = toastTimers.get(id);
@@ -32,19 +26,11 @@
     }
   }
 
-  function setupAutoRemove(toast: Toast) {
-    if (toast.duration && toast.dismissible) {
-      const timerId = setTimeout(() => {
-        dismissToast(toast.id);
-      }, toast.duration);
-      toastTimers.set(toast.id, timerId);
-    }
-  }
-
   $: {
     $activeToasts.forEach(toast => {
       if (toast.dismissible && toast.duration && !toastTimers.has(toast.id)) {
-        setupAutoRemove(toast);
+        const timerId = setTimeout(() => dismissToast(toast.id), toast.duration);
+        toastTimers.set(toast.id, timerId);
       }
     });
   }
@@ -63,14 +49,12 @@
 >
   {#each $activeToasts as toast (toast.id)}
     {@const isError = toast.type === 'error'}
-    <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
     <div
       class="toast toast--{toast.type}"
       role="alert"
       aria-live={isError ? 'assertive' : 'polite'}
       in:fly={flyTransition}
       out:fade={fadeTransition}
-      on:keydown={(e) => handleKeydown(e, toast.id)}
     >
       <div class="toast__body">
         <div class="toast__content">

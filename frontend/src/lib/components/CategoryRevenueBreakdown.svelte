@@ -79,12 +79,6 @@
     }
   }
 
-  function handleArtistClick(artistId: string) {
-    if (onArtistClick) {
-      onArtistClick(artistId);
-    }
-  }
-
   onMount(() => {
     loadData();
   });
@@ -199,8 +193,8 @@
                   {#each categoryDetails.top_artists as artist}
                     <div
                       class="flex items-center justify-between py-1 px-2 rounded hover:bg-zinc-600 cursor-pointer"
-                      on:click|stopPropagation={() => handleArtistClick(artist.artist_id)}
-                      on:keypress={(e) => e.key === 'Enter' && handleArtistClick(artist.artist_id)}
+                      on:click|stopPropagation={() => onArtistClick?.(artist.artist_id)}
+                      on:keypress={(e) => e.key === 'Enter' && onArtistClick?.(artist.artist_id)}
                       role="button"
                       tabindex="0"
                       data-testid="artist-item-{artist.artist_id}"

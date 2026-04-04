@@ -83,24 +83,12 @@
     return isHealthy ? 'Healthy' : 'Unhealthy';
   }
 
-  function getOverallStatusColor(status: SystemHealth['overall'] | undefined): string {
-    if (!status) return 'text-zinc-400';
-    switch (status) {
-      case 'healthy': return 'text-green-400';
-      case 'degraded': return 'text-yellow-400';
-      case 'unhealthy': return 'text-red-400';
-      default: return 'text-zinc-400';
-    }
-  }
-
   function formatLatency(latency: number | undefined): string {
-    if (latency === undefined) return '--';
-    return `${latency}ms`;
+    return latency === undefined ? '--' : `${latency}ms`;
   }
 
   function formatLastChecked(date: Date | null): string {
-    if (!date) return 'Never';
-    return date.toLocaleTimeString();
+    return date ? date.toLocaleTimeString() : 'Never';
   }
 
   onMount(() => {
@@ -176,18 +164,6 @@
       </div>
     </section>
 
-    <!-- Overall Status -->
-    <div class="health-dashboard__overall">
-      <div class="health-dashboard__overall-label">Overall Status</div>
-      <div class="health-dashboard__overall-status {getOverallStatusColor(systemHealth?.overall)}">
-        {#if systemHealth}
-          {systemHealth.overall.toUpperCase()}
-        {:else}
-          NO DATA
-        {/if}
-      </div>
-    </div>
-
     <!-- Services Grid -->
     <div class="health-dashboard__grid">
       {#each services as service}
@@ -205,24 +181,6 @@
             <div class="health-dashboard__metric">
               <span class="health-dashboard__metric-label">Response Time</span>
               <span class="health-dashboard__metric-value">{formatLatency(latency)}</span>
-            </div>
-            <div class="health-dashboard__metric">
-              <span class="health-dashboard__metric-label">Status</span>
-              <span class="health-dashboard__metric-value {isHealthy ? 'text-green-400' : isHealthy === false ? 'text-red-400' : 'text-zinc-400'}">
-                {#if isHealthy === true}
-                  <svg class="health-dashboard__status-icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                  </svg>
-                {:else if isHealthy === false}
-                  <svg class="health-dashboard__status-icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                  </svg>
-                {:else}
-                  <svg class="health-dashboard__status-icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                  </svg>
-                {/if}
-              </span>
             </div>
           </div>
         </div>
@@ -243,33 +201,6 @@
 
   .health-dashboard__container {
     width: 100%;
-  }
-
-  .health-dashboard__overall {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.25rem;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
-      rgba(17, 17, 19, 0.88);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-xl);
-    margin-bottom: 1.5rem;
-    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
-    backdrop-filter: blur(12px);
-  }
-
-  .health-dashboard__overall-label {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--color-text-secondary);
-  }
-
-  .health-dashboard__overall-status {
-    font-size: var(--text-sm);
-    font-weight: 700;
-    letter-spacing: 0.05em;
   }
 
   .health-dashboard__grid {
@@ -346,13 +277,6 @@
     color: var(--color-text-primary);
     display: flex;
     align-items: center;
-  }
-
-  .health-dashboard__status-icon {
-    width: 1.125rem;
-    height: 1.125rem;
-    max-width: none;
-    max-height: none;
   }
 
   .health-dashboard__notice {

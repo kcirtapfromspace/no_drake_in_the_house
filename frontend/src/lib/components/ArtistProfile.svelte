@@ -19,6 +19,19 @@
   import { apiClient } from '../utils/api-client';
   import { validateLinks, type LinkCheckResult } from '../utils/link-validator';
   import ArtistDiscographyRevenue from './ArtistDiscographyRevenue.svelte';
+  import { hideImgOnError } from '../utils/artist-helpers';
+
+  interface CatalogTrack {
+    id: string;
+    title: string;
+    album?: string | null;
+    albumCover?: string | null;
+    role: string;
+    year?: number | null;
+    isBlocked: boolean;
+    collaborators?: string[];
+    duration?: string | null;
+  }
 
   export let artistId: string;
 
@@ -35,18 +48,6 @@
     { key: 'connections', label: 'Connections' },
   ];
   function setTab(key: string) { activeTab = key as ProfileTab; }
-
-  // Catalog data for tracking all artist appearances
-  interface CatalogTrack {
-    id: string;
-    title: string;
-    album?: string;
-    role: 'main' | 'featured' | 'producer' | 'writer';
-    year?: number;
-    isBlocked: boolean;
-    collaborators?: string[];
-    duration?: string;
-  }
 
   let catalog: CatalogTrack[] = [];
   let catalogFilter: 'all' | 'blocked' | 'unblocked' = 'all';
@@ -82,35 +83,17 @@
   // Expandable albums state for catalog view
   let expandedCatalogAlbums: Set<string> = new Set();
 
-  // Album cover modal state
-  let showAlbumCoverModal = false;
-  let selectedAlbumCover: { url: string; name: string } | null = null;
-
-  // Blocking options dropdown state
   let showBlockingOptions = false;
 
   // Reduced motion preference
   let prefersReducedMotion = false;
   $: slideDuration = prefersReducedMotion ? 0 : 200;
 
-  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
-  function handleImgError(e: Event) {
-    const img = e.currentTarget as HTMLImageElement;
-    img.alt = 'Image unavailable';
-    img.style.minHeight = '200px';
-    img.style.background = 'var(--color-bg-interactive)';
-  }
-
   function hexToRgba(hex: string, alpha: number): string {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  function closeAlbumCoverModal() {
-    showAlbumCoverModal = false;
-    selectedAlbumCover = null;
   }
 
   function toggleCatalogAlbum(albumName: string) {
@@ -122,27 +105,11 @@
     expandedCatalogAlbums = new Set(expandedCatalogAlbums);
   }
 
-  // Album cover art mapping - Real Spotify album art URLs for Drake
-  const albumCovers: Record<string, string> = {
-    'For All The Dogs': 'https://i.scdn.co/image/ab67616d0000b273929008d1bec2f6f89fb0c3f6',
-    'Her Loss': 'https://i.scdn.co/image/ab67616d0000b2732a1d0e45e67c5c4e5e5d8fdb',
-    'Honestly, Nevermind': 'https://i.scdn.co/image/ab67616d0000b273cd945b4e3de57edd28481a3f',
-    'Certified Lover Boy': 'https://i.scdn.co/image/ab67616d0000b2738dc0d801766a5aa6a33cbe37',
-    'Dark Lane Demo Tapes': 'https://i.scdn.co/image/ab67616d0000b273d4e1e1e9e0f0f5c2beb9c5a5',
-    'Scorpion': 'https://i.scdn.co/image/ab67616d0000b273f907de96b9a4fbc04accc0d5',
-    'More Life': 'https://i.scdn.co/image/ab67616d0000b2734f0fd9dad63977146e685700',
-    'Views': 'https://i.scdn.co/image/ab67616d0000b2739416ed64daf84936d89e671c',
-    "If You're Reading This It's Too Late": 'https://i.scdn.co/image/ab67616d0000b27347b3bd2069e49f7f141a8aec',
-    'Nothing Was the Same': 'https://i.scdn.co/image/ab67616d0000b2731ad8609a32946f90cf87eb71',
-    'Take Care': 'https://i.scdn.co/image/ab67616d0000b27318afb1aae2b7197d7f0d768c',
-    'Thank Me Later': 'https://i.scdn.co/image/ab67616d0000b273fc4f17340773c6c3579c0c7a',
-    'So Far Gone': 'https://i.scdn.co/image/ab67616d0000b273fda5e89768a2630f7bc4d3ae',
-    'What a Time to Be Alive': 'https://i.scdn.co/image/ab67616d0000b273c58c6a71a8bdce52a4399d1c',
-  };
-
-  function getAlbumCover(albumName: string | undefined): string {
+  function getAlbumCover(albumName: string | null | undefined): string {
     if (!albumName) return '';
-    return albumCovers[albumName] || '';
+    // Look up cover from the catalog tracks themselves
+    const track = catalog.find(t => t.album === albumName && t.albumCover);
+    return track?.albumCover || '';
   }
 
   // Group catalog tracks by album
@@ -282,20 +249,16 @@
   let dnpList: Set<string> = new Set();
 
   function normalizeDnpArtistIds(value: unknown): string[] {
-    if (Array.isArray(value)) {
-      return value
-        .map((item) => (item as { artist_id?: string; id?: string }).artist_id || (item as { artist_id?: string; id?: string }).id || '')
-        .filter(Boolean);
-    }
+    type DnpItem = { artist_id?: string; id?: string };
+    const extractIds = (arr: DnpItem[]) =>
+      arr.map(item => item.artist_id || item.id || '').filter(Boolean);
+
+    if (Array.isArray(value)) return extractIds(value);
 
     if (value && typeof value === 'object') {
       for (const key of ['entries', 'artists', 'items', 'data']) {
         const nested = (value as Record<string, unknown>)[key];
-        if (Array.isArray(nested)) {
-          return nested
-            .map((item) => (item as { artist_id?: string; id?: string }).artist_id || (item as { artist_id?: string; id?: string }).id || '')
-            .filter(Boolean);
-        }
+        if (Array.isArray(nested)) return extractIds(nested);
       }
     }
 
@@ -395,396 +358,31 @@
         profile.collaborators = [];
       }
 
-      // Add credits and catalog data for Drake showcase
-      if (profile && profile.canonical_name === 'Drake') {
-        // Add writers/producers credits for Drake
+      // Fetch catalog and credits from the backend
+      const [catalogResult, creditsResult] = await Promise.all([
+        apiClient.get<any>(`/api/v1/artists/${artistId}/catalog`).catch(() => null),
+        apiClient.get<any>(`/api/v1/artists/${artistId}/credits`).catch(() => null),
+      ]);
+
+      if (catalogResult?.success && catalogResult.data?.tracks && profile) {
+        catalog = catalogResult.data.tracks.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          album: t.album,
+          albumCover: t.albumCover,
+          role: t.role || 'main',
+          year: t.year,
+          isBlocked: t.isBlocked,
+          collaborators: t.collaborators || [],
+          duration: t.duration,
+        }));
+      }
+
+      if (creditsResult?.success && creditsResult.data && profile) {
         profile.credits = {
-          writers: [
-            { id: 'writer-1', name: 'Noah "40" Shebib', role: 'writer', track_count: 120, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb9e3c7c7c7c7c7c7c7c7c7c7c' },
-            { id: 'writer-2', name: 'Quentin Miller', role: 'writer', track_count: 15, is_flagged: false, note: 'Reference track controversy', image_url: null },
-            { id: 'writer-3', name: 'PartyNextDoor', role: 'writer', track_count: 25, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb9997e163236a0dbbe8e7fdf7' },
-            { id: 'writer-4', name: 'Nickelus F', role: 'writer', track_count: 8, is_flagged: false, image_url: null },
-            { id: 'writer-5', name: 'Kenza Samir', role: 'writer', track_count: 12, is_flagged: false, image_url: null },
-            { id: 'writer-6', name: 'Majid Jordan', role: 'writer', track_count: 18, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb2d2d2d2d2d2d2d2d2d2d2d2d' },
-            { id: 'writer-7', name: 'OVO Noel', role: 'writer', track_count: 10, is_flagged: false, image_url: null },
-          ],
-          producers: [
-            { id: 'prod-1', name: 'Noah "40" Shebib', role: 'producer', track_count: 150, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb9e3c7c7c7c7c7c7c7c7c7c7c' },
-            { id: 'prod-2', name: 'Boi-1da', role: 'producer', track_count: 55, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb6a6a6a6a6a6a6a6a6a6a6a6a' },
-            { id: 'prod-3', name: 'Metro Boomin', role: 'producer', track_count: 25, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb9d4b4b4b4b4b4b4b4b4b4b4b' },
-            { id: 'prod-4', name: 'Tay Keith', role: 'producer', track_count: 15, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb8e8e8e8e8e8e8e8e8e8e8e8e' },
-            { id: 'prod-5', name: 'Hit-Boy', role: 'producer', track_count: 12, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb7f7f7f7f7f7f7f7f7f7f7f7f' },
-            { id: 'prod-6', name: 'Mike WiLL Made-It', role: 'producer', track_count: 8, is_flagged: false, image_url: 'https://i.scdn.co/image/ab6761610000e5eb5e5e5e5e5e5e5e5e5e5e5e5e' },
-            { id: 'prod-7', name: 'Vinylz', role: 'producer', track_count: 20, is_flagged: false, image_url: null },
-            { id: 'prod-8', name: 'T-Minus', role: 'producer', track_count: 18, is_flagged: false, image_url: null },
-          ],
+          writers: creditsResult.data.writers || [],
+          producers: creditsResult.data.producers || [],
         };
-
-        // Add comprehensive catalog for Drake - FULL discography across his career
-        catalog = [
-          // ========================================
-          // MAIN ARTIST TRACKS (200+)
-          // ========================================
-
-          // --- FOR ALL THE DOGS (2023) - 23 tracks ---
-          { id: 'fatd-1', title: 'Virginia Beach', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:24' },
-          { id: 'fatd-2', title: 'Amen', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Teezo Touchdown'], duration: '2:55' },
-          { id: 'fatd-3', title: 'Calling For You', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['21 Savage'], duration: '3:41' },
-          { id: 'fatd-4', title: 'Fear of Heights', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '5:34' },
-          { id: 'fatd-5', title: 'Daylight', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:29' },
-          { id: 'fatd-6', title: 'First Person Shooter', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['J. Cole'], duration: '4:05' },
-          { id: 'fatd-7', title: 'IDGAF', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Yeat'], duration: '3:14' },
-          { id: 'fatd-8', title: 'Rich Baby Daddy', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Sexyy Red', 'SZA'], duration: '3:49' },
-          { id: 'fatd-9', title: 'Slime You Out', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['SZA'], duration: '4:14' },
-          { id: 'fatd-10', title: 'Members Only', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:22' },
-          { id: 'fatd-11', title: 'What Would Pluto Do', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '2:28' },
-          { id: 'fatd-12', title: 'Tried Our Best', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '2:37' },
-          { id: 'fatd-13', title: 'Screw The World', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:00' },
-          { id: 'fatd-14', title: 'All The Parties', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Chief Keef'], duration: '3:57' },
-          { id: 'fatd-15', title: '8am in Charlotte', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '4:56' },
-          { id: 'fatd-16', title: 'Gently', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Bad Bunny'], duration: '3:55' },
-          { id: 'fatd-17', title: 'Drew a Picasso', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '2:25' },
-          { id: 'fatd-18', title: 'Bahamas Promises', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '2:45' },
-          { id: 'fatd-19', title: 'Away From Home', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:44' },
-          { id: 'fatd-20', title: 'Another Late Night', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, collaborators: ['Lil Yachty'], duration: '3:32' },
-          { id: 'fatd-21', title: 'BBL', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '2:49' },
-          { id: 'fatd-22', title: 'Polar Opposites', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:09' },
-          { id: 'fatd-23', title: 'Stories About My Brother', album: 'For All The Dogs', role: 'main', year: 2023, isBlocked: true, duration: '3:56' },
-
-          // --- HER LOSS (2022) - 16 tracks ---
-          { id: 'hl-1', title: 'Rich Flex', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:59' },
-          { id: 'hl-2', title: 'Major Distribution', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '2:46' },
-          { id: 'hl-3', title: 'On BS', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:09' },
-          { id: 'hl-4', title: 'BackOutsideBoyz', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:14' },
-          { id: 'hl-5', title: 'Privileged Rappers', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:54' },
-          { id: 'hl-6', title: 'Spin Bout U', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:27' },
-          { id: 'hl-7', title: 'Hours In Silence', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '7:38' },
-          { id: 'hl-8', title: 'Treacherous Twins', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:48' },
-          { id: 'hl-9', title: 'Circo Loco', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:14' },
-          { id: 'hl-10', title: 'Jumbotron Shit Poppin', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '2:19' },
-          { id: 'hl-11', title: 'More M\'s', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage', 'Travis Scott'], duration: '3:43' },
-          { id: 'hl-12', title: '3AM on Glenwood', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '2:52' },
-          { id: 'hl-13', title: 'Middle of the Ocean', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '2:54' },
-          { id: 'hl-14', title: 'Pussy & Millions', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage', 'Travis Scott'], duration: '3:20' },
-          { id: 'hl-15', title: 'Broke Boys', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:39' },
-          { id: 'hl-16', title: 'I Guess It\'s Fuck Me', album: 'Her Loss', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '4:04' },
-
-          // --- HONESTLY, NEVERMIND (2022) - 14 tracks ---
-          { id: 'hn-1', title: 'Intro', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '1:36' },
-          { id: 'hn-2', title: 'Falling Back', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '3:01' },
-          { id: 'hn-3', title: 'Texts Go Green', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:13' },
-          { id: 'hn-4', title: 'Currents', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:53' },
-          { id: 'hn-5', title: 'A Keeper', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:40' },
-          { id: 'hn-6', title: 'Calling My Name', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:48' },
-          { id: 'hn-7', title: 'Sticky', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:50' },
-          { id: 'hn-8', title: 'Massive', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '3:17' },
-          { id: 'hn-9', title: 'Flight\'s Booked', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:25' },
-          { id: 'hn-10', title: 'Overdrive', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '3:08' },
-          { id: 'hn-11', title: 'Down Hill', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:42' },
-          { id: 'hn-12', title: 'Tie That Binds', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:29' },
-          { id: 'hn-13', title: 'Liability', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, duration: '2:37' },
-          { id: 'hn-14', title: 'Jimmy Cooks', album: 'Honestly, Nevermind', role: 'main', year: 2022, isBlocked: true, collaborators: ['21 Savage'], duration: '3:39' },
-
-          // --- CERTIFIED LOVER BOY (2021) - 21 tracks ---
-          { id: 'clb-1', title: 'Champagne Poetry', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '6:07' },
-          { id: 'clb-2', title: 'Papi\'s Home', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '2:58' },
-          { id: 'clb-3', title: 'Girls Want Girls', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Lil Baby'], duration: '3:41' },
-          { id: 'clb-4', title: 'In The Bible', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Lil Durk', 'Giveon'], duration: '4:33' },
-          { id: 'clb-5', title: 'Love All', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Jay-Z'], duration: '3:36' },
-          { id: 'clb-6', title: 'Fair Trade', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Travis Scott'], duration: '4:51' },
-          { id: 'clb-7', title: 'Way 2 Sexy', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Future', 'Young Thug'], duration: '4:17' },
-          { id: 'clb-8', title: 'TSU', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '5:08' },
-          { id: 'clb-9', title: 'N 2 Deep', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Future'], duration: '4:30' },
-          { id: 'clb-10', title: 'Pipe Down', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '3:58' },
-          { id: 'clb-11', title: 'Yebba\'s Heartbreak', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Yebba'], duration: '2:17' },
-          { id: 'clb-12', title: 'No Friends In The Industry', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '3:47' },
-          { id: 'clb-13', title: 'Knife Talk', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['21 Savage', 'Project Pat'], duration: '4:03' },
-          { id: 'clb-14', title: '7am on Bridle Path', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '5:18' },
-          { id: 'clb-15', title: 'Race My Mind', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '3:58' },
-          { id: 'clb-16', title: 'Fountains', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Tems'], duration: '3:18' },
-          { id: 'clb-17', title: 'Get Along Better', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Ty Dolla $ign'], duration: '3:16' },
-          { id: 'clb-18', title: 'You Only Live Twice', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Lil Wayne', 'Rick Ross'], duration: '4:57' },
-          { id: 'clb-19', title: 'IMY2', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, collaborators: ['Kid Cudi'], duration: '3:18' },
-          { id: 'clb-20', title: 'F**king Fans', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '6:38' },
-          { id: 'clb-21', title: 'The Remorse', album: 'Certified Lover Boy', role: 'main', year: 2021, isBlocked: true, duration: '4:41' },
-
-          // --- DARK LANE DEMO TAPES (2020) - 14 tracks ---
-          { id: 'dldt-1', title: 'Deep Pockets', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '2:55' },
-          { id: 'dldt-2', title: 'When To Say When', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '5:28' },
-          { id: 'dldt-3', title: 'Chicago Freestyle', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Giveon'], duration: '4:37' },
-          { id: 'dldt-4', title: 'Not You Too', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Chris Brown'], duration: '4:15' },
-          { id: 'dldt-5', title: 'Toosie Slide', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '4:07' },
-          { id: 'dldt-6', title: 'Desires', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Future'], duration: '3:55' },
-          { id: 'dldt-7', title: 'Time Flies', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '3:01' },
-          { id: 'dldt-8', title: 'Landed', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '2:50' },
-          { id: 'dldt-9', title: 'D4L', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Future', 'Young Thug'], duration: '3:27' },
-          { id: 'dldt-10', title: 'Pain 1993', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Playboi Carti'], duration: '2:32' },
-          { id: 'dldt-11', title: 'Losses', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '4:16' },
-          { id: 'dldt-12', title: 'From Florida With Love', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '3:22' },
-          { id: 'dldt-13', title: 'Demons', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, collaborators: ['Fivio Foreign', 'Sosa Geek'], duration: '3:58' },
-          { id: 'dldt-14', title: 'War', album: 'Dark Lane Demo Tapes', role: 'main', year: 2020, isBlocked: true, duration: '3:25' },
-
-          // --- SCORPION (2018) - 25 tracks ---
-          { id: 'scorp-1', title: 'Survival', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '2:36' },
-          { id: 'scorp-2', title: 'Nonstop', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:58' },
-          { id: 'scorp-3', title: 'Elevate', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:04' },
-          { id: 'scorp-4', title: 'Emotionless', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, collaborators: ['Mariah Carey'], duration: '5:02' },
-          { id: 'scorp-5', title: 'God\'s Plan', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:19' },
-          { id: 'scorp-6', title: 'I\'m Upset', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:34' },
-          { id: 'scorp-7', title: '8 Out of 10', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:21' },
-          { id: 'scorp-8', title: 'Mob Ties', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:29' },
-          { id: 'scorp-9', title: 'Can\'t Take a Joke', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:20' },
-          { id: 'scorp-10', title: 'Sandra\'s Rose', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '4:23' },
-          { id: 'scorp-11', title: 'Talk Up', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, collaborators: ['Jay-Z'], duration: '3:17' },
-          { id: 'scorp-12', title: 'Is There More', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '4:33' },
-          { id: 'scorp-13', title: 'Peak', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '2:56' },
-          { id: 'scorp-14', title: 'Summer Games', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:30' },
-          { id: 'scorp-15', title: 'Jaded', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '4:14' },
-          { id: 'scorp-16', title: 'Nice For What', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:31' },
-          { id: 'scorp-17', title: 'Finesse', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:10' },
-          { id: 'scorp-18', title: 'Ratchet Happy Birthday', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '2:34' },
-          { id: 'scorp-19', title: 'That\'s How You Feel', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:36' },
-          { id: 'scorp-20', title: 'Blue Tint', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:25' },
-          { id: 'scorp-21', title: 'In My Feelings', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:37' },
-          { id: 'scorp-22', title: 'Don\'t Matter to Me', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, collaborators: ['Michael Jackson'], duration: '4:00' },
-          { id: 'scorp-23', title: 'After Dark', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, collaborators: ['Ty Dolla $ign', 'Static Major'], duration: '4:32' },
-          { id: 'scorp-24', title: 'Final Fantasy', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '3:14' },
-          { id: 'scorp-25', title: 'March 14', album: 'Scorpion', role: 'main', year: 2018, isBlocked: true, duration: '5:09' },
-
-          // --- MORE LIFE (2017) - 22 tracks ---
-          { id: 'ml-1', title: 'Free Smoke', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:36' },
-          { id: 'ml-2', title: 'No Long Talk', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Giggs'], duration: '2:33' },
-          { id: 'ml-3', title: 'Passionfruit', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '4:58' },
-          { id: 'ml-4', title: 'Jorja Interlude', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '1:49' },
-          { id: 'ml-5', title: 'Get It Together', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Jorja Smith', 'Black Coffee'], duration: '5:07' },
-          { id: 'ml-6', title: 'Madiba Riddim', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:13' },
-          { id: 'ml-7', title: 'Blem', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:26' },
-          { id: 'ml-8', title: '4422', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Sampha'], duration: '4:27' },
-          { id: 'ml-9', title: 'Gyalchester', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:09' },
-          { id: 'ml-10', title: 'Skepta Interlude', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '2:23' },
-          { id: 'ml-11', title: 'Portland', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Quavo', 'Travis Scott'], duration: '3:57' },
-          { id: 'ml-12', title: 'Sacrifices', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['2 Chainz', 'Young Thug'], duration: '5:41' },
-          { id: 'ml-13', title: 'Nothings Into Somethings', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '4:15' },
-          { id: 'ml-14', title: 'Teenage Fever', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:40' },
-          { id: 'ml-15', title: 'KMT', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Giggs'], duration: '3:06' },
-          { id: 'ml-16', title: 'Lose You', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:23' },
-          { id: 'ml-17', title: 'Can\'t Have Everything', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '4:15' },
-          { id: 'ml-18', title: 'Glow', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Kanye West'], duration: '3:21' },
-          { id: 'ml-19', title: 'Since Way Back', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['PARTYNEXTDOOR'], duration: '4:29' },
-          { id: 'ml-20', title: 'Fake Love', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '3:27' },
-          { id: 'ml-21', title: 'Ice Melts', album: 'More Life', role: 'main', year: 2017, isBlocked: true, collaborators: ['Young Thug'], duration: '3:35' },
-          { id: 'ml-22', title: 'Do Not Disturb', album: 'More Life', role: 'main', year: 2017, isBlocked: true, duration: '5:07' },
-
-          // --- VIEWS (2016) - 20 tracks ---
-          { id: 'views-1', title: 'Keep the Family Close', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '6:25' },
-          { id: 'views-2', title: '9', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:04' },
-          { id: 'views-3', title: 'U With Me?', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '6:06' },
-          { id: 'views-4', title: 'Feel No Ways', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:34' },
-          { id: 'views-5', title: 'Hype', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '3:28' },
-          { id: 'views-6', title: 'Weston Road Flows', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:47' },
-          { id: 'views-7', title: 'Redemption', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '5:32' },
-          { id: 'views-8', title: 'With You', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['PARTYNEXTDOOR'], duration: '4:32' },
-          { id: 'views-9', title: 'Faithful', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['Pimp C', 'dvsn'], duration: '4:52' },
-          { id: 'views-10', title: 'Still Here', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '3:42' },
-          { id: 'views-11', title: 'Controlla', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:04' },
-          { id: 'views-12', title: 'One Dance', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['Wizkid', 'Kyla'], duration: '2:54' },
-          { id: 'views-13', title: 'Grammys', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['Future'], duration: '4:11' },
-          { id: 'views-14', title: 'Child\'s Play', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '3:56' },
-          { id: 'views-15', title: 'Pop Style', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '3:27' },
-          { id: 'views-16', title: 'Too Good', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['Rihanna'], duration: '4:23' },
-          { id: 'views-17', title: 'Summers Over Interlude', album: 'Views', role: 'main', year: 2016, isBlocked: true, collaborators: ['Majid Jordan'], duration: '1:58' },
-          { id: 'views-18', title: 'Fire & Desire', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:55' },
-          { id: 'views-19', title: 'Views', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:46' },
-          { id: 'views-20', title: 'Hotline Bling', album: 'Views', role: 'main', year: 2016, isBlocked: true, duration: '4:27' },
-
-          // --- IF YOU'RE READING THIS IT'S TOO LATE (2015) - 17 tracks ---
-          { id: 'iyrtitl-1', title: 'Legend', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '3:17' },
-          { id: 'iyrtitl-2', title: 'Energy', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '3:03' },
-          { id: 'iyrtitl-3', title: '10 Bands', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '2:58' },
-          { id: 'iyrtitl-4', title: 'Know Yourself', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '4:27' },
-          { id: 'iyrtitl-5', title: 'No Tellin\'', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '4:05' },
-          { id: 'iyrtitl-6', title: 'Madonna', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '4:00' },
-          { id: 'iyrtitl-7', title: '6 God', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '2:57' },
-          { id: 'iyrtitl-8', title: 'Star67', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '4:27' },
-          { id: 'iyrtitl-9', title: 'Preach', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, collaborators: ['PARTYNEXTDOOR'], duration: '3:28' },
-          { id: 'iyrtitl-10', title: 'Wednesday Night Interlude', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, collaborators: ['PARTYNEXTDOOR'], duration: '3:47' },
-          { id: 'iyrtitl-11', title: 'Used To', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, collaborators: ['Lil Wayne'], duration: '4:06' },
-          { id: 'iyrtitl-12', title: '6 Man', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '3:04' },
-          { id: 'iyrtitl-13', title: 'Now & Forever', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '3:33' },
-          { id: 'iyrtitl-14', title: 'Company', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, collaborators: ['Travis Scott'], duration: '4:07' },
-          { id: 'iyrtitl-15', title: 'You & The 6', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '5:04' },
-          { id: 'iyrtitl-16', title: 'Jungle', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '5:49' },
-          { id: 'iyrtitl-17', title: '6PM in New York', album: "If You're Reading This It's Too Late", role: 'main', year: 2015, isBlocked: true, duration: '4:49' },
-
-          // --- NOTHING WAS THE SAME (2013) - 15 tracks ---
-          { id: 'nwts-1', title: 'Tuscan Leather', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '6:06' },
-          { id: 'nwts-2', title: 'Furthest Thing', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '5:34' },
-          { id: 'nwts-3', title: 'Started From the Bottom', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '2:59' },
-          { id: 'nwts-4', title: 'Wu-Tang Forever', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '4:35' },
-          { id: 'nwts-5', title: 'Own It', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '3:54' },
-          { id: 'nwts-6', title: 'Worst Behavior', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '4:30' },
-          { id: 'nwts-7', title: 'From Time', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['Jhené Aiko'], duration: '5:23' },
-          { id: 'nwts-8', title: 'Hold On, We\'re Going Home', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['Majid Jordan'], duration: '3:47' },
-          { id: 'nwts-9', title: 'Connect', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '4:30' },
-          { id: 'nwts-10', title: 'The Language', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '5:07' },
-          { id: 'nwts-11', title: '305 To My City', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['Detail'], duration: '2:54' },
-          { id: 'nwts-12', title: 'Too Much', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['Sampha'], duration: '5:28' },
-          { id: 'nwts-13', title: 'Pound Cake / Paris Morton Music 2', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['Jay-Z'], duration: '8:11' },
-          { id: 'nwts-14', title: 'Come Thru', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, duration: '4:20' },
-          { id: 'nwts-15', title: 'All Me', album: 'Nothing Was the Same', role: 'main', year: 2013, isBlocked: true, collaborators: ['2 Chainz', 'Big Sean'], duration: '5:06' },
-
-          // --- TAKE CARE (2011) - 20 tracks ---
-          { id: 'tc-1', title: 'Over My Dead Body', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '4:46' },
-          { id: 'tc-2', title: 'Shot For Me', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '4:22' },
-          { id: 'tc-3', title: 'Headlines', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '3:56' },
-          { id: 'tc-4', title: 'Crew Love', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['The Weeknd'], duration: '3:28' },
-          { id: 'tc-5', title: 'Take Care', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Rihanna'], duration: '4:37' },
-          { id: 'tc-6', title: 'Marvin\'s Room', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '5:47' },
-          { id: 'tc-7', title: 'Buried Alive Interlude', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Kendrick Lamar'], duration: '2:37' },
-          { id: 'tc-8', title: 'Under Ground Kings', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '5:33' },
-          { id: 'tc-9', title: 'We\'ll Be Fine', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Birdman'], duration: '3:49' },
-          { id: 'tc-10', title: 'Make Me Proud', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Nicki Minaj'], duration: '4:09' },
-          { id: 'tc-11', title: 'Lord Knows', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Rick Ross'], duration: '4:47' },
-          { id: 'tc-12', title: 'Cameras / Good Ones Go Interlude', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '6:06' },
-          { id: 'tc-13', title: 'Doing It Wrong', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Stevie Wonder'], duration: '4:17' },
-          { id: 'tc-14', title: 'The Real Her', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Lil Wayne', 'Andre 3000'], duration: '5:16' },
-          { id: 'tc-15', title: 'Look What You\'ve Done', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '5:55' },
-          { id: 'tc-16', title: 'HYFR (Hell Ya Fucking Right)', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Lil Wayne'], duration: '3:28' },
-          { id: 'tc-17', title: 'Practice', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '2:55' },
-          { id: 'tc-18', title: 'The Ride', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['The Weeknd'], duration: '4:25' },
-          { id: 'tc-19', title: 'The Motto', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, collaborators: ['Lil Wayne'], duration: '3:00' },
-          { id: 'tc-20', title: 'Hate Sleeping Alone', album: 'Take Care', role: 'main', year: 2011, isBlocked: true, duration: '4:08' },
-
-          // --- THANK ME LATER (2010) - 14 tracks ---
-          { id: 'tml-1', title: 'Fireworks', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['Alicia Keys'], duration: '4:57' },
-          { id: 'tml-2', title: 'Karaoke', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '4:15' },
-          { id: 'tml-3', title: 'The Resistance', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '3:53' },
-          { id: 'tml-4', title: 'Over', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '4:14' },
-          { id: 'tml-5', title: 'Show Me a Good Time', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '4:06' },
-          { id: 'tml-6', title: 'Up All Night', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['Nicki Minaj'], duration: '4:25' },
-          { id: 'tml-7', title: 'Fancy', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['T.I.', 'Swizz Beatz'], duration: '4:55' },
-          { id: 'tml-8', title: 'Shut It Down', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['The-Dream'], duration: '4:29' },
-          { id: 'tml-9', title: 'Unforgettable', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['Young Jeezy'], duration: '4:02' },
-          { id: 'tml-10', title: 'Light Up', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['Jay-Z'], duration: '5:01' },
-          { id: 'tml-11', title: 'Miss Me', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, collaborators: ['Lil Wayne'], duration: '5:06' },
-          { id: 'tml-12', title: 'Cece\'s Interlude', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '1:40' },
-          { id: 'tml-13', title: 'Find Your Love', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '4:06' },
-          { id: 'tml-14', title: 'Thank Me Now', album: 'Thank Me Later', role: 'main', year: 2010, isBlocked: true, duration: '6:02' },
-
-          // --- SO FAR GONE (2009) - 7 tracks (EP version) ---
-          { id: 'sfg-1', title: 'Lust For Life', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, duration: '4:12' },
-          { id: 'sfg-2', title: 'Houstatlantavegas', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, duration: '4:22' },
-          { id: 'sfg-3', title: 'Successful', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, collaborators: ['Trey Songz', 'Lil Wayne'], duration: '4:55' },
-          { id: 'sfg-4', title: 'Best I Ever Had', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, duration: '4:19' },
-          { id: 'sfg-5', title: 'I\'m Goin\' In', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, collaborators: ['Lil Wayne', 'Young Jeezy'], duration: '4:34' },
-          { id: 'sfg-6', title: 'Ignorant Shit', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, collaborators: ['Lil Wayne'], duration: '3:12' },
-          { id: 'sfg-7', title: 'Brand New', album: 'So Far Gone', role: 'main', year: 2009, isBlocked: true, duration: '4:08' },
-
-          // --- WHAT A TIME TO BE ALIVE (2015) with Future - 11 tracks ---
-          { id: 'wattba-1', title: 'Digital Dash', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:23' },
-          { id: 'wattba-2', title: 'Big Rings', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '4:08' },
-          { id: 'wattba-3', title: 'Live from the Gutter', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:49' },
-          { id: 'wattba-4', title: 'Diamonds Dancing', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '5:36' },
-          { id: 'wattba-5', title: 'Scholarships', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '4:03' },
-          { id: 'wattba-6', title: 'Plastic Bag', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:47' },
-          { id: 'wattba-7', title: 'I\'m the Plug', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:17' },
-          { id: 'wattba-8', title: 'Change Locations', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:49' },
-          { id: 'wattba-9', title: 'Jumpman', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:18' },
-          { id: 'wattba-10', title: 'Jersey', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '3:31' },
-          { id: 'wattba-11', title: '30 for 30 Freestyle', album: 'What a Time to Be Alive', role: 'main', year: 2015, isBlocked: true, collaborators: ['Future'], duration: '4:47' },
-
-          // ========================================
-          // FEATURED APPEARANCES (50+)
-          // ========================================
-          { id: 'feat-1', title: 'Sicko Mode', album: 'ASTROWORLD', role: 'featured', year: 2018, isBlocked: true, collaborators: ['Travis Scott'], duration: '5:12' },
-          { id: 'feat-2', title: 'Work', album: 'ANTI', role: 'featured', year: 2016, isBlocked: true, collaborators: ['Rihanna'], duration: '3:39' },
-          { id: 'feat-3', title: 'Poetic Justice', album: 'good kid, m.A.A.d city', role: 'featured', year: 2012, isBlocked: true, collaborators: ['Kendrick Lamar'], duration: '5:00' },
-          { id: 'feat-4', title: 'No Guidance', album: 'Indigo', role: 'featured', year: 2019, isBlocked: true, collaborators: ['Chris Brown'], duration: '4:22' },
-          { id: 'feat-5', title: 'Forever', album: 'More Than a Game OST', role: 'featured', year: 2009, isBlocked: true, collaborators: ['Kanye West', 'Lil Wayne', 'Eminem'], duration: '5:27' },
-          { id: 'feat-6', title: 'Versace (Remix)', album: 'Single', role: 'featured', year: 2013, isBlocked: true, collaborators: ['Migos'], duration: '5:24' },
-          { id: 'feat-7', title: 'Only', album: 'The Pinkprint', role: 'featured', year: 2014, isBlocked: true, collaborators: ['Nicki Minaj', 'Lil Wayne', 'Chris Brown'], duration: '5:28' },
-          { id: 'feat-8', title: 'POPSTAR', album: 'KHALED KHALED', role: 'featured', year: 2020, isBlocked: true, collaborators: ['DJ Khaled'], duration: '3:29' },
-          { id: 'feat-9', title: 'GREECE', album: 'KHALED KHALED', role: 'featured', year: 2020, isBlocked: true, collaborators: ['DJ Khaled'], duration: '3:07' },
-          { id: 'feat-10', title: 'Life Is Good', album: 'High Off Life', role: 'featured', year: 2020, isBlocked: true, collaborators: ['Future'], duration: '3:57' },
-          { id: 'feat-11', title: 'Stay Schemin\'', album: 'Rich Forever', role: 'featured', year: 2012, isBlocked: true, collaborators: ['Rick Ross', 'French Montana'], duration: '4:49' },
-          { id: 'feat-12', title: 'Walk It Talk It', album: 'Culture II', role: 'featured', year: 2018, isBlocked: true, collaborators: ['Migos'], duration: '4:30' },
-          { id: 'feat-13', title: 'I Got the Keys', album: 'Major Key', role: 'featured', year: 2016, isBlocked: true, collaborators: ['DJ Khaled', 'Jay-Z', 'Future'], duration: '4:39' },
-          { id: 'feat-14', title: 'For Free', album: 'Major Key', role: 'featured', year: 2016, isBlocked: true, collaborators: ['DJ Khaled'], duration: '2:33' },
-          { id: 'feat-15', title: 'No New Friends', album: 'Suffering from Success', role: 'featured', year: 2013, isBlocked: true, collaborators: ['DJ Khaled', 'Rick Ross', 'Lil Wayne'], duration: '4:48' },
-          { id: 'feat-16', title: 'Aston Martin Music', album: 'Teflon Don', role: 'featured', year: 2010, isBlocked: true, collaborators: ['Rick Ross', 'Chrisette Michele'], duration: '5:44' },
-          { id: 'feat-17', title: 'Money in the Grave', album: 'The Best in the World Pack', role: 'featured', year: 2019, isBlocked: true, collaborators: ['Rick Ross'], duration: '3:47' },
-          { id: 'feat-18', title: 'Going Bad', album: 'Championships', role: 'featured', year: 2018, isBlocked: true, collaborators: ['Meek Mill'], duration: '2:51' },
-          { id: 'feat-19', title: 'Lemon (Remix)', album: 'No One Ever Really Dies', role: 'featured', year: 2018, isBlocked: true, collaborators: ['N.E.R.D', 'Rihanna'], duration: '4:18' },
-          { id: 'feat-20', title: 'Both', album: 'Droptopwop', role: 'featured', year: 2017, isBlocked: true, collaborators: ['Gucci Mane'], duration: '3:46' },
-          { id: 'feat-21', title: 'My Way (Remix)', album: 'Single', role: 'featured', year: 2016, isBlocked: true, collaborators: ['Fetty Wap'], duration: '4:07' },
-          { id: 'feat-22', title: 'Believe Me', album: 'Single', role: 'featured', year: 2014, isBlocked: true, collaborators: ['Lil Wayne'], duration: '4:59' },
-          { id: 'feat-23', title: 'Tuesday', album: 'Days Before Rodeo', role: 'featured', year: 2014, isBlocked: true, collaborators: ['ILoveMakonnen'], duration: '4:40' },
-          { id: 'feat-24', title: 'Draft Day', album: 'Single', role: 'featured', year: 2014, isBlocked: true, duration: '5:35' },
-          { id: 'feat-25', title: 'Trophies', album: 'Single', role: 'featured', year: 2014, isBlocked: true, duration: '3:37' },
-          { id: 'feat-26', title: '100', album: 'Single', role: 'featured', year: 2014, isBlocked: true, duration: '3:33' },
-          { id: 'feat-27', title: '0 to 100 / The Catch Up', album: 'Single', role: 'featured', year: 2014, isBlocked: true, duration: '5:18' },
-          { id: 'feat-28', title: 'We Made It', album: 'Single', role: 'featured', year: 2014, isBlocked: true, collaborators: ['Soulja Boy'], duration: '3:59' },
-          { id: 'feat-29', title: 'The Language', album: 'Single', role: 'featured', year: 2013, isBlocked: true, duration: '5:07' },
-          { id: 'feat-30', title: '5AM in Toronto', album: 'Single', role: 'featured', year: 2013, isBlocked: true, duration: '3:43' },
-          { id: 'feat-31', title: 'Girls Love Beyoncé', album: 'Single', role: 'featured', year: 2013, isBlocked: true, collaborators: ['James Fauntleroy'], duration: '4:47' },
-          { id: 'feat-32', title: 'Worst Behavior', album: 'Single', role: 'featured', year: 2013, isBlocked: true, duration: '4:30' },
-          { id: 'feat-33', title: 'The Motion', album: 'Single', role: 'featured', year: 2013, isBlocked: true, collaborators: ['Sampha'], duration: '5:15' },
-          { id: 'feat-34', title: 'All Me', album: 'Single', role: 'featured', year: 2013, isBlocked: true, collaborators: ['2 Chainz', 'Big Sean'], duration: '5:06' },
-          { id: 'feat-35', title: 'Right Above It', album: 'I Am Not a Human Being', role: 'featured', year: 2010, isBlocked: true, collaborators: ['Lil Wayne'], duration: '3:48' },
-          { id: 'feat-36', title: 'Every Girl', album: 'We Are Young Money', role: 'featured', year: 2009, isBlocked: true, collaborators: ['Young Money'], duration: '5:00' },
-          { id: 'feat-37', title: 'BedRock', album: 'We Are Young Money', role: 'featured', year: 2009, isBlocked: true, collaborators: ['Young Money'], duration: '4:44' },
-          { id: 'feat-38', title: 'What\'s My Name?', album: 'Loud', role: 'featured', year: 2010, isBlocked: true, collaborators: ['Rihanna'], duration: '4:23' },
-          { id: 'feat-39', title: 'Moment 4 Life', album: 'Pink Friday', role: 'featured', year: 2010, isBlocked: true, collaborators: ['Nicki Minaj'], duration: '4:39' },
-          { id: 'feat-40', title: 'Up All Night', album: 'Pink Friday', role: 'featured', year: 2010, isBlocked: true, collaborators: ['Nicki Minaj'], duration: '4:25' },
-          { id: 'feat-41', title: 'Make Me Proud', album: 'Single', role: 'featured', year: 2011, isBlocked: true, collaborators: ['Nicki Minaj'], duration: '4:09' },
-          { id: 'feat-42', title: 'Amen', album: 'God Forgives, I Don\'t', role: 'featured', year: 2012, isBlocked: true, collaborators: ['Meek Mill'], duration: '5:20' },
-          { id: 'feat-43', title: 'Tony Montana', album: 'Single', role: 'featured', year: 2011, isBlocked: true, collaborators: ['Future'], duration: '4:40' },
-          { id: 'feat-44', title: 'Fuckin\' Problems', album: 'Long. Live. ASAP', role: 'featured', year: 2012, isBlocked: true, collaborators: ['A$AP Rocky', '2 Chainz', 'Kendrick Lamar'], duration: '4:03' },
-          { id: 'feat-45', title: 'The Motto', album: 'Single', role: 'featured', year: 2011, isBlocked: true, collaborators: ['Lil Wayne', 'Tyga'], duration: '4:31' },
-
-          // ========================================
-          // PRODUCER CREDITS (20+)
-          // ========================================
-          { id: 'prod-1', title: 'Come Thru', album: 'PartyNextDoor Two', role: 'producer', year: 2014, isBlocked: false, collaborators: ['PartyNextDoor'], duration: '4:24' },
-          { id: 'prod-2', title: 'Wednesday Night Interlude', album: 'Views', role: 'producer', year: 2016, isBlocked: true, collaborators: ['PartyNextDoor'], duration: '3:47' },
-          { id: 'prod-3', title: 'Own It', album: 'Thank Me Later', role: 'producer', year: 2010, isBlocked: true, duration: '3:54' },
-          { id: 'prod-4', title: 'Over My Dead Body', album: 'Take Care', role: 'producer', year: 2011, isBlocked: true, duration: '4:46' },
-          { id: 'prod-5', title: 'Cameras / Good Ones Go', album: 'Take Care', role: 'producer', year: 2011, isBlocked: true, duration: '6:06' },
-          { id: 'prod-6', title: 'Doing It Wrong', album: 'Take Care', role: 'producer', year: 2011, isBlocked: true, collaborators: ['Stevie Wonder'], duration: '4:17' },
-          { id: 'prod-7', title: 'Practice', album: 'Take Care', role: 'producer', year: 2011, isBlocked: true, duration: '2:55' },
-          { id: 'prod-8', title: 'Shot for Me', album: 'Take Care', role: 'producer', year: 2011, isBlocked: true, duration: '4:22' },
-          { id: 'prod-9', title: 'Tuscan Leather', album: 'Nothing Was the Same', role: 'producer', year: 2013, isBlocked: true, duration: '6:06' },
-          { id: 'prod-10', title: 'Wu-Tang Forever', album: 'Nothing Was the Same', role: 'producer', year: 2013, isBlocked: true, duration: '4:35' },
-          { id: 'prod-11', title: 'Jungle', album: "If You're Reading This It's Too Late", role: 'producer', year: 2015, isBlocked: true, duration: '5:49' },
-          { id: 'prod-12', title: 'Preach', album: "If You're Reading This It's Too Late", role: 'producer', year: 2015, isBlocked: true, collaborators: ['PARTYNEXTDOOR'], duration: '3:28' },
-          { id: 'prod-13', title: 'U With Me?', album: 'Views', role: 'producer', year: 2016, isBlocked: true, duration: '6:06' },
-          { id: 'prod-14', title: '9', album: 'Views', role: 'producer', year: 2016, isBlocked: true, duration: '4:04' },
-          { id: 'prod-15', title: 'Recognize', album: 'PARTYNEXTDOOR', role: 'producer', year: 2013, isBlocked: false, collaborators: ['PARTYNEXTDOOR'], duration: '4:17' },
-
-          // ========================================
-          // WRITER CREDITS (25+)
-          // ========================================
-          { id: 'write-1', title: 'Drunk in Love (Remix)', album: 'Beyoncé', role: 'writer', year: 2013, isBlocked: false, collaborators: ['Beyoncé'], duration: '5:23' },
-          { id: 'write-2', title: 'R.I.C.O.', album: 'Barter 6', role: 'writer', year: 2015, isBlocked: false, collaborators: ['Meek Mill', 'Young Thug'], duration: '5:23' },
-          { id: 'write-3', title: 'R.I.P.', album: 'ORA', role: 'writer', year: 2012, isBlocked: false, collaborators: ['Rita Ora'], duration: '3:58' },
-          { id: 'write-4', title: 'Fall for Your Type', album: 'Best Night of My Life', role: 'writer', year: 2010, isBlocked: false, collaborators: ['Jamie Foxx'], duration: '3:45' },
-          { id: 'write-5', title: 'Unthinkable (I\'m Ready)', album: 'The Element of Freedom', role: 'writer', year: 2010, isBlocked: false, collaborators: ['Alicia Keys'], duration: '4:08' },
-          { id: 'write-6', title: 'Invented Sex', album: 'Ready', role: 'writer', year: 2009, isBlocked: false, collaborators: ['Trey Songz'], duration: '4:26' },
-          { id: 'write-7', title: 'Mr. Wrong', album: 'My Life II', role: 'writer', year: 2011, isBlocked: false, collaborators: ['Mary J. Blige'], duration: '4:21' },
-          { id: 'write-8', title: 'Moment 4 Life', album: 'Pink Friday', role: 'writer', year: 2010, isBlocked: false, collaborators: ['Nicki Minaj'], duration: '4:39' },
-          { id: 'write-9', title: '2 On', album: 'Aquarius', role: 'writer', year: 2014, isBlocked: false, collaborators: ['Tinashe', 'ScHoolboy Q'], duration: '3:28' },
-          { id: 'write-10', title: 'Recognize', album: 'PARTYNEXTDOOR', role: 'writer', year: 2013, isBlocked: false, collaborators: ['PARTYNEXTDOOR'], duration: '4:17' },
-          { id: 'write-11', title: 'Timmy\'s Prayer', album: 'Process', role: 'writer', year: 2017, isBlocked: false, collaborators: ['Sampha'], duration: '4:51' },
-          { id: 'write-12', title: 'Her', album: 'Majid Jordan', role: 'writer', year: 2016, isBlocked: false, collaborators: ['Majid Jordan'], duration: '5:01' },
-          { id: 'write-13', title: 'Hallucinations', album: 'Sept. 5th', role: 'writer', year: 2016, isBlocked: false, collaborators: ['dvsn'], duration: '4:36' },
-          { id: 'write-14', title: 'Drama', album: 'Say Less', role: 'writer', year: 2017, isBlocked: false, collaborators: ['Roy Woods'], duration: '3:33' },
-          { id: 'write-15', title: 'Own It', album: 'barter 6', role: 'writer', year: 2013, isBlocked: false, collaborators: ['Young Thug'], duration: '3:22' },
-          { id: 'write-16', title: 'You Could Be', album: 'What For?', role: 'writer', year: 2015, isBlocked: false, collaborators: ['Toro y Moi'], duration: '3:22' },
-          { id: 'write-17', title: 'Come and See Me', album: 'PARTYNEXTDOOR 3', role: 'writer', year: 2016, isBlocked: false, collaborators: ['PARTYNEXTDOOR'], duration: '4:53' },
-          { id: 'write-18', title: 'My House', album: 'My House', role: 'writer', year: 2018, isBlocked: false, collaborators: ['Beyoncé'], duration: '4:15' },
-          { id: 'write-19', title: 'Never Recover', album: 'Drip Harder', role: 'writer', year: 2018, isBlocked: false, collaborators: ['Lil Baby', 'Gunna'], duration: '3:36' },
-          { id: 'write-20', title: 'Love Galore', album: 'Ctrl', role: 'writer', year: 2017, isBlocked: false, collaborators: ['SZA', 'Travis Scott'], duration: '4:38' },
-        ];
       }
 
       // Derive connections from credits when the collaborations API returns empty
@@ -881,9 +479,6 @@
     }
   }
 
-  // Drake's Spotify image URL for showcase
-  const DRAKE_IMAGE = 'https://i.scdn.co/image/ab6761610000e5eb4293385d324db8558179afd9';
-
   function transformToProfile(data: any): ArtistProfile {
     // Determine status based on offenses
     const hasOffenses = data.offenses && data.offenses.length > 0;
@@ -908,12 +503,8 @@
       else if (tierACount >= 1) confidence = 'medium';
     }
 
-    // Extract image from metadata or use fallback for Drake
     let imageUrl = data.image_url || data.metadata?.image || data.primary_image?.url;
     const artistName = data.canonical_name || data.name || 'Unknown Artist';
-    if (!imageUrl && artistName === 'Drake') {
-      imageUrl = DRAKE_IMAGE;
-    }
 
     return {
       id: data.id || artistId,
@@ -1869,41 +1460,6 @@
       </div>
     {/if}
 
-    <!-- Album Cover Modal -->
-    {#if showAlbumCoverModal && selectedAlbumCover}
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90"
-       
-        on:click={closeAlbumCoverModal}
-        on:keydown={(e) => e.key === 'Escape' && closeAlbumCoverModal()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Album cover preview"
-        tabindex="-1"
-      >
-        <div class="relative max-w-2xl max-h-[80vh]" on:click|stopPropagation>
-          <button
-            type="button"
-            on:click={closeAlbumCoverModal}
-            class="absolute -top-12 right-0 p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-            aria-label="Close"
-          >
-            <svg class="w-6 h-6" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          <img
-            src={selectedAlbumCover.url}
-            alt={selectedAlbumCover.name}
-            class="max-w-full max-h-[70vh] rounded-xl shadow-2xl object-contain"
-            on:error={handleImgError}
-          />
-          <div class="text-center mt-4">
-            <p class="text-white font-semibold text-lg">{selectedAlbumCover.name}</p>
-          </div>
-        </div>
-      </div>
-    {/if}
   {/if}
 </div>
 

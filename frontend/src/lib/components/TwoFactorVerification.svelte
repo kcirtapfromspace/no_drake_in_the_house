@@ -23,11 +23,6 @@
   function handleBack() {
     dispatch('back');
   }
-  
-  // Auto-submit when 6 digits are entered
-  $: if (codeValid && !isLoading) {
-    handleSubmit();
-  }
 </script>
 
 <div class="max-w-md mx-auto space-y-6">
@@ -80,52 +75,40 @@
     <!-- Error Message -->
     <FormError message={error} id="2fa-verify-error" />
 
-    <!-- Loading State -->
-    {#if isLoading}
-      <div class="text-center">
-        <div class="flex items-center px-4 py-2 text-zinc-300">
-          <svg aria-hidden="true" class="animate-spin -ml-1 mr-3 icon-uswds icon-uswds--md text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          Verifying code...
-        </div>
-      </div>
-    {/if}
-
-    <!-- Manual Submit Button (if auto-submit fails) -->
-    {#if codeValid && !isLoading}
-      <button
-        type="button"
-        on:click={handleSubmit}
-        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-      >
+    <button
+      type="button"
+      on:click={handleSubmit}
+      disabled={!codeValid || isLoading}
+      class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {#if isLoading}
+        <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Verifying...
+      {:else}
         Verify Code
-      </button>
-    {/if}
+      {/if}
+    </button>
 
-    <!-- Help Text -->
     <div class="text-center space-y-2">
-      <p class="text-zinc-300">
-        The code will automatically verify when you enter all 6 digits
-      </p>
-      
       <div class="space-y-1">
         <button
           type="button"
-          class="text-zinc-400 text-indigo-600 hover:text-indigo-500"
+          class="text-indigo-600 hover:text-indigo-500"
           on:click={() => dispatch('resend')}
         >
           Didn't receive a code? Try again
         </button>
-        
+
         <div>
           <button
             type="button"
             on:click={handleBack}
             class="text-red-400 hover:text-zinc-300"
           >
-            ← Back to login
+            Back to login
           </button>
         </div>
       </div>

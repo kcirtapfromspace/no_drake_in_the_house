@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import type { PlaylistSummary, PlaylistTrack } from '../stores/playlist-browser';
   import { trackStats } from '../stores/playlist-browser';
+  import { hashString } from '../utils/playlist-helpers';
   import PlaylistGradeGauge from './PlaylistGradeGauge.svelte';
 
   export let playlist: PlaylistSummary;
@@ -15,19 +16,10 @@
 
   $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
   $: providerLabel = playlist.provider === 'spotify' ? 'Spotify' : 'Apple Music';
-  $: stats = $trackStats;
   $: images = playlist.cover_images || [];
   $: heroImage = images[0] || '';
-
-  // Gradient fallback
-  function hashStr(s: string): number {
-    let h = 0;
-    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-    return Math.abs(h);
-  }
-  $: hue1 = hashStr(playlist.playlist_name) % 360;
-  $: hue2 = (hue1 + 40 + (hashStr(playlist.provider) % 60)) % 360;
-
+  $: hue1 = hashString(playlist.playlist_name) % 360;
+  $: hue2 = (hue1 + 40 + (hashString(playlist.provider) % 60)) % 360;
 </script>
 
 <div class="tl">
@@ -57,18 +49,18 @@
 
           <div class="tl__stat-chips">
             <div class="tl__chip tl__chip--clean">
-              <span class="tl__chip-val">{stats.clean}</span>
+              <span class="tl__chip-val">{$trackStats.clean}</span>
               <span class="tl__chip-label">Clean</span>
             </div>
-            {#if stats.flagged > 0}
+            {#if $trackStats.flagged > 0}
               <div class="tl__chip tl__chip--flagged">
-                <span class="tl__chip-val">{stats.flagged}</span>
+                <span class="tl__chip-val">{$trackStats.flagged}</span>
                 <span class="tl__chip-label">Flagged</span>
               </div>
             {/if}
-            {#if stats.blocked > 0}
+            {#if $trackStats.blocked > 0}
               <div class="tl__chip tl__chip--blocked">
-                <span class="tl__chip-val">{stats.blocked}</span>
+                <span class="tl__chip-val">{$trackStats.blocked}</span>
                 <span class="tl__chip-label">Blocked</span>
               </div>
             {/if}

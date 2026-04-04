@@ -1,10 +1,9 @@
 <script lang="ts">
   import { dnpActions, dnpStore } from '../stores/dnp';
-
-  function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
+  import { hideImgOnError } from '../utils/artist-helpers';
 
   let searchQuery = '';
-  let searchTimeout: any;
+  let searchTimeout: ReturnType<typeof setTimeout>;
   let isAddingArtist = false;
   let activeIndex = -1;
 
@@ -26,15 +25,14 @@
     }
   }
 
-  // Reset active index when results change
   $: if ($dnpStore.searchResults) activeIndex = -1;
 
-  // Debounced search
   $: {
-    if (searchTimeout) clearTimeout(searchTimeout);
+    clearTimeout(searchTimeout);
+    const q = searchQuery;
     searchTimeout = setTimeout(() => {
-      if (searchQuery.trim()) {
-        dnpActions.searchArtists(searchQuery);
+      if (q.trim()) {
+        dnpActions.searchArtists(q);
       } else {
         dnpActions.clearSearch();
       }

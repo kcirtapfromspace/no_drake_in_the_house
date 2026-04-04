@@ -27,9 +27,7 @@
   }
   
   function copySecret() {
-    navigator.clipboard.writeText(secret).then(() => {
-      // Could add a toast notification here
-    });
+    navigator.clipboard.writeText(secret);
   }
   
   // Handle successful verification from parent
@@ -77,17 +75,17 @@
 
       <!-- Manual Entry Option -->
       <div class="bg-zinc-700 rounded-uswds-lg p-uswds-4">
-        <h4 class="text-zinc-400 font-medium text-zinc-400 mb-2">
+        <h4 class="font-medium text-zinc-400 mb-2">
           Can't scan? Enter manually:
         </h4>
         <div class="flex items-center space-x-2">
-          <code class="flex-1 px-3 py-2 rounded-lg text-zinc-400 font-mono text-zinc-300" style="background: #3f3f46; border: 1px solid #52525b;">
+          <code class="flex-1 px-3 py-2 rounded-lg font-mono text-zinc-300" style="background: #3f3f46; border: 1px solid #52525b;">
             {secret}
           </code>
           <button
             type="button"
             on:click={copySecret}
-            class="px-3 py-2 text-zinc-400 bg-zinc-700 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="px-3 py-2 bg-zinc-700 text-white rounded hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             Copy
           </button>
@@ -97,7 +95,7 @@
       <button
         type="button"
         on:click={() => step = 2}
-        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-primary hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         I've added the account to my app
       </button>
@@ -138,7 +136,7 @@
         <button
           type="button"
           on:click={() => step = 1}
-          class="flex-1 py-2 px-4 rounded-lg shadow-sm text-zinc-400 font-medium text-zinc-300 hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" style="background: #3f3f46; border: 1px solid #52525b;"
+          class="flex-1 py-2 px-4 rounded-lg shadow-sm font-medium text-zinc-300 hover:bg-zinc-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" style="background: #3f3f46; border: 1px solid #52525b;"
         >
           Back
         </button>
@@ -146,7 +144,7 @@
           type="button"
           on:click={handleVerify}
           disabled={!codeValid || isLoading}
-          class="flex-1 py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 py-2 px-4 border border-transparent rounded-uswds-md shadow-sm font-medium text-white btn btn-primary focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {#if isLoading}
             <svg aria-hidden="true" class="animate-spin -ml-1 mr-2 icon-uswds icon-uswds--sm text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -165,7 +163,7 @@
     <!-- Success Step -->
     <div class="text-center space-y-4">
       <div class="mx-auto avatar avatar--xl bg-green-100">
-        <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg aria-hidden="true" class="icon-uswds icon-uswds--lg text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
         </svg>
       </div>
@@ -187,7 +185,7 @@
             </svg>
           </div>
           <div class="ml-3">
-            <p class="text-zinc-400 text-yellow-800">
+            <p class="text-yellow-800">
               <strong>Important:</strong> Save your recovery codes in a safe place. You'll need them if you lose access to your authenticator app.
             </p>
           </div>
@@ -197,7 +195,7 @@
       <button
         type="button"
         on:click={() => dispatch('complete')}
-        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm text-zinc-400 font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        class="w-full py-2 px-4 border border-transparent rounded-uswds-md shadow-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
       >
         Continue to Dashboard
       </button>

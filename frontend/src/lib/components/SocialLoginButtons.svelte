@@ -1,13 +1,15 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte';
   import { api } from '../utils/api';
-  
+
   const dispatch = createEventDispatcher();
-  
+
   export let isLoading = false;
   export let error = '';
-  
+
   let loadingProvider: string | null = null;
+
+  const providers = ['google', 'apple', 'github'] as const;
 
   interface OAuthFlowResponse {
     authorization_url: string;
@@ -16,29 +18,26 @@
 
   async function initiateOAuthFlow(provider: string) {
     if (isLoading) return;
-    
+
     loadingProvider = provider;
     dispatch('loading', { provider, loading: true });
-    
+
     try {
       const result = await api.post<OAuthFlowResponse>(`/auth/oauth/${provider}/initiate`);
-      
+
       if (result.success && result.data) {
-        // Store state for validation when callback returns
         sessionStorage.setItem(`oauth_state_${provider}`, result.data.state);
-        
-        // Redirect to OAuth provider
         window.location.href = result.data.authorization_url;
       } else {
-        dispatch('error', { 
-          provider, 
-          message: result.message || `Failed to initiate ${provider} login` 
+        dispatch('error', {
+          provider,
+          message: result.message || `Failed to initiate ${provider} login`
         });
       }
     } catch (err: any) {
-      dispatch('error', { 
-        provider, 
-        message: err.message || `Network error during ${provider} login` 
+      dispatch('error', {
+        provider,
+        message: err.message || `Network error during ${provider} login`
       });
     } finally {
       loadingProvider = null;
@@ -81,6 +80,16 @@
     }
   }
 
+  function getProviderButtonStyle(provider: string): string {
+    switch (provider) {
+      case 'apple':
+      case 'github':
+        return 'border: 1px solid #52525b;';
+      default:
+        return 'background: #3f3f46; border: 1px solid #52525b;';
+    }
+  }
+
   function getProviderButtonClass(provider: string): string {
     const baseClass = "w-full flex justify-center items-center px-4 py-2 rounded-md shadow-sm text-sm font-medium transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
 
@@ -108,65 +117,26 @@
   </div>
 
   <div class="space-y-2">
-    <!-- Google Login -->
-    <button
-      type="button"
-      on:click={() => initiateOAuthFlow('google')}
-      disabled={isLoading}
-      class={getProviderButtonClass('google')}
-      style="background: #3f3f46; border: 1px solid #52525b;"
-    >
-      {#if loadingProvider === 'google'}
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Connecting...
-      {:else}
-        {@html getProviderIcon('google')}
-        <span class="ml-2">Continue with {getProviderName('google')}</span>
-      {/if}
-    </button>
-
-    <!-- Apple Login -->
-    <button
-      type="button"
-      on:click={() => initiateOAuthFlow('apple')}
-      disabled={isLoading}
-      class={getProviderButtonClass('apple')}
-      style="border: 1px solid #52525b;"
-    >
-      {#if loadingProvider === 'apple'}
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Connecting...
-      {:else}
-        {@html getProviderIcon('apple')}
-        <span class="ml-2">Continue with {getProviderName('apple')}</span>
-      {/if}
-    </button>
-
-    <!-- GitHub Login -->
-    <button
-      type="button"
-      on:click={() => initiateOAuthFlow('github')}
-      disabled={isLoading}
-      class={getProviderButtonClass('github')}
-      style="border: 1px solid #52525b;"
-    >
-      {#if loadingProvider === 'github'}
-        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        Connecting...
-      {:else}
-        {@html getProviderIcon('github')}
-        <span class="ml-2">Continue with {getProviderName('github')}</span>
-      {/if}
-    </button>
+    {#each providers as provider}
+      <button
+        type="button"
+        on:click={() => initiateOAuthFlow(provider)}
+        disabled={isLoading}
+        class={getProviderButtonClass(provider)}
+        style={getProviderButtonStyle(provider)}
+      >
+        {#if loadingProvider === provider}
+          <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Connecting...
+        {:else}
+          {@html getProviderIcon(provider)}
+          <span class="ml-2">Continue with {getProviderName(provider)}</span>
+        {/if}
+      </button>
+    {/each}
   </div>
 
   {#if error}

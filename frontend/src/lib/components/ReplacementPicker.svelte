@@ -1,26 +1,13 @@
 <script lang="ts">
   import type { ReplacementSuggestion } from '../stores/sanitizer';
   import { sanitizerActions } from '../stores/sanitizer';
+  import { formatDurationMs } from '../utils/playlist-helpers';
 
   export let suggestion: ReplacementSuggestion;
   export let selectedId: string = '';
 
   let previewAudio: HTMLAudioElement | null = null;
   let playingPreviewId: string | null = null;
-
-  function formatDuration(ms: number): string {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-
-  function selectCandidate(trackId: string) {
-    sanitizerActions.selectReplacement(suggestion.original_track_id, trackId);
-  }
-
-  function skipTrack() {
-    sanitizerActions.skipTrack(suggestion.original_track_id);
-  }
 
   function togglePreview(previewUrl: string | null, trackId: string) {
     if (!previewUrl) return;
@@ -31,9 +18,7 @@
       return;
     }
 
-    if (previewAudio) {
-      previewAudio.pause();
-    }
+    previewAudio?.pause();
     previewAudio = new Audio(previewUrl);
     previewAudio.volume = 0.5;
     previewAudio.play();
@@ -55,7 +40,6 @@
   </div>
 
   <div class="picker__arrow">
-    <div class="picker__arrow-line"></div>
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
       <path d="M4 10h12m0 0l-4-4m4 4l-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
@@ -75,8 +59,8 @@
           class:picker__candidate--selected={selectedId === candidate.track_id}
           role="button"
           tabindex="0"
-          on:click={() => selectCandidate(candidate.track_id)}
-          on:keydown={(e) => e.key === 'Enter' && selectCandidate(candidate.track_id)}
+          on:click={() => sanitizerActions.selectReplacement(suggestion.original_track_id, candidate.track_id)}
+          on:keydown={(e) => e.key === 'Enter' && sanitizerActions.selectReplacement(suggestion.original_track_id, candidate.track_id)}
         >
           <div class="picker__candidate-radio">
             <div class="picker__candidate-radio-inner"></div>
@@ -85,7 +69,7 @@
             <span class="picker__candidate-name">{candidate.track_name}</span>
             <span class="picker__candidate-artist">{candidate.artist_name} &middot; {candidate.album_name}</span>
             <span class="picker__candidate-meta">
-              {formatDuration(candidate.duration_ms)}
+              {formatDurationMs(candidate.duration_ms)}
               {#if candidate.popularity > 0}
                 <span class="picker__popularity">
                   <span class="picker__popularity-bar" style="width: {candidate.popularity}%;"></span>
@@ -126,7 +110,7 @@
       type="button"
       class="picker__skip-btn"
       class:picker__skip-btn--active={selectedId === 'skip'}
-      on:click={skipTrack}
+      on:click={() => sanitizerActions.skipTrack(suggestion.original_track_id)}
     >
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 2l10 10M12 2L2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
       Skip (remove track)
@@ -216,13 +200,6 @@
     gap: 0.25rem;
     padding-top: 1.75rem;
     color: var(--color-text-muted, #52525b);
-  }
-
-  .picker__arrow-line {
-    width: 1px;
-    height: 0.75rem;
-    background: var(--color-border-subtle);
-    display: none;
   }
 
   .picker__candidates {
@@ -452,6 +429,5 @@
       transform: rotate(90deg);
     }
 
-    .picker__arrow-line { display: none; }
   }
 </style>

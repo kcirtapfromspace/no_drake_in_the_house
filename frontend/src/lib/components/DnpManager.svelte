@@ -8,14 +8,15 @@
   let searchQuery = '';
   let selectedTag = '';
   let showAddForm = false;
-  let selectedEntries = new Set();
+  let selectedEntries: Set<string> = new Set();
 
-  $: filteredEntries = ($dnpStore.entries && Array.isArray($dnpStore.entries))
+  $: filteredEntries = Array.isArray($dnpStore.entries)
     ? $dnpStore.entries.filter(entry => {
+        const q = searchQuery.toLowerCase();
         const matchesSearch = !searchQuery ||
-          entry.artist?.canonical_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          entry.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
-          entry.note?.toLowerCase().includes(searchQuery.toLowerCase());
+          entry.artist?.canonical_name?.toLowerCase().includes(q) ||
+          entry.tags?.some((tag: string) => tag.toLowerCase().includes(q)) ||
+          entry.note?.toLowerCase().includes(q);
 
         const matchesTag = !selectedTag || entry.tags?.includes(selectedTag);
 
@@ -25,36 +26,33 @@
 
   function toggleSelectAll() {
     if (selectedEntries.size === filteredEntries.length) {
-      selectedEntries.clear();
+      selectedEntries = new Set();
     } else {
-      selectedEntries = new Set(filteredEntries.map(entry => entry.artist.id));
+      selectedEntries = new Set(filteredEntries.map((entry: any) => entry.artist.id));
     }
-    selectedEntries = selectedEntries; // Trigger reactivity
   }
 
   function toggleSelectEntry(artistId: string) {
-    if (selectedEntries.has(artistId)) {
-      selectedEntries.delete(artistId);
+    const next = new Set(selectedEntries);
+    if (next.has(artistId)) {
+      next.delete(artistId);
     } else {
-      selectedEntries.add(artistId);
+      next.add(artistId);
     }
-    selectedEntries = selectedEntries; // Trigger reactivity
+    selectedEntries = next;
   }
 
   function clearSelection() {
-    selectedEntries.clear();
-    selectedEntries = selectedEntries; // Trigger reactivity
+    selectedEntries = new Set();
   }
 
   async function handleBulkDelete() {
     if (selectedEntries.size === 0) return;
-    
+
     if (confirm(`Are you sure you want to remove ${selectedEntries.size} artist(s) from your DNP list?`)) {
-      const promises = Array.from(selectedEntries).map((artistId: any) => 
-        dnpActions.removeArtist(artistId as string)
+      await Promise.all(
+        Array.from(selectedEntries).map(id => dnpActions.removeArtist(id))
       );
-      
-      await Promise.all(promises);
       clearSelection();
     }
   }

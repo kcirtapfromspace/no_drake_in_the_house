@@ -15,8 +15,8 @@
 <div class="space-y-6">
   <!-- Aggressiveness Level -->
   <div>
-    <h4 class="text-zinc-400 font-medium text-zinc-300">Enforcement Aggressiveness</h4>
-    <p class="text-zinc-400 leading-5 text-zinc-300">
+    <h4 class="font-medium text-zinc-300">Enforcement Aggressiveness</h4>
+    <p class="leading-5 text-zinc-300">
       Choose how thoroughly to apply your blocklist across your music library.
     </p>
     <fieldset class="mt-4">
@@ -31,7 +31,7 @@
             on:change={() => updateAggressiveness('conservative')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-primary border-zinc-600"
           />
-          <label for="conservative" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
+          <label for="conservative" class="ml-3 block font-medium text-zinc-300">
             Conservative
           </label>
         </div>
@@ -48,7 +48,7 @@
             on:change={() => updateAggressiveness('moderate')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-zinc-600"
           />
-          <label for="moderate" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
+          <label for="moderate" class="ml-3 block font-medium text-zinc-300">
             Moderate (Recommended)
           </label>
         </div>
@@ -65,7 +65,7 @@
             on:change={() => updateAggressiveness('aggressive')}
             class="focus:ring-indigo-500 icon-uswds icon-uswds--sm text-indigo-600 border-zinc-600"
           />
-          <label for="aggressive" class="ml-3 block text-zinc-400 font-medium text-zinc-300">
+          <label for="aggressive" class="ml-3 block font-medium text-zinc-300">
             Aggressive
           </label>
         </div>
@@ -78,13 +78,13 @@
 
   <!-- Collaboration and Featuring Options -->
   <div>
-    <h4 class="text-zinc-400 font-medium text-zinc-300">Collaboration Handling</h4>
-    <p class="text-zinc-400 leading-5 text-zinc-300">
+    <h4 class="font-medium text-zinc-300">Collaboration Handling</h4>
+    <p class="leading-5 text-zinc-300">
       Configure how to handle songs where blocked artists appear as collaborators or featured artists.
     </p>
     <div class="mt-4 space-y-4">
       <div class="flex items-start">
-        <div class="flex items-center icon icon-md">
+        <div class="flex items-center h-5">
           <input
             id="block-collabs"
             type="checkbox"
@@ -155,7 +155,7 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-zinc-400 font-medium text-yellow-400">
+          <h3 class="font-medium text-yellow-400">
             Aggressive Settings Warning
           </h3>
           <div class="mt-2 text-zinc-300">

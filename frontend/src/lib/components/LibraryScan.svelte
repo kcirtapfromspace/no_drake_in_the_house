@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
   import { navigateTo } from '../utils/simple-router';
+  import { timeAgo } from '../utils/time-ago';
   import {
     libraryStore,
     libraryActions,
@@ -44,24 +45,6 @@
     expandedArtists = expandedArtists; // trigger reactivity
   }
 
-  function formatRelativeTime(dateStr: string): string {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 30) return `${diffDays}d ago`;
-    return date.toLocaleDateString();
-  }
-
-  async function startScan() {
-    await libraryActions.scanLibrary();
-  }
-
   function getSeverityCount(severity: string): number {
     return $flaggedArtists.filter(a => a.severity === severity).length;
   }
@@ -87,13 +70,9 @@
     }
   }
 
-  /** Map severity keys to CSS modifier classes */
-  const severityModifiers: Record<string, string> = {
-    critical: 'scan-severity--critical',
-    high: 'scan-severity--high',
-    medium: 'scan-severity--medium',
-    low: 'scan-severity--low',
-  };
+  function severityClass(key: string): string {
+    return `scan-severity--${key}`;
+  }
 </script>
 
 <div class="scan brand-page surface-page">
@@ -203,7 +182,7 @@
 
         <button
           type="button"
-          on:click={startScan}
+          on:click={libraryActions.scanLibrary}
           class="scan__start-btn"
         >
           Start Library Scan
@@ -243,12 +222,12 @@
             <div>
               <h2 class="scan__summary-title">Scan Results</h2>
               {#if scannedAt}
-                <p class="scan__summary-time">Last scanned: {formatRelativeTime(scannedAt)}</p>
+                <p class="scan__summary-time">Last scanned: {timeAgo(scannedAt)}</p>
               {/if}
             </div>
             <button
               type="button"
-              on:click={startScan}
+              on:click={libraryActions.scanLibrary}
               class="scan__rescan-btn"
             >
               Scan Again
@@ -284,7 +263,7 @@
                 {@const count = getSeverityCount(key)}
                 {#if count > 0}
                   <span class="scan__severity-item">
-                    <span class="scan__severity-dot {severityModifiers[key] || ''}"></span>
+                    <span class="scan__severity-dot {severityClass(key)}"></span>
                     {count} {config.label}
                   </span>
                 {/if}
@@ -348,7 +327,7 @@
                   <span class="scan__row-name">{artist.name}</span>
                   <span class="scan__row-meta">{artist.track_count} track{artist.track_count !== 1 ? 's' : ''}</span>
                 </div>
-                <span class="scan__severity-badge {severityModifiers[artist.severity] || ''}">
+                <span class="scan__severity-badge {severityClass(artist.severity)}">
                   {severityConfig[artist.severity].label}
                 </span>
                 <span class="scan__row-count">{artist.offenses.length}</span>
@@ -465,7 +444,7 @@
         </p>
         <button
           type="button"
-          on:click={() => navigateTo('community')}
+          on:click={() => navigateTo('offense-database')}
           class="scan__info-link"
         >
           Learn more about our verification process
@@ -486,44 +465,7 @@
     width: 100%;
   }
 
-  .scan__back-btn {
-    display: flex;
-    align-items: center;
-    color: var(--color-text-tertiary);
-    font-size: var(--text-sm);
-    margin-bottom: 1rem;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: color var(--transition-fast);
-  }
-  .scan__back-btn:hover { color: var(--color-text-primary); }
-
-  .scan__back-icon {
-    width: 1rem;
-    height: 1rem;
-    margin-right: 0.25rem;
-  }
-
-  .scan__title {
-    font-size: var(--text-3xl);
-    font-weight: 700;
-    color: var(--color-text-primary);
-    margin: 0 0 0.5rem;
-  }
-
-  .scan__subtitle {
-    font-size: var(--text-lg);
-    color: var(--color-text-tertiary);
-    margin: 0;
-  }
-
-  /* ===== Content ===== */
-  .scan__content {
-    padding: 0;
-  }
-
-  /* ===== Error (CRITICAL FIX: dark theme) ===== */
+  /* ===== Error ===== */
   .scan__error {
     display: flex;
     align-items: flex-start;

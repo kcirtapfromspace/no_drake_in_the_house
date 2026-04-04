@@ -40,7 +40,7 @@
     <div class="bg-zinc-800 rounded-uswds-lg p-uswds-4">
       <div class="flex items-center justify-between">
         <div>
-          <h4 class="text-zinc-400 font-medium text-zinc-300">Plan Summary</h4>
+          <h4 class="font-medium text-zinc-300">Plan Summary</h4>
           <p class="text-zinc-300">
             Estimated duration: {formatDuration(plan.estimatedDuration)}
             {#if plan.resumable}
@@ -49,7 +49,7 @@
           </p>
         </div>
         <div class="text-right">
-          <div class="text-zinc-400 font-medium text-zinc-300">Plan ID</div>
+          <div class="font-medium text-zinc-300">Plan ID</div>
           <div class="text-zinc-300 font-mono">{plan.planId.slice(0, 8)}...</div>
         </div>
       </div>
@@ -65,7 +65,7 @@
             </svg>
           </div>
           <div class="ml-3">
-            <h4 class="text-zinc-400 font-medium text-zinc-300 capitalize">{provider}</h4>
+            <h4 class="font-medium text-zinc-300 capitalize">{provider}</h4>
             <p class="text-zinc-300">Impact preview for your {provider} library</p>
           </div>
         </div>
@@ -81,7 +81,7 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-zinc-400 font-medium text-zinc-300">Liked Songs</p>
+                  <p class="font-medium text-zinc-300">Liked Songs</p>
                   <p class="text-zinc-300">
                     {impact.likedSongs.toRemove} to remove
                     {#if impact.likedSongs.collabsFound > 0}
@@ -103,7 +103,7 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-zinc-400 font-medium text-zinc-300">Playlists</p>
+                  <p class="font-medium text-zinc-300">Playlists</p>
                   <p class="text-zinc-300">
                     {impact.playlists.toScrub} playlists affected
                     <br /><span class="text-zinc-400">{impact.playlists.tracksToRemove} tracks to remove</span>
@@ -126,7 +126,7 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-zinc-400 font-medium text-zinc-300">Following</p>
+                  <p class="font-medium text-zinc-300">Following</p>
                   <p class="text-zinc-300">
                     {impact.following.toUnfollow} to unfollow
                   </p>
@@ -145,7 +145,7 @@
                   </svg>
                 </div>
                 <div class="ml-3">
-                  <p class="text-zinc-400 font-medium text-zinc-300">Radio Seeds</p>
+                  <p class="font-medium text-zinc-300">Radio Seeds</p>
                   <p class="text-zinc-300">
                     {impact.radioSeeds.toFilter} to filter
                   </p>
@@ -158,10 +158,10 @@
         <!-- Capabilities -->
         {#if plan.capabilities[provider]}
           <div class="mt-4 pt-4" style="border-top: 1px solid #52525b;">
-            <h5 class="text-zinc-400 font-medium text-zinc-300 mb-2">Platform Capabilities</h5>
+            <h5 class="font-medium text-zinc-300 mb-2">Platform Capabilities</h5>
             <div class="flex flex-wrap gap-uswds-2">
               {#each Object.entries(plan.capabilities[provider]) as [capability, support]}
-                <span class="flex items-center px-2.5 py-0.5 rounded-full text-zinc-400 font-medium {getCapabilityColor(support)}">
+                <span class="flex items-center px-2.5 py-0.5 rounded-full font-medium {getCapabilityColor(support)}">
                   {capability.replace(/_/g, ' ').toLowerCase()}
                 </span>
               {/each}
@@ -180,7 +180,7 @@
           </svg>
         </div>
         <div class="ml-3">
-          <h3 class="text-zinc-400 font-medium text-zinc-400">
+          <h3 class="font-medium text-zinc-400">
             Before You Execute
           </h3>
           <div class="mt-2 text-zinc-300">
@@ -200,7 +200,7 @@
     <svg aria-hidden="true" class="mx-auto icon-uswds icon-uswds--xl text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
     </svg>
-    <h3 class="mt-2 text-zinc-400 font-medium text-zinc-300">No enforcement plan</h3>
+    <h3 class="mt-2 font-medium text-zinc-300">No enforcement plan</h3>
     <p class="mt-1 text-zinc-300">Create a plan to see the preview.</p>
   </div>
 {/if}

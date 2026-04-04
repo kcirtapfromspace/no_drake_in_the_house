@@ -1,9 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
-  import {
-    analyticsActions,
-  } from '../stores/analytics';
 
   // Props
   export let artistId: string;
@@ -11,9 +8,6 @@
 
   function hideImgOnError(e: Event) { (e.currentTarget as HTMLImageElement).style.display = 'none'; }
 
-  // Local state
-  let isLoading = false;
-  let error: string | null = null;
   let expandedAlbums: Set<string> = new Set();
   let prefersReducedMotion = false;
   $: slideDuration = prefersReducedMotion ? 0 : 200;
@@ -306,40 +300,15 @@
   $: monthlyStreams = Math.round(totalStreams / 24); // Assume 2 year average
   $: monthlyRevenue = Math.round(totalRevenue / 24);
 
-  async function loadData() {
-    if (!artistId) return;
-    isLoading = true;
-    error = null;
-
-    await analyticsActions.fetchArtistDiscographyRevenue(artistId);
-    // We'll use our local data regardless since the API returns generic data
-    isLoading = false;
-  }
+  const perStreamRate = 0.004;
+  $: maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue), 0);
 
   onMount(() => {
     prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    loadData();
   });
-
-  $: if (artistId) {
-    loadData();
-  }
-
-  $: perStreamRate = 0.004;
 </script>
 
 <div class="artist-discography-revenue surface-panel" data-testid="artist-discography-revenue">
-  {#if error}
-    <div class="rev-error surface-panel-thin" data-testid="error-message">
-      {error}
-      <button on:click={loadData} class="rev-error__retry">Retry</button>
-    </div>
-  {:else if isLoading}
-    <div class="rev-loading" data-testid="loading-spinner">
-      <div class="rev-spinner"></div>
-    </div>
-  {:else}
-    {@const maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue))}
 
     <!-- Revenue Stat Bar — 4 cells inline -->
     <div class="rev-stats" data-testid="revenue-summary">
@@ -489,7 +458,6 @@
     <div class="rev-note" data-testid="simulation-note">
       Data is simulated for demonstration purposes. Connect streaming accounts for real analytics.
     </div>
-  {/if}
 </div>
 
 <style>
@@ -890,47 +858,6 @@
     text-align: center;
     font-size: 0.75rem;
     color: #71717a;
-  }
-
-  /* === Error & Loading === */
-  .rev-error {
-    padding: 1rem;
-    border-radius: 0.75rem;
-    color: #f87171;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .rev-error__retry {
-    color: #fca5a5;
-    text-decoration: underline;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: inherit;
-  }
-
-  .rev-error__retry:hover { text-decoration: none; }
-
-  .rev-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 0;
-  }
-
-  .rev-spinner {
-    width: 2rem;
-    height: 2rem;
-    border: 2px solid transparent;
-    border-bottom-color: #a1a1aa;
-    border-radius: 50%;
-    animation: rev-spin 1s linear infinite;
-  }
-
-  @keyframes rev-spin {
-    to { transform: rotate(360deg); }
   }
 
   @media (max-width: 640px) {

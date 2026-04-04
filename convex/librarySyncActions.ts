@@ -147,8 +147,6 @@ export const _clearProviderTracks = internalMutation({
     provider: v.string(),
   },
   handler: async (ctx: MutationCtx, args) => {
-    // Delete in batches to stay within Convex transaction read limits (4096).
-    // Returns { deleted, hasMore } so the caller can loop until done.
     const batch = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
@@ -228,6 +226,26 @@ export const _updateConnectionTokenFromSync = internalMutation({
     });
   },
 });
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+async function clearAllProviderTracks(
+  ctx: { runMutation: (ref: any, args: any) => Promise<any> },
+  userId: string,
+  provider: string,
+): Promise<void> {
+  let hasMore = true;
+  while (hasMore) {
+    const result: { deleted: number; hasMore: boolean } =
+      await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
+        userId,
+        provider,
+      });
+    hasMore = result.hasMore;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Spotify HTTP helper with retry + rate-limit handling
@@ -509,14 +527,7 @@ export const syncSpotifyLibrary = internalAction({
     // ── Clear existing tracks (once per sync) ──────────────────────────
     try {
       if (!checkpoint.clearedExisting) {
-        let hasMore = true;
-        while (hasMore) {
-          const result: { deleted: number; hasMore: boolean } =
-            await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
-              userId, provider: "spotify",
-            });
-          hasMore = result.hasMore;
-        }
+        await clearAllProviderTracks(ctx, userId, "spotify");
         checkpoint.clearedExisting = true;
       }
 
@@ -826,17 +837,7 @@ export const syncTidalLibrary = internalAction({
       return;
     }
 
-    // Clear existing tracks (batched to stay within Convex transaction limits)
-    {
-      let hasMore = true;
-      while (hasMore) {
-        const result: { deleted: number; hasMore: boolean } =
-          await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
-            userId, provider: "tidal",
-          });
-        hasMore = result.hasMore;
-      }
-    }
+    await clearAllProviderTracks(ctx, userId, "tidal");
 
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;
@@ -995,17 +996,7 @@ export const syncAppleMusicLibrary = internalAction({
 
     const developerToken = devTokenResult.developer_token;
 
-    // Clear existing tracks (batched to stay within Convex transaction limits)
-    {
-      let hasMore = true;
-      while (hasMore) {
-        const result: { deleted: number; hasMore: boolean } =
-          await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
-            userId, provider: "apple_music",
-          });
-        hasMore = result.hasMore;
-      }
-    }
+    await clearAllProviderTracks(ctx, userId, "apple_music");
 
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;
@@ -1136,17 +1127,7 @@ export const syncYouTubeLibrary = internalAction({
       return;
     }
 
-    // Clear existing tracks (batched to stay within Convex transaction limits)
-    {
-      let hasMore = true;
-      while (hasMore) {
-        const result: { deleted: number; hasMore: boolean } =
-          await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
-            userId, provider: "youtube",
-          });
-        hasMore = result.hasMore;
-      }
-    }
+    await clearAllProviderTracks(ctx, userId, "youtube");
 
     const pendingTracks: TrackImport[] = [];
     let tracksImported = 0;

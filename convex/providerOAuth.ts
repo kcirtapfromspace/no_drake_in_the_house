@@ -210,8 +210,6 @@ export const callback = action({
     );
 
     // --- Auto-trigger library sync after successful connection ---
-    // Inline the sync scheduling instead of calling triggerProviderSync action
-    // (avoids action-from-action which Convex guidelines discourage).
     const syncProviders: Record<string, string> = {
       spotify: "librarySyncActions:syncSpotifyLibrary",
       tidal: "librarySyncActions:syncTidalLibrary",

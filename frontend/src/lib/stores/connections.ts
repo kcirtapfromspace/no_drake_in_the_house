@@ -178,50 +178,6 @@ function normalizeConnectionsPayload(payload?: ConnectionsHealthPayload | null):
   return records.map(mapConnectionRecord);
 }
 
-function emitAuthLogout(): void {
-  if (typeof window === 'undefined') return;
-
-  window.dispatchEvent(
-    new CustomEvent('auth:logout', {
-      detail: { reason: 'token_refresh_failed' },
-    })
-  );
-}
-
-async function parseConnectionsResponse(response: Response): Promise<ConnectionsFetchResponse> {
-  const contentType = response.headers.get('content-type') ?? '';
-
-  if (contentType.includes('application/json')) {
-    const payload = (await response.json().catch(() => null)) as
-      | ConnectionsHealthPayload
-      | { message?: string }
-      | null;
-
-    if (response.ok) {
-      return {
-        success: true,
-        data: payload && typeof payload === 'object' ? (payload as ConnectionsHealthPayload) : undefined,
-      };
-    }
-
-    return {
-      success: false,
-      message:
-        payload && typeof payload === 'object' && 'message' in payload
-          ? payload.message || `HTTP ${response.status}`
-          : `HTTP ${response.status}`,
-      error_code: `HTTP_${response.status}`,
-    };
-  }
-
-  const message = await response.text().catch(() => '');
-  return {
-    success: response.ok,
-    message: message || `HTTP ${response.status}`,
-    error_code: response.ok ? undefined : `HTTP_${response.status}`,
-  };
-}
-
 async function fetchConnectionsDirect(): Promise<ConnectionsFetchResponse> {
   // Route through the apiClient so the Convex bridge can intercept.
   // Convex is the canonical data store for connections.

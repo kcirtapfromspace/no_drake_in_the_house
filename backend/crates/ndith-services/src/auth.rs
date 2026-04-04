@@ -13,12 +13,10 @@ use crate::oauth_security_logger::OAuthSecurityLogger;
 use crate::oauth_youtube_music::YouTubeMusicOAuthProvider;
 use crate::registration_performance::RegistrationPerformanceService;
 use anyhow::anyhow;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use bcrypt::{hash, verify};
 use chrono::{Duration, Utc};
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
-use rsa::pkcs8::DecodePrivateKey;
-use rsa::traits::PublicKeyParts;
 use ndith_core::models::oauth::{
     AccountLinkRequest, OAuthAccount, OAuthAccountHealth, OAuthConnectionStatus, OAuthFlowResponse,
     OAuthProviderType, OAuthState, OAuthTokenStatus, OAuthTokens, OAuthUserInfo, RefreshPriority,
@@ -31,6 +29,8 @@ use ndith_core::models::{
 };
 use ndith_core::{AppError, Result};
 use rand::Rng;
+use rsa::pkcs8::DecodePrivateKey;
+use rsa::traits::PublicKeyParts;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -160,10 +160,8 @@ impl AuthService {
                             match rsa::RsaPrivateKey::from_pkcs8_pem(&pem) {
                                 Ok(private_key) => {
                                     let public_key = private_key.to_public_key();
-                                    let n = URL_SAFE_NO_PAD
-                                        .encode(public_key.n().to_bytes_be());
-                                    let e = URL_SAFE_NO_PAD
-                                        .encode(public_key.e().to_bytes_be());
+                                    let n = URL_SAFE_NO_PAD.encode(public_key.n().to_bytes_be());
+                                    let e = URL_SAFE_NO_PAD.encode(public_key.e().to_bytes_be());
                                     tracing::info!(
                                         "✅ RS256 JWT signing initialized (issuer: {})",
                                         jwt_issuer
@@ -1524,11 +1522,13 @@ impl AuthService {
             }
         }
 
-        // Fall back to HS256 verification
+        // Fall back to HS256 verification (legacy tokens without aud claim)
+        let mut hs256_validation = Validation::new(Algorithm::HS256);
+        hs256_validation.validate_aud = false;
         let token_data = decode::<Claims>(
             token,
             &DecodingKey::from_secret(self.jwt_secret.as_ref()),
-            &Validation::new(Algorithm::HS256),
+            &hs256_validation,
         )
         .map_err(|_| AppError::TokenInvalid)?;
 

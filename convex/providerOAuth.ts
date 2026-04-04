@@ -186,7 +186,8 @@ export const callback = action({
         const parts = tokenData.access_token.split(".");
         if (parts.length === 3) {
           const payload = JSON.parse(atob(parts[1]));
-          providerUserId = payload.sub ?? payload.uid;
+          const raw = payload.sub ?? payload.uid;
+          providerUserId = raw != null ? String(raw) : undefined;
         }
       } catch {
         // Not a JWT — ignore

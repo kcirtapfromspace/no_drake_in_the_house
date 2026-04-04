@@ -960,7 +960,7 @@ export const syncTidalLibrary = internalAction({
 
     try {
       // Step 1: Resolve Tidal user ID from stored connection or JWT token
-      let tidalUserId: string | null = conn.providerUserId ?? null;
+      let tidalUserId: string | null = conn.providerUserId ? String(conn.providerUserId) : null;
       let countryCode = "US";
 
       if (!tidalUserId) {
@@ -969,7 +969,8 @@ export const syncTidalLibrary = internalAction({
           const parts = accessToken.split(".");
           if (parts.length === 3) {
             const payload = JSON.parse(atob(parts[1]));
-            tidalUserId = payload.sub ?? payload.uid ?? null;
+            const raw = payload.sub ?? payload.uid;
+            tidalUserId = raw != null ? String(raw) : null;
           }
         } catch {
           // Not a JWT or malformed — ignore

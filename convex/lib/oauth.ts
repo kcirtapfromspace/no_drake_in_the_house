@@ -232,16 +232,22 @@ export function extractProviderUserId(
   provider: string,
   profile: Record<string, any>,
 ): string | undefined {
+  let raw: unknown;
   switch (provider) {
     case "spotify":
-      return profile.id;
+      raw = profile.id;
+      break;
     case "tidal":
-      return profile.data?.id ?? profile.id;
+      raw = profile.data?.id ?? profile.id;
+      break;
     case "youtube": {
       const items = profile.items as Array<Record<string, any>> | undefined;
-      return items?.[0]?.id;
+      raw = items?.[0]?.id;
+      break;
     }
     default:
       return undefined;
   }
+  // Provider IDs can be numbers (e.g. Tidal) — always coerce to string
+  return raw != null ? String(raw) : undefined;
 }

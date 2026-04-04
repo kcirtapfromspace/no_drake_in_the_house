@@ -4,6 +4,9 @@ import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 /** Check if a sync is already running for a given provider. */
+/** Max age for a "running" sync before it's considered stale (35 min). */
+const STALE_RUN_MS = 35 * 60 * 1000;
+
 export const _getRunningSync = internalQuery({
   args: {
     platform: v.string(),
@@ -14,7 +17,13 @@ export const _getRunningSync = internalQuery({
       .withIndex("by_status", (q) => q.eq("status", "running"))
       .collect();
 
-    const match = running.find((r) => r.platform === args.platform);
+    const now = Date.now();
+    const match = running.find((r) => {
+      if (r.platform !== args.platform) return false;
+      // Ignore stale runs — the action likely crashed or timed out
+      const startedMs = new Date(r.startedAt ?? r.createdAt).getTime();
+      return now - startedMs < STALE_RUN_MS;
+    });
     return match ? { runId: match._id } : null;
   },
 });

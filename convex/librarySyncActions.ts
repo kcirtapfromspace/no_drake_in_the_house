@@ -769,8 +769,18 @@ export const syncSpotifyLibrary = internalAction({
             return;
           }
 
-          const url = `https://api.spotify.com/v1/me/playlists?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`;
-          const page = await spotifyGet<SpotifyPaging<SpotifyPlaylist>>(url);
+          let page: SpotifyPaging<SpotifyPlaylist>;
+          try {
+            const url = `https://api.spotify.com/v1/me/playlists?limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`;
+            page = await spotifyGet<SpotifyPaging<SpotifyPlaylist>>(url);
+          } catch (err: any) {
+            // 403 = token lacks playlist scope. Skip playlists, don't fail the whole sync.
+            if (err.message?.includes("403")) {
+              console.warn("[Spotify sync] Playlists returned 403 — skipping. Reconnect Spotify to grant playlist scope.");
+              break;
+            }
+            throw err;
+          }
 
           for (const playlist of page.items) {
             playlistIds.push(playlist.id);
@@ -1271,6 +1281,82 @@ export const syncAppleMusicLibrary = internalAction({
         nextUrl = data.next
           ? `https://api.music.apple.com${data.next}`
           : null;
+      }
+
+      await flushTracks();
+
+      // ── Phase 2: Fetch playlists and their tracks ──────────────────────
+      const appleHeaders = {
+        Authorization: `Bearer ${developerToken}`,
+        "Music-User-Token": musicUserToken,
+        Accept: "application/json",
+      };
+
+      try {
+        let playlistUrl: string | null =
+          "https://api.music.apple.com/v1/me/library/playlists?limit=100";
+
+        while (playlistUrl) {
+          const plRes = await apiFetchWithRetry(playlistUrl, appleHeaders, "Apple Music");
+          if (!plRes.ok) {
+            console.warn(`[Apple Music sync] Playlists returned ${plRes.status} — skipping`);
+            break;
+          }
+
+          const plData = (await plRes.json()) as {
+            data?: Array<{ id: string; attributes?: { name?: string } }>;
+            next?: string;
+          };
+
+          for (const playlist of plData.data ?? []) {
+            const playlistName = playlist.attributes?.name ?? "Unknown Playlist";
+            let trackUrl: string | null =
+              `https://api.music.apple.com/v1/me/library/playlists/${playlist.id}/tracks?limit=100`;
+
+            while (trackUrl) {
+              const trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
+              if (!trRes.ok) break;
+
+              const trData = (await trRes.json()) as {
+                data?: Array<{
+                  id: string;
+                  attributes?: { name?: string; albumName?: string; artistName?: string };
+                }>;
+                next?: string;
+              };
+
+              for (const item of trData.data ?? []) {
+                const attrs = item.attributes;
+                pendingTracks.push({
+                  providerTrackId: `playlist:${playlist.id}:${item.id}`,
+                  trackName: attrs?.name,
+                  albumName: attrs?.albumName,
+                  artistName: attrs?.artistName ?? "Unknown Artist",
+                  sourceType: "playlist_track",
+                  playlistName,
+                });
+                if (pendingTracks.length >= BATCH_SIZE) {
+                  await flushTracks();
+                  await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+                    runId,
+                    checkpointData: { tracksImported, phase: "playlists" },
+                    metadata: { tracksImported },
+                  });
+                }
+              }
+
+              trackUrl = trData.next
+                ? `https://api.music.apple.com${trData.next}`
+                : null;
+            }
+          }
+
+          playlistUrl = plData.next
+            ? `https://api.music.apple.com${plData.next}`
+            : null;
+        }
+      } catch (plErr: any) {
+        console.warn(`[Apple Music sync] Playlist sync error (non-fatal): ${plErr.message}`);
       }
 
       await flushTracks();

@@ -1,5 +1,5 @@
-import { ConvexError, v } from "convex/values";
-import { action, internalAction, internalMutation, internalQuery, type QueryCtx, type MutationCtx } from "./_generated/server";
+import { v } from "convex/values";
+import { internalAction, internalMutation, internalQuery, type QueryCtx, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import {
   decryptToken,
@@ -921,6 +921,165 @@ export const syncTidalLibrary = internalAction({
 // ---------------------------------------------------------------------------
 // YouTube Music sync action (checkpoint-based pagination)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Apple Music sync action
+// ---------------------------------------------------------------------------
+
+export const syncAppleMusicLibrary = internalAction({
+  args: {
+    runId: v.id("platformSyncRuns"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const { runId, userId } = args;
+
+    // Get stored Music User Token
+    const conn = await ctx.runQuery(
+      "librarySyncActions:_getConnectionTokens" as any,
+      { userId, provider: "apple_music" },
+    );
+
+    if (!conn || !conn.encryptedAccessToken) {
+      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+        runId,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        errorLog: [{ message: "No active Apple Music connection found.", ts: new Date().toISOString() }],
+      });
+      return;
+    }
+
+    let musicUserToken: string;
+    try {
+      musicUserToken = await decryptAccessToken(conn.encryptedAccessToken);
+    } catch (err: any) {
+      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+        runId,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        errorLog: [{ message: `Token decryption failed: ${err.message}`, ts: new Date().toISOString() }],
+      });
+      return;
+    }
+
+    // Get the Apple Developer Token (cross-runtime call: default → Node.js)
+    const devTokenResult: { developer_token: string | null; error?: string } =
+      await ctx.runAction(internal.signing.getDeveloperToken, {});
+
+    if (!devTokenResult.developer_token) {
+      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+        runId,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        errorLog: [{
+          message: devTokenResult.error ?? "Apple Music developer token not available.",
+          ts: new Date().toISOString(),
+        }],
+      });
+      return;
+    }
+
+    const developerToken = devTokenResult.developer_token;
+
+    // Clear existing tracks
+    await ctx.runMutation("librarySyncActions:_clearProviderTracks" as any, {
+      userId,
+      provider: "apple_music",
+    });
+
+    const pendingTracks: TrackImport[] = [];
+    let tracksImported = 0;
+
+    async function flushTracks() {
+      if (pendingTracks.length === 0) return;
+      const batch = pendingTracks.splice(0, pendingTracks.length);
+      const result: { imported: number } = await ctx.runMutation(
+        "librarySyncActions:_batchImportTracks" as any,
+        { userId, provider: "apple_music", tracks: batch },
+      );
+      tracksImported += result.imported;
+    }
+
+    try {
+      // Apple Music API: GET /v1/me/library/songs (paginated)
+      let nextUrl: string | null =
+        "https://api.music.apple.com/v1/me/library/songs?limit=100";
+
+      while (nextUrl) {
+        const res = await fetch(nextUrl, {
+          headers: {
+            Authorization: `Bearer ${developerToken}`,
+            "Music-User-Token": musicUserToken,
+            Accept: "application/json",
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(
+            `Apple Music API error ${res.status}: ${(await res.text()).substring(0, 300)}`,
+          );
+        }
+
+        const data = (await res.json()) as {
+          data?: Array<{
+            id: string;
+            attributes?: {
+              name?: string;
+              albumName?: string;
+              artistName?: string;
+            };
+          }>;
+          next?: string;
+        };
+
+        for (const item of data.data ?? []) {
+          const attrs = item.attributes;
+          pendingTracks.push({
+            providerTrackId: `liked:${item.id}`,
+            trackName: attrs?.name,
+            albumName: attrs?.albumName,
+            artistName: attrs?.artistName ?? "Unknown Artist",
+            sourceType: "library",
+          });
+          if (pendingTracks.length >= BATCH_SIZE) {
+            await flushTracks();
+          }
+        }
+
+        // Apple Music returns an absolute path for `next`
+        nextUrl = data.next
+          ? `https://api.music.apple.com${data.next}`
+          : null;
+      }
+
+      await flushTracks();
+
+      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+        runId,
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        metadata: { tracksImported },
+      });
+
+      await ctx.scheduler.runAfter(
+        0,
+        (internal as any).offensePipeline.recomputeUserOffenseSummary,
+        { userId, triggerReason: "sync_complete" },
+      );
+    } catch (err: any) {
+      try { await flushTracks(); } catch { /* ignore */ }
+
+      await ctx.runMutation("librarySyncActions:_updateSyncRun" as any, {
+        runId,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
+        metadata: { tracksImported },
+      });
+    }
+  },
+});
 
 export const syncYouTubeLibrary = internalAction({
   args: {

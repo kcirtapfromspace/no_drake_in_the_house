@@ -579,9 +579,11 @@ export const connectionActions = {
       if (response.data?.state) {
         sessionStorage.setItem('oauth_link_state_tidal', response.data.state);
       }
-      // Store PKCE code_verifier for the callback
+      // Store PKCE code_verifier for the callback.
+      // Use localStorage (not sessionStorage) because the OAuth popup is a
+      // separate window whose sessionStorage is isolated from the opener.
       if (response.data?.code_verifier) {
-        sessionStorage.setItem('oauth_code_verifier_tidal', response.data.code_verifier);
+        localStorage.setItem('oauth_code_verifier_tidal', response.data.code_verifier);
       }
       return runOAuthPopup(authUrl, 'tidal-auth', () => {
         connectionActions.fetchConnections().then(() => {

@@ -210,11 +210,22 @@ export const callback = action({
     );
 
     // --- Auto-trigger library sync after successful connection ---
-    if (["spotify", "tidal", "youtube"].includes(args.provider)) {
+    // Inline the sync scheduling instead of calling triggerProviderSync action
+    // (avoids action-from-action which Convex guidelines discourage).
+    const syncProviders: Record<string, string> = {
+      spotify: "librarySyncActions:syncSpotifyLibrary",
+      tidal: "librarySyncActions:syncTidalLibrary",
+      youtube: "librarySyncActions:syncYouTubeLibrary",
+      apple_music: "librarySyncActions:syncAppleMusicLibrary",
+    };
+    const syncAction = syncProviders[args.provider];
+    if (syncAction) {
       try {
-        await ctx.runAction("sync:triggerProviderSync" as any, {
-          provider: args.provider,
-        });
+        const { runId, userId } = (await ctx.runMutation(
+          "sync:_createRunWithUser" as any,
+          { platform: args.provider },
+        )) as { runId: string; userId: string };
+        await ctx.scheduler.runAfter(0, syncAction as any, { runId, userId });
       } catch (syncErr: any) {
         console.warn(
           `Auto-sync scheduling failed for ${args.provider}:`,

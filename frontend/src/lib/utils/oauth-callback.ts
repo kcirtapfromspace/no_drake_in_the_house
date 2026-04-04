@@ -98,13 +98,15 @@ export async function resolveOAuthCallback(
     };
   }
 
-  // Retrieve PKCE code_verifier if stored during authorize (e.g. Tidal)
+  // Retrieve PKCE code_verifier if stored during authorize (e.g. Tidal).
+  // Uses localStorage because the OAuth popup is a separate window whose
+  // sessionStorage is isolated from the opener.
   const codeVerifier =
-    (typeof sessionStorage !== 'undefined' &&
-      sessionStorage.getItem(`oauth_code_verifier_${provider}`)) ||
+    (typeof localStorage !== 'undefined' &&
+      localStorage.getItem(`oauth_code_verifier_${provider}`)) ||
     undefined;
-  if (codeVerifier && typeof sessionStorage !== 'undefined') {
-    sessionStorage.removeItem(`oauth_code_verifier_${provider}`);
+  if (codeVerifier && typeof localStorage !== 'undefined') {
+    localStorage.removeItem(`oauth_code_verifier_${provider}`);
   }
 
   const request: OAuthCallbackRequest = {

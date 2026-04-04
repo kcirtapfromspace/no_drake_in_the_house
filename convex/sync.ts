@@ -248,14 +248,18 @@ export const triggerProviderSync = action({
   handler: async (ctx, args) => {
     const provider = args.provider;
 
+    // Normalize apple-music → apple_music for DB consistency
+    const normalizedProvider =
+      provider === "apple-music" ? "apple_music" : provider;
+
     // Create the sync run record and get the user ID in one mutation
     const { runId, userId } = (await ctx.runMutation(
       "sync:_createRunWithUser" as any,
-      { platform: provider },
+      { platform: normalizedProvider },
     )) as { runId: string; userId: string };
 
     // Schedule the appropriate provider-specific sync action
-    switch (provider) {
+    switch (normalizedProvider) {
       case "spotify":
         await ctx.scheduler.runAfter(
           0,
@@ -274,6 +278,13 @@ export const triggerProviderSync = action({
         await ctx.scheduler.runAfter(
           0,
           "librarySyncActions:syncYouTubeLibrary" as any,
+          { runId, userId },
+        );
+        break;
+      case "apple_music":
+        await ctx.scheduler.runAfter(
+          0,
+          "librarySyncActions:syncAppleMusicLibrary" as any,
           { runId, userId },
         );
         break;

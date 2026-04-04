@@ -64,6 +64,79 @@ export const listTracks = query({
   },
 });
 
+/**
+ * Return aggregate counts (songs, albums, artists, playlists) for a provider
+ * without transferring every track document to the client.
+ */
+export const getLibraryStats = query({
+  args: {
+    provider: v.string(),
+  },
+  handler: async (ctx: QueryCtx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+    const tracks = await ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", user._id).eq("provider", args.provider),
+      )
+      .collect();
+
+    let songs = 0;
+    let albums = 0;
+    let artists = 0;
+    let playlistEntries = 0;
+    const playlistNames = new Set<string>();
+
+    for (const t of tracks) {
+      const st = (t.sourceType ?? "").toLowerCase();
+      if (t.playlistName) playlistNames.add(t.playlistName);
+
+      if (
+        st === "favorite_track" ||
+        st === "liked" ||
+        st === "playlist_track" ||
+        st === "liked_video" ||
+        st === "playlist_item" ||
+        st === "library_song" ||
+        st === ""
+      ) {
+        songs++;
+      } else if (
+        st === "favorite_album" ||
+        st === "saved_album" ||
+        st === "library_album"
+      ) {
+        albums++;
+      } else if (
+        st === "favorite_artist" ||
+        st === "followed_artist" ||
+        st === "subscription"
+      ) {
+        artists++;
+      }
+
+      if (st.includes("playlist") || st === "library_playlist") {
+        playlistEntries++;
+      }
+    }
+
+    const playlists = playlistNames.size > 0 ? playlistNames.size : playlistEntries;
+    const lastSynced = tracks.reduce((latest, t) => {
+      const ts = t.lastSyncedAt ?? t.createdAt ?? "";
+      return ts > latest ? ts : latest;
+    }, "");
+
+    return {
+      songs,
+      albums,
+      artists,
+      playlists,
+      totalItems: tracks.length,
+      lastSynced: lastSynced || null,
+    };
+  },
+});
+
 export const listItems = query({
   args: {
     provider: v.optional(v.string()),

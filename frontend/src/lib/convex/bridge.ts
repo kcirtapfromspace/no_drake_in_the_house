@@ -581,6 +581,13 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    if (method === 'GET' && pathname === '/api/v1/library/stats') {
+      const provider = url.searchParams.get('provider');
+      if (!provider) return fail('provider query param is required') as BridgedApiResponse<T>;
+      const result = await convexQuery<any>(anyApi.library.getLibraryStats, { provider });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     if (method === 'GET' && pathname === '/api/v1/library/items') {
       const provider = url.searchParams.get('provider') ?? undefined;
       const result = await convexQuery<any>(anyApi.library.listItems, { provider });

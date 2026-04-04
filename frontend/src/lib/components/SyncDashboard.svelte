@@ -694,6 +694,40 @@
     return [];
   }
 
+  async function fetchLibraryStats(
+    platform: Platform,
+    provider: string
+  ): Promise<ProviderLibraryStatsRow> {
+    const result = await apiClient.authenticatedRequest<any>(
+      'GET',
+      `/api/v1/library/stats?provider=${encodeURIComponent(provider)}`,
+      undefined
+    );
+
+    if (result.success && result.data) {
+      const stats = result.data;
+      return {
+        provider,
+        providerName: platform.name,
+        songs: stats.songs ?? 0,
+        albums: stats.albums ?? 0,
+        artists: stats.artists ?? 0,
+        playlists: stats.playlists ?? 0,
+        totalItems: stats.totalItems ?? 0,
+        lastSynced: stats.lastSynced ?? 'Never',
+        source: 'imported_cache',
+        status: stats.totalItems > 0 ? 'ready' : 'not_synced',
+        message: stats.totalItems > 0
+          ? undefined
+          : 'No library data synced yet. Click "Sync Library" to import your favorites and playlists.',
+      };
+    }
+
+    // Fallback: fetch tracks the old way
+    const importedTracks = await fetchImportedLibraryTracks(provider);
+    return summarizeImportedLibrary(platform, importedTracks);
+  }
+
   function summarizeImportedLibrary(
     platform: Platform,
     tracks: ImportedLibraryTrack[]
@@ -813,8 +847,7 @@
       }
 
       const provider = platform.connectionProvider || platform.id;
-      const importedTracks = await fetchImportedLibraryTracks(provider);
-      const row = summarizeImportedLibrary(platform, importedTracks);
+      const row = await fetchLibraryStats(platform, provider);
 
       // Overlay sync status if a provider-specific sync is running or has failed
       const activeSyncStatus = getProviderSyncStatusForPlatform(platform.id);

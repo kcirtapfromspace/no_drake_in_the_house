@@ -845,19 +845,37 @@ export const syncTidalLibrary = internalAction({
     }
 
     try {
-      // Tidal Open API: GET /v2/favorites/tracks (paginated)
+      // Step 1: Get the Tidal user profile to obtain userId and countryCode
+      const meRes = await fetch("https://openapi.tidal.com/v2/users/me", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!meRes.ok) {
+        const meText = await meRes.text();
+        throw new Error(`Tidal /users/me error ${meRes.status}: ${meText.substring(0, 300)}`);
+      }
+
+      const meData = (await meRes.json()) as {
+        data: { id: string; attributes?: { country?: string } };
+      };
+      const tidalUserId = meData.data.id;
+      const countryCode = meData.data.attributes?.country ?? "US";
+
+      // Step 2: Paginate through favorites/tracks using the user-scoped endpoint
       let offset = 0;
       let hasMore = true;
 
       while (hasMore) {
         const url =
-          `https://openapi.tidal.com/v2/favorites/tracks` +
-          `?countryCode=US&limit=50&offset=${offset}`;
+          `https://openapi.tidal.com/v2/users/${tidalUserId}/favorites/tracks` +
+          `?countryCode=${countryCode}&limit=50&offset=${offset}`;
         const res = await fetch(url, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            Accept: "application/vnd.tidal.v1+json",
-            "Content-Type": "application/vnd.tidal.v1+json",
+            Accept: "application/json",
           },
         });
 

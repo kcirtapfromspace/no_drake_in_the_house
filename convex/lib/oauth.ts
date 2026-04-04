@@ -44,7 +44,8 @@ const DEFAULT_SCOPES: Record<string, string[]> = {
 
 const PROFILE_ENDPOINTS: Record<string, string> = {
   spotify: "https://api.spotify.com/v1/me",
-  tidal: "https://openapi.tidal.com/v2/users/me",
+  // Tidal v2 API has no /users/me endpoint; user ID is extracted from
+  // the JWT access token during OAuth callback instead.
   youtube:
     "https://www.googleapis.com/youtube/v3/channels?part=id&mine=true",
 };

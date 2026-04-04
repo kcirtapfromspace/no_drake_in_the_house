@@ -793,59 +793,6 @@
 
   async function buildLibraryStatsRow(platform: Platform): Promise<ProviderLibraryStatsRow> {
     try {
-      if (platform.id === 'apple') {
-        let importedTracks: ImportedLibraryTrack[] = [];
-        try {
-          importedTracks = await fetchImportedLibraryTracks('apple_music');
-        } catch (error) {
-          console.warn('Failed to load Apple imported library cache:', error);
-        }
-
-        if (importedTracks.length > 0) {
-          return summarizeImportedLibrary(platform, importedTracks);
-        }
-
-        const preview = appleLibrary;
-
-        if (!preview) {
-          return {
-            provider: platform.connectionProvider || platform.id,
-            providerName: platform.name,
-            songs: null,
-            albums: null,
-            artists: null,
-            playlists: null,
-            totalItems: null,
-            source: 'live_api',
-            status: 'error',
-            message: appleLibraryError || 'Apple Music library is unavailable',
-          };
-        }
-
-        const uniqueArtists = new Set(
-          preview.tracks
-            .map(track => track.artist?.trim())
-            .filter((artist): artist is string => Boolean(artist))
-        ).size;
-
-        return {
-          provider: platform.connectionProvider || platform.id,
-          providerName: platform.name,
-          songs: preview.tracksCount,
-          albums: preview.albumsCount,
-          artists: preview.artistsCount > 0 ? preview.artistsCount : uniqueArtists,
-          playlists: preview.playlistsCount,
-          totalItems: preview.tracksCount + preview.albumsCount + preview.playlistsCount,
-          lastSynced: preview.scannedAt,
-          source: 'live_api',
-          status: 'ready',
-          message:
-            appleLibrarySyncStatus?.state === 'running'
-              ? 'Apple Music preview is loaded and the cached import is still running. The sections below will populate when the import finishes.'
-              : 'Preview loaded from Apple Music. Use "Sync Library" or "Sync All" to import items into the cached library views.',
-        };
-      }
-
       const provider = platform.connectionProvider || platform.id;
       const row = await fetchLibraryStats(platform, provider);
 
@@ -872,7 +819,7 @@
         artists: null,
         playlists: null,
         totalItems: null,
-        source: platform.id === 'apple' ? 'live_api' : 'imported_cache',
+        source: 'imported_cache',
         status: 'error',
         message,
       };

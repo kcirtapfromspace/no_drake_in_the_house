@@ -41,7 +41,7 @@ interface CheckpointData {
 // Constants
 // ---------------------------------------------------------------------------
 
-const BATCH_SIZE = 200;
+const BATCH_SIZE = 50;
 const SPOTIFY_PAGE_SIZE = 50;
 const PLAYLIST_TRACK_PAGE_SIZE = 100;
 const MAX_RETRIES = 3;
@@ -79,6 +79,7 @@ export const _getConnectionTokens = internalQuery({
       encryptedAccessToken: connection.encryptedAccessToken ?? null,
       encryptedRefreshToken: connection.encryptedRefreshToken ?? null,
       expiresAt: connection.expiresAt ?? null,
+      providerUserId: connection.providerUserId ?? null,
     };
   },
 });
@@ -845,24 +846,28 @@ export const syncTidalLibrary = internalAction({
     }
 
     try {
-      // Step 1: Get the Tidal user profile to obtain userId and countryCode
-      const meRes = await fetch("https://openapi.tidal.com/v2/users/me", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-        },
-      });
+      // Step 1: Resolve Tidal user ID from stored connection or JWT token
+      let tidalUserId: string | null = conn.providerUserId ?? null;
+      let countryCode = "US";
 
-      if (!meRes.ok) {
-        const meText = await meRes.text();
-        throw new Error(`Tidal /users/me error ${meRes.status}: ${meText.substring(0, 300)}`);
+      if (!tidalUserId) {
+        // Decode the JWT access token to extract the user ID (sub claim)
+        try {
+          const parts = accessToken.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            tidalUserId = payload.sub ?? payload.uid ?? null;
+          }
+        } catch {
+          // Not a JWT or malformed — ignore
+        }
       }
 
-      const meData = (await meRes.json()) as {
-        data: { id: string; attributes?: { country?: string } };
-      };
-      const tidalUserId = meData.data.id;
-      const countryCode = meData.data.attributes?.country ?? "US";
+      if (!tidalUserId) {
+        throw new Error(
+          "Could not determine Tidal user ID. The profile was not stored during OAuth and the access token is not a decodable JWT. Try disconnecting and reconnecting Tidal.",
+        );
+      }
 
       // Step 2: Paginate through favorites/tracks using the user-scoped endpoint
       let offset = 0;

@@ -178,6 +178,20 @@ export const callback = action({
       }
     }
 
+    // For providers without a profile endpoint (e.g. Tidal), extract user ID
+    // from the JWT access token's sub claim.
+    if (!providerUserId && tokenData.access_token) {
+      try {
+        const parts = tokenData.access_token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          providerUserId = payload.sub ?? payload.uid;
+        }
+      } catch {
+        // Not a JWT — ignore
+      }
+    }
+
     // --- Compute token expiry time ---
     const expiresAt = tokenData.expires_in
       ? new Date(Date.now() + tokenData.expires_in * 1000).toISOString()

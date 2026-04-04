@@ -978,6 +978,17 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    // Apple Music library sync (same action as generic provider sync)
+    if (method === 'POST' && pathname === '/api/v1/apple-music/library/sync') {
+      const result = await convexAction<any>(anyApi.sync.triggerProviderSync, { provider: 'apple_music' });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'GET' && pathname === '/api/v1/apple-music/library/sync-status') {
+      const result = await convexQuery<any>(anyApi.sync.providerSyncStatus, { provider: 'apple_music' });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     // =============================================
     // Sanitizer (Phase 7)
     // =============================================

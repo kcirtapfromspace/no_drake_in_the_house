@@ -1,6 +1,22 @@
 import { ConvexError, v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
+
+/** Check if a sync is already running for a given provider. */
+export const _getRunningSync = internalQuery({
+  args: {
+    platform: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const running = await ctx.db
+      .query("platformSyncRuns")
+      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .collect();
+
+    const match = running.find((r) => r.platform === args.platform);
+    return match ? { runId: match._id } : null;
+  },
+});
 
 export const status = query({
   args: {},
@@ -251,6 +267,20 @@ export const triggerProviderSync = action({
     // Normalize apple-music → apple_music for DB consistency
     const normalizedProvider =
       provider === "apple-music" ? "apple_music" : provider;
+
+    // Guard: reject if a sync is already running for this provider
+    const existingRun = await ctx.runQuery(
+      "sync:_getRunningSync" as any,
+      { platform: normalizedProvider },
+    );
+    if (existingRun) {
+      return {
+        run_id: existingRun.runId,
+        provider,
+        status: "already_running",
+        message: `A sync is already running for ${provider}`,
+      };
+    }
 
     // Create the sync run record and get the user ID in one mutation
     const { runId, userId } = (await ctx.runMutation(

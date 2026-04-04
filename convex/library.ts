@@ -39,13 +39,28 @@ export const listTracks = query({
           .query("userLibraryTracks")
           .withIndex("by_userId", (q) => q.eq("userId", user._id));
 
-    const allTracks = await tracksQuery.collect();
     const offset = args.offset ?? 0;
-    const limit = args.limit ?? 50;
-    const paginated = allTracks.slice(offset, offset + limit);
+    const limit = Math.min(args.limit ?? 50, 2000);
+    let skipped = 0;
+    const paginated: Array<{
+      id: string;
+      provider: string;
+      provider_track_id: string;
+      track_name?: string;
+      album_name?: string;
+      artist_id?: any;
+      artist_name?: string;
+      source_type?: string;
+      playlist_name?: string;
+      added_at?: string;
+    }> = [];
 
-    return {
-      tracks: paginated.map((t) => ({
+    for await (const t of tracksQuery) {
+      if (skipped < offset) {
+        skipped++;
+        continue;
+      }
+      paginated.push({
         id: t._id,
         provider: t.provider,
         provider_track_id: t.providerTrackId,
@@ -56,7 +71,12 @@ export const listTracks = query({
         source_type: t.sourceType,
         playlist_name: t.playlistName,
         added_at: t.addedAt,
-      })),
+      });
+      if (paginated.length >= limit) break;
+    }
+
+    return {
+      tracks: paginated,
       total: allTracks.length,
       offset,
       limit,
@@ -150,58 +170,96 @@ export const getLibraryStats = query({
 export const listItems = query({
   args: {
     provider: v.optional(v.string()),
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
   },
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = args.provider
-      ? await ctx.db
+    const limit = Math.min(args.limit ?? 200, 2000);
+    const offset = args.offset ?? 0;
+
+    const baseQuery = args.provider
+      ? ctx.db
           .query("userLibraryTracks")
           .withIndex("by_user_provider", (q) =>
             q.eq("userId", user._id).eq("provider", args.provider!),
           )
-          .collect()
-      : await ctx.db
+      : ctx.db
           .query("userLibraryTracks")
-          .withIndex("by_userId", (q) => q.eq("userId", user._id))
-          .collect();
+          .withIndex("by_userId", (q) => q.eq("userId", user._id));
 
-    return {
-      items: tracks.map((t) => ({
+    // Skip `offset` rows, then take `limit`
+    let skipped = 0;
+    const items: Array<{
+      id: string;
+      provider: string;
+      track_name?: string;
+      artist_name?: string;
+      album_name?: string;
+    }> = [];
+
+    for await (const t of baseQuery) {
+      if (skipped < offset) {
+        skipped++;
+        continue;
+      }
+      items.push({
         id: t._id,
         provider: t.provider,
         track_name: t.trackName,
         artist_name: t.artistName,
         album_name: t.albumName,
-      })),
-      total: tracks.length,
-    };
+      });
+      if (items.length >= limit) break;
+    }
+
+    return { items, total: offset + items.length + (items.length >= limit ? 1 : 0) };
   },
 });
 
 export const listGroups = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    limit: v.optional(v.number()),
+    offset: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+    const limit = Math.min(args.limit ?? 200, 2000);
+    const offset = args.offset ?? 0;
 
-    const byArtist = new Map<string, Doc<"userLibraryTracks">[]>();
-    for (const track of tracks) {
+    // Aggregate tracks by artist — we must scan all tracks to build groups,
+    // but we only return a page of the result to stay under the 8192 limit.
+    const byArtist = new Map<string, { artistId?: any; count: number; providers: Set<string> }>();
+
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))) {
       const key = track.artistName ?? "Unknown";
-      if (!byArtist.has(key)) byArtist.set(key, []);
-      byArtist.get(key)!.push(track);
+      const existing = byArtist.get(key);
+      if (existing) {
+        existing.count++;
+        existing.providers.add(track.provider);
+      } else {
+        byArtist.set(key, {
+          artistId: track.artistId,
+          count: 1,
+          providers: new Set([track.provider]),
+        });
+      }
     }
 
-    const groups = Array.from(byArtist.entries()).map(([artistName, items]) => ({
+    const allGroups = Array.from(byArtist.entries()).map(([artistName, data]) => ({
       artist_name: artistName,
-      artist_id: items[0].artistId,
-      track_count: items.length,
-      providers: [...new Set(items.map((t) => t.provider))],
+      artist_id: data.artistId,
+      track_count: data.count,
+      providers: [...data.providers],
     }));
 
-    return { groups, total: groups.length };
+    // Sort by track count descending, then paginate
+    allGroups.sort((a, b) => b.track_count - a.track_count);
+    const page = allGroups.slice(offset, offset + limit);
+
+    return { groups: page, total: allGroups.length };
   },
 });
 

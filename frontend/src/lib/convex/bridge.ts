@@ -545,52 +545,10 @@ export async function maybeHandleConvexRoute<T = unknown>(
     // =============================================
     // Library (Phase 2a)
     // =============================================
-
-    if (method === 'GET' && pathname === '/api/v1/library/scan') {
-      const result = await convexQuery<any>(anyApi.library.scanLibrary, {});
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/scan/cached') {
-      const result = await convexQuery<any>(anyApi.library.scanLibrary, {});
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/tracks') {
-      const provider = url.searchParams.get('provider') ?? undefined;
-      const limit = parseIntParam(url, 'limit', 50);
-      const offset = parseIntParam(url, 'offset', 0);
-      const result = await convexQuery<any>(anyApi.library.listTracks, { provider, limit, offset });
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/items') {
-      const provider = url.searchParams.get('provider') ?? undefined;
-      const result = await convexQuery<any>(anyApi.library.listItems, { provider });
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/groups') {
-      const result = await convexQuery<any>(anyApi.library.listGroups, {});
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/taste-grade') {
-      const result = await convexQuery<any>(anyApi.library.tasteGrade, {});
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/offenders') {
-      const result = await convexQuery<any>(anyApi.library.listOffenders, {});
-      return ok(result) as BridgedApiResponse<T>;
-    }
-
-    if (method === 'GET' && pathname === '/api/v1/library/playlists/tracks') {
-      const provider = url.searchParams.get('provider') ?? 'spotify';
-      const playlistName = url.searchParams.get('playlistName') ?? url.searchParams.get('playlist_name') ?? '';
-      const result = await convexQuery<any>(anyApi.library.getPlaylistTracks, { provider, playlistName });
-      return ok(result) as BridgedApiResponse<T>;
-    }
+    // Library reads fall through to the Rust backend (PostgreSQL) which has
+    // the canonical data.  Convex sync actions will eventually populate
+    // Convex, but until migration is complete the backend is authoritative.
+    // Scan endpoints stay in Convex since those are Convex-only features.
 
     if (method === 'GET' && pathname === '/api/v1/library/playlists') {
       const provider = url.searchParams.get('provider') ?? undefined;

@@ -1193,7 +1193,7 @@ export const syncTidalLibrary = internalAction({
 
           let url =
             `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/albums` +
-            `?countryCode=${countryCode}&include=albums`;
+            `?countryCode=${countryCode}&include=albums,albums.artists`;
           if (cursor) {
             url += `&page[cursor]=${encodeURIComponent(cursor)}`;
           }
@@ -1401,7 +1401,7 @@ export const syncTidalLibrary = internalAction({
 
             let url =
               `https://openapi.tidal.com/v2/playlists/${playlistId}/relationships/items` +
-              `?countryCode=${countryCode}&include=items`;
+              `?countryCode=${countryCode}&include=items.artists,items.albums`;
             if (cursor) {
               url += `&page[cursor]=${encodeURIComponent(cursor)}`;
             }

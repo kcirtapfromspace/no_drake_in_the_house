@@ -276,8 +276,8 @@
     error = null;
 
     try {
-      // Fetch full profile with offenses
-      const result = await apiClient.get<any>(`/api/v1/offenses/query?artist_id=${artistId}`);
+      // Fetch full artist profile with offenses
+      const result = await apiClient.get<any>(`/api/v1/artists/${artistId}/profile`);
 
       if (result.success && result.data) {
         // Transform the response to match our profile structure
@@ -515,7 +515,7 @@
       confidence,
       images: data.images || [],
       primary_image: imageUrl ? { url: imageUrl, source: 'Spotify' } : data.primary_image || data.images?.[0],
-      genres: data.genres || [],
+      genres: data.genres || data.metadata?.genres || [],
       offenses: (data.offenses || []).map((o: any) => transformOffense(o)),
       streaming_metrics: data.streaming_metrics,
       collaborators: data.collaborators || [],

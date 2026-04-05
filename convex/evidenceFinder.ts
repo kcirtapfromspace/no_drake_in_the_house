@@ -6,6 +6,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { serviceAuthHeaders } from "./lib/serviceAuth";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -349,12 +350,7 @@ export const investigateLibraryArtists = internalAction({
                 `${backendUrl}/api/v1/news/research/artists/${artistId}/trigger`,
                 {
                   method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    ...(process.env.NDITH_SERVICE_JWT
-                      ? { Authorization: `Bearer ${process.env.NDITH_SERVICE_JWT}` }
-                      : {}),
-                  },
+                  headers: await serviceAuthHeaders(),
                   body: JSON.stringify({
                     artist_name: artist.canonicalName,
                     artist_id: artistId,

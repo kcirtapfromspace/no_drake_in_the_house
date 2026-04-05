@@ -346,10 +346,15 @@ export const investigateLibraryArtists = internalAction({
             try {
               // Call the Rust backend research endpoint
               const response = await fetch(
-                `${backendUrl}/news/research/artists/${artistId}/trigger`,
+                `${backendUrl}/api/v1/news/research/artists/${artistId}/trigger`,
                 {
                   method: "POST",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(process.env.NDITH_SERVICE_JWT
+                      ? { Authorization: `Bearer ${process.env.NDITH_SERVICE_JWT}` }
+                      : {}),
+                  },
                   body: JSON.stringify({
                     artist_name: artist.canonicalName,
                     artist_id: artistId,
@@ -562,10 +567,15 @@ export const cycleArtistInventory = internalAction({
         if (backendUrl) {
           try {
             const response = await fetch(
-              `${backendUrl}/news/research/artists/${artistId}/trigger`,
+              `${backendUrl}/api/v1/news/research/artists/${artistId}/trigger`,
               {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(process.env.NDITH_SERVICE_JWT
+                    ? { Authorization: `Bearer ${process.env.NDITH_SERVICE_JWT}` }
+                    : {}),
+                },
                 body: JSON.stringify({
                   artist_name: canonicalName,
                   artist_id: artistId,

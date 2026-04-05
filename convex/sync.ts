@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { action, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { nowIso, requireCurrentUser } from "./lib/auth";
@@ -442,6 +442,18 @@ export const triggerInvestigation = action({
       status: "running",
       message: "Evidence investigation started for your library artists.",
     };
+  },
+});
+
+/**
+ * CLI-friendly: trigger investigation for all users with active connections.
+ * No auth required — callable via `npx convex run sync:runInvestigationNow`.
+ */
+export const runInvestigationNow = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    await ctx.runMutation(internal.evidenceFinder.dailyInvestigation, {});
+    return { status: "scheduled", message: "Investigation triggered for all users with active connections." };
   },
 });
 

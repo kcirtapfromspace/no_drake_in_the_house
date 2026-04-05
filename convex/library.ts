@@ -121,11 +121,15 @@ export const getLibraryStats = query({
       if (t.artistName && t.artistName !== "Unknown Artist") uniqueArtists.add(t.artistName);
 
       if (
+        st === "playlist_track" ||
+        st === "playlist_item"
+      ) {
+        // Playlist tracks are counted separately under "playlists", not
+        // as songs, so the songs column reflects liked/library tracks only.
+      } else if (
         st === "favorite_track" ||
         st === "liked" ||
-        st === "playlist_track" ||
         st === "liked_video" ||
-        st === "playlist_item" ||
         st === "library_song" ||
         st === "library" ||
         st === ""

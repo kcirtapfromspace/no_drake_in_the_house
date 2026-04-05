@@ -1003,34 +1003,9 @@ export const syncTidalLibrary = internalAction({
     }
 
     try {
-      // Step 1: Resolve Tidal user ID — try /users/me first, fall back to JWT
+      // Step 1: Resolve Tidal user ID — try stored ID, then JWT, then /sessions
       let tidalUserId: string | null = conn.providerUserId ? String(conn.providerUserId) : null;
       let countryCode = "US";
-
-      // Try the /users/me endpoint to get user ID and country
-      if (!tidalUserId) {
-        try {
-          const meRes = await apiFetchWithRetry(
-            "https://openapi.tidal.com/v2/users/me",
-            { Authorization: `Bearer ${accessToken}`, Accept: "application/vnd.api+json" },
-            "Tidal",
-          );
-          if (meRes.ok) {
-            const meBody = (await meRes.json()) as {
-              data?: { id: string; attributes?: { country?: string } };
-            };
-            if (meBody.data?.id) {
-              tidalUserId = String(meBody.data.id);
-              countryCode = meBody.data.attributes?.country ?? "US";
-              console.log(`[Tidal sync] Got user from /users/me: id=${tidalUserId}, country=${countryCode}`);
-            }
-          } else {
-            console.warn(`[Tidal sync] /users/me returned ${meRes.status}, falling back to JWT`);
-          }
-        } catch (e: any) {
-          console.warn(`[Tidal sync] /users/me failed: ${e.message}, falling back to JWT`);
-        }
-      }
 
       // Fallback: decode the JWT access token
       if (!tidalUserId) {
@@ -1053,85 +1028,69 @@ export const syncTidalLibrary = internalAction({
         );
       }
 
-      // Step 2: Fetch favorite tracks via userCollections
-      // The collection ID for a user's favorites IS the user ID
-      let cursor: string | null = null;
+      // Step 2: Fetch favorite tracks via v1 API
+      // The v2 userCollections endpoint does not support tracks yet, so we
+      // use the v1 favorites endpoint which has full track support.
+      const TIDAL_PAGE_SIZE = 50;
+      let offset = 0;
       let hasMore = true;
       let pageCount = 0;
 
       while (hasMore) {
-        let url =
-          `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/tracks` +
-          `?countryCode=${countryCode}&include=tracks`;
-        if (cursor) {
-          url += `&page[cursor]=${encodeURIComponent(cursor)}`;
-        }
+        const url =
+          `https://api.tidal.com/v1/users/${tidalUserId}/favorites/tracks` +
+          `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
 
         const res = await apiFetchWithRetry(url, {
           Authorization: `Bearer ${accessToken}`,
-          Accept: "application/vnd.api+json",
         }, "Tidal");
 
         if (!res.ok) {
           const errText = await res.text();
-          // If userCollections returns 404, the user may have no favorites
           if (res.status === 404) {
-            console.warn(`[Tidal sync] userCollections/${tidalUserId} returned 404 — user may have no favorites`);
+            console.warn(`[Tidal sync] favorites/tracks returned 404 — user may have no favorites`);
             break;
           }
           throw new Error(`Tidal API error ${res.status}: ${errText.substring(0, 300)}`);
         }
 
         const body = (await res.json()) as {
-          data?: Array<{ id: string; type: string }>;
-          included?: Array<{
-            id: string;
-            type: string;
-            attributes?: { title?: string; name?: string };
-            relationships?: {
-              artists?: { data?: Array<{ id: string }> };
-              albums?: { data?: Array<{ id: string }> };
+          limit?: number;
+          offset?: number;
+          totalNumberOfItems?: number;
+          items?: Array<{
+            created?: string;
+            item?: {
+              id: number;
+              title?: string;
+              artist?: { id: number; name?: string };
+              artists?: Array<{ id: number; name?: string }>;
+              album?: { id: number; title?: string };
             };
           }>;
-          links?: {
-            next?: string;
-            meta?: { nextCursor?: string };
-          };
         };
 
         pageCount++;
-        const items = body.data ?? [];
-        console.log(`[Tidal sync] Page ${pageCount}: ${items.length} items, included: ${body.included?.length ?? 0}`);
+        const items = body.items ?? [];
+        console.log(
+          `[Tidal sync] Page ${pageCount}: ${items.length} items (offset=${offset}, total=${body.totalNumberOfItems ?? "?"})`,
+        );
 
         if (items.length === 0 && pageCount === 1) {
           console.warn(`[Tidal sync] First page returned 0 items. Response keys: ${Object.keys(body).join(", ")}`);
         }
 
-        // Build a lookup of included resources
-        const includedById = new Map<string, any>();
-        for (const inc of body.included ?? []) {
-          includedById.set(`${inc.type}:${inc.id}`, inc);
-        }
+        for (const entry of items) {
+          const track = entry.item;
+          if (!track) continue;
 
-        for (const item of items) {
-          const track = includedById.get(`tracks:${item.id}`);
-          const attrs = track?.attributes;
-
-          const artistRel = track?.relationships?.artists?.data?.[0];
-          const artistResource = artistRel
-            ? includedById.get(`artists:${artistRel.id}`)
-            : undefined;
-          const artistName = artistResource?.attributes?.name ?? "Unknown Artist";
-
-          const albumRel = track?.relationships?.albums?.data?.[0];
-          const albumResource = albumRel
-            ? includedById.get(`albums:${albumRel.id}`)
-            : undefined;
-          const albumName = albumResource?.attributes?.title;
+          const artistName =
+            track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist";
+          const albumName = track.album?.title;
 
           pendingTracks.push({
-            providerTrackId: `liked:${item.id}`,
-            trackName: attrs?.title,
+            providerTrackId: `liked:${track.id}`,
+            trackName: track.title,
             albumName,
             artistName,
             sourceType: "liked",
@@ -1146,12 +1105,11 @@ export const syncTidalLibrary = internalAction({
           }
         }
 
-        // Cursor-based pagination
-        const nextCursor = body.links?.meta?.nextCursor;
-        if (nextCursor && items.length > 0) {
-          cursor = nextCursor;
-        } else {
+        // Offset-based pagination
+        if (items.length < TIDAL_PAGE_SIZE) {
           hasMore = false;
+        } else {
+          offset += items.length;
         }
       }
 

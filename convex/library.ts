@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
@@ -94,26 +95,29 @@ export const getLibraryStats = query({
   },
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_user_provider", (q) =>
-        q.eq("userId", user._id).eq("provider", args.provider),
-      )
-      .collect();
 
+    // Use async iteration instead of .collect() to avoid materializing all
+    // track documents at once. Each document is still read from the DB, but
+    // we avoid holding the entire result set in memory.
     let songs = 0;
     let explicitAlbums = 0;
     let explicitArtists = 0;
     let playlistEntries = 0;
+    let totalItems = 0;
+    let lastSynced = "";
     const playlistNames = new Set<string>();
     const uniqueAlbums = new Set<string>();
     const uniqueArtists = new Set<string>();
 
-    for (const t of tracks) {
+    for await (const t of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", user._id).eq("provider", args.provider),
+      )) {
+      totalItems++;
       const st = (t.sourceType ?? "").toLowerCase();
       if (t.playlistName) playlistNames.add(t.playlistName);
 
-      // Collect unique album/artist names from all tracks
       if (t.albumName) uniqueAlbums.add(t.albumName);
       if (t.artistName && t.artistName !== "Unknown Artist") uniqueArtists.add(t.artistName);
 
@@ -145,23 +149,21 @@ export const getLibraryStats = query({
       if (st.includes("playlist") || st === "library_playlist") {
         playlistEntries++;
       }
+
+      const ts = t.lastSyncedAt ?? t.createdAt ?? "";
+      if (ts > lastSynced) lastSynced = ts;
     }
 
-    // Use explicit counts if available, otherwise derive from track metadata
     const albums = explicitAlbums > 0 ? explicitAlbums : uniqueAlbums.size;
     const artists = explicitArtists > 0 ? explicitArtists : uniqueArtists.size;
     const playlists = playlistNames.size > 0 ? playlistNames.size : playlistEntries;
-    const lastSynced = tracks.reduce((latest, t) => {
-      const ts = t.lastSyncedAt ?? t.createdAt ?? "";
-      return ts > latest ? ts : latest;
-    }, "");
 
     return {
       songs,
       albums,
       artists,
       playlists,
-      totalItems: tracks.length,
+      totalItems,
       lastSynced: lastSynced || null,
     };
   },
@@ -336,27 +338,49 @@ export const listPlaylists = query({
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
-    const tracks = args.provider
-      ? await ctx.db
+    // First pass: async-iterate tracks to build lightweight playlist groups
+    // (only keep the fields we need, not full documents)
+    const tracksQuery = args.provider
+      ? ctx.db
           .query("userLibraryTracks")
           .withIndex("by_user_provider", (q) =>
             q.eq("userId", user._id).eq("provider", args.provider!),
           )
-          .collect()
-      : await ctx.db
+      : ctx.db
           .query("userLibraryTracks")
-          .withIndex("by_userId", (q) => q.eq("userId", user._id))
-          .collect();
+          .withIndex("by_userId", (q) => q.eq("userId", user._id));
 
-    // Collect unique artist IDs from playlist tracks, then batch-lookup
+    type TrackSlim = {
+      artistId: string | undefined;
+      artistName: string | undefined;
+      lastSyncedAt: string | undefined;
+    };
+    const groups = new Map<
+      string,
+      { provider: string; playlistName: string; tracks: TrackSlim[] }
+    >();
     const playlistArtistIds = new Set<string>();
-    for (const track of tracks) {
-      if (track.playlistName && track.artistId) {
-        playlistArtistIds.add(track.artistId as string);
+
+    for await (const track of tracksQuery) {
+      if (!track.playlistName) continue;
+      const key = `${track.provider}::${track.playlistName}`;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          provider: track.provider,
+          playlistName: track.playlistName,
+          tracks: [],
+        });
       }
+      const aid = track.artistId as string | undefined;
+      groups.get(key)!.tracks.push({
+        artistId: aid,
+        artistName: track.artistName,
+        lastSyncedAt: track.lastSyncedAt,
+      });
+      if (aid) playlistArtistIds.add(aid);
     }
 
-    // Parallel indexed lookups against offendingArtistIndex
+    // Batch-lookup offending artist IDs
     const offenseResults = await Promise.all(
       [...playlistArtistIds].map(async (artistId) => {
         const row = await ctx.db
@@ -380,24 +404,6 @@ export const listPlaylists = query({
       userBlocks.map((b) => b.artistId as string),
     );
 
-    const groups = new Map<
-      string,
-      { provider: string; playlistName: string; tracks: Doc<"userLibraryTracks">[] }
-    >();
-
-    for (const track of tracks) {
-      if (!track.playlistName) continue;
-      const key = `${track.provider}::${track.playlistName}`;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          provider: track.provider,
-          playlistName: track.playlistName,
-          tracks: [],
-        });
-      }
-      groups.get(key)!.tracks.push(track);
-    }
-
     const playlists = Array.from(groups.values()).map((g) => {
       const total = g.tracks.length;
       const artistIds = new Set<string>();
@@ -406,11 +412,11 @@ export const listPlaylists = query({
       let lastSynced = "";
 
       for (const t of g.tracks) {
-        if (t.artistId) artistIds.add(t.artistId as string);
+        if (t.artistId) artistIds.add(t.artistId);
         if (t.lastSyncedAt && t.lastSyncedAt > lastSynced) {
           lastSynced = t.lastSyncedAt;
         }
-        const aid = t.artistId as string | undefined;
+        const aid = t.artistId;
         if (aid && (offendingArtistIds.has(aid) || blockedArtistIds.has(aid))) {
           flaggedCount++;
           if (t.artistName) flaggedArtists.add(t.artistName);
@@ -438,7 +444,6 @@ export const listPlaylists = query({
       };
     });
 
-    // Sort: worst grade first, then alphabetically
     const gradeOrder: Record<string, number> = {
       F: 0, D: 1, C: 2, B: 3, A: 4, "A+": 5,
     };
@@ -461,16 +466,17 @@ export const getPlaylistTracks = query({
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
-    const tracks = await ctx.db
+    // Use async iteration + filter instead of .collect() to reduce memory
+    const playlistTracks: Doc<"userLibraryTracks">[] = [];
+    for await (const t of ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
         q.eq("userId", user._id).eq("provider", args.provider),
-      )
-      .collect();
-
-    const playlistTracks = tracks.filter(
-      (t) => t.playlistName === args.playlistName,
-    );
+      )) {
+      if (t.playlistName === args.playlistName) {
+        playlistTracks.push(t);
+      }
+    }
 
     // Collect unique artist IDs and batch-lookup offending index
     const uniqueArtistIds = new Set<string>();
@@ -623,12 +629,7 @@ export const listDeduplicated = query({
   },
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
-    const allTracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
-
-    // Group by normalized (track, artist) key
+    // Group by normalized (track, artist) key using async iteration
     const groups = new Map<
       string,
       {
@@ -638,7 +639,9 @@ export const listDeduplicated = query({
       }
     >();
 
-    for (const track of allTracks) {
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))) {
       const normTrack = normalizeForDedup(track.trackName);
       const normArtist = normalizeForDedup(track.artistName);
 
@@ -721,19 +724,29 @@ export const _clearProviderTracks = internalMutation({
     provider: v.string(),
   },
   handler: async (ctx: MutationCtx, args) => {
+    // Delete in batches to stay within transaction limits.
+    // If there are more tracks, schedule a continuation.
+    const BATCH_SIZE = 500;
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
         q.eq("userId", args.userId).eq("provider", args.provider),
       )
-      .collect();
+      .take(BATCH_SIZE);
 
-    let deleted = 0;
     for (const track of tracks) {
       await ctx.db.delete(track._id);
-      deleted++;
     }
 
-    return { deleted };
+    // If we hit the batch limit, schedule another round
+    if (tracks.length === BATCH_SIZE) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.library._clearProviderTracks,
+        { userId: args.userId, provider: args.provider },
+      );
+    }
+
+    return { deleted: tracks.length };
   },
 });

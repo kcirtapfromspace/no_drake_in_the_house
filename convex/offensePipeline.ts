@@ -127,14 +127,14 @@ export const recomputeUserOffenseSummary = internalMutation({
       }
     }
 
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-
-    // Collect unique artist IDs and count tracks per artist
+    // Use async iteration instead of .collect() to avoid materializing all
+    // track documents at once (reduces peak memory usage).
     const tracksByArtist = new Map<string, number>();
-    for (const track of tracks) {
+    let totalTrackCount = 0;
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      totalTrackCount++;
       if (track.artistId) {
         const aid = track.artistId as string;
         tracksByArtist.set(aid, (tracksByArtist.get(aid) ?? 0) + 1);
@@ -207,7 +207,7 @@ export const recomputeUserOffenseSummary = internalMutation({
         createdAt: existing.createdAt,
         updatedAt: now,
         userId: args.userId,
-        totalTracks: tracks.length,
+        totalTracks: totalTrackCount,
         totalArtists,
         flaggedArtistCount,
         flaggedTrackCount,
@@ -223,7 +223,7 @@ export const recomputeUserOffenseSummary = internalMutation({
         createdAt: now,
         updatedAt: now,
         userId: args.userId,
-        totalTracks: tracks.length,
+        totalTracks: totalTrackCount,
         totalArtists,
         flaggedArtistCount,
         flaggedTrackCount,
@@ -402,6 +402,9 @@ export const promoteClassifications = internalMutation({
 /**
  * Daily sweep: find summaries older than 24h and schedule recompute.
  */
+/** Stagger delay between scheduled recomputes to avoid thundering herd (ms). */
+const SWEEP_STAGGER_MS = 60_000;
+
 export const dailySweep = internalMutation({
   args: {},
   handler: async (ctx) => {
@@ -411,8 +414,9 @@ export const dailySweep = internalMutation({
     let scheduled = 0;
     for (const summary of allSummaries) {
       if (summary.computedAt < cutoff) {
+        // Stagger recomputes over time to avoid bandwidth spikes
         await ctx.scheduler.runAfter(
-          0,
+          scheduled * SWEEP_STAGGER_MS,
           internal.offensePipeline.recomputeUserOffenseSummary,
           { userId: summary.userId, triggerReason: "scheduled" },
         );

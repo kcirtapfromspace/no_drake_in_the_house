@@ -202,7 +202,8 @@ export default defineSchema({
     .index("by_legacyKey", ["legacyKey"])
     .index("by_userId", ["userId"])
     .index("by_user_provider", ["userId", "provider"])
-    .index("by_artistId", ["artistId"]),
+    .index("by_artistId", ["artistId"])
+    .index("by_user_artistName", ["userId", "artistName"]),
 
   libraryScans: defineTable({
     ...legacyFields,

@@ -18,12 +18,11 @@ export const artistOverview = query({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const [offenses, evidence, collaborations, blocks] = await Promise.all([
+    const [offenses, collaborations, blocks] = await Promise.all([
       ctx.db
         .query("artistOffenses")
         .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
         .collect(),
-      ctx.db.query("offenseEvidence").collect(),
       ctx.db
         .query("artistCollaborations")
         .withIndex("by_artistId1", (q) => q.eq("artistId1", args.artistId))
@@ -34,8 +33,16 @@ export const artistOverview = query({
         .collect(),
     ]);
 
-    const offenseIds = new Set(offenses.map((offense) => offense._id));
-    const evidenceCount = evidence.filter((item) => offenseIds.has(item.offenseId)).length;
+    // Use indexed lookups per offense instead of scanning ALL evidence
+    let evidenceCount = 0;
+    for (const offense of offenses) {
+      const evidence = await ctx.db
+        .query("offenseEvidence")
+        .withIndex("by_offenseId", (q) => q.eq("offenseId", offense._id))
+        .collect();
+      evidenceCount += evidence.length;
+    }
+
     const troubleScore = offenses.reduce(
       (total, offense) => total + (severityWeight[offense.severity] ?? 2),
       0,
@@ -93,35 +100,44 @@ export const dashboard = query({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireCurrentUser(ctx);
-    const [blocks, scans, subscriptions, tracks, offenses] = await Promise.all([
-      ctx.db
-        .query("userArtistBlocks")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db
-        .query("libraryScans")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db
-        .query("categorySubscriptions")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db
-        .query("userLibraryTracks")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db.query("artistOffenses").collect(),
-    ]);
+    const [blocks, scans, subscriptions, summary, offenseIndex] =
+      await Promise.all([
+        ctx.db
+          .query("userArtistBlocks")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        ctx.db
+          .query("libraryScans")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        ctx.db
+          .query("categorySubscriptions")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        // Use precomputed summary instead of scanning ALL user tracks
+        ctx.db
+          .query("userOffenseSummaries")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .unique(),
+        // Use the small index table instead of scanning ALL artistOffenses
+        ctx.db.query("offendingArtistIndex").collect(),
+      ]);
 
     const latestScan = scans.sort((a, b) =>
       b.scanStartedAt.localeCompare(a.scanStartedAt),
     )[0];
 
+    // Sum offense counts from the index (much smaller than artistOffenses)
+    const totalOffenses = offenseIndex.reduce(
+      (sum, row) => sum + row.offenseCount,
+      0,
+    );
+
     return {
       dnp_count: blocks.length,
       category_count: subscriptions.length,
-      library_track_count: tracks.length,
-      total_offenses_in_db: offenses.length,
+      library_track_count: summary?.totalTracks ?? 0,
+      total_offenses_in_db: totalOffenses,
       latest_scan: latestScan ?? null,
     };
   },
@@ -131,35 +147,52 @@ export const userStats = query({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireCurrentUser(ctx);
-    const [blocks, tracks, subscriptions] = await Promise.all([
-      ctx.db
-        .query("userArtistBlocks")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db
-        .query("userLibraryTracks")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-      ctx.db
-        .query("categorySubscriptions")
-        .withIndex("by_userId", (q) => q.eq("userId", user._id))
-        .collect(),
-    ]);
+    const [blocks, subscriptions, summary, connections, scans] =
+      await Promise.all([
+        ctx.db
+          .query("userArtistBlocks")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        ctx.db
+          .query("categorySubscriptions")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        // Use precomputed summary for track count
+        ctx.db
+          .query("userOffenseSummaries")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .unique(),
+        // Get providers from connections (tiny table) instead of scanning tracks
+        ctx.db
+          .query("providerConnections")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+        // Use scan data for per-provider counts
+        ctx.db
+          .query("libraryScans")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .collect(),
+      ]);
 
-    const providers = [...new Set(tracks.map((t) => t.provider))];
+    const providers = connections
+      .filter((c) => c.status === "active")
+      .map((c) => c.provider);
+
+    // Build per-provider track counts from latest scans
+    const providerCounts: Record<string, number> = {};
+    for (const provider of providers) {
+      const latestScan = scans
+        .filter((s) => s.provider === provider)
+        .sort((a, b) => b.scanStartedAt.localeCompare(a.scanStartedAt))[0];
+      providerCounts[provider] = latestScan?.totalTracks ?? 0;
+    }
 
     return {
       blocked_artists: blocks.length,
-      library_tracks: tracks.length,
+      library_tracks: summary?.totalTracks ?? 0,
       category_subscriptions: subscriptions.length,
       connected_providers: providers,
-      provider_track_counts: providers.reduce<Record<string, number>>(
-        (acc, p) => {
-          acc[p] = tracks.filter((t) => t.provider === p).length;
-          return acc;
-        },
-        {},
-      ),
+      provider_track_counts: providerCounts,
     };
   },
 });
@@ -169,24 +202,31 @@ export const systemHealth = query({
   handler: async (ctx) => {
     await requireOwner(ctx);
 
-    const [artists, offenses, users, tracks, syncRuns] = await Promise.all([
-      ctx.db.query("artists").collect(),
-      ctx.db.query("artistOffenses").collect(),
+    // Use bounded queries and the offendingArtistIndex instead of scanning
+    // entire tables. Counts are approximate but avoid massive bandwidth.
+    const [offenseIndex, users, failedSyncs, recentSyncs] = await Promise.all([
+      ctx.db.query("offendingArtistIndex").collect(),
       ctx.db.query("users").collect(),
-      ctx.db.query("userLibraryTracks").collect(),
-      ctx.db.query("platformSyncRuns").collect(),
+      ctx.db
+        .query("platformSyncRuns")
+        .withIndex("by_status", (q) => q.eq("status", "failed"))
+        .take(100),
+      ctx.db.query("platformSyncRuns").order("desc").take(100),
     ]);
 
-    const failedSyncs = syncRuns.filter((r) => r.status === "failed").length;
+    const totalOffenses = offenseIndex.reduce(
+      (sum, row) => sum + row.offenseCount,
+      0,
+    );
 
     return {
-      total_artists: artists.length,
-      total_offenses: offenses.length,
+      total_artists: offenseIndex.length,
+      total_offenses: totalOffenses,
       total_users: users.length,
-      total_tracks: tracks.length,
-      total_sync_runs: syncRuns.length,
-      failed_sync_runs: failedSyncs,
-      healthy: failedSyncs < 10,
+      total_tracks: null,
+      total_sync_runs: recentSyncs.length,
+      failed_sync_runs: failedSyncs.length,
+      healthy: failedSyncs.length < 10,
     };
   },
 });
@@ -195,20 +235,24 @@ export const trendSummary = query({
   args: {},
   handler: async (ctx) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
+    // Use offendingArtistIndex (much smaller) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
 
-    const byCategory = offenses.reduce<Record<string, number>>((acc, o) => {
-      acc[o.category] = (acc[o.category] ?? 0) + 1;
-      return acc;
-    }, {});
+    let totalOffenses = 0;
+    const byCategory: Record<string, number> = {};
+    const bySeverity: Record<string, number> = {};
 
-    const bySeverity = offenses.reduce<Record<string, number>>((acc, o) => {
-      acc[o.severity] = (acc[o.severity] ?? 0) + 1;
-      return acc;
-    }, {});
+    for (const row of index) {
+      totalOffenses += row.offenseCount;
+      for (const cat of row.categories) {
+        byCategory[cat] = (byCategory[cat] ?? 0) + 1;
+      }
+      bySeverity[row.highestSeverity] =
+        (bySeverity[row.highestSeverity] ?? 0) + row.offenseCount;
+    }
 
     return {
-      total_offenses: offenses.length,
+      total_offenses: totalOffenses,
       by_category: byCategory,
       by_severity: bySeverity,
     };
@@ -221,15 +265,12 @@ export const risingArtists = query({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
+    // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
     const artistScores = new Map<string, number>();
 
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      artistScores.set(
-        id,
-        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
-      );
+    for (const row of index) {
+      artistScores.set(row.artistId as string, row.severityTotal);
     }
 
     // Fetch the most recent trouble_scores snapshot for delta comparison
@@ -291,15 +332,12 @@ export const fallingArtists = query({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
+    // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
     const artistScores = new Map<string, number>();
 
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      artistScores.set(
-        id,
-        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
-      );
+    for (const row of index) {
+      artistScores.set(row.artistId as string, row.severityTotal);
     }
 
     // Fetch the most recent trouble_scores snapshot for delta comparison
@@ -406,23 +444,19 @@ export const troubleLeaderboard = query({
   },
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const artistScores = new Map<string, number>();
+    // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
 
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      artistScores.set(
-        id,
-        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
-      );
-    }
-
-    const sorted = [...artistScores.entries()]
-      .sort((a, b) => b[1] - a[1])
+    const sorted = index
+      .map((row) => ({
+        artistId: row.artistId as string,
+        score: row.severityTotal,
+      }))
+      .sort((a, b) => b.score - a.score)
       .slice(0, args.limit ?? 20);
 
     const leaderboard = await Promise.all(
-      sorted.map(async ([artistId, score], rank) => {
+      sorted.map(async ({ artistId, score }, rank) => {
         const artist = await ctx.db.get(artistId as any);
         return {
           rank: rank + 1,
@@ -433,7 +467,7 @@ export const troubleLeaderboard = query({
       }),
     );
 
-    return { leaderboard, total_artists: artistScores.size };
+    return { leaderboard, total_artists: index.length };
   },
 });
 
@@ -441,16 +475,8 @@ export const troubleDistribution = query({
   args: {},
   handler: async (ctx) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const artistScores = new Map<string, number>();
-
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      artistScores.set(
-        id,
-        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
-      );
-    }
+    // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
 
     const buckets: Record<string, number> = {
       "0-5": 0,
@@ -460,7 +486,8 @@ export const troubleDistribution = query({
       "51+": 0,
     };
 
-    for (const score of artistScores.values()) {
+    for (const row of index) {
+      const score = row.severityTotal;
       if (score <= 5) buckets["0-5"]++;
       else if (score <= 15) buckets["6-15"]++;
       else if (score <= 30) buckets["16-30"]++;
@@ -468,7 +495,7 @@ export const troubleDistribution = query({
       else buckets["51+"]++;
     }
 
-    return { distribution: buckets, total_artists: artistScores.size };
+    return { distribution: buckets, total_artists: index.length };
   },
 });
 
@@ -507,35 +534,27 @@ export const artistTroubleScore = query({
 export const revenueDistribution = query({
   args: {},
   handler: async (ctx) => {
-    await requireCurrentUser(ctx);
-    const tracks = await ctx.db.query("userLibraryTracks").collect();
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const offendingArtistIds = new Set(offenses.map((o) => o.artistId as string));
+    const { user } = await requireCurrentUser(ctx);
+    // Use precomputed summary instead of scanning ALL tracks + ALL offenses
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
 
-    let cleanRevenue = 0;
-    let problematicRevenue = 0;
+    const totalTracks = summary?.totalTracks ?? 0;
+    const flaggedTracks = summary?.flaggedTrackCount ?? 0;
+    const cleanTracks = totalTracks - flaggedTracks;
 
-    for (const track of tracks) {
-      const revenue = SIMULATED_PAYOUT_PER_STREAM;
-      if (track.artistId && offendingArtistIds.has(track.artistId as string)) {
-        problematicRevenue += revenue;
-      } else {
-        cleanRevenue += revenue;
-      }
-    }
+    const cleanRevenue = cleanTracks * SIMULATED_PAYOUT_PER_STREAM;
+    const problematicRevenue = flaggedTracks * SIMULATED_PAYOUT_PER_STREAM;
 
     return {
       clean_revenue: Number(cleanRevenue.toFixed(2)),
       problematic_revenue: Number(problematicRevenue.toFixed(2)),
       total_revenue: Number((cleanRevenue + problematicRevenue).toFixed(2)),
       problematic_percentage:
-        cleanRevenue + problematicRevenue > 0
-          ? Number(
-              (
-                (problematicRevenue / (cleanRevenue + problematicRevenue)) *
-                100
-              ).toFixed(1),
-            )
+        totalTracks > 0
+          ? Number(((flaggedTracks / totalTracks) * 100).toFixed(1))
           : 0,
     };
   },
@@ -546,66 +565,60 @@ export const topArtistsByRevenue = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireCurrentUser(ctx);
-    const tracks = await ctx.db.query("userLibraryTracks").collect();
-    const artistRevMap = new Map<string, number>();
+    const { user } = await requireCurrentUser(ctx);
+    // Use precomputed summary for offender data, and scan only user tracks
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
 
-    for (const track of tracks) {
-      if (track.artistId) {
-        const id = track.artistId as string;
-        artistRevMap.set(id, (artistRevMap.get(id) ?? 0) + SIMULATED_PAYOUT_PER_STREAM);
-      }
-    }
+    if (!summary) return [];
 
-    const sorted = [...artistRevMap.entries()]
-      .sort((a, b) => b[1] - a[1])
+    // Offenders already have track counts from the summary
+    const sorted = summary.offenders
+      .map((o: any) => ({
+        artistId: o.artistId as string,
+        artistName: o.artistName as string,
+        trackCount: o.trackCount as number,
+      }))
+      .sort((a: any, b: any) => b.trackCount - a.trackCount)
       .slice(0, args.limit ?? 10);
 
-    const results = await Promise.all(
-      sorted.map(async ([artistId, rev]) => {
-        const artist = await ctx.db.get(artistId as any);
-        return {
-          artist_id: artistId,
-          artist_name: (artist as any)?.canonicalName ?? "Unknown",
-          estimated_revenue: Number(rev.toFixed(4)),
-        };
-      }),
-    );
-
-    return results;
+    return sorted.map((o: any) => ({
+      artist_id: o.artistId,
+      artist_name: o.artistName,
+      estimated_revenue: Number(
+        (o.trackCount * SIMULATED_PAYOUT_PER_STREAM).toFixed(4),
+      ),
+    }));
   },
 });
 
 export const problematicRevenue = query({
   args: {},
   handler: async (ctx) => {
-    await requireCurrentUser(ctx);
-    const tracks = await ctx.db.query("userLibraryTracks").collect();
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const offendingArtistIds = new Set(offenses.map((o) => o.artistId as string));
+    const { user } = await requireCurrentUser(ctx);
+    // Use precomputed summary instead of scanning ALL tracks + ALL offenses
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
 
-    const byArtist = new Map<string, number>();
-    for (const track of tracks) {
-      if (track.artistId && offendingArtistIds.has(track.artistId as string)) {
-        const id = track.artistId as string;
-        byArtist.set(id, (byArtist.get(id) ?? 0) + SIMULATED_PAYOUT_PER_STREAM);
-      }
-    }
+    if (!summary) return { artists: [], total_problematic: 0 };
 
-    const sorted = [...byArtist.entries()].sort((a, b) => b[1] - a[1]);
+    const results = summary.offenders.map((o: any) => ({
+      artist_id: o.artistId as string,
+      artist_name: o.artistName as string,
+      estimated_revenue: Number(
+        ((o.trackCount as number) * SIMULATED_PAYOUT_PER_STREAM).toFixed(4),
+      ),
+    }));
 
-    const results = await Promise.all(
-      sorted.map(async ([artistId, rev]) => {
-        const artist = await ctx.db.get(artistId as any);
-        return {
-          artist_id: artistId,
-          artist_name: (artist as any)?.canonicalName ?? "Unknown",
-          estimated_revenue: Number(rev.toFixed(4)),
-        };
-      }),
+    const totalProblematic = Number(
+      (summary.flaggedTrackCount * SIMULATED_PAYOUT_PER_STREAM).toFixed(2),
     );
 
-    return { artists: results, total_problematic: Number(sorted.reduce((s, [, r]) => s + r, 0).toFixed(2)) };
+    return { artists: results, total_problematic: totalProblematic };
   },
 });
 
@@ -661,34 +674,30 @@ export const artistRevenue = query({
 export const globalCategoryRevenue = query({
   args: {},
   handler: async (ctx) => {
-    await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const tracks = await ctx.db.query("userLibraryTracks").collect();
+    const { user } = await requireCurrentUser(ctx);
+    // Use precomputed summary instead of scanning ALL offenses + ALL tracks
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
 
-    const artistCategories = new Map<string, Set<string>>();
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      if (!artistCategories.has(id)) artistCategories.set(id, new Set());
-      artistCategories.get(id)!.add(o.category);
-    }
+    if (!summary) return {};
 
+    // Approximate category revenue from offender data in the summary
     const catRevenue = new Map<string, number>();
-    for (const track of tracks) {
-      if (track.artistId) {
-        const cats = artistCategories.get(track.artistId as string);
-        if (cats) {
-          for (const cat of cats) {
-            catRevenue.set(
-              cat,
-              (catRevenue.get(cat) ?? 0) + SIMULATED_PAYOUT_PER_STREAM / cats.size,
-            );
-          }
-        }
+    for (const o of summary.offenders as any[]) {
+      const cats: string[] = o.categories ?? [];
+      const trackRev = (o.trackCount as number) * SIMULATED_PAYOUT_PER_STREAM;
+      for (const cat of cats) {
+        catRevenue.set(
+          cat,
+          (catRevenue.get(cat) ?? 0) + trackRev / cats.length,
+        );
       }
     }
 
     return Object.fromEntries(
-      [...catRevenue.entries()].map(([k, v]) => [k, Number(v.toFixed(4))]),
+      [...catRevenue.entries()].map(([k, val]) => [k, Number(val.toFixed(4))]),
     );
   },
 });
@@ -697,11 +706,14 @@ export const offenseCategories = query({
   args: {},
   handler: async (ctx) => {
     await requireCurrentUser(ctx);
-    const offenses = await ctx.db.query("artistOffenses").collect();
+    // Use offendingArtistIndex instead of scanning all artistOffenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
     const categories = new Map<string, number>();
 
-    for (const o of offenses) {
-      categories.set(o.category, (categories.get(o.category) ?? 0) + 1);
+    for (const row of index) {
+      for (const cat of row.categories) {
+        categories.set(cat, (categories.get(cat) ?? 0) + 1);
+      }
     }
 
     return [...categories.entries()]
@@ -715,44 +727,48 @@ export const categoryRevenue = query({
     category: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireCurrentUser(ctx);
-    const offenses = await ctx.db
-      .query("artistOffenses")
-      .withIndex("by_category", (q) => q.eq("category", args.category))
-      .collect();
+    const { user } = await requireCurrentUser(ctx);
+    // Use precomputed summary instead of scanning ALL tracks
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
 
-    const artistIds = new Set(offenses.map((o) => o.artistId as string));
-    const tracks = await ctx.db.query("userLibraryTracks").collect();
-
-    let totalRevenue = 0;
-    const byArtist = new Map<string, number>();
-
-    for (const track of tracks) {
-      if (track.artistId && artistIds.has(track.artistId as string)) {
-        totalRevenue += SIMULATED_PAYOUT_PER_STREAM;
-        const id = track.artistId as string;
-        byArtist.set(id, (byArtist.get(id) ?? 0) + SIMULATED_PAYOUT_PER_STREAM);
-      }
+    if (!summary) {
+      return {
+        category: args.category,
+        total_estimated_revenue: 0,
+        artist_count: 0,
+        top_artists: [],
+      };
     }
 
-    const topArtists = await Promise.all(
-      [...byArtist.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(async ([artistId, rev]) => {
-          const artist = await ctx.db.get(artistId as any);
-          return {
-            artist_id: artistId,
-            artist_name: (artist as any)?.canonicalName ?? "Unknown",
-            estimated_revenue: Number(rev.toFixed(4)),
-          };
-        }),
+    // Filter offenders by category from precomputed data
+    const categoryOffenders = (summary.offenders as any[]).filter(
+      (o: any) => (o.categories as string[])?.includes(args.category),
     );
+
+    const totalRevenue = categoryOffenders.reduce(
+      (sum: number, o: any) =>
+        sum + (o.trackCount as number) * SIMULATED_PAYOUT_PER_STREAM,
+      0,
+    );
+
+    const topArtists = categoryOffenders
+      .sort((a: any, b: any) => (b.trackCount as number) - (a.trackCount as number))
+      .slice(0, 10)
+      .map((o: any) => ({
+        artist_id: o.artistId as string,
+        artist_name: o.artistName as string,
+        estimated_revenue: Number(
+          ((o.trackCount as number) * SIMULATED_PAYOUT_PER_STREAM).toFixed(4),
+        ),
+      }));
 
     return {
       category: args.category,
       total_estimated_revenue: Number(totalRevenue.toFixed(4)),
-      artist_count: artistIds.size,
+      artist_count: categoryOffenders.length,
       top_artists: topArtists,
     };
   },
@@ -803,40 +819,38 @@ export const userExposure = query({
   args: {},
   handler: async (ctx) => {
     const { user } = await requireCurrentUser(ctx);
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
+    // Use precomputed summary instead of scanning all tracks + all offenses
+    const summary = await ctx.db
+      .query("userOffenseSummaries")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+      .unique();
 
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const artistCategories = new Map<string, Set<string>>();
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      if (!artistCategories.has(id)) artistCategories.set(id, new Set());
-      artistCategories.get(id)!.add(o.category);
+    if (!summary) {
+      return { total_tracks: 0, category_exposure: {} };
     }
 
     const exposure = new Map<string, { tracks: number; revenue: number }>();
-    for (const track of tracks) {
-      if (track.artistId) {
-        const cats = artistCategories.get(track.artistId as string);
-        if (cats) {
-          for (const cat of cats) {
-            const existing = exposure.get(cat) ?? { tracks: 0, revenue: 0 };
-            existing.tracks++;
-            existing.revenue += SIMULATED_PAYOUT_PER_STREAM / cats.size;
-            exposure.set(cat, existing);
-          }
-        }
+    for (const o of summary.offenders as any[]) {
+      const cats: string[] = o.categories ?? [];
+      const trackCount = o.trackCount as number;
+      for (const cat of cats) {
+        const existing = exposure.get(cat) ?? { tracks: 0, revenue: 0 };
+        existing.tracks += trackCount;
+        existing.revenue +=
+          (trackCount * SIMULATED_PAYOUT_PER_STREAM) / cats.length;
+        exposure.set(cat, existing);
       }
     }
 
     return {
-      total_tracks: tracks.length,
+      total_tracks: summary.totalTracks,
       category_exposure: Object.fromEntries(
-        [...exposure.entries()].map(([k, v]) => [
+        [...exposure.entries()].map(([k, val]) => [
           k,
-          { tracks: v.tracks, estimated_revenue: Number(v.revenue.toFixed(4)) },
+          {
+            tracks: val.tracks,
+            estimated_revenue: Number(val.revenue.toFixed(4)),
+          },
         ]),
       ),
     };
@@ -848,15 +862,12 @@ export const userExposure = query({
 export const snapshotTroubleScores = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const offenses = await ctx.db.query("artistOffenses").collect();
+    // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
+    const index = await ctx.db.query("offendingArtistIndex").collect();
     const artistScores = new Map<string, number>();
 
-    for (const o of offenses) {
-      const id = o.artistId as string;
-      artistScores.set(
-        id,
-        (artistScores.get(id) ?? 0) + (severityWeight[o.severity] ?? 2),
-      );
+    for (const row of index) {
+      artistScores.set(row.artistId as string, row.severityTotal);
     }
 
     const scores: Record<string, number> = Object.fromEntries(artistScores);
@@ -883,15 +894,22 @@ export const adminMetrics = query({
   handler: async (ctx) => {
     await requireOwner(ctx);
 
-    const [artists, offenses, evidence, newsArticles, classifications, syncRuns] =
+    // Use offendingArtistIndex + bounded queries instead of 6 full table scans
+    const [offenseIndex, newsArticles, classifications, syncRuns] =
       await Promise.all([
-        ctx.db.query("artists").collect(),
-        ctx.db.query("artistOffenses").collect(),
-        ctx.db.query("offenseEvidence").collect(),
+        ctx.db.query("offendingArtistIndex").collect(),
         ctx.db.query("newsArticles").collect(),
         ctx.db.query("newsOffenseClassifications").collect(),
-        ctx.db.query("platformSyncRuns").collect(),
+        ctx.db
+          .query("platformSyncRuns")
+          .withIndex("by_platform", (q) => q.eq("platform", "evidence_finder"))
+          .collect(),
       ]);
+
+    const totalOffenses = offenseIndex.reduce(
+      (sum, row) => sum + row.offenseCount,
+      0,
+    );
 
     // --- Catalog totals ---
     const pendingClassifications = classifications.filter(
@@ -899,68 +917,34 @@ export const adminMetrics = query({
     ).length;
 
     const catalog = {
-      total_artists: artists.length,
-      total_offenses: offenses.length,
-      total_evidence: evidence.length,
+      total_artists: offenseIndex.length,
+      total_offenses: totalOffenses,
+      total_evidence: null,
       total_news_articles: newsArticles.length,
       total_classifications: classifications.length,
       pending_classifications: pendingClassifications,
     };
 
-    // --- Category coverage ---
-    const evidenceByOffense = new Map<string, number>();
-    for (const e of evidence) {
-      evidenceByOffense.set(
-        e.offenseId as string,
-        (evidenceByOffense.get(e.offenseId as string) ?? 0) + 1,
-      );
-    }
-
+    // --- Category coverage from index ---
     const allCategories = Object.keys(CATEGORY_COPY);
     const categoryCoverage = allCategories.map((cat) => {
-      const catOffenses = offenses.filter((o) => o.category === cat);
-      const uniqueArtists = new Set(catOffenses.map((o) => o.artistId as string));
-      const withEvidence = catOffenses.filter((o) =>
-        evidenceByOffense.has(o._id as string),
-      ).length;
-
+      const catArtists = offenseIndex.filter((row) =>
+        row.categories.includes(cat),
+      );
       return {
         category: cat,
-        offense_count: catOffenses.length,
-        unique_artist_count: uniqueArtists.size,
-        evidence_coverage_pct:
-          catOffenses.length > 0
-            ? Math.round((withEvidence / catOffenses.length) * 100)
-            : 0,
+        offense_count: catArtists.reduce((s, r) => s + r.offenseCount, 0),
+        unique_artist_count: catArtists.length,
+        evidence_coverage_pct: null,
       };
     });
 
     // --- Backfill pipeline health ---
     const now = Date.now();
-    const staleCutoff = new Date(now - 30 * 24 * 60 * 60 * 1000).toISOString();
     const day1Cutoff = new Date(now - 24 * 60 * 60 * 1000).toISOString();
     const day7Cutoff = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-    let investigated = 0;
-    let neverInvestigated = 0;
-    let stale = 0;
-
-    for (const artist of artists) {
-      const lastInv = (artist as any).lastInvestigatedAt as string | undefined;
-      if (!lastInv) {
-        neverInvestigated++;
-      } else if (lastInv < staleCutoff) {
-        stale++;
-      } else {
-        investigated++;
-      }
-    }
-
-    const evidenceFinderRuns = syncRuns.filter(
-      (r) => r.platform === "evidence_finder",
-    );
-
-    function summarizeRuns(runs: typeof evidenceFinderRuns) {
+    function summarizeRuns(runs: typeof syncRuns) {
       let total = 0;
       let success = 0;
       let failed = 0;
@@ -975,17 +959,17 @@ export const adminMetrics = query({
       return { total, success, failed, offenses_found: offensesFound };
     }
 
-    const runs24h = evidenceFinderRuns.filter(
+    const runs24h = syncRuns.filter(
       (r) => r.startedAt && r.startedAt > day1Cutoff,
     );
-    const runs7d = evidenceFinderRuns.filter(
+    const runs7d = syncRuns.filter(
       (r) => r.startedAt && r.startedAt > day7Cutoff,
     );
 
     const pipeline = {
-      investigated,
-      never_investigated: neverInvestigated,
-      stale,
+      investigated: null,
+      never_investigated: null,
+      stale: null,
       recent_runs_24h: summarizeRuns(runs24h),
       recent_runs_7d: summarizeRuns(runs7d),
     };
@@ -1005,7 +989,7 @@ export const adminMetrics = query({
     let growth: {
       artists_delta: number;
       offenses_delta: number;
-      evidence_delta: number;
+      evidence_delta: number | null;
       snapshot_date: string;
     } | null = null;
 
@@ -1014,34 +998,17 @@ export const adminMetrics = query({
       growth = {
         artists_delta: catalog.total_artists - (prev.total_artists ?? 0),
         offenses_delta: catalog.total_offenses - (prev.total_offenses ?? 0),
-        evidence_delta: catalog.total_evidence - (prev.total_evidence ?? 0),
+        evidence_delta: null,
         snapshot_date: latestSnapshot.computedAt,
       };
     }
-
-    // --- Evidence density ---
-    const offensesWithZeroEvidence = offenses.filter(
-      (o) => !evidenceByOffense.has(o._id as string),
-    ).length;
-
-    const evidenceDensity = {
-      avg_per_offense:
-        offenses.length > 0
-          ? Math.round((evidence.length / offenses.length) * 100) / 100
-          : 0,
-      zero_evidence_count: offensesWithZeroEvidence,
-      zero_evidence_pct:
-        offenses.length > 0
-          ? Math.round((offensesWithZeroEvidence / offenses.length) * 100)
-          : 0,
-    };
 
     return {
       catalog,
       category_coverage: categoryCoverage,
       pipeline,
       growth,
-      evidence_density: evidenceDensity,
+      evidence_density: null,
     };
   },
 });
@@ -1049,20 +1016,24 @@ export const adminMetrics = query({
 export const snapshotCatalogMetrics = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const [artists, offenses, evidence, newsArticles, classifications] =
-      await Promise.all([
-        ctx.db.query("artists").collect(),
-        ctx.db.query("artistOffenses").collect(),
-        ctx.db.query("offenseEvidence").collect(),
-        ctx.db.query("newsArticles").collect(),
-        ctx.db.query("newsOffenseClassifications").collect(),
-      ]);
+    // Use offendingArtistIndex + bounded queries instead of full table scans.
+    // This runs daily via cron so accuracy is acceptable with approximate counts.
+    const [offenseIndex, newsArticles, classifications] = await Promise.all([
+      ctx.db.query("offendingArtistIndex").collect(),
+      ctx.db.query("newsArticles").collect(),
+      ctx.db.query("newsOffenseClassifications").collect(),
+    ]);
+
+    const totalOffenses = offenseIndex.reduce(
+      (sum, row) => sum + row.offenseCount,
+      0,
+    );
 
     const now = nowIso();
     const payload = {
-      total_artists: artists.length,
-      total_offenses: offenses.length,
-      total_evidence: evidence.length,
+      total_artists: offenseIndex.length,
+      total_offenses: totalOffenses,
+      total_evidence: null,
       total_news_articles: newsArticles.length,
       total_classifications: classifications.length,
     };

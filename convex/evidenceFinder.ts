@@ -46,14 +46,11 @@ interface InvestigationCheckpoint {
 export const _getLibraryArtistIds = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-
     const seen = new Set<string>();
     const result: string[] = [];
-    for (const track of tracks) {
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
       if (track.artistId && !seen.has(track.artistId as string)) {
         seen.add(track.artistId as string);
         result.push(track.artistId as string);
@@ -70,13 +67,10 @@ export const _getLibraryArtistIds = internalQuery({
 export const _getUnresolvedArtistNames = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    const tracks = await ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect();
-
     const nameCounts = new Map<string, number>();
-    for (const track of tracks) {
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
       if (!track.artistId && track.artistName) {
         const name = track.artistName;
         nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
@@ -132,17 +126,22 @@ export const _linkTracksToArtist = internalMutation({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
+    // Use compound index to fetch ONLY tracks matching this artist name,
+    // instead of scanning ALL user tracks (was 11.99 GB/month).
+    // Cast needed because artistName is v.optional(v.string()) in the schema.
     const tracks = await ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_artistName", (q) =>
+        (q.eq("userId", args.userId) as any).eq(
+          "artistName",
+          args.artistName,
+        ),
+      )
       .collect();
 
     let linked = 0;
     for (const track of tracks) {
-      if (
-        !track.artistId &&
-        track.artistName?.toLowerCase() === args.artistName.toLowerCase()
-      ) {
+      if (!track.artistId) {
         await ctx.db.patch(track._id, { artistId: args.artistId });
         linked++;
       }
@@ -474,25 +473,44 @@ export const _getArtistsByInvestigationAge = internalQuery({
     const cutoff = new Date(
       Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
+    const limit = args.limit ?? BATCH_SIZE;
 
-    const allArtists = await ctx.db.query("artists").collect();
+    // Use async iteration instead of .collect() to avoid loading entire
+    // artists table into memory. Stop early once we have enough candidates.
+    const neverInvestigated: Array<{
+      artistId: Id<"artists">;
+      canonicalName: string;
+      lastInvestigatedAt: string | null;
+    }> = [];
+    const stale: Array<{
+      artistId: Id<"artists">;
+      canonicalName: string;
+      lastInvestigatedAt: string | null;
+    }> = [];
 
-    // Split into never-investigated and stale
-    const neverInvestigated = allArtists.filter((a) => !a.lastInvestigatedAt);
-    const stale = allArtists
-      .filter((a) => a.lastInvestigatedAt && a.lastInvestigatedAt < cutoff)
-      .sort((a, b) =>
-        (a.lastInvestigatedAt ?? "").localeCompare(b.lastInvestigatedAt ?? ""),
-      );
+    for await (const a of ctx.db.query("artists")) {
+      if (!a.lastInvestigatedAt) {
+        neverInvestigated.push({
+          artistId: a._id,
+          canonicalName: a.canonicalName,
+          lastInvestigatedAt: null,
+        });
+      } else if (a.lastInvestigatedAt < cutoff) {
+        stale.push({
+          artistId: a._id,
+          canonicalName: a.canonicalName,
+          lastInvestigatedAt: a.lastInvestigatedAt,
+        });
+      }
+      // Stop scanning once we have more than enough candidates
+      if (neverInvestigated.length >= limit && stale.length >= limit) break;
+    }
 
     // Priority: never investigated first, then oldest stale
-    const candidates = [...neverInvestigated, ...stale];
-    const limit = args.limit ?? BATCH_SIZE;
-    return candidates.slice(0, limit).map((a) => ({
-      artistId: a._id,
-      canonicalName: a.canonicalName,
-      lastInvestigatedAt: a.lastInvestigatedAt ?? null,
-    }));
+    stale.sort((a, b) =>
+      (a.lastInvestigatedAt ?? "").localeCompare(b.lastInvestigatedAt ?? ""),
+    );
+    return [...neverInvestigated, ...stale].slice(0, limit);
   },
 });
 

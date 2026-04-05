@@ -223,16 +223,20 @@ export const investigateLibraryArtists = internalAction({
     );
     if (!run || run.status === "cancelled") return;
 
-    // Restore checkpoint
-    let checkpoint: InvestigationCheckpoint = (run.checkpointData as InvestigationCheckpoint | null) ?? {
-      phase: "resolve",
-      artistIds: [],
-      currentIndex: 0,
-      investigated: 0,
-      skipped: 0,
-      failed: 0,
-      offensesFound: 0,
-    };
+    // Restore checkpoint — guard against empty {} from initial run creation
+    const raw = run.checkpointData as Record<string, unknown> | null;
+    let checkpoint: InvestigationCheckpoint =
+      raw && typeof raw.phase === "string"
+        ? (raw as unknown as InvestigationCheckpoint)
+        : {
+            phase: "resolve",
+            artistIds: [],
+            currentIndex: 0,
+            investigated: 0,
+            skipped: 0,
+            failed: 0,
+            offensesFound: 0,
+          };
 
     const shouldPause = () => Date.now() - startTime > SAFE_RUNTIME_MS;
 
@@ -425,7 +429,7 @@ export const investigateLibraryArtists = internalAction({
           skipped: checkpoint.skipped,
           failed: checkpoint.failed,
           offensesFound: checkpoint.offensesFound,
-          totalArtists: checkpoint.artistIds.length,
+          totalArtists: checkpoint.artistIds?.length ?? 0,
         },
       });
     } catch (err: any) {

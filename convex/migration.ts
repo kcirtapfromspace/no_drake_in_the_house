@@ -180,7 +180,12 @@ export const pipelineHealth = internalQuery({
         artists: { hasData: artistSample.length > 0, sample: artistSample.map((a) => a.canonicalName) },
         artistOffenses: { hasData: offenseSample.length > 0, sampleCount: offenseSample.length },
         offenseEvidence: { hasData: evidenceSample.length > 0, sampleCount: evidenceSample.length },
-        userLibraryTracks: { hasData: trackSample.length > 0, sampleCount: trackSample.length },
+        userLibraryTracks: {
+          hasData: trackSample.length > 0,
+          sampleCount: trackSample.length,
+          sampleArtists: trackSample.map((t) => t.artistName).filter(Boolean),
+          sampleHasArtistId: trackSample.map((t) => !!t.artistId),
+        },
         providerConnections: {
           hasData: connSample.length > 0,
           providers: connSample.map((c) => ({ provider: c.provider, status: c.status })),
@@ -192,6 +197,8 @@ export const pipelineHealth = internalQuery({
         status: r.status,
         startedAt: r.startedAt,
         completedAt: r.completedAt,
+        errorLog: r.errorLog,
+        checkpointData: r.checkpointData,
       })),
     };
   },

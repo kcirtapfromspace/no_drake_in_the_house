@@ -1528,9 +1528,31 @@ export const syncAppleMusicLibrary = internalAction({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const startTime = Date.now();
     const { runId, userId } = args;
 
-    // Get stored Music User Token
+    // ── Retrieve and check the run status ──────────────────────────────
+    const run = await ctx.runQuery(
+      internal.librarySyncActions._getSyncRun,
+      { runId },
+    );
+    if (!run || run.status === "cancelled") return;
+
+    // ── Restore checkpoint (for continuation) ──────────────────────────
+    let checkpoint: CheckpointData = (run.checkpointData as CheckpointData | null) ?? {
+      phase: "liked",
+      offset: 0,
+      tracksImported: 0,
+      likedCount: 0,
+      albumCount: 0,
+      artistCount: 0,
+      playlistTrackCount: 0,
+    };
+    // Apple Music stores the next URL in the offset field as a string hack
+    let appleMusicNextUrl: string | null = (checkpoint as any).appleMusicNextUrl ?? null;
+    let appleMusicPlaylistNextUrl: string | null = (checkpoint as any).appleMusicPlaylistNextUrl ?? null;
+
+    // ── Get the connection tokens ──────────────────────────────────────
     const conn = await ctx.runQuery(
       internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "apple_music" },
@@ -1577,10 +1599,40 @@ export const syncAppleMusicLibrary = internalAction({
     }
 
     const developerToken = devTokenResult.developer_token;
+    const appleHeaders = {
+      Authorization: `Bearer ${developerToken}`,
+      "Music-User-Token": musicUserToken,
+      Accept: "application/json",
+    };
 
-    const syncStartedAt = new Date().toISOString();
+    function shouldPause(): boolean {
+      return Date.now() - startTime > SAFE_RUNTIME_MS;
+    }
+
+    async function saveCheckpoint(pause: boolean) {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+        runId,
+        checkpointData: {
+          ...checkpoint,
+          appleMusicNextUrl,
+          appleMusicPlaylistNextUrl,
+        },
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+        },
+      });
+      if (pause) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.librarySyncActions.syncAppleMusicLibrary,
+          { runId, userId },
+        );
+      }
+    }
+
     const pendingTracks: TrackImport[] = [];
-    let tracksImported = 0;
 
     async function flushTracks() {
       if (pendingTracks.length === 0) return;
@@ -1589,84 +1641,105 @@ export const syncAppleMusicLibrary = internalAction({
         internal.librarySyncActions._batchImportTracks,
         { userId, provider: "apple_music", tracks: batch },
       );
-      tracksImported += result.imported;
+      checkpoint.tracksImported += result.imported;
     }
 
+    async function addTrack(track: TrackImport) {
+      pendingTracks.push(track);
+      if (pendingTracks.length >= BATCH_SIZE) {
+        await flushTracks();
+      }
+    }
+
+    const syncStartedAt = new Date().toISOString();
+
     try {
-      // Apple Music API: GET /v1/me/library/songs (paginated)
-      let nextUrl: string | null =
-        "https://api.music.apple.com/v1/me/library/songs?limit=100";
+      // ── Phase: Library songs ─────────────────────────────────────────
+      if (checkpoint.phase === "liked") {
+        let nextUrl: string | null = appleMusicNextUrl ??
+          "https://api.music.apple.com/v1/me/library/songs?limit=100";
+        let pageCount = 0;
 
-      while (nextUrl) {
-        const res = await apiFetchWithRetry(nextUrl, {
-          Authorization: `Bearer ${developerToken}`,
-          "Music-User-Token": musicUserToken,
-          Accept: "application/json",
-        }, "Apple Music");
-
-        if (!res.ok) {
-          throw new Error(
-            `Apple Music API error ${res.status}: ${(await res.text()).substring(0, 300)}`,
-          );
-        }
-
-        const data = (await res.json()) as {
-          data?: Array<{
-            id: string;
-            attributes?: {
-              name?: string;
-              albumName?: string;
-              artistName?: string;
-            };
-          }>;
-          next?: string;
-        };
-
-        for (const item of data.data ?? []) {
-          const attrs = item.attributes;
-          pendingTracks.push({
-            providerTrackId: `liked:${item.id}`,
-            trackName: attrs?.name,
-            albumName: attrs?.albumName,
-            artistName: attrs?.artistName ?? "Unknown Artist",
-            sourceType: "library",
-          });
-          if (pendingTracks.length >= BATCH_SIZE) {
+        while (nextUrl) {
+          if (shouldPause()) {
+            appleMusicNextUrl = nextUrl;
             await flushTracks();
-            await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-              runId,
-              checkpointData: { tracksImported, phase: "library" },
-              metadata: { tracksImported },
-            });
+            await saveCheckpoint(true);
+            return;
           }
+
+          const res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
+
+          if (!res.ok) {
+            throw new Error(
+              `Apple Music API error ${res.status}: ${(await res.text()).substring(0, 300)}`,
+            );
+          }
+
+          const data = (await res.json()) as {
+            data?: Array<{
+              id: string;
+              attributes?: { name?: string; albumName?: string; artistName?: string };
+            }>;
+            next?: string;
+          };
+
+          const items = data.data ?? [];
+          pageCount++;
+          console.log(
+            `[Apple Music sync] Songs page ${pageCount}: ${items.length} items, next=${data.next ? "yes" : "no"}`,
+          );
+
+          for (const item of items) {
+            const attrs = item.attributes;
+            await addTrack({
+              providerTrackId: `liked:${item.id}`,
+              trackName: attrs?.name,
+              albumName: attrs?.albumName,
+              artistName: attrs?.artistName ?? "Unknown Artist",
+              sourceType: "library",
+            });
+            checkpoint.likedCount++;
+          }
+
+          // Apple Music returns a relative path for `next`
+          nextUrl = data.next
+            ? `https://api.music.apple.com${data.next}`
+            : null;
         }
 
-        // Apple Music returns an absolute path for `next`
-        nextUrl = data.next
-          ? `https://api.music.apple.com${data.next}`
-          : null;
+        console.log(`[Apple Music sync] Songs phase complete: ${checkpoint.likedCount} songs across ${pageCount} pages`);
+        await flushTracks();
+        appleMusicNextUrl = null;
+        checkpoint.phase = "playlists";
+        checkpoint.playlistIds = [];
+        checkpoint.playlistNames = [];
       }
 
-      await flushTracks();
+      // ── Phase: Playlists + playlist tracks ───────────────────────────
+      if (checkpoint.phase === "playlists") {
+        const playlistIds = checkpoint.playlistIds ?? [];
+        const playlistNames = checkpoint.playlistNames ?? [];
 
-      // ── Phase 2: Fetch playlists and their tracks ──────────────────────
-      const appleHeaders = {
-        Authorization: `Bearer ${developerToken}`,
-        "Music-User-Token": musicUserToken,
-        Accept: "application/json",
-      };
-
-      try {
-        let playlistUrl: string | null =
+        // Discover playlists
+        let playlistUrl: string | null = appleMusicPlaylistNextUrl ??
           "https://api.music.apple.com/v1/me/library/playlists?limit=100";
 
         while (playlistUrl) {
+          if (shouldPause()) {
+            checkpoint.playlistIds = playlistIds;
+            checkpoint.playlistNames = playlistNames;
+            appleMusicPlaylistNextUrl = playlistUrl;
+            await flushTracks();
+            await saveCheckpoint(true);
+            return;
+          }
+
           const plRes = await apiFetchWithRetry(playlistUrl, appleHeaders, "Apple Music");
           if (!plRes.ok) {
             const plErrText = await plRes.text().catch(() => "");
             const plErrMsg = `Playlists returned ${plRes.status}: ${plErrText.substring(0, 200)}`;
             console.warn(`[Apple Music sync] ${plErrMsg}`);
-            // Surface the error in sync metadata so the user can see it
             await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
               runId,
               errorLog: [{ message: `[Playlists] ${plErrMsg}`, ts: new Date().toISOString() }],
@@ -1679,62 +1752,87 @@ export const syncAppleMusicLibrary = internalAction({
             next?: string;
           };
 
-          for (const playlist of plData.data ?? []) {
-            const playlistName = playlist.attributes?.name ?? "Unknown Playlist";
-            let trackUrl: string | null =
-              `https://api.music.apple.com/v1/me/library/playlists/${playlist.id}/tracks?limit=100`;
+          const plItems = plData.data ?? [];
+          console.log(`[Apple Music sync] Discovered ${plItems.length} playlists`);
 
-            while (trackUrl) {
-              const trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
-              if (!trRes.ok) break;
-
-              const trData = (await trRes.json()) as {
-                data?: Array<{
-                  id: string;
-                  attributes?: { name?: string; albumName?: string; artistName?: string };
-                }>;
-                next?: string;
-              };
-
-              for (const item of trData.data ?? []) {
-                const attrs = item.attributes;
-                pendingTracks.push({
-                  providerTrackId: `playlist:${playlist.id}:${item.id}`,
-                  trackName: attrs?.name,
-                  albumName: attrs?.albumName,
-                  artistName: attrs?.artistName ?? "Unknown Artist",
-                  sourceType: "playlist_track",
-                  playlistName,
-                });
-                if (pendingTracks.length >= BATCH_SIZE) {
-                  await flushTracks();
-                  await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-                    runId,
-                    checkpointData: { tracksImported, phase: "playlists" },
-                    metadata: { tracksImported },
-                  });
-                }
-              }
-
-              trackUrl = trData.next
-                ? `https://api.music.apple.com${trData.next}`
-                : null;
-            }
+          for (const playlist of plItems) {
+            playlistIds.push(playlist.id);
+            playlistNames.push(playlist.attributes?.name ?? "Unknown Playlist");
           }
 
           playlistUrl = plData.next
             ? `https://api.music.apple.com${plData.next}`
             : null;
         }
-      } catch (plErr: any) {
-        const plErrMsg = plErr.message?.substring(0, 300) ?? "Unknown playlist error";
-        console.warn(`[Apple Music sync] Playlist sync error (non-fatal): ${plErrMsg}`);
-        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-          runId,
-          errorLog: [{ message: `[Playlists] ${plErrMsg}`, ts: new Date().toISOString() }],
-        });
+
+        console.log(`[Apple Music sync] Total playlists discovered: ${playlistIds.length}`);
+        checkpoint.playlistIds = playlistIds;
+        checkpoint.playlistNames = playlistNames;
+        appleMusicPlaylistNextUrl = null;
+        checkpoint.phase = "playlist_tracks";
+        checkpoint.playlistIndex = 0;
       }
 
+      // ── Phase: Fetch tracks for each playlist ────────────────────────
+      if (checkpoint.phase === "playlist_tracks") {
+        const playlistIds = checkpoint.playlistIds ?? [];
+        const playlistNames = checkpoint.playlistNames ?? [];
+        let plIdx = checkpoint.playlistIndex ?? 0;
+
+        while (plIdx < playlistIds.length) {
+          const playlistId = playlistIds[plIdx];
+          const playlistName = playlistNames[plIdx] ?? "Unknown Playlist";
+          let trackUrl: string | null =
+            `https://api.music.apple.com/v1/me/library/playlists/${playlistId}/tracks?limit=100`;
+
+          while (trackUrl) {
+            if (shouldPause()) {
+              checkpoint.playlistIndex = plIdx;
+              await flushTracks();
+              await saveCheckpoint(true);
+              return;
+            }
+
+            const trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
+            if (!trRes.ok) {
+              console.warn(`[Apple Music sync] Playlist ${playlistId} tracks returned ${trRes.status} — skipping`);
+              break;
+            }
+
+            const trData = (await trRes.json()) as {
+              data?: Array<{
+                id: string;
+                attributes?: { name?: string; albumName?: string; artistName?: string };
+              }>;
+              next?: string;
+            };
+
+            for (const item of trData.data ?? []) {
+              const attrs = item.attributes;
+              await addTrack({
+                providerTrackId: `playlist:${playlistId}:${item.id}`,
+                trackName: attrs?.name,
+                albumName: attrs?.albumName,
+                artistName: attrs?.artistName ?? "Unknown Artist",
+                sourceType: "playlist_track",
+                playlistName,
+              });
+              checkpoint.playlistTrackCount++;
+            }
+
+            trackUrl = trData.next
+              ? `https://api.music.apple.com${trData.next}`
+              : null;
+          }
+
+          plIdx++;
+          checkpoint.playlistIndex = plIdx;
+        }
+
+        checkpoint.phase = "done";
+      }
+
+      // ── Flush remaining + cleanup ──────────────────────────────────
       await flushTracks();
       await cleanupStaleTracks(ctx, userId, "apple_music", syncStartedAt);
 
@@ -1742,7 +1840,13 @@ export const syncAppleMusicLibrary = internalAction({
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
-        metadata: { tracksImported },
+        checkpointData: checkpoint,
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+          durationMs: Date.now() - startTime,
+        },
       });
 
       await new Promise((r) => setTimeout(r, 5_000));
@@ -1761,7 +1865,12 @@ export const syncAppleMusicLibrary = internalAction({
         status: "failed",
         completedAt: new Date().toISOString(),
         errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
-        metadata: { tracksImported },
+        checkpointData: checkpoint,
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+        },
       });
     }
   },

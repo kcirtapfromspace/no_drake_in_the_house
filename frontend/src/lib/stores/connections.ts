@@ -335,8 +335,15 @@ export const connectionActions = {
         'playlist-read-private',
         'playlist-read-collaborative',
         'playlist-modify-private',
+        'playlist-modify-public',
         'user-follow-read',
         'user-follow-modify',
+        'user-read-private',
+        'user-read-email',
+        'user-read-recently-played',
+        'user-top-read',
+        'user-read-playback-state',
+        'user-read-currently-playing',
       ],
     });
 
@@ -510,7 +517,7 @@ export const connectionActions = {
       '/api/v1/oauth/tidal/authorize',
       {
         redirectUri: callbackUrl,
-        scopes: ['user.read', 'collection.read', 'playlists.read'],
+        scopes: ['user.read', 'collection.read', 'collection.write', 'playlists.read', 'playlists.write'],
       }
     );
 

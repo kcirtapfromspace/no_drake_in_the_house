@@ -14,11 +14,6 @@
   let errorMessage = '';
   let provider = '';
 
-  // Detect if we're running inside an OAuth popup.
-  // COOP headers (e.g. from Google) can sever window.opener, so also check
-  // if the window was opened as a popup via window.open (name is set).
-  const isPopup = (!!window.opener && window.opener !== window) || window.name.endsWith('-auth');
-
   onMount(async () => {
     provider = getProviderFromPath(window.location.pathname);
 
@@ -30,14 +25,23 @@
     provider = result.provider;
 
     if (result.status === 'success') {
-      if (isPopup && isConnectionProvider(result.provider)) {
-        // Notify the opener via BroadcastChannel (COOP-safe: works even when
-        // window.opener was severed by Cross-Origin-Opener-Policy).
+      if (isConnectionProvider(result.provider)) {
+        // Always notify the opener via BroadcastChannel for connection
+        // providers.  This is safe even outside a popup — the message is
+        // simply ignored when no listener is active.
         const channel = new BroadcastChannel(OAUTH_BROADCAST_CHANNEL);
         channel.postMessage({ type: 'oauth-complete', provider: result.provider });
         channel.close();
+
+        // Always attempt window.close().  It only succeeds for windows that
+        // were opened by script (i.e. our OAuth popup), so calling it when
+        // this is a full-page redirect is harmless.  This avoids relying on
+        // popup detection via window.opener (broken by COOP headers) or
+        // window.name (cleared by modern browsers on cross-origin navigation).
         window.close();
-        return;
+        // Give the browser a moment to process the close.
+        await new Promise(r => setTimeout(r, 300));
+        // If still open we're in a full-page redirect — fall through.
       }
       status = 'success';
       setTimeout(() => {

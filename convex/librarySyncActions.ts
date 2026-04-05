@@ -849,12 +849,23 @@ export const syncSpotifyLibrary = internalAction({
               return;
             }
 
+            // Spotify Feb 2026: /playlists/{id}/tracks was removed for dev
+            // mode apps. Use /playlists/{id}/items instead.
             const url =
-              `https://api.spotify.com/v1/playlists/${playlistId}/tracks` +
+              `https://api.spotify.com/v1/playlists/${playlistId}/items` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
               `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
 
-            const page = await spotifyGet<SpotifyPaging<SpotifyPlaylistTrackItem>>(url);
+            let page: SpotifyPaging<SpotifyPlaylistTrackItem>;
+            try {
+              page = await spotifyGet<SpotifyPaging<SpotifyPlaylistTrackItem>>(url);
+            } catch (err: any) {
+              if (err.message?.includes("403")) {
+                console.warn(`[Spotify sync] Playlist ${playlistId} items returned 403 — skipping`);
+                break;
+              }
+              throw err;
+            }
 
             for (const item of page.items) {
               if (!item.track?.id) continue;

@@ -905,11 +905,13 @@ export const syncSpotifyLibrary = internalAction({
       });
 
       // ── Resolve artist names into artist records ─────────────────────
+      // Delay to avoid write conflicts with the batch import / cleanup
+      await new Promise((r) => setTimeout(r, 5_000));
       await resolveTrackArtists(ctx, userId);
 
-      // ── Trigger offense summary recompute ─────────────────────────────
+      // ── Trigger offense summary recompute (delay to avoid conflicts) ──
       await ctx.scheduler.runAfter(
-        0,
+        60_000,
         internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
@@ -1163,10 +1165,11 @@ export const syncTidalLibrary = internalAction({
         metadata: { tracksImported },
       });
 
+      await new Promise((r) => setTimeout(r, 5_000));
       await resolveTrackArtists(ctx, userId);
 
       await ctx.scheduler.runAfter(
-        0,
+        60_000,
         internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
@@ -1403,10 +1406,11 @@ export const syncAppleMusicLibrary = internalAction({
         metadata: { tracksImported },
       });
 
+      await new Promise((r) => setTimeout(r, 5_000));
       await resolveTrackArtists(ctx, userId);
 
       await ctx.scheduler.runAfter(
-        0,
+        60_000,
         internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );
@@ -1570,10 +1574,11 @@ export const syncYouTubeLibrary = internalAction({
         metadata: { tracksImported },
       });
 
+      await new Promise((r) => setTimeout(r, 5_000));
       await resolveTrackArtists(ctx, userId);
 
       await ctx.scheduler.runAfter(
-        0,
+        60_000,
         internal.offensePipeline.recomputeUserOffenseSummary,
         { userId, triggerReason: "sync_complete" },
       );

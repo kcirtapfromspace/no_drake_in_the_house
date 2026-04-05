@@ -1652,7 +1652,14 @@ export const syncAppleMusicLibrary = internalAction({
         while (playlistUrl) {
           const plRes = await apiFetchWithRetry(playlistUrl, appleHeaders, "Apple Music");
           if (!plRes.ok) {
-            console.warn(`[Apple Music sync] Playlists returned ${plRes.status} — skipping`);
+            const plErrText = await plRes.text().catch(() => "");
+            const plErrMsg = `Playlists returned ${plRes.status}: ${plErrText.substring(0, 200)}`;
+            console.warn(`[Apple Music sync] ${plErrMsg}`);
+            // Surface the error in sync metadata so the user can see it
+            await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+              runId,
+              errorLog: [{ message: `[Playlists] ${plErrMsg}`, ts: new Date().toISOString() }],
+            });
             break;
           }
 
@@ -1709,7 +1716,12 @@ export const syncAppleMusicLibrary = internalAction({
             : null;
         }
       } catch (plErr: any) {
-        console.warn(`[Apple Music sync] Playlist sync error (non-fatal): ${plErr.message}`);
+        const plErrMsg = plErr.message?.substring(0, 300) ?? "Unknown playlist error";
+        console.warn(`[Apple Music sync] Playlist sync error (non-fatal): ${plErrMsg}`);
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          errorLog: [{ message: `[Playlists] ${plErrMsg}`, ts: new Date().toISOString() }],
+        });
       }
 
       await flushTracks();

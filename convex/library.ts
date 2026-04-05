@@ -1,6 +1,5 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
-import { internal } from "./_generated/api";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { nowIso, requireCurrentUser } from "./lib/auth";
@@ -724,27 +723,17 @@ export const _clearProviderTracks = internalMutation({
     provider: v.string(),
   },
   handler: async (ctx: MutationCtx, args) => {
-    // Delete in batches to stay within transaction limits.
-    // If there are more tracks, schedule a continuation.
-    const BATCH_SIZE = 500;
+    // Single-transaction deletion — keeps the operation atomic so subsequent
+    // imports don't conflict with ongoing continuation batches.
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
         q.eq("userId", args.userId).eq("provider", args.provider),
       )
-      .take(BATCH_SIZE);
+      .collect();
 
     for (const track of tracks) {
       await ctx.db.delete(track._id);
-    }
-
-    // If we hit the batch limit, schedule another round
-    if (tracks.length === BATCH_SIZE) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.library._clearProviderTracks,
-        { userId: args.userId, provider: args.provider },
-      );
     }
 
     return { deleted: tracks.length };

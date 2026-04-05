@@ -407,8 +407,9 @@ export const investigateLibraryArtists = internalAction({
           {},
         );
 
-        // Recompute this user's offense summary
-        await ctx.runMutation(
+        // Recompute this user's offense summary (schedule to avoid action→action call)
+        await ctx.scheduler.runAfter(
+          0,
           internal.offensePipeline.recomputeUserOffenseSummary,
           { userId, triggerReason: "investigation_complete" },
         );

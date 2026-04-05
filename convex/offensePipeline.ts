@@ -95,14 +95,46 @@ export const rebuildOffendingArtistIndex = internalMutation({
 
 /**
  * Recompute the offense summary for a single user.
- * Reads their library tracks, batch-lookups offendingArtistIndex, and upserts the summary.
+ *
+ * Split into query → action → mutation to eliminate write conflicts:
+ * - _readTrackArtistCounts (query): reads userLibraryTracks without holding
+ *   a transaction write lock, so concurrent imports/cleanups don't conflict.
+ * - recomputeUserOffenseSummary (action): orchestrates read → compute → write.
+ * - _writeOffenseSummary (mutation): only touches userOffenseSummaries +
+ *   offendingArtistIndex + artists — never reads userLibraryTracks.
  */
 /** Minimum interval between recomputes for the same user (30 minutes). */
 const RECOMPUTE_COOLDOWN_MS = 30 * 60 * 1000;
 
-export const recomputeUserOffenseSummary = internalMutation({
+/** Phase 1: Read track data as a QUERY (no write-conflict participation). */
+export const _readTrackArtistCounts = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const tracksByArtist = new Map<string, number>();
+    let totalTrackCount = 0;
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      totalTrackCount++;
+      if (track.artistId) {
+        const aid = track.artistId as string;
+        tracksByArtist.set(aid, (tracksByArtist.get(aid) ?? 0) + 1);
+      }
+    }
+    // Convert Map to plain object for serialization
+    return {
+      totalTrackCount,
+      artistCounts: Object.fromEntries(tracksByArtist),
+    };
+  },
+});
+
+/** Phase 3: Write-only mutation — never reads userLibraryTracks. */
+export const _writeOffenseSummary = internalMutation({
   args: {
     userId: v.id("users"),
+    totalTrackCount: v.number(),
+    artistCounts: v.any(),
     triggerReason: v.optional(v.string()),
     force: v.optional(v.boolean()),
   },
@@ -127,21 +159,8 @@ export const recomputeUserOffenseSummary = internalMutation({
       }
     }
 
-    // Use async iteration instead of .collect() to avoid materializing all
-    // track documents at once (reduces peak memory usage).
-    const tracksByArtist = new Map<string, number>();
-    let totalTrackCount = 0;
-    for await (const track of ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
-      totalTrackCount++;
-      if (track.artistId) {
-        const aid = track.artistId as string;
-        tracksByArtist.set(aid, (tracksByArtist.get(aid) ?? 0) + 1);
-      }
-    }
-
-    const artistIds = [...tracksByArtist.keys()];
+    const artistCounts = args.artistCounts as Record<string, number>;
+    const artistIds = Object.keys(artistCounts);
 
     // Batch-lookup offending artist index
     const indexLookups = await Promise.all(
@@ -171,7 +190,7 @@ export const recomputeUserOffenseSummary = internalMutation({
     for (const { artistId, row } of indexLookups) {
       if (!row) continue;
 
-      const trackCount = tracksByArtist.get(artistId) ?? 0;
+      const trackCount = artistCounts[artistId] ?? 0;
       flaggedTrackCount += trackCount;
 
       const artist = await ctx.db.get(artistId as Id<"artists">);
@@ -207,7 +226,7 @@ export const recomputeUserOffenseSummary = internalMutation({
         createdAt: existing.createdAt,
         updatedAt: now,
         userId: args.userId,
-        totalTracks: totalTrackCount,
+        totalTracks: args.totalTrackCount,
         totalArtists,
         flaggedArtistCount,
         flaggedTrackCount,
@@ -223,7 +242,7 @@ export const recomputeUserOffenseSummary = internalMutation({
         createdAt: now,
         updatedAt: now,
         userId: args.userId,
-        totalTracks: totalTrackCount,
+        totalTracks: args.totalTrackCount,
         totalArtists,
         flaggedArtistCount,
         flaggedTrackCount,
@@ -236,6 +255,39 @@ export const recomputeUserOffenseSummary = internalMutation({
     }
 
     return { grade, flaggedArtistCount, totalArtists };
+  },
+});
+
+/** Phase 2: Action orchestrator — query (no conflict) then mutation (no track reads). */
+export const recomputeUserOffenseSummary = internalAction({
+  args: {
+    userId: v.id("users"),
+    triggerReason: v.optional(v.string()),
+    force: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    // Phase 1: Read tracks as a QUERY — does not participate in OCC,
+    // so concurrent mutations on userLibraryTracks won't conflict.
+    const trackData: { totalTrackCount: number; artistCounts: Record<string, number> } =
+      await ctx.runQuery(
+        internal.offensePipeline._readTrackArtistCounts,
+        { userId: args.userId },
+      );
+
+    // Phase 2: Write summary — only touches userOffenseSummaries,
+    // offendingArtistIndex, and artists tables. Zero reads on userLibraryTracks.
+    const result: any = await ctx.runMutation(
+      internal.offensePipeline._writeOffenseSummary,
+      {
+        userId: args.userId,
+        totalTrackCount: trackData.totalTrackCount,
+        artistCounts: trackData.artistCounts,
+        triggerReason: args.triggerReason,
+        force: args.force,
+      },
+    );
+
+    return result;
   },
 });
 

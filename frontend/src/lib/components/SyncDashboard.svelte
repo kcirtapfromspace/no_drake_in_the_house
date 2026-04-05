@@ -1672,7 +1672,15 @@
                       {row.providerName}
                     </span>
                   </td>
-                  <td class="px-4 py-3 text-zinc-300">{formatMetric(row.songs)}</td>
+                  <td class="px-4 py-3 text-zinc-300">
+                    {formatMetric(row.songs)}
+                    {#if row.provider === 'tidal' && (row.songs === 0 || row.songs === null)}
+                      <span
+                        class="inline-block ml-1 text-zinc-500 cursor-help"
+                        title="Tidal's API does not yet support exporting liked songs. Albums, artists, and playlist tracks are synced. This is a known Tidal API limitation — not a bug."
+                      >&#9432;</span>
+                    {/if}
+                  </td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.albums)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.artists)}</td>
                   <td class="px-4 py-3 text-zinc-300">{formatMetric(row.playlists)}</td>

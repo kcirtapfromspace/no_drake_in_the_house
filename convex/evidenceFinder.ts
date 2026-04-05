@@ -456,23 +456,217 @@ export const _getArtistById = internalQuery({
 });
 
 // ---------------------------------------------------------------------------
+// Global artist inventory cycling
+// ---------------------------------------------------------------------------
+
+/**
+ * Get artists ordered by investigation age (never investigated first, then oldest).
+ * Used by the cycling worker to process the full inventory.
+ */
+export const _getArtistsByInvestigationAge = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const cutoff = new Date(
+      Date.now() - STALE_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const allArtists = await ctx.db.query("artists").collect();
+
+    // Split into never-investigated and stale
+    const neverInvestigated = allArtists.filter((a) => !a.lastInvestigatedAt);
+    const stale = allArtists
+      .filter((a) => a.lastInvestigatedAt && a.lastInvestigatedAt < cutoff)
+      .sort((a, b) =>
+        (a.lastInvestigatedAt ?? "").localeCompare(b.lastInvestigatedAt ?? ""),
+      );
+
+    // Priority: never investigated first, then oldest stale
+    const candidates = [...neverInvestigated, ...stale];
+    const limit = args.limit ?? BATCH_SIZE;
+    return candidates.slice(0, limit).map((a) => ({
+      artistId: a._id,
+      canonicalName: a.canonicalName,
+      lastInvestigatedAt: a.lastInvestigatedAt ?? null,
+    }));
+  },
+});
+
+/**
+ * Cycle through the global artist inventory, processing from oldest
+ * lastInvestigatedAt timestamp. When the full list is complete, the next
+ * cron invocation starts from the oldest again.
+ */
+export const cycleArtistInventory = internalAction({
+  args: {
+    runId: v.id("platformSyncRuns"),
+  },
+  handler: async (ctx, args) => {
+    const startTime = Date.now();
+    const { runId } = args;
+
+    const shouldPause = () => Date.now() - startTime > SAFE_RUNTIME_MS;
+
+    let investigated = 0;
+    let skipped = 0;
+    let failed = 0;
+    let offensesFound = 0;
+
+    try {
+      // Get the next batch of artists to investigate
+      const batch: Array<{
+        artistId: Id<"artists">;
+        canonicalName: string;
+        lastInvestigatedAt: string | null;
+      }> = await ctx.runQuery(
+        internal.evidenceFinder._getArtistsByInvestigationAge,
+        { limit: BATCH_SIZE },
+      );
+
+      if (batch.length === 0) {
+        // All artists are recently investigated — nothing to do
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          metadata: { investigated: 0, message: "All artists recently investigated" },
+        });
+        return;
+      }
+
+      const backendUrl = process.env.NDITH_BACKEND_URL;
+
+      for (const { artistId, canonicalName } of batch) {
+        if (shouldPause()) {
+          // Schedule continuation
+          await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+            runId,
+            metadata: { investigated, skipped, failed, offensesFound },
+          });
+          await ctx.scheduler.runAfter(
+            0,
+            internal.evidenceFinder.cycleArtistInventory,
+            { runId },
+          );
+          return;
+        }
+
+        await ctx.runMutation(
+          internal.evidenceFinder._markArtistInvestigated,
+          { artistId, status: "in_progress" },
+        );
+
+        if (backendUrl) {
+          try {
+            const response = await fetch(
+              `${backendUrl}/news/research/artists/${artistId}/trigger`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  artist_name: canonicalName,
+                  artist_id: artistId,
+                }),
+              },
+            );
+
+            if (response.ok) {
+              const result = await response.json();
+              investigated++;
+              offensesFound +=
+                result.offenses_detected ?? result.total_offenses_detected ?? 0;
+              await ctx.runMutation(
+                internal.evidenceFinder._markArtistInvestigated,
+                { artistId, status: "completed" },
+              );
+            } else {
+              failed++;
+              await ctx.runMutation(
+                internal.evidenceFinder._markArtistInvestigated,
+                { artistId, status: "failed" },
+              );
+            }
+          } catch {
+            failed++;
+            await ctx.runMutation(
+              internal.evidenceFinder._markArtistInvestigated,
+              { artistId, status: "failed" },
+            );
+          }
+
+          // Small delay between research calls
+          await new Promise((r) => setTimeout(r, INTER_ARTIST_DELAY_MS));
+        } else {
+          // No backend URL — mark as investigated so we cycle past this artist
+          await ctx.runMutation(
+            internal.evidenceFinder._markArtistInvestigated,
+            { artistId, status: "no_backend" },
+          );
+          skipped++;
+        }
+      }
+
+      // After batch: promote any new classifications and rebuild index
+      await ctx.runMutation(
+        internal.offensePipeline.promoteClassifications,
+        {},
+      );
+      await ctx.runMutation(
+        internal.offensePipeline.rebuildOffendingArtistIndex,
+        {},
+      );
+
+      // Check if more artists need processing
+      const remaining: Array<{ artistId: Id<"artists"> }> = await ctx.runQuery(
+        internal.evidenceFinder._getArtistsByInvestigationAge,
+        { limit: 1 },
+      );
+
+      if (remaining.length > 0) {
+        // More artists to process — schedule continuation
+        await ctx.scheduler.runAfter(
+          0,
+          internal.evidenceFinder.cycleArtistInventory,
+          { runId },
+        );
+      } else {
+        // Full cycle complete
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          metadata: { investigated, skipped, failed, offensesFound },
+        });
+      }
+    } catch (err: any) {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+        runId,
+        status: "failed",
+        completedAt: new Date().toISOString(),
+        errorLog: [{ message: err?.message ?? "Unknown error", ts: new Date().toISOString() }],
+        metadata: { investigated, skipped, failed, offensesFound },
+      });
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
 // Daily investigation cron handler
 // ---------------------------------------------------------------------------
 
 /**
- * Find all users with connected providers and schedule investigation for each.
+ * Kick off the global artist inventory cycling worker.
+ * Creates a tracking run and schedules the first batch.
  */
 export const dailyInvestigation = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = new Date().toISOString();
 
-    // Find all active provider connections
+    // First, resolve any unresolved artist names from all users' library tracks
     const connections = await ctx.db
       .query("providerConnections")
       .collect();
 
-    // Get unique user IDs with active connections
     const userIds = [
       ...new Set(
         connections
@@ -481,12 +675,11 @@ export const dailyInvestigation = internalMutation({
       ),
     ];
 
-    let scheduled = 0;
+    // Schedule per-user resolution (lightweight — just creates artist records)
     for (const userId of userIds) {
-      // Create a sync run for tracking
-      const runId = await ctx.db.insert("platformSyncRuns", {
-        legacyKey: `runtime:sync:evidence_finder:${Date.now()}:${userId}`,
-        platform: "evidence_finder",
+      const resolveRunId = await ctx.db.insert("platformSyncRuns", {
+        legacyKey: `runtime:sync:resolve:${Date.now()}:${userId}`,
+        platform: "artist_resolution",
         status: "running",
         startedAt: now,
         errorLog: [],
@@ -496,15 +689,33 @@ export const dailyInvestigation = internalMutation({
         updatedAt: now,
       });
 
-      // Stagger by 30 seconds per user to avoid thundering herd
       await ctx.scheduler.runAfter(
-        scheduled * 30_000,
+        0,
         internal.evidenceFinder.investigateLibraryArtists,
-        { runId, userId: userId as Id<"users"> },
+        { runId: resolveRunId, userId: userId as Id<"users"> },
       );
-      scheduled++;
     }
 
-    return { scheduled };
+    // Then start the global cycling worker to investigate all artists
+    const cycleRunId = await ctx.db.insert("platformSyncRuns", {
+      legacyKey: `runtime:sync:evidence_cycle:${Date.now()}`,
+      platform: "evidence_finder",
+      status: "running",
+      startedAt: now,
+      errorLog: [],
+      checkpointData: {},
+      metadata: { type: "global_cycle" },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Stagger the cycle start to let resolution complete first (60s)
+    await ctx.scheduler.runAfter(
+      60_000,
+      internal.evidenceFinder.cycleArtistInventory,
+      { runId: cycleRunId },
+    );
+
+    return { usersResolved: userIds.length, cycleStarted: true };
   },
 });

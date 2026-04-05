@@ -279,17 +279,58 @@ export const triggerSync = action({
   args: {
     platform: v.string(),
   },
-  handler: async (ctx, args) => {
-    const runId: Id<"platformSyncRuns"> = await ctx.runMutation(
-      api.sync._createRun,
-      { platform: args.platform },
+  handler: async (ctx, args): Promise<{
+    run_id: Id<"platformSyncRuns">;
+    platform: string;
+    status: string;
+    message: string;
+  }> => {
+    const provider = args.platform;
+    const normalizedProvider =
+      provider === "apple-music" ? "apple_music" : provider;
+
+    // Guard: reject if a sync is already running for this provider
+    const existingRun: { runId: Id<"platformSyncRuns"> } | null = await ctx.runQuery(
+      internal.sync._getRunningSync,
+      { platform: normalizedProvider },
     );
+    if (existingRun) {
+      return {
+        run_id: existingRun.runId,
+        platform: provider,
+        status: "already_running",
+        message: `A sync is already running for ${provider}`,
+      };
+    }
+
+    const { runId, userId }: { runId: Id<"platformSyncRuns">; userId: Id<"users"> } = await ctx.runMutation(
+      api.sync._createRunWithUser,
+      { platform: normalizedProvider },
+    );
+
+    // Schedule the provider-specific sync action
+    switch (normalizedProvider) {
+      case "spotify":
+        await ctx.scheduler.runAfter(0, internal.librarySyncActions.syncSpotifyLibrary, { runId, userId });
+        break;
+      case "tidal":
+        await ctx.scheduler.runAfter(0, internal.librarySyncActions.syncTidalLibrary, { runId, userId });
+        break;
+      case "youtube":
+        await ctx.scheduler.runAfter(0, internal.librarySyncActions.syncYouTubeLibrary, { runId, userId });
+        break;
+      case "apple_music":
+        await ctx.scheduler.runAfter(0, internal.librarySyncActions.syncAppleMusicLibrary, { runId, userId });
+        break;
+      default:
+        throw new ConvexError(`Unsupported provider for library sync: ${provider}`);
+    }
 
     return {
       run_id: runId,
-      platform: args.platform,
+      platform: provider,
       status: "running",
-      message: `Sync triggered for ${args.platform}`,
+      message: `Sync triggered for ${provider}`,
     };
   },
 });

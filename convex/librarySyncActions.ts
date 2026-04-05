@@ -302,6 +302,35 @@ async function cleanupStaleTracks(
   return totalDeleted;
 }
 
+/**
+ * Resolve unresolved artist names from library tracks into artist records.
+ * Called after a successful sync to populate the artists table.
+ */
+async function resolveTrackArtists(
+  ctx: { runQuery: (ref: any, args: any) => Promise<any>; runMutation: (ref: any, args: any) => Promise<any> },
+  userId: string,
+): Promise<number> {
+  const unresolved: Array<{ name: string; count: number }> =
+    await ctx.runQuery(
+      internal.evidenceFinder._getUnresolvedArtistNames,
+      { userId },
+    );
+
+  let resolved = 0;
+  for (const { name } of unresolved) {
+    const artistId = await ctx.runMutation(
+      internal.evidenceFinder._resolveOrCreateArtist,
+      { name },
+    );
+    await ctx.runMutation(
+      internal.evidenceFinder._linkTracksToArtist,
+      { userId, artistName: name, artistId },
+    );
+    resolved++;
+  }
+  return resolved;
+}
+
 // ---------------------------------------------------------------------------
 // Spotify HTTP helper with retry + rate-limit handling
 // ---------------------------------------------------------------------------
@@ -875,6 +904,9 @@ export const syncSpotifyLibrary = internalAction({
         },
       });
 
+      // ── Resolve artist names into artist records ─────────────────────
+      await resolveTrackArtists(ctx, userId);
+
       // ── Trigger offense summary recompute ─────────────────────────────
       await ctx.scheduler.runAfter(
         0,
@@ -1131,6 +1163,8 @@ export const syncTidalLibrary = internalAction({
         metadata: { tracksImported },
       });
 
+      await resolveTrackArtists(ctx, userId);
+
       await ctx.scheduler.runAfter(
         0,
         internal.offensePipeline.recomputeUserOffenseSummary,
@@ -1369,6 +1403,8 @@ export const syncAppleMusicLibrary = internalAction({
         metadata: { tracksImported },
       });
 
+      await resolveTrackArtists(ctx, userId);
+
       await ctx.scheduler.runAfter(
         0,
         internal.offensePipeline.recomputeUserOffenseSummary,
@@ -1533,6 +1569,8 @@ export const syncYouTubeLibrary = internalAction({
         completedAt: new Date().toISOString(),
         metadata: { tracksImported },
       });
+
+      await resolveTrackArtists(ctx, userId);
 
       await ctx.scheduler.runAfter(
         0,

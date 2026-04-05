@@ -958,8 +958,28 @@ export const syncTidalLibrary = internalAction({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
+    const startTime = Date.now();
     const { runId, userId } = args;
 
+    // ── Retrieve and check the run status ──────────────────────────────
+    const run = await ctx.runQuery(
+      internal.librarySyncActions._getSyncRun,
+      { runId },
+    );
+    if (!run || run.status === "cancelled") return;
+
+    // ── Restore checkpoint (for continuation) ──────────────────────────
+    let checkpoint: CheckpointData = (run.checkpointData as CheckpointData | null) ?? {
+      phase: "liked",
+      offset: 0,
+      tracksImported: 0,
+      likedCount: 0,
+      albumCount: 0,
+      artistCount: 0,
+      playlistTrackCount: 0,
+    };
+
+    // ── Get the connection tokens ──────────────────────────────────────
     const conn = await ctx.runQuery(
       internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "tidal" },
@@ -976,8 +996,11 @@ export const syncTidalLibrary = internalAction({
     }
 
     let accessToken: string;
+    let refreshToken: string | undefined;
+
     try {
       accessToken = await decryptAccessToken(conn.encryptedAccessToken);
+      refreshToken = await decryptRefreshTokenValue(conn.encryptedRefreshToken);
     } catch (err: any) {
       await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
         runId,
@@ -988,9 +1011,125 @@ export const syncTidalLibrary = internalAction({
       return;
     }
 
-    const syncStartedAt = new Date().toISOString();
+    // Proactive refresh if token expires within 5 minutes
+    if (conn.expiresAt && refreshToken) {
+      const expiryMs = new Date(conn.expiresAt).getTime();
+      if (expiryMs - Date.now() < 5 * 60 * 1000) {
+        try {
+          const { refreshAccessToken } = await import("./lib/oauth");
+          const data = await refreshAccessToken("tidal", refreshToken);
+          accessToken = data.access_token;
+          const expiresAt = new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString();
+          const encryptionKey = getEncryptionKey();
+          const encrypted = await encryptToken(data.access_token, encryptionKey);
+          await ctx.runMutation(internal.librarySyncActions._updateConnectionTokenFromSync, {
+            connectionId: conn.connectionId,
+            encryptedAccessToken: encrypted,
+            expiresAt,
+          });
+        } catch {
+          // Fall through — use existing token, 401 handler will retry
+        }
+      }
+    }
+
+    // Helper: refresh token on 401
+    async function handleTokenRefresh(): Promise<boolean> {
+      if (!refreshToken) return false;
+      try {
+        const { refreshAccessToken } = await import("./lib/oauth");
+        const data = await refreshAccessToken("tidal", refreshToken);
+        accessToken = data.access_token;
+        const expiresAt = new Date(Date.now() + (data.expires_in ?? 3600) * 1000).toISOString();
+        const encryptionKey = getEncryptionKey();
+        const encrypted = await encryptToken(data.access_token, encryptionKey);
+        await ctx.runMutation(internal.librarySyncActions._updateConnectionTokenFromSync, {
+          connectionId: conn!.connectionId,
+          encryptedAccessToken: encrypted,
+          expiresAt,
+        });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // Helper: Tidal v1 GET with auto-refresh on 401
+    async function tidalGet(url: string): Promise<any> {
+      let res = await apiFetchWithRetry(url, {
+        Authorization: `Bearer ${accessToken}`,
+      }, "Tidal");
+
+      if (res.status === 401) {
+        const refreshed = await handleTokenRefresh();
+        if (!refreshed) {
+          throw new Error(`Tidal API returned 401 and token refresh failed for ${url}`);
+        }
+        res = await apiFetchWithRetry(url, {
+          Authorization: `Bearer ${accessToken}`,
+        }, "Tidal");
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Tidal API error ${res.status}: ${text.substring(0, 300)}`);
+      }
+
+      return await res.json();
+    }
+
+    // Helper: Tidal v2 GET (JSON:API) with auto-refresh on 401
+    async function tidalGetV2(url: string): Promise<any> {
+      let res = await apiFetchWithRetry(url, {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/vnd.api+json",
+      }, "Tidal");
+
+      if (res.status === 401) {
+        const refreshed = await handleTokenRefresh();
+        if (!refreshed) {
+          throw new Error(`Tidal v2 API returned 401 and token refresh failed for ${url}`);
+        }
+        res = await apiFetchWithRetry(url, {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/vnd.api+json",
+        }, "Tidal");
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Tidal v2 API error ${res.status}: ${text.substring(0, 300)}`);
+      }
+
+      return await res.json();
+    }
+
+    function shouldPause(): boolean {
+      return Date.now() - startTime > SAFE_RUNTIME_MS;
+    }
+
+    async function saveCheckpoint(pause: boolean) {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+        runId,
+        checkpointData: checkpoint,
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          albumCount: checkpoint.albumCount,
+          artistCount: checkpoint.artistCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+        },
+      });
+      if (pause) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.librarySyncActions.syncTidalLibrary,
+          { runId, userId },
+        );
+      }
+    }
+
     const pendingTracks: TrackImport[] = [];
-    let tracksImported = 0;
 
     async function flushTracks() {
       if (pendingTracks.length === 0) return;
@@ -999,15 +1138,24 @@ export const syncTidalLibrary = internalAction({
         internal.librarySyncActions._batchImportTracks,
         { userId, provider: "tidal", tracks: batch },
       );
-      tracksImported += result.imported;
+      checkpoint.tracksImported += result.imported;
     }
 
+    async function addTrack(track: TrackImport) {
+      pendingTracks.push(track);
+      if (pendingTracks.length >= BATCH_SIZE) {
+        await flushTracks();
+      }
+    }
+
+    const syncStartedAt = new Date().toISOString();
+    const TIDAL_PAGE_SIZE = 50;
+
     try {
-      // Step 1: Resolve Tidal user ID — try stored ID, then JWT, then /sessions
+      // ── Resolve Tidal user ID ──────────────────────────────────────────
       let tidalUserId: string | null = conn.providerUserId ? String(conn.providerUserId) : null;
       let countryCode = "US";
 
-      // Fallback: decode the JWT access token
       if (!tidalUserId) {
         try {
           const parts = accessToken.split(".");
@@ -1015,7 +1163,8 @@ export const syncTidalLibrary = internalAction({
             const payload = JSON.parse(atob(parts[1]));
             const raw = payload.sub ?? payload.uid;
             tidalUserId = raw != null ? String(raw) : null;
-            console.log(`[Tidal sync] Got user from JWT: id=${tidalUserId}`);
+            if (payload.countryCode) countryCode = payload.countryCode;
+            console.log(`[Tidal sync] Got user from JWT: id=${tidalUserId}, country=${countryCode}`);
           }
         } catch {
           // Not a JWT or malformed
@@ -1028,91 +1177,358 @@ export const syncTidalLibrary = internalAction({
         );
       }
 
-      // Step 2: Fetch favorite tracks via v1 API
-      // The v2 userCollections endpoint does not support tracks yet, so we
-      // use the v1 favorites endpoint which has full track support.
-      const TIDAL_PAGE_SIZE = 50;
-      let offset = 0;
-      let hasMore = true;
-      let pageCount = 0;
+      // ── Phase: Liked tracks (v1 API — v2 does not support tracks yet) ─
+      if (checkpoint.phase === "liked") {
+        let offset = checkpoint.offset ?? 0;
+        let hasMore = true;
 
-      while (hasMore) {
-        const url =
-          `https://api.tidal.com/v1/users/${tidalUserId}/favorites/tracks` +
-          `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
-
-        const res = await apiFetchWithRetry(url, {
-          Authorization: `Bearer ${accessToken}`,
-        }, "Tidal");
-
-        if (!res.ok) {
-          const errText = await res.text();
-          if (res.status === 404) {
-            console.warn(`[Tidal sync] favorites/tracks returned 404 — user may have no favorites`);
-            break;
-          }
-          throw new Error(`Tidal API error ${res.status}: ${errText.substring(0, 300)}`);
-        }
-
-        const body = (await res.json()) as {
-          limit?: number;
-          offset?: number;
-          totalNumberOfItems?: number;
-          items?: Array<{
-            created?: string;
-            item?: {
-              id: number;
-              title?: string;
-              artist?: { id: number; name?: string };
-              artists?: Array<{ id: number; name?: string }>;
-              album?: { id: number; title?: string };
-            };
-          }>;
-        };
-
-        pageCount++;
-        const items = body.items ?? [];
-        console.log(
-          `[Tidal sync] Page ${pageCount}: ${items.length} items (offset=${offset}, total=${body.totalNumberOfItems ?? "?"})`,
-        );
-
-        if (items.length === 0 && pageCount === 1) {
-          console.warn(`[Tidal sync] First page returned 0 items. Response keys: ${Object.keys(body).join(", ")}`);
-        }
-
-        for (const entry of items) {
-          const track = entry.item;
-          if (!track) continue;
-
-          const artistName =
-            track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist";
-          const albumName = track.album?.title;
-
-          pendingTracks.push({
-            providerTrackId: `liked:${track.id}`,
-            trackName: track.title,
-            albumName,
-            artistName,
-            sourceType: "liked",
-          });
-          if (pendingTracks.length >= BATCH_SIZE) {
+        while (hasMore) {
+          if (shouldPause()) {
+            checkpoint.offset = offset;
             await flushTracks();
-            await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-              runId,
-              checkpointData: { tracksImported, phase: "liked" },
-              metadata: { tracksImported },
-            });
+            await saveCheckpoint(true);
+            return;
           }
-        }
 
-        // Offset-based pagination
-        if (items.length < TIDAL_PAGE_SIZE) {
-          hasMore = false;
-        } else {
+          const url =
+            `https://api.tidal.com/v1/users/${tidalUserId}/favorites/tracks` +
+            `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
+
+          let body: any;
+          try {
+            body = await tidalGet(url);
+          } catch (err: any) {
+            if (err.message?.includes("404")) {
+              console.warn("[Tidal sync] favorites/tracks returned 404 — skipping");
+              break;
+            }
+            throw err;
+          }
+
+          const items = body.items ?? [];
+          console.log(
+            `[Tidal sync] Liked tracks page: ${items.length} items (offset=${offset}, total=${body.totalNumberOfItems ?? "?"})`,
+          );
+
+          for (const entry of items) {
+            const track = entry.item;
+            if (!track) continue;
+
+            await addTrack({
+              providerTrackId: `liked:${track.id}`,
+              trackName: track.title,
+              albumName: track.album?.title,
+              artistName: track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist",
+              sourceType: "liked",
+            });
+            checkpoint.likedCount++;
+          }
+
+          hasMore = items.length >= TIDAL_PAGE_SIZE;
           offset += items.length;
         }
+
+        checkpoint.phase = "albums";
+        checkpoint.offset = 0;
       }
 
+      // ── Phase: Saved albums (v2 API — userCollections) ────────────────
+      if (checkpoint.phase === "albums") {
+        let cursor: string | undefined = undefined;
+        let hasMore = true;
+
+        while (hasMore) {
+          if (shouldPause()) {
+            await flushTracks();
+            await saveCheckpoint(true);
+            return;
+          }
+
+          let url =
+            `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/albums` +
+            `?countryCode=${countryCode}&include=albums`;
+          if (cursor) {
+            url += `&page[cursor]=${encodeURIComponent(cursor)}`;
+          }
+
+          let body: any;
+          try {
+            body = await tidalGetV2(url);
+          } catch (err: any) {
+            // If v2 userCollections fails, fall back to v1
+            if (err.message?.includes("404") || err.message?.includes("400")) {
+              console.warn("[Tidal sync] v2 userCollections/albums failed, falling back to v1");
+              try {
+                let v1Offset = 0;
+                let v1HasMore = true;
+                while (v1HasMore) {
+                  const v1Url =
+                    `https://api.tidal.com/v1/users/${tidalUserId}/favorites/albums` +
+                    `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${v1Offset}`;
+                  const v1Body = await tidalGet(v1Url);
+                  const v1Items = v1Body.items ?? [];
+                  for (const entry of v1Items) {
+                    const album = entry.item;
+                    if (!album) continue;
+                    await addTrack({
+                      providerTrackId: `album:${album.id}`,
+                      trackName: `[Album] ${album.title}`,
+                      albumName: album.title,
+                      artistName: album.artists?.[0]?.name ?? album.artist?.name ?? "Unknown Artist",
+                      sourceType: "saved_album",
+                    });
+                    checkpoint.albumCount++;
+                  }
+                  v1HasMore = v1Items.length >= TIDAL_PAGE_SIZE;
+                  v1Offset += v1Items.length;
+                }
+              } catch (v1Err: any) {
+                console.warn(`[Tidal sync] v1 fallback for albums also failed: ${v1Err.message}`);
+              }
+              break;
+            }
+            throw err;
+          }
+
+          const items = body.data ?? [];
+          const includedById = new Map<string, any>();
+          for (const inc of body.included ?? []) {
+            includedById.set(`${inc.type}:${inc.id}`, inc);
+          }
+
+          for (const item of items) {
+            const album = includedById.get(`albums:${item.id}`);
+            const attrs = album?.attributes;
+            if (!attrs) continue;
+
+            const artistRel = album?.relationships?.artists?.data?.[0];
+            const artistResource = artistRel
+              ? includedById.get(`artists:${artistRel.id}`)
+              : undefined;
+            const artistName = artistResource?.attributes?.name ?? "Unknown Artist";
+
+            await addTrack({
+              providerTrackId: `album:${item.id}`,
+              trackName: `[Album] ${attrs.title}`,
+              albumName: attrs.title,
+              artistName,
+              sourceType: "saved_album",
+            });
+            checkpoint.albumCount++;
+          }
+
+          const nextCursor = body.links?.meta?.nextCursor;
+          if (nextCursor && items.length > 0) {
+            cursor = nextCursor;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        checkpoint.phase = "artists";
+      }
+
+      // ── Phase: Followed artists (v2 API — userCollections) ────────────
+      if (checkpoint.phase === "artists") {
+        let cursor: string | undefined = undefined;
+        let hasMore = true;
+
+        while (hasMore) {
+          if (shouldPause()) {
+            await flushTracks();
+            await saveCheckpoint(true);
+            return;
+          }
+
+          let url =
+            `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/artists` +
+            `?countryCode=${countryCode}&include=artists`;
+          if (cursor) {
+            url += `&page[cursor]=${encodeURIComponent(cursor)}`;
+          }
+
+          let body: any;
+          try {
+            body = await tidalGetV2(url);
+          } catch (err: any) {
+            // If v2 userCollections fails, fall back to v1
+            if (err.message?.includes("404") || err.message?.includes("400")) {
+              console.warn("[Tidal sync] v2 userCollections/artists failed, falling back to v1");
+              try {
+                let v1Offset = 0;
+                let v1HasMore = true;
+                while (v1HasMore) {
+                  const v1Url =
+                    `https://api.tidal.com/v1/users/${tidalUserId}/favorites/artists` +
+                    `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${v1Offset}`;
+                  const v1Body = await tidalGet(v1Url);
+                  const v1Items = v1Body.items ?? [];
+                  for (const entry of v1Items) {
+                    const artist = entry.item;
+                    if (!artist) continue;
+                    await addTrack({
+                      providerTrackId: `artist:${artist.id}`,
+                      trackName: `[Artist] ${artist.name}`,
+                      artistName: artist.name,
+                      sourceType: "followed_artist",
+                    });
+                    checkpoint.artistCount++;
+                  }
+                  v1HasMore = v1Items.length >= TIDAL_PAGE_SIZE;
+                  v1Offset += v1Items.length;
+                }
+              } catch (v1Err: any) {
+                console.warn(`[Tidal sync] v1 fallback for artists also failed: ${v1Err.message}`);
+              }
+              break;
+            }
+            throw err;
+          }
+
+          const items = body.data ?? [];
+          const includedById = new Map<string, any>();
+          for (const inc of body.included ?? []) {
+            includedById.set(`${inc.type}:${inc.id}`, inc);
+          }
+
+          for (const item of items) {
+            const artist = includedById.get(`artists:${item.id}`);
+            const name = artist?.attributes?.name ?? "Unknown Artist";
+
+            await addTrack({
+              providerTrackId: `artist:${item.id}`,
+              trackName: `[Artist] ${name}`,
+              artistName: name,
+              sourceType: "followed_artist",
+            });
+            checkpoint.artistCount++;
+          }
+
+          const nextCursor = body.links?.meta?.nextCursor;
+          if (nextCursor && items.length > 0) {
+            cursor = nextCursor;
+          } else {
+            hasMore = false;
+          }
+        }
+
+        checkpoint.phase = "playlists";
+        checkpoint.offset = 0;
+        checkpoint.playlistIds = [];
+        checkpoint.playlistNames = [];
+      }
+
+      // ── Phase: Discover playlists (v1 API) ────────────────────────────
+      if (checkpoint.phase === "playlists") {
+        let offset = checkpoint.offset ?? 0;
+        let hasMore = true;
+        const playlistIds = checkpoint.playlistIds ?? [];
+        const playlistNames = checkpoint.playlistNames ?? [];
+
+        while (hasMore) {
+          if (shouldPause()) {
+            checkpoint.offset = offset;
+            checkpoint.playlistIds = playlistIds;
+            checkpoint.playlistNames = playlistNames;
+            await flushTracks();
+            await saveCheckpoint(true);
+            return;
+          }
+
+          let body: any;
+          try {
+            const url =
+              `https://api.tidal.com/v1/users/${tidalUserId}/playlists` +
+              `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
+            body = await tidalGet(url);
+          } catch (err: any) {
+            if (err.message?.includes("404") || err.message?.includes("403")) {
+              console.warn("[Tidal sync] Playlists endpoint not available — skipping");
+              break;
+            }
+            throw err;
+          }
+
+          const items = body.items ?? [];
+          for (const playlist of items) {
+            playlistIds.push(String(playlist.uuid ?? playlist.id));
+            playlistNames.push(playlist.title ?? "Unknown Playlist");
+          }
+
+          hasMore = items.length >= TIDAL_PAGE_SIZE;
+          offset += items.length;
+        }
+
+        checkpoint.playlistIds = playlistIds;
+        checkpoint.playlistNames = playlistNames;
+        checkpoint.phase = "playlist_tracks";
+        checkpoint.playlistIndex = 0;
+        checkpoint.playlistTrackOffset = 0;
+      }
+
+      // ── Phase: Fetch tracks for each playlist (v1 API) ────────────────
+      if (checkpoint.phase === "playlist_tracks") {
+        const playlistIds = checkpoint.playlistIds ?? [];
+        const playlistNames = checkpoint.playlistNames ?? [];
+        let plIdx = checkpoint.playlistIndex ?? 0;
+
+        while (plIdx < playlistIds.length) {
+          const playlistId = playlistIds[plIdx];
+          const playlistName = playlistNames[plIdx] ?? "Unknown Playlist";
+          let trackOffset = checkpoint.playlistTrackOffset ?? 0;
+          let hasMore = true;
+
+          while (hasMore) {
+            if (shouldPause()) {
+              checkpoint.playlistIndex = plIdx;
+              checkpoint.playlistTrackOffset = trackOffset;
+              await flushTracks();
+              await saveCheckpoint(true);
+              return;
+            }
+
+            let body: any;
+            try {
+              const url =
+                `https://api.tidal.com/v1/playlists/${playlistId}/tracks` +
+                `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${trackOffset}`;
+              body = await tidalGet(url);
+            } catch (err: any) {
+              if (err.message?.includes("404") || err.message?.includes("403")) {
+                console.warn(`[Tidal sync] Playlist ${playlistId} tracks not accessible — skipping`);
+                break;
+              }
+              throw err;
+            }
+
+            const items = body.items ?? [];
+            for (let i = 0; i < items.length; i++) {
+              const track = items[i];
+              if (!track?.id) continue;
+
+              await addTrack({
+                providerTrackId: `playlist:${playlistId}:${track.id}:${trackOffset + i}`,
+                trackName: track.title,
+                albumName: track.album?.title,
+                artistName: track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist",
+                sourceType: "playlist_track",
+                playlistName,
+              });
+              checkpoint.playlistTrackCount++;
+            }
+
+            hasMore = items.length >= TIDAL_PAGE_SIZE;
+            trackOffset += items.length;
+          }
+
+          plIdx++;
+          checkpoint.playlistTrackOffset = 0;
+        }
+
+        checkpoint.phase = "done";
+      }
+
+      // ── Flush remaining + cleanup ──────────────────────────────────────
       await flushTracks();
       await cleanupStaleTracks(ctx, userId, "tidal", syncStartedAt);
 
@@ -1120,7 +1536,15 @@ export const syncTidalLibrary = internalAction({
         runId,
         status: "completed",
         completedAt: new Date().toISOString(),
-        metadata: { tracksImported },
+        checkpointData: checkpoint,
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          albumCount: checkpoint.albumCount,
+          artistCount: checkpoint.artistCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+          durationMs: Date.now() - startTime,
+        },
       });
 
       await new Promise((r) => setTimeout(r, 5_000));
@@ -1139,7 +1563,14 @@ export const syncTidalLibrary = internalAction({
         status: "failed",
         completedAt: new Date().toISOString(),
         errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
-        metadata: { tracksImported },
+        checkpointData: checkpoint,
+        metadata: {
+          tracksImported: checkpoint.tracksImported,
+          likedCount: checkpoint.likedCount,
+          albumCount: checkpoint.albumCount,
+          artistCount: checkpoint.artistCount,
+          playlistTrackCount: checkpoint.playlistTrackCount,
+        },
       });
     }
   },

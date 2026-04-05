@@ -29,18 +29,16 @@ crons.interval(
   {},
 );
 
-crons.interval(
+crons.daily(
   "promote-classifications-to-offenses",
-  { hours: 6 },
+  { hourUTC: 2, minuteUTC: 30 },
   internal.offensePipeline.promoteClassifications,
-  {},
 );
 
-crons.interval(
+crons.daily(
   "rebuild-offending-artist-index",
-  { hours: 6 },
+  { hourUTC: 2, minuteUTC: 45 },
   internal.offensePipeline.rebuildOffendingArtistIndex,
-  {},
 );
 
 crons.daily(

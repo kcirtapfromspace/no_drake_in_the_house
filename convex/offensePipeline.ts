@@ -97,12 +97,36 @@ export const rebuildOffendingArtistIndex = internalMutation({
  * Recompute the offense summary for a single user.
  * Reads their library tracks, batch-lookups offendingArtistIndex, and upserts the summary.
  */
+/** Minimum interval between recomputes for the same user (30 minutes). */
+const RECOMPUTE_COOLDOWN_MS = 30 * 60 * 1000;
+
 export const recomputeUserOffenseSummary = internalMutation({
   args: {
     userId: v.id("users"),
     triggerReason: v.optional(v.string()),
+    force: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    // ── Throttle: skip if recently computed ────────────────────────────
+    if (!args.force) {
+      const existing = await ctx.db
+        .query("userOffenseSummaries")
+        .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+        .unique();
+
+      if (existing?.computedAt) {
+        const lastComputed = new Date(existing.computedAt).getTime();
+        if (Date.now() - lastComputed < RECOMPUTE_COOLDOWN_MS) {
+          return {
+            grade: existing.grade,
+            flaggedArtistCount: existing.flaggedArtistCount,
+            totalArtists: existing.totalArtists,
+            skipped: true,
+          };
+        }
+      }
+    }
+
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))

@@ -148,3 +148,52 @@ export const tableCounts = query({
     return await (ctx.db.query(args.table as any) as any).count();
   },
 });
+
+/**
+ * Lightweight pipeline health check — uses .take(1) probes instead of
+ * .collect() to avoid transferring full tables on the free plan.
+ * Returns whether each table has data and a sample of recent sync runs.
+ */
+export const pipelineHealth = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireOwner(ctx);
+
+    // Probe each table: take(1) to check if non-empty without full scan
+    const [artistSample, offenseSample, evidenceSample, trackSample, connSample, indexSample] =
+      await Promise.all([
+        ctx.db.query("artists").take(5),
+        ctx.db.query("artistOffenses").take(5),
+        ctx.db.query("offenseEvidence").take(5),
+        ctx.db.query("userLibraryTracks").take(5),
+        ctx.db.query("providerConnections").take(5),
+        ctx.db.query("offendingArtistIndex").take(5),
+      ]);
+
+    // Get 5 most recent sync runs (small table, safe to scan)
+    const recentRuns = await ctx.db
+      .query("platformSyncRuns")
+      .order("desc")
+      .take(10);
+
+    return {
+      tables: {
+        artists: { hasData: artistSample.length > 0, sample: artistSample.map((a) => a.canonicalName) },
+        artistOffenses: { hasData: offenseSample.length > 0, sampleCount: offenseSample.length },
+        offenseEvidence: { hasData: evidenceSample.length > 0, sampleCount: evidenceSample.length },
+        userLibraryTracks: { hasData: trackSample.length > 0, sampleCount: trackSample.length },
+        providerConnections: {
+          hasData: connSample.length > 0,
+          providers: connSample.map((c) => ({ provider: c.provider, status: c.status })),
+        },
+        offendingArtistIndex: { hasData: indexSample.length > 0, sampleCount: indexSample.length },
+      },
+      recentRuns: recentRuns.map((r) => ({
+        platform: r.platform,
+        status: r.status,
+        startedAt: r.startedAt,
+        completedAt: r.completedAt,
+      })),
+    };
+  },
+});

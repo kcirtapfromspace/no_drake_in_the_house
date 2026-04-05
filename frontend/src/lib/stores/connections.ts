@@ -517,7 +517,18 @@ export const connectionActions = {
       '/api/v1/oauth/tidal/authorize',
       {
         redirectUri: callbackUrl,
-        scopes: ['user.read', 'collection.read', 'collection.write', 'playlists.read', 'playlists.write'],
+        scopes: [
+          'user.read',
+          'collection.read',
+          'collection.write',
+          'playlists.read',
+          'playlists.write',
+          'playback',
+          'recommendations.read',
+          'entitlements.read',
+          'search.read',
+          'search.write',
+        ],
       }
     );
 

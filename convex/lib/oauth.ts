@@ -46,6 +46,11 @@ const DEFAULT_SCOPES: Record<string, string[]> = {
     "collection.write",
     "playlists.read",
     "playlists.write",
+    "playback",
+    "recommendations.read",
+    "entitlements.read",
+    "search.read",
+    "search.write",
   ],
   youtube: [
     "openid",

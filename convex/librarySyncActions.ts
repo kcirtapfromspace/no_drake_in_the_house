@@ -1054,30 +1054,6 @@ export const syncTidalLibrary = internalAction({
       }
     }
 
-    // Helper: Tidal v1 GET with auto-refresh on 401
-    async function tidalGet(url: string): Promise<any> {
-      let res = await apiFetchWithRetry(url, {
-        Authorization: `Bearer ${accessToken}`,
-      }, "Tidal");
-
-      if (res.status === 401) {
-        const refreshed = await handleTokenRefresh();
-        if (!refreshed) {
-          throw new Error(`Tidal API returned 401 and token refresh failed for ${url}`);
-        }
-        res = await apiFetchWithRetry(url, {
-          Authorization: `Bearer ${accessToken}`,
-        }, "Tidal");
-      }
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Tidal API error ${res.status}: ${text.substring(0, 300)}`);
-      }
-
-      return await res.json();
-    }
-
     // Helper: Tidal v2 GET (JSON:API) with auto-refresh on 401
     async function tidalGetV2(url: string): Promise<any> {
       let res = await apiFetchWithRetry(url, {
@@ -1177,62 +1153,22 @@ export const syncTidalLibrary = internalAction({
         );
       }
 
-      // ── Phase: Liked tracks (v1 API — v2 does not support tracks yet) ─
+      // All Tidal sync phases use the v2 API (openapi.tidal.com).
+      // The v1 API (api.tidal.com) requires a legacy `r_usr` scope that is
+      // not available in the v2 OAuth flow.
+      //
+      // NOTE: The v2 userCollections endpoint does not support favorite
+      // tracks yet (only albums, artists, playlists). Liked tracks will
+      // be synced once Tidal adds the endpoint.
+
+      // ── Phase: Saved albums (v2 userCollections) ──────────────────────
       if (checkpoint.phase === "liked") {
-        let offset = checkpoint.offset ?? 0;
-        let hasMore = true;
-
-        while (hasMore) {
-          if (shouldPause()) {
-            checkpoint.offset = offset;
-            await flushTracks();
-            await saveCheckpoint(true);
-            return;
-          }
-
-          const url =
-            `https://api.tidal.com/v1/users/${tidalUserId}/favorites/tracks` +
-            `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
-
-          let body: any;
-          try {
-            body = await tidalGet(url);
-          } catch (err: any) {
-            if (err.message?.includes("404")) {
-              console.warn("[Tidal sync] favorites/tracks returned 404 — skipping");
-              break;
-            }
-            throw err;
-          }
-
-          const items = body.items ?? [];
-          console.log(
-            `[Tidal sync] Liked tracks page: ${items.length} items (offset=${offset}, total=${body.totalNumberOfItems ?? "?"})`,
-          );
-
-          for (const entry of items) {
-            const track = entry.item;
-            if (!track) continue;
-
-            await addTrack({
-              providerTrackId: `liked:${track.id}`,
-              trackName: track.title,
-              albumName: track.album?.title,
-              artistName: track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist",
-              sourceType: "liked",
-            });
-            checkpoint.likedCount++;
-          }
-
-          hasMore = items.length >= TIDAL_PAGE_SIZE;
-          offset += items.length;
-        }
-
+        // Skip to albums — v2 API does not expose liked tracks yet
+        console.log("[Tidal sync] Skipping liked tracks — v2 API does not support userCollections/tracks yet");
         checkpoint.phase = "albums";
         checkpoint.offset = 0;
       }
 
-      // ── Phase: Saved albums (v2 API — userCollections) ────────────────
       if (checkpoint.phase === "albums") {
         let cursor: string | undefined = undefined;
         let hasMore = true;
@@ -1255,36 +1191,8 @@ export const syncTidalLibrary = internalAction({
           try {
             body = await tidalGetV2(url);
           } catch (err: any) {
-            // If v2 userCollections fails, fall back to v1
             if (err.message?.includes("404") || err.message?.includes("400")) {
-              console.warn("[Tidal sync] v2 userCollections/albums failed, falling back to v1");
-              try {
-                let v1Offset = 0;
-                let v1HasMore = true;
-                while (v1HasMore) {
-                  const v1Url =
-                    `https://api.tidal.com/v1/users/${tidalUserId}/favorites/albums` +
-                    `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${v1Offset}`;
-                  const v1Body = await tidalGet(v1Url);
-                  const v1Items = v1Body.items ?? [];
-                  for (const entry of v1Items) {
-                    const album = entry.item;
-                    if (!album) continue;
-                    await addTrack({
-                      providerTrackId: `album:${album.id}`,
-                      trackName: `[Album] ${album.title}`,
-                      albumName: album.title,
-                      artistName: album.artists?.[0]?.name ?? album.artist?.name ?? "Unknown Artist",
-                      sourceType: "saved_album",
-                    });
-                    checkpoint.albumCount++;
-                  }
-                  v1HasMore = v1Items.length >= TIDAL_PAGE_SIZE;
-                  v1Offset += v1Items.length;
-                }
-              } catch (v1Err: any) {
-                console.warn(`[Tidal sync] v1 fallback for albums also failed: ${v1Err.message}`);
-              }
+              console.warn("[Tidal sync] userCollections/albums not available — skipping");
               break;
             }
             throw err;
@@ -1295,6 +1203,8 @@ export const syncTidalLibrary = internalAction({
           for (const inc of body.included ?? []) {
             includedById.set(`${inc.type}:${inc.id}`, inc);
           }
+
+          console.log(`[Tidal sync] Albums page: ${items.length} items`);
 
           for (const item of items) {
             const album = includedById.get(`albums:${item.id}`);
@@ -1328,7 +1238,7 @@ export const syncTidalLibrary = internalAction({
         checkpoint.phase = "artists";
       }
 
-      // ── Phase: Followed artists (v2 API — userCollections) ────────────
+      // ── Phase: Followed artists (v2 userCollections) ──────────────────
       if (checkpoint.phase === "artists") {
         let cursor: string | undefined = undefined;
         let hasMore = true;
@@ -1351,35 +1261,8 @@ export const syncTidalLibrary = internalAction({
           try {
             body = await tidalGetV2(url);
           } catch (err: any) {
-            // If v2 userCollections fails, fall back to v1
             if (err.message?.includes("404") || err.message?.includes("400")) {
-              console.warn("[Tidal sync] v2 userCollections/artists failed, falling back to v1");
-              try {
-                let v1Offset = 0;
-                let v1HasMore = true;
-                while (v1HasMore) {
-                  const v1Url =
-                    `https://api.tidal.com/v1/users/${tidalUserId}/favorites/artists` +
-                    `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${v1Offset}`;
-                  const v1Body = await tidalGet(v1Url);
-                  const v1Items = v1Body.items ?? [];
-                  for (const entry of v1Items) {
-                    const artist = entry.item;
-                    if (!artist) continue;
-                    await addTrack({
-                      providerTrackId: `artist:${artist.id}`,
-                      trackName: `[Artist] ${artist.name}`,
-                      artistName: artist.name,
-                      sourceType: "followed_artist",
-                    });
-                    checkpoint.artistCount++;
-                  }
-                  v1HasMore = v1Items.length >= TIDAL_PAGE_SIZE;
-                  v1Offset += v1Items.length;
-                }
-              } catch (v1Err: any) {
-                console.warn(`[Tidal sync] v1 fallback for artists also failed: ${v1Err.message}`);
-              }
+              console.warn("[Tidal sync] userCollections/artists not available — skipping");
               break;
             }
             throw err;
@@ -1390,6 +1273,8 @@ export const syncTidalLibrary = internalAction({
           for (const inc of body.included ?? []) {
             includedById.set(`${inc.type}:${inc.id}`, inc);
           }
+
+          console.log(`[Tidal sync] Artists page: ${items.length} items`);
 
           for (const item of items) {
             const artist = includedById.get(`artists:${item.id}`);
@@ -1418,16 +1303,15 @@ export const syncTidalLibrary = internalAction({
         checkpoint.playlistNames = [];
       }
 
-      // ── Phase: Discover playlists (v1 API) ────────────────────────────
+      // ── Phase: Discover playlists (v2 userCollections) ────────────────
       if (checkpoint.phase === "playlists") {
-        let offset = checkpoint.offset ?? 0;
-        let hasMore = true;
         const playlistIds = checkpoint.playlistIds ?? [];
         const playlistNames = checkpoint.playlistNames ?? [];
+        let cursor: string | undefined = undefined;
+        let hasMore = true;
 
         while (hasMore) {
           if (shouldPause()) {
-            checkpoint.offset = offset;
             checkpoint.playlistIds = playlistIds;
             checkpoint.playlistNames = playlistNames;
             await flushTracks();
@@ -1435,28 +1319,45 @@ export const syncTidalLibrary = internalAction({
             return;
           }
 
+          let url =
+            `https://openapi.tidal.com/v2/userCollections/${tidalUserId}/relationships/playlists` +
+            `?countryCode=${countryCode}&include=playlists`;
+          if (cursor) {
+            url += `&page[cursor]=${encodeURIComponent(cursor)}`;
+          }
+
           let body: any;
           try {
-            const url =
-              `https://api.tidal.com/v1/users/${tidalUserId}/playlists` +
-              `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${offset}`;
-            body = await tidalGet(url);
+            body = await tidalGetV2(url);
           } catch (err: any) {
-            if (err.message?.includes("404") || err.message?.includes("403")) {
-              console.warn("[Tidal sync] Playlists endpoint not available — skipping");
+            if (err.message?.includes("404") || err.message?.includes("400")) {
+              console.warn("[Tidal sync] userCollections/playlists not available — skipping");
               break;
             }
             throw err;
           }
 
-          const items = body.items ?? [];
-          for (const playlist of items) {
-            playlistIds.push(String(playlist.uuid ?? playlist.id));
-            playlistNames.push(playlist.title ?? "Unknown Playlist");
+          const items = body.data ?? [];
+          const includedById = new Map<string, any>();
+          for (const inc of body.included ?? []) {
+            includedById.set(`${inc.type}:${inc.id}`, inc);
           }
 
-          hasMore = items.length >= TIDAL_PAGE_SIZE;
-          offset += items.length;
+          console.log(`[Tidal sync] Playlists page: ${items.length} items`);
+
+          for (const item of items) {
+            const playlist = includedById.get(`playlists:${item.id}`);
+            const name = playlist?.attributes?.name ?? playlist?.attributes?.title ?? "Unknown Playlist";
+            playlistIds.push(String(item.id));
+            playlistNames.push(name);
+          }
+
+          const nextCursor = body.links?.meta?.nextCursor;
+          if (nextCursor && items.length > 0) {
+            cursor = nextCursor;
+          } else {
+            hasMore = false;
+          }
         }
 
         checkpoint.playlistIds = playlistIds;
@@ -1466,7 +1367,7 @@ export const syncTidalLibrary = internalAction({
         checkpoint.playlistTrackOffset = 0;
       }
 
-      // ── Phase: Fetch tracks for each playlist (v1 API) ────────────────
+      // ── Phase: Fetch tracks for each playlist (v2 API) ────────────────
       if (checkpoint.phase === "playlist_tracks") {
         const playlistIds = checkpoint.playlistIds ?? [];
         const playlistNames = checkpoint.playlistNames ?? [];
@@ -1475,54 +1376,80 @@ export const syncTidalLibrary = internalAction({
         while (plIdx < playlistIds.length) {
           const playlistId = playlistIds[plIdx];
           const playlistName = playlistNames[plIdx] ?? "Unknown Playlist";
-          let trackOffset = checkpoint.playlistTrackOffset ?? 0;
+          let cursor: string | undefined = undefined;
           let hasMore = true;
+          let positionIndex = 0;
 
           while (hasMore) {
             if (shouldPause()) {
               checkpoint.playlistIndex = plIdx;
-              checkpoint.playlistTrackOffset = trackOffset;
               await flushTracks();
               await saveCheckpoint(true);
               return;
             }
 
+            let url =
+              `https://openapi.tidal.com/v2/playlists/${playlistId}/relationships/items` +
+              `?countryCode=${countryCode}&include=items`;
+            if (cursor) {
+              url += `&page[cursor]=${encodeURIComponent(cursor)}`;
+            }
+
             let body: any;
             try {
-              const url =
-                `https://api.tidal.com/v1/playlists/${playlistId}/tracks` +
-                `?countryCode=${countryCode}&limit=${TIDAL_PAGE_SIZE}&offset=${trackOffset}`;
-              body = await tidalGet(url);
+              body = await tidalGetV2(url);
             } catch (err: any) {
               if (err.message?.includes("404") || err.message?.includes("403")) {
-                console.warn(`[Tidal sync] Playlist ${playlistId} tracks not accessible — skipping`);
+                console.warn(`[Tidal sync] Playlist ${playlistId} items not accessible — skipping`);
                 break;
               }
               throw err;
             }
 
-            const items = body.items ?? [];
-            for (let i = 0; i < items.length; i++) {
-              const track = items[i];
-              if (!track?.id) continue;
+            const items = body.data ?? [];
+            const includedById = new Map<string, any>();
+            for (const inc of body.included ?? []) {
+              includedById.set(`${inc.type}:${inc.id}`, inc);
+            }
+
+            for (const item of items) {
+              const track = includedById.get(`tracks:${item.id}`);
+              const attrs = track?.attributes;
+              if (!attrs) continue;
+
+              const artistRel = track?.relationships?.artists?.data?.[0];
+              const artistResource = artistRel
+                ? includedById.get(`artists:${artistRel.id}`)
+                : undefined;
+              const artistName = artistResource?.attributes?.name ?? "Unknown Artist";
+
+              const albumRel = track?.relationships?.albums?.data?.[0];
+              const albumResource = albumRel
+                ? includedById.get(`albums:${albumRel.id}`)
+                : undefined;
+              const albumName = albumResource?.attributes?.title;
 
               await addTrack({
-                providerTrackId: `playlist:${playlistId}:${track.id}:${trackOffset + i}`,
-                trackName: track.title,
-                albumName: track.album?.title,
-                artistName: track.artists?.[0]?.name ?? track.artist?.name ?? "Unknown Artist",
+                providerTrackId: `playlist:${playlistId}:${item.id}:${positionIndex}`,
+                trackName: attrs.title,
+                albumName,
+                artistName,
                 sourceType: "playlist_track",
                 playlistName,
               });
               checkpoint.playlistTrackCount++;
+              positionIndex++;
             }
 
-            hasMore = items.length >= TIDAL_PAGE_SIZE;
-            trackOffset += items.length;
+            const nextCursor = body.links?.meta?.nextCursor;
+            if (nextCursor && items.length > 0) {
+              cursor = nextCursor;
+            } else {
+              hasMore = false;
+            }
           }
 
           plIdx++;
-          checkpoint.playlistTrackOffset = 0;
         }
 
         checkpoint.phase = "done";

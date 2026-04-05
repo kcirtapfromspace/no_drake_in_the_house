@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { nowIso, requireOwner } from "./lib/auth";
 
 const IMPORTABLE_TABLES = new Set([
@@ -154,10 +154,9 @@ export const tableCounts = query({
  * .collect() to avoid transferring full tables on the free plan.
  * Returns whether each table has data and a sample of recent sync runs.
  */
-export const pipelineHealth = query({
+export const pipelineHealth = internalQuery({
   args: {},
   handler: async (ctx) => {
-    await requireOwner(ctx);
 
     // Probe each table: take(1) to check if non-empty without full scan
     const [artistSample, offenseSample, evidenceSample, trackSample, connSample, indexSample] =

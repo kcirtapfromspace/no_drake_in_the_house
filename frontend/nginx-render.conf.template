@@ -16,7 +16,7 @@ server {
 
     location = /render-health {
         access_log off;
-        return 200 '{"status":"ok"}';
+        return 200 '{"status":"ok","service":"ndith-frontend","git_sha":"${GIT_SHA}"}';
         add_header Content-Type application/json;
     }
 

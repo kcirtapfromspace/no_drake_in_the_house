@@ -73,6 +73,7 @@ jobs:
           tags: ${{ steps.vars.outputs.tags }}
           build-args: |
             VITE_CONVEX_URL=${{ secrets.CONVEX_URL }}
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=render-frontend-image
           cache-to: type=gha,mode=max,scope=render-frontend-image
 

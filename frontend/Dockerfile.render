@@ -9,18 +9,24 @@ COPY . .
 
 # Convex deployment URL – injected at build time via Render env var.
 ARG VITE_CONVEX_URL=""
+# Git SHA for build traceability — surfaces in /render-health and __ENV__.
+ARG GIT_SHA="unknown"
 
 # Render serves the frontend and proxies backend traffic from the same origin,
 # so the client should emit relative /api and /oauth requests.
 # PostHog keys are injected at runtime via render-entrypoint.sh (window.__ENV__).
 RUN VITE_API_URL=__RELATIVE__ \
     VITE_CONVEX_URL="${VITE_CONVEX_URL}" \
+    VITE_GIT_SHA="${GIT_SHA}" \
     VITE_ENVIRONMENT=production \
     VITE_HOT_RELOAD=false \
     VITE_DEBUG_MODE=false \
     npm run build
 
 FROM nginx:alpine
+
+ARG GIT_SHA="unknown"
+ENV GIT_SHA=${GIT_SHA}
 
 RUN apk add --no-cache curl gettext
 

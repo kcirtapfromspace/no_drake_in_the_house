@@ -1686,14 +1686,16 @@ export const syncAppleMusicLibrary = internalAction({
 
     try {
       // ── Phase: Library songs ─────────────────────────────────────────
-      // Apple Music API caps library resource limits at 25 per page.
-      // Using limit=100 silently returns only 25 items (no error), so
-      // we explicitly request limit=25 to match the actual API behavior.
+      // Apple Music API caps library resource limits at 25 per page and
+      // drops HTTP/2 connections around offset ~2500. We retry with a
+      // fresh connection from the last successful offset.
+      const MAX_APPLE_NETWORK_RETRIES = 10;
       if (checkpoint.phase === "liked") {
         let nextUrl: string | null = appleMusicNextUrl ??
           `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}`;
         let pageCount = 0;
         let emptyPageStreak = 0;
+        let networkRetries = 0;
 
         while (nextUrl) {
           if (shouldPause()) {
@@ -1707,18 +1709,29 @@ export const syncAppleMusicLibrary = internalAction({
           try {
             res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
           } catch (fetchErr: any) {
-            // Apple Music API may drop the HTTP/2 connection with a protocol
-            // error when there are no more pages. Treat network errors after
-            // at least one successful page as end-of-pagination.
-            if (checkpoint.likedCount > 0) {
-              (checkpoint as any).songsEndReason = `network_error_after_${checkpoint.likedCount}`;
+            // Apple Music API drops HTTP/2 connections around offset ~2500.
+            // Retry by constructing a fresh URL from the current offset.
+            if (checkpoint.likedCount > 0 && networkRetries < MAX_APPLE_NETWORK_RETRIES) {
+              networkRetries++;
               console.warn(
-                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — treating as end of pagination: ${fetchErr.message}`,
+                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs (retry ${networkRetries}/${MAX_APPLE_NETWORK_RETRIES}): ${fetchErr.message}`,
+              );
+              // Wait before retrying to let the connection reset
+              await new Promise(r => setTimeout(r, 3000));
+              nextUrl = `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}&offset=${checkpoint.likedCount}`;
+              continue;
+            }
+            if (checkpoint.likedCount > 0) {
+              (checkpoint as any).songsEndReason = `network_error_after_${checkpoint.likedCount}_exhausted_retries`;
+              console.warn(
+                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — exhausted retries: ${fetchErr.message}`,
               );
               break;
             }
             throw fetchErr;
           }
+          // Reset retry counter on successful fetch
+          networkRetries = 0;
 
           if (!res.ok) {
             const errBody = await res.text().catch(() => "");

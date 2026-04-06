@@ -625,7 +625,9 @@ export const syncSpotifyLibrary = internalAction({
     // Proactive refresh if token expires within 5 minutes
     if (conn.expiresAt) {
       const expiryMs = new Date(conn.expiresAt).getTime();
-      if (expiryMs - Date.now() < 5 * 60 * 1000) {
+      const msUntilExpiry = expiryMs - Date.now();
+      if (msUntilExpiry < 5 * 60 * 1000) {
+        console.log(`[Spotify sync] Token expires in ${Math.round(msUntilExpiry / 1000)}s — proactive refresh`);
         if (refreshToken) {
           try {
             const refreshed = await refreshSpotifyAccessToken(refreshToken);
@@ -638,12 +640,15 @@ export const syncSpotifyLibrary = internalAction({
               encryptedAccessToken: encrypted,
               expiresAt,
             });
-          } catch {
-            // Fall through — the reactive 401 handler will retry
+            console.log("[Spotify sync] Proactive refresh succeeded");
+          } catch (refreshErr: any) {
+            console.warn(`[Spotify sync] Proactive refresh failed: ${refreshErr.message} — will rely on 401 handler`);
           }
         }
       }
     }
+
+    console.log("[Spotify sync] Setup complete, entering main sync loop");
 
     // Helper: handle 401 by refreshing the token
     async function handleTokenRefresh(): Promise<boolean> {

@@ -565,6 +565,13 @@ export const syncSpotifyLibrary = internalAction({
     const startTime = Date.now();
     const { runId, userId } = args;
 
+    // Breadcrumb: confirm the action is executing
+    console.log(`[Spotify sync] Action started for runId=${runId}, userId=${userId}`);
+    await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+      runId,
+      metadata: { userId, _breadcrumb: "action_started", _ts: new Date().toISOString() },
+    });
+
     // ── Retrieve and check the run status ──────────────────────────────
     const run = await ctx.runQuery(
       internal.librarySyncActions._getSyncRun,

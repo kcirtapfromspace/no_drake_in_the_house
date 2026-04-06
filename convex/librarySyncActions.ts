@@ -43,6 +43,10 @@ interface CheckpointData {
 const BATCH_SIZE = 50;
 const SPOTIFY_PAGE_SIZE = 50;
 const PLAYLIST_TRACK_PAGE_SIZE = 100;
+// Apple Music API silently caps library resource limits to 25 per page.
+// Requesting limit=100 returns only 25 items but no error, causing
+// under-counting when the caller assumes 100 items per page.
+const APPLE_MUSIC_PAGE_SIZE = 25;
 const MAX_RETRIES = 6;
 const MAX_RETRY_WAIT_SECS = 120;
 // Leave a 5-minute buffer before the 30-minute Convex action limit
@@ -1658,10 +1662,14 @@ export const syncAppleMusicLibrary = internalAction({
 
     try {
       // ── Phase: Library songs ─────────────────────────────────────────
+      // Apple Music API caps library resource limits at 25 per page.
+      // Using limit=100 silently returns only 25 items (no error), so
+      // we explicitly request limit=25 to match the actual API behavior.
       if (checkpoint.phase === "liked") {
         let nextUrl: string | null = appleMusicNextUrl ??
-          "https://api.music.apple.com/v1/me/library/songs?limit=100";
+          `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}`;
         let pageCount = 0;
+        let emptyPageStreak = 0;
 
         while (nextUrl) {
           if (shouldPause()) {
@@ -1674,8 +1682,9 @@ export const syncAppleMusicLibrary = internalAction({
           const res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
 
           if (!res.ok) {
+            const errBody = await res.text().catch(() => "");
             throw new Error(
-              `Apple Music API error ${res.status}: ${(await res.text()).substring(0, 300)}`,
+              `Apple Music API error ${res.status}: ${errBody.substring(0, 300)}`,
             );
           }
 
@@ -1685,13 +1694,30 @@ export const syncAppleMusicLibrary = internalAction({
               attributes?: { name?: string; albumName?: string; artistName?: string };
             }>;
             next?: string;
+            meta?: { total?: number };
           };
 
           const items = data.data ?? [];
           pageCount++;
+
+          // Log total from meta on first page for diagnostics
+          if (pageCount === 1 && data.meta?.total) {
+            console.log(`[Apple Music sync] Library total reported by API: ${data.meta.total}`);
+          }
+
           console.log(
-            `[Apple Music sync] Songs page ${pageCount}: ${items.length} items, next=${data.next ? "yes" : "no"}`,
+            `[Apple Music sync] Songs page ${pageCount}: ${items.length} items (running total: ${checkpoint.likedCount + items.length}), next=${data.next ? "yes" : "no"}`,
           );
+
+          if (items.length === 0) {
+            emptyPageStreak++;
+            if (emptyPageStreak >= 3) {
+              console.warn(`[Apple Music sync] ${emptyPageStreak} consecutive empty pages — stopping songs phase`);
+              break;
+            }
+          } else {
+            emptyPageStreak = 0;
+          }
 
           for (const item of items) {
             const attrs = item.attributes;
@@ -1725,8 +1751,10 @@ export const syncAppleMusicLibrary = internalAction({
         const playlistNames = checkpoint.playlistNames ?? [];
 
         // Discover playlists
+        // Apple Music library playlists also use a 25-item page cap.
         let playlistUrl: string | null = appleMusicPlaylistNextUrl ??
-          "https://api.music.apple.com/v1/me/library/playlists?limit=100";
+          `https://api.music.apple.com/v1/me/library/playlists?limit=${APPLE_MUSIC_PAGE_SIZE}`;
+        let plPageCount = 0;
 
         while (playlistUrl) {
           if (shouldPause()) {
@@ -1738,10 +1766,11 @@ export const syncAppleMusicLibrary = internalAction({
             return;
           }
 
+          console.log(`[Apple Music sync] Fetching playlists page ${plPageCount + 1}: ${playlistUrl}`);
           const plRes = await apiFetchWithRetry(playlistUrl, appleHeaders, "Apple Music");
           if (!plRes.ok) {
             const plErrText = await plRes.text().catch(() => "");
-            const plErrMsg = `Playlists returned ${plRes.status}: ${plErrText.substring(0, 200)}`;
+            const plErrMsg = `Playlists returned ${plRes.status}: ${plErrText.substring(0, 300)}`;
             console.warn(`[Apple Music sync] ${plErrMsg}`);
             await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
               runId,
@@ -1750,13 +1779,35 @@ export const syncAppleMusicLibrary = internalAction({
             break;
           }
 
-          const plData = (await plRes.json()) as {
-            data?: Array<{ id: string; attributes?: { name?: string } }>;
+          // Read the body as text first for diagnostic logging, then parse
+          const plRawBody = await plRes.text();
+          let plData: {
+            data?: Array<{ id: string; type?: string; attributes?: { name?: string; canEdit?: boolean } }>;
             next?: string;
+            meta?: { total?: number };
           };
+          try {
+            plData = JSON.parse(plRawBody);
+          } catch {
+            console.error(`[Apple Music sync] Playlists JSON parse failed. Body (first 500 chars): ${plRawBody.substring(0, 500)}`);
+            break;
+          }
+
+          plPageCount++;
+
+          // Log diagnostics on first page
+          if (plPageCount === 1) {
+            console.log(`[Apple Music sync] Playlists response keys: ${Object.keys(plData).join(", ")}`);
+            if (plData.meta?.total !== undefined) {
+              console.log(`[Apple Music sync] Playlists total reported by API: ${plData.meta.total}`);
+            }
+            if (!plData.data) {
+              console.warn(`[Apple Music sync] Playlists response has no "data" field. Full body (first 1000 chars): ${plRawBody.substring(0, 1000)}`);
+            }
+          }
 
           const plItems = plData.data ?? [];
-          console.log(`[Apple Music sync] Discovered ${plItems.length} playlists`);
+          console.log(`[Apple Music sync] Playlists page ${plPageCount}: ${plItems.length} items, next=${plData.next ? "yes" : "no"}`);
 
           for (const playlist of plItems) {
             playlistIds.push(playlist.id);
@@ -1768,7 +1819,7 @@ export const syncAppleMusicLibrary = internalAction({
             : null;
         }
 
-        console.log(`[Apple Music sync] Total playlists discovered: ${playlistIds.length}`);
+        console.log(`[Apple Music sync] Total playlists discovered: ${playlistIds.length} across ${plPageCount} pages`);
         checkpoint.playlistIds = playlistIds;
         checkpoint.playlistNames = playlistNames;
         appleMusicPlaylistNextUrl = null;
@@ -1785,8 +1836,11 @@ export const syncAppleMusicLibrary = internalAction({
         while (plIdx < playlistIds.length) {
           const playlistId = playlistIds[plIdx];
           const playlistName = playlistNames[plIdx] ?? "Unknown Playlist";
+          // Apple Music caps library resource limits at 25 per page
           let trackUrl: string | null =
-            `https://api.music.apple.com/v1/me/library/playlists/${playlistId}/tracks?limit=100`;
+            `https://api.music.apple.com/v1/me/library/playlists/${playlistId}/tracks?limit=${APPLE_MUSIC_PAGE_SIZE}`;
+
+          console.log(`[Apple Music sync] Fetching tracks for playlist "${playlistName}" (${plIdx + 1}/${playlistIds.length})`);
 
           while (trackUrl) {
             if (shouldPause()) {
@@ -1798,7 +1852,8 @@ export const syncAppleMusicLibrary = internalAction({
 
             const trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
             if (!trRes.ok) {
-              console.warn(`[Apple Music sync] Playlist ${playlistId} tracks returned ${trRes.status} — skipping`);
+              const trErrBody = await trRes.text().catch(() => "");
+              console.warn(`[Apple Music sync] Playlist ${playlistId} ("${playlistName}") tracks returned ${trRes.status}: ${trErrBody.substring(0, 200)} — skipping`);
               break;
             }
 

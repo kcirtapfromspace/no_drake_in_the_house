@@ -476,12 +476,14 @@ interface SpotifyFollowedArtistsResponse {
 interface SpotifyPlaylist {
   id: string;
   name: string;
-  tracks?: { total?: number };
+  // Feb 2026 Spotify migration: `tracks` → `items`
+  items?: { total?: number };
 }
 
 interface SpotifyPlaylistTrackItem {
   added_at?: string;
-  track?: SpotifyTrack;
+  // Feb 2026 Spotify migration: `track` → `item`
+  item?: SpotifyTrack;
 }
 
 // ---------------------------------------------------------------------------
@@ -854,7 +856,7 @@ export const syncSpotifyLibrary = internalAction({
             const url =
               `https://api.spotify.com/v1/playlists/${playlistId}/items` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
-              `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
+              `&fields=next,items(added_at,item(id,name,artists(id,name),album(id,name)))`;
 
             let page: SpotifyPaging<SpotifyPlaylistTrackItem>;
             try {
@@ -867,9 +869,10 @@ export const syncSpotifyLibrary = internalAction({
               throw err;
             }
 
-            for (const item of page.items) {
-              if (!item.track?.id) continue;
-              const track = item.track;
+            for (const entry of page.items) {
+              // Feb 2026 Spotify migration: `track` → `item`
+              if (!entry.item?.id) continue;
+              const track = entry.item;
               await addTrack({
                 providerTrackId: `playlist:${playlistId}:${track.id}:${positionIndex}`,
                 trackName: track.name,

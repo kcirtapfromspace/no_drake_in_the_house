@@ -609,7 +609,14 @@
 
   async function refreshHeavyLibraryViews(options: { force?: boolean } = {}): Promise<void> {
     if (!options.force && hydrateHeavyLibraryViewsFromCache()) {
-      return;
+      // Don't trust an empty cache when we have connected platforms —
+      // the data may have been synced since the cache was last populated.
+      const cachedStatsEmpty = libraryStatsRows.length === 0 || libraryStatsRows.every(r => (r.totalItems ?? 0) === 0);
+      if (cachedStatsEmpty && connectedPlatforms.length > 0) {
+        // Fall through to fetch fresh data
+      } else {
+        return;
+      }
     }
 
     if (!options.force && (hasRunningGenericSync() || hasRunningProviderSync())) {

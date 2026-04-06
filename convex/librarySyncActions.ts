@@ -242,6 +242,30 @@ export const _updateSyncRun = internalMutation({
 });
 
 /**
+ * Diagnostic: fetch the most recent failed sync run for a platform.
+ * Usage: npx convex run librarySyncActions:_debugRecentFailed '{"platform":"apple_music"}'
+ */
+export const _debugRecentFailed = internalQuery({
+  args: { platform: v.string() },
+  handler: async (ctx, args) => {
+    const runs = await ctx.db
+      .query("platformSyncRuns")
+      .order("desc")
+      .filter((q) => q.eq(q.field("platform"), args.platform))
+      .take(3);
+    return runs.map((r) => ({
+      id: r._id,
+      status: r.status,
+      startedAt: r.startedAt,
+      completedAt: r.completedAt,
+      errorLog: r.errorLog,
+      metadata: r.metadata,
+      checkpointData: r.checkpointData,
+    }));
+  },
+});
+
+/**
  * Read the current state of a sync run (to check if it was cancelled).
  */
 export const _getSyncRun = internalQuery({

@@ -1703,7 +1703,21 @@ export const syncAppleMusicLibrary = internalAction({
             return;
           }
 
-          const res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
+          let res: Response;
+          try {
+            res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
+          } catch (fetchErr: any) {
+            // Apple Music API may drop the HTTP/2 connection with a protocol
+            // error when there are no more pages. Treat network errors after
+            // at least one successful page as end-of-pagination.
+            if (checkpoint.likedCount > 0) {
+              console.warn(
+                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — treating as end of pagination: ${fetchErr.message}`,
+              );
+              break;
+            }
+            throw fetchErr;
+          }
 
           if (!res.ok) {
             const errBody = await res.text().catch(() => "");

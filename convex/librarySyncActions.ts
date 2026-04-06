@@ -1904,7 +1904,19 @@ export const syncAppleMusicLibrary = internalAction({
               return;
             }
 
-            const trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
+            let trRes: Response;
+            try {
+              trRes = await apiFetchWithRetry(trackUrl, appleHeaders, "Apple Music");
+            } catch (fetchErr: any) {
+              // Same HTTP/2 drop as songs — save checkpoint and continue in fresh action
+              console.warn(
+                `[Apple Music sync] Playlist track network error at playlist ${plIdx + 1} — scheduling continuation: ${fetchErr.message}`,
+              );
+              checkpoint.playlistIndex = plIdx;
+              await flushTracks();
+              await saveCheckpoint(true);
+              return;
+            }
             if (!trRes.ok) {
               const trErrBody = await trRes.text().catch(() => "");
               console.warn(`[Apple Music sync] Playlist ${playlistId} ("${playlistName}") tracks returned ${trRes.status}: ${trErrBody.substring(0, 200)} — skipping`);

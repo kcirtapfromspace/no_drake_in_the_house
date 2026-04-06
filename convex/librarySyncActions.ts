@@ -1695,7 +1695,6 @@ export const syncAppleMusicLibrary = internalAction({
           `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}`;
         let pageCount = 0;
         let emptyPageStreak = 0;
-        let networkRetries = 0;
 
         while (nextUrl) {
           if (shouldPause()) {
@@ -1710,28 +1709,27 @@ export const syncAppleMusicLibrary = internalAction({
             res = await apiFetchWithRetry(nextUrl, appleHeaders, "Apple Music");
           } catch (fetchErr: any) {
             // Apple Music API drops HTTP/2 connections around offset ~2500.
-            // Retry by constructing a fresh URL from the current offset.
-            if (checkpoint.likedCount > 0 && networkRetries < MAX_APPLE_NETWORK_RETRIES) {
-              networkRetries++;
-              console.warn(
-                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs (retry ${networkRetries}/${MAX_APPLE_NETWORK_RETRIES}): ${fetchErr.message}`,
-              );
-              // Wait before retrying to let the connection reset
-              await new Promise(r => setTimeout(r, 3000));
-              nextUrl = `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}&offset=${checkpoint.likedCount}`;
-              continue;
-            }
+            // Schedule a continuation with a fresh action context/HTTP client.
             if (checkpoint.likedCount > 0) {
-              (checkpoint as any).songsEndReason = `network_error_after_${checkpoint.likedCount}_exhausted_retries`;
+              const retryCount = ((checkpoint as any).networkRetryCount ?? 0) + 1;
+              if (retryCount <= MAX_APPLE_NETWORK_RETRIES) {
+                (checkpoint as any).networkRetryCount = retryCount;
+                appleMusicNextUrl = `https://api.music.apple.com/v1/me/library/songs?limit=${APPLE_MUSIC_PAGE_SIZE}&offset=${checkpoint.likedCount}`;
+                console.warn(
+                  `[Apple Music sync] Network error after ${checkpoint.likedCount} songs (scheduling continuation ${retryCount}/${MAX_APPLE_NETWORK_RETRIES}): ${fetchErr.message}`,
+                );
+                await flushTracks();
+                await saveCheckpoint(true); // schedules a new action
+                return;
+              }
+              (checkpoint as any).songsEndReason = `network_error_after_${checkpoint.likedCount}_exhausted_${retryCount}_continuations`;
               console.warn(
-                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — exhausted retries: ${fetchErr.message}`,
+                `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — exhausted continuations: ${fetchErr.message}`,
               );
               break;
             }
             throw fetchErr;
           }
-          // Reset retry counter on successful fetch
-          networkRetries = 0;
 
           if (!res.ok) {
             const errBody = await res.text().catch(() => "");

@@ -14,8 +14,20 @@
     sanitize: { provider: string; playlistName: string };
   }>();
 
-  $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
-  $: providerLabel = playlist.provider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const PROVIDER_COLORS: Record<string, string> = {
+    spotify: 'var(--color-spotify)',
+    apple_music: 'var(--color-apple)',
+    tidal: '#00FFFF',
+    youtube: '#FF0000',
+  };
+  const PROVIDER_LABELS: Record<string, string> = {
+    spotify: 'Spotify',
+    apple_music: 'Apple Music',
+    tidal: 'Tidal',
+    youtube: 'YouTube Music',
+  };
+  $: providerColor = PROVIDER_COLORS[playlist.provider] ?? 'var(--color-apple)';
+  $: providerLabel = PROVIDER_LABELS[playlist.provider] ?? playlist.provider;
   $: images = playlist.cover_images || [];
   $: heroImage = images[0] || '';
   $: hue1 = hashString(playlist.playlist_name) % 360;

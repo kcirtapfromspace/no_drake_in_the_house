@@ -18,8 +18,20 @@
     dispatch(selectionMode ? 'toggleSelect' : 'select', playlist);
   }
 
-  $: providerColor = playlist.provider === 'spotify' ? 'var(--color-spotify)' : 'var(--color-apple)';
-  $: providerLabel = playlist.provider === 'spotify' ? 'Spotify' : 'Apple';
+  const PROVIDER_COLORS: Record<string, string> = {
+    spotify: 'var(--color-spotify)',
+    apple_music: 'var(--color-apple)',
+    tidal: '#00FFFF',
+    youtube: '#FF0000',
+  };
+  const PROVIDER_LABELS: Record<string, string> = {
+    spotify: 'Spotify',
+    apple_music: 'Apple Music',
+    tidal: 'Tidal',
+    youtube: 'YouTube Music',
+  };
+  $: providerColor = PROVIDER_COLORS[playlist.provider] ?? 'var(--color-apple)';
+  $: providerLabel = PROVIDER_LABELS[playlist.provider] ?? playlist.provider;
   $: gradeColor = getGradeColor(playlist.grade);
   $: gradeGlow = getGradeGlow(playlist.grade);
   $: images = playlist.cover_images || [];

@@ -122,6 +122,7 @@ jobs:
             BACKEND_BIN=${{ matrix.service.backend_bin }}
             BACKEND_CARGO_FEATURES=${{ matrix.service.cargo_features }}
             BACKEND_CARGO_NO_DEFAULT_FEATURES=${{ matrix.service.cargo_no_default_features }}
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=render-backend-image-${{ matrix.service.render_service_name }}
           cache-to: type=gha,mode=max,scope=render-backend-image-${{ matrix.service.render_service_name }}
 

@@ -47,6 +47,9 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 # with the binary produced in the builder stage.
 FROM rust:1.94-slim as runtime
 
+ARG GIT_SHA="unknown"
+ENV GIT_SHA=${GIT_SHA}
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \

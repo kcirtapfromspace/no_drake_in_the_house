@@ -236,6 +236,7 @@ async fn test_alert_manager() {
             timestamp: chrono::Utc::now(),
             correlation_id: "test".to_string(),
             version: "test".to_string(),
+            git_sha: "test".to_string(),
             uptime_seconds: 100,
             services: HashMap::new(),
             system_info: SystemInfo {

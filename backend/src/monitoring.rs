@@ -537,6 +537,7 @@ mod tests {
                 timestamp: chrono::Utc::now(),
                 correlation_id: "test".to_string(),
                 version: "test".to_string(),
+                git_sha: "test".to_string(),
                 uptime_seconds: 100,
                 services: std::collections::HashMap::new(),
                 system_info: crate::health::SystemInfo {

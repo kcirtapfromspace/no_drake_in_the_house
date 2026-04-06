@@ -242,6 +242,45 @@ export const _updateSyncRun = internalMutation({
 });
 
 /**
+ * Mark any "running" sync runs older than 35 minutes as "failed".
+ * Convex actions timeout at 30 min so these are guaranteed to be orphaned.
+ * Usage: npx convex run librarySyncActions:_cleanupStaleRuns '{}'
+ */
+export const _cleanupStaleRuns = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const running = await ctx.db
+      .query("platformSyncRuns")
+      .withIndex("by_status", (q) => q.eq("status", "running"))
+      .take(50);
+
+    const now = Date.now();
+    const STALE_THRESHOLD_MS = 35 * 60 * 1000;
+    let cleaned = 0;
+
+    for (const run of running) {
+      const startedMs = new Date(run.startedAt ?? run.createdAt).getTime();
+      if (now - startedMs >= STALE_THRESHOLD_MS) {
+        await ctx.db.patch(run._id, {
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          errorLog: [
+            {
+              message: "Run exceeded 35-minute timeout — marked as failed by cleanup",
+              ts: new Date().toISOString(),
+            },
+          ],
+        });
+        cleaned++;
+      }
+    }
+
+    return { cleaned, checked: running.length };
+  },
+});
+
+/**
  * Diagnostic: fetch the most recent failed sync run for a platform.
  * Usage: npx convex run librarySyncActions:_debugRecentFailed '{"platform":"apple_music"}'
  */
@@ -504,14 +543,12 @@ interface SpotifyFollowedArtistsResponse {
 interface SpotifyPlaylist {
   id: string;
   name: string;
-  // Feb 2026 Spotify migration: `tracks` → `items`
-  items?: { total?: number };
+  tracks?: { total?: number };
 }
 
 interface SpotifyPlaylistTrackItem {
   added_at?: string;
-  // Feb 2026 Spotify migration: `track` → `item`
-  item?: SpotifyTrack;
+  track?: SpotifyTrack;
 }
 
 // ---------------------------------------------------------------------------
@@ -879,12 +916,10 @@ export const syncSpotifyLibrary = internalAction({
               return;
             }
 
-            // Spotify Feb 2026: /playlists/{id}/tracks was removed for dev
-            // mode apps. Use /playlists/{id}/items instead.
             const url =
-              `https://api.spotify.com/v1/playlists/${playlistId}/items` +
+              `https://api.spotify.com/v1/playlists/${playlistId}/tracks` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
-              `&fields=next,items(added_at,item(id,name,artists(id,name),album(id,name)))`;
+              `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
 
             let page: SpotifyPaging<SpotifyPlaylistTrackItem>;
             try {
@@ -898,9 +933,8 @@ export const syncSpotifyLibrary = internalAction({
             }
 
             for (const entry of page.items) {
-              // Feb 2026 Spotify migration: `track` → `item`
-              if (!entry.item?.id) continue;
-              const track = entry.item;
+              if (!entry.track?.id) continue;
+              const track = entry.track;
               await addTrack({
                 providerTrackId: `playlist:${playlistId}:${track.id}:${positionIndex}`,
                 trackName: track.name,
@@ -965,27 +999,37 @@ export const syncSpotifyLibrary = internalAction({
         // Ignore flush errors during failure handling
       }
 
-      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-        runId,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        checkpointData: checkpoint,
-        errorLog: [
-          {
-            message: err.message?.substring(0, 500) ?? "Unknown sync error",
-            phase: checkpoint.phase,
-            ts: new Date().toISOString(),
+      try {
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          checkpointData: checkpoint,
+          errorLog: [
+            {
+              message: err.message?.substring(0, 500) ?? "Unknown sync error",
+              phase: checkpoint.phase,
+              ts: new Date().toISOString(),
+            },
+          ],
+          metadata: {
+            tracksImported: checkpoint.tracksImported,
+            likedCount: checkpoint.likedCount,
+            albumCount: checkpoint.albumCount,
+            artistCount: checkpoint.artistCount,
+            playlistTrackCount: checkpoint.playlistTrackCount,
+            durationMs: Date.now() - startTime,
           },
-        ],
-        metadata: {
-          tracksImported: checkpoint.tracksImported,
-          likedCount: checkpoint.likedCount,
-          albumCount: checkpoint.albumCount,
-          artistCount: checkpoint.artistCount,
-          playlistTrackCount: checkpoint.playlistTrackCount,
-          durationMs: Date.now() - startTime,
-        },
-      });
+        });
+      } catch (updateErr: any) {
+        // If even the status update fails, log both errors so we can diagnose.
+        // Without this guard the run stays "running" forever.
+        console.error(
+          `[Spotify sync] CRITICAL: failed to mark run ${runId} as failed. ` +
+          `Original error: ${err.message?.substring(0, 300)}. ` +
+          `Update error: ${updateErr.message?.substring(0, 300)}`,
+        );
+      }
     }
   },
 });
@@ -1527,20 +1571,28 @@ export const syncTidalLibrary = internalAction({
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-        runId,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
-        checkpointData: checkpoint,
-        metadata: {
-          tracksImported: checkpoint.tracksImported,
-          likedCount: checkpoint.likedCount,
-          albumCount: checkpoint.albumCount,
-          artistCount: checkpoint.artistCount,
-          playlistTrackCount: checkpoint.playlistTrackCount,
-        },
-      });
+      try {
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
+          checkpointData: checkpoint,
+          metadata: {
+            tracksImported: checkpoint.tracksImported,
+            likedCount: checkpoint.likedCount,
+            albumCount: checkpoint.albumCount,
+            artistCount: checkpoint.artistCount,
+            playlistTrackCount: checkpoint.playlistTrackCount,
+          },
+        });
+      } catch (updateErr: any) {
+        console.error(
+          `[Tidal sync] CRITICAL: failed to mark run ${runId} as failed. ` +
+          `Original error: ${err.message?.substring(0, 300)}. ` +
+          `Update error: ${updateErr.message?.substring(0, 300)}`,
+        );
+      }
     }
   },
 });
@@ -1984,18 +2036,26 @@ export const syncAppleMusicLibrary = internalAction({
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-        runId,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
-        checkpointData: checkpoint,
-        metadata: {
-          tracksImported: checkpoint.tracksImported,
-          likedCount: checkpoint.likedCount,
-          playlistTrackCount: checkpoint.playlistTrackCount,
-        },
-      });
+      try {
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
+          checkpointData: checkpoint,
+          metadata: {
+            tracksImported: checkpoint.tracksImported,
+            likedCount: checkpoint.likedCount,
+            playlistTrackCount: checkpoint.playlistTrackCount,
+          },
+        });
+      } catch (updateErr: any) {
+        console.error(
+          `[Apple Music sync] CRITICAL: failed to mark run ${runId} as failed. ` +
+          `Original error: ${err.message?.substring(0, 300)}. ` +
+          `Update error: ${updateErr.message?.substring(0, 300)}`,
+        );
+      }
     }
   },
 });
@@ -2157,13 +2217,21 @@ export const syncYouTubeLibrary = internalAction({
     } catch (err: any) {
       try { await flushTracks(); } catch { /* ignore */ }
 
-      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
-        runId,
-        status: "failed",
-        completedAt: new Date().toISOString(),
-        errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
-        metadata: { tracksImported },
-      });
+      try {
+        await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+          runId,
+          status: "failed",
+          completedAt: new Date().toISOString(),
+          errorLog: [{ message: err.message?.substring(0, 500) ?? "Unknown error", ts: new Date().toISOString() }],
+          metadata: { tracksImported },
+        });
+      } catch (updateErr: any) {
+        console.error(
+          `[YouTube sync] CRITICAL: failed to mark run ${runId} as failed. ` +
+          `Original error: ${err.message?.substring(0, 300)}. ` +
+          `Update error: ${updateErr.message?.substring(0, 300)}`,
+        );
+      }
     }
   },
 });

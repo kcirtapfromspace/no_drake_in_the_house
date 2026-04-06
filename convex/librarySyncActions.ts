@@ -572,7 +572,16 @@ export const syncSpotifyLibrary = internalAction({
       metadata: { userId, _breadcrumb: "action_started", _ts: new Date().toISOString() },
     });
 
+    // Helper to trace execution via metadata
+    async function breadcrumb(step: string) {
+      await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
+        runId,
+        metadata: { userId, _step: step, _ts: new Date().toISOString() },
+      });
+    }
+
     // ── Retrieve and check the run status ──────────────────────────────
+    await breadcrumb("get_sync_run");
     const run = await ctx.runQuery(
       internal.librarySyncActions._getSyncRun,
       { runId },
@@ -591,6 +600,7 @@ export const syncSpotifyLibrary = internalAction({
     };
 
     // ── Get the connection tokens ──────────────────────────────────────
+    await breadcrumb("get_tokens");
     const conn = await ctx.runQuery(
       internal.librarySyncActions._getConnectionTokens,
       { userId, provider: "spotify" },
@@ -606,6 +616,7 @@ export const syncSpotifyLibrary = internalAction({
       return;
     }
 
+    await breadcrumb("decrypt_tokens");
     let accessToken: string;
     let refreshToken: string | undefined;
 
@@ -622,6 +633,7 @@ export const syncSpotifyLibrary = internalAction({
       return;
     }
 
+    await breadcrumb("check_token_refresh");
     // Proactive refresh if token expires within 5 minutes
     if (conn.expiresAt) {
       const expiryMs = new Date(conn.expiresAt).getTime();
@@ -648,7 +660,7 @@ export const syncSpotifyLibrary = internalAction({
       }
     }
 
-    console.log("[Spotify sync] Setup complete, entering main sync loop");
+    await breadcrumb("setup_complete");
 
     // Helper: handle 401 by refreshing the token
     async function handleTokenRefresh(): Promise<boolean> {

@@ -548,7 +548,8 @@ interface SpotifyPlaylist {
 
 interface SpotifyPlaylistTrackItem {
   added_at?: string;
-  track?: SpotifyTrack;
+  // Feb 2026 Spotify migration: playlist items renamed track → item
+  item?: SpotifyTrack;
 }
 
 // ---------------------------------------------------------------------------
@@ -916,10 +917,11 @@ export const syncSpotifyLibrary = internalAction({
               return;
             }
 
+            // Spotify Feb 2026: /playlists/{id}/tracks removed for dev mode.
             const url =
-              `https://api.spotify.com/v1/playlists/${playlistId}/tracks` +
+              `https://api.spotify.com/v1/playlists/${playlistId}/items` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
-              `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
+              `&fields=next,items(added_at,item(id,name,artists(id,name),album(id,name)))`;
 
             let page: SpotifyPaging<SpotifyPlaylistTrackItem>;
             try {
@@ -933,8 +935,9 @@ export const syncSpotifyLibrary = internalAction({
             }
 
             for (const entry of page.items) {
-              if (!entry.track?.id) continue;
-              const track = entry.track;
+              // Feb 2026: playlist items use `item` not `track`
+              if (!entry.item?.id) continue;
+              const track = entry.item;
               await addTrack({
                 providerTrackId: `playlist:${playlistId}:${track.id}:${positionIndex}`,
                 trackName: track.name,

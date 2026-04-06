@@ -281,6 +281,49 @@ export const _cleanupStaleRuns = internalMutation({
 });
 
 /**
+ * Diagnostic: test a single Spotify API call to check if the API responds.
+ * Usage: npx convex run librarySyncActions:_testSpotifyFetch '{"userId":"..."}'
+ */
+export const _testSpotifyFetch = internalAction({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const conn = await ctx.runQuery(
+      internal.librarySyncActions._getConnectionTokens,
+      { userId: args.userId, provider: "spotify" },
+    );
+    if (!conn?.encryptedAccessToken) return { error: "No connection" };
+
+    const accessToken = await decryptAccessToken(conn.encryptedAccessToken);
+    const url = "https://api.spotify.com/v1/me/tracks?limit=1";
+
+    const start = Date.now();
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      const elapsed = Date.now() - start;
+      const body = await res.text();
+      return {
+        status: res.status,
+        elapsed_ms: elapsed,
+        body_length: body.length,
+        body_preview: body.substring(0, 200),
+      };
+    } catch (err: any) {
+      return {
+        error: err.message,
+        elapsed_ms: Date.now() - start,
+        name: err.name,
+      };
+    }
+  },
+});
+
+/**
  * Diagnostic: fetch the most recent failed sync run for a platform.
  * Usage: npx convex run librarySyncActions:_debugRecentFailed '{"platform":"apple_music"}'
  */

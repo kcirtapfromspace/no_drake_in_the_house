@@ -1711,6 +1711,7 @@ export const syncAppleMusicLibrary = internalAction({
             // error when there are no more pages. Treat network errors after
             // at least one successful page as end-of-pagination.
             if (checkpoint.likedCount > 0) {
+              (checkpoint as any).songsEndReason = `network_error_after_${checkpoint.likedCount}`;
               console.warn(
                 `[Apple Music sync] Network error after ${checkpoint.likedCount} songs — treating as end of pagination: ${fetchErr.message}`,
               );
@@ -1738,8 +1739,9 @@ export const syncAppleMusicLibrary = internalAction({
           const items = data.data ?? [];
           pageCount++;
 
-          // Log total from meta on first page for diagnostics
+          // Capture total from meta on first page for diagnostics
           if (pageCount === 1 && data.meta?.total) {
+            (checkpoint as any).apiReportedTotal = data.meta.total;
             console.log(`[Apple Music sync] Library total reported by API: ${data.meta.total}`);
           }
 
@@ -1770,12 +1772,15 @@ export const syncAppleMusicLibrary = internalAction({
           }
 
           // Apple Music returns a relative path for `next`
-          nextUrl = data.next
-            ? `https://api.music.apple.com${data.next}`
-            : null;
+          if (data.next) {
+            nextUrl = `https://api.music.apple.com${data.next}`;
+          } else {
+            (checkpoint as any).songsEndReason = (checkpoint as any).songsEndReason ?? `no_next_after_${checkpoint.likedCount}`;
+            nextUrl = null;
+          }
         }
 
-        console.log(`[Apple Music sync] Songs phase complete: ${checkpoint.likedCount} songs across ${pageCount} pages`);
+        console.log(`[Apple Music sync] Songs phase complete: ${checkpoint.likedCount} songs across ${pageCount} pages, endReason=${(checkpoint as any).songsEndReason ?? "unknown"}`);
         await flushTracks();
         appleMusicNextUrl = null;
         checkpoint.phase = "playlists";

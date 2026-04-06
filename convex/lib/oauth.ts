@@ -195,11 +195,19 @@ export async function exchangeAuthCode(
     body.set("code_verifier", codeVerifier);
   }
 
-  const resp = await fetch(tokenEndpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let resp: Response;
+  try {
+    resp = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!resp.ok) {
     const text = await resp.text();
@@ -234,11 +242,19 @@ export async function refreshAccessToken(
     client_secret: clientSecret,
   });
 
-  const resp = await fetch(tokenEndpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: body.toString(),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let resp: Response;
+  try {
+    resp = await fetch(tokenEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!resp.ok) {
     const text = await resp.text();

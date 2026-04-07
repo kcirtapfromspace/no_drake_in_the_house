@@ -678,7 +678,43 @@ pub fn create_analytics_router(state: AppState) -> Router {
 }
 
 pub fn create_news_router(state: AppState) -> Router {
-    create_scoped_service_router(state, add_news_routes(Router::new()))
+    let auth_service = state.auth_service.clone();
+    let metrics = state.metrics.clone();
+
+    let protected_routes = add_news_routes(Router::new());
+
+    Router::new()
+        .route("/health", get(health_check))
+        .route("/health/ready", get(readiness_check_endpoint))
+        .route("/health/live", get(liveness_check_endpoint))
+        .route("/metrics", get(metrics_endpoint))
+        .route("/metrics/prometheus", get(prometheus_metrics_endpoint))
+        .route("/monitoring", get(comprehensive_monitoring_endpoint))
+        // Service-key-authenticated route — bypasses JWT middleware
+        .route(
+            "/api/v1/news/research/trigger",
+            post(handlers::news::trigger_research_handler),
+        )
+        .nest(
+            "/api/v1",
+            protected_routes.layer(axum::middleware::from_fn_with_state(
+                auth_service,
+                crate::middleware::auth::auth_middleware,
+            )),
+        )
+        .layer(
+            ServiceBuilder::new()
+                .layer(TraceLayer::new_for_http())
+                .layer(create_cors_layer()),
+        )
+        .layer(axum::middleware::from_fn(
+            crate::middleware::security::security_headers_middleware,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            metrics,
+            crate::middleware::latency::latency_middleware,
+        ))
+        .with_state(state)
 }
 
 fn create_scoped_service_router(state: AppState, protected_routes: Router<AppState>) -> Router {

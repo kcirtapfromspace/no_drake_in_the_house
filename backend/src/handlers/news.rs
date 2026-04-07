@@ -5,7 +5,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::Json,
 };
 use serde::{Deserialize, Serialize};
@@ -1032,13 +1032,22 @@ pub async fn get_artist_research_handler(
     }
 }
 
-/// Manually trigger research for a specific artist
+/// Request body for the research trigger endpoint
+#[derive(Debug, Deserialize)]
+pub struct TriggerResearchRequest {
+    /// Artist name to research
+    pub artist_name: String,
+}
+
+/// Manually trigger research for a specific artist (legacy UUID-path version).
+///
+/// Kept for backward compatibility; the new `trigger_research_handler` is preferred.
 pub async fn trigger_artist_research_handler(
     State(state): State<AppState>,
     Path(artist_id): Path<Uuid>,
     _user: AuthenticatedUser,
 ) -> Result<(StatusCode, Json<serde_json::Value>)> {
-    tracing::info!(artist_id = %artist_id, "Trigger artist research request");
+    tracing::info!(artist_id = %artist_id, "Trigger artist research request (legacy)");
 
     // Look up artist name
     let artist_name: Option<String> =
@@ -1068,6 +1077,114 @@ pub async fn trigger_artist_research_handler(
                 "artist_id": artist_id,
                 "artist_name": artist_name
             }
+        })),
+    ))
+}
+
+/// Trigger research for an artist by name (new endpoint, service-key auth).
+///
+/// POST /api/v1/news/research/trigger
+///   Header: X-Service-Key: <NDITH_SERVICE_KEY>
+///   Body:   { "artist_name": "Drake" }
+///
+/// Returns 202 Accepted immediately; research runs in a background task.
+pub async fn trigger_research_handler(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<TriggerResearchRequest>,
+) -> std::result::Result<(StatusCode, Json<serde_json::Value>), (StatusCode, Json<serde_json::Value>)>
+{
+    // --- Service-key auth ---
+    let expected_key = std::env::var("NDITH_SERVICE_KEY").unwrap_or_default();
+    if expected_key.is_empty() {
+        tracing::error!("NDITH_SERVICE_KEY env var is not set");
+        return Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Service key not configured"
+            })),
+        ));
+    }
+
+    let provided_key = headers
+        .get("X-Service-Key")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+
+    if provided_key != expected_key {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Invalid or missing service key"
+            })),
+        ));
+    }
+
+    let artist_name = body.artist_name.trim().to_string();
+    if artist_name.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "artist_name must not be empty"
+            })),
+        ));
+    }
+
+    tracing::info!(artist_name = %artist_name, "Queuing artist research (service-key auth)");
+
+    // Spawn research as a background task
+    let db_pool = state.db_pool.clone();
+    let name_for_task = artist_name.clone();
+    tokio::spawn(async move {
+        use ndith_news::{ArtistResearcher, ArtistResearcherConfig, WebSearchClient};
+
+        // Generate a UUID for the research session. A real artist UUID can be
+        // resolved later when results are written to Convex (US-002).
+        let artist_id = Uuid::new_v4();
+
+        let mut researcher = ArtistResearcher::new(
+            db_pool,
+            ArtistResearcherConfig {
+                target_quality: 50.0,
+                ..Default::default()
+            },
+        )
+        .with_wikipedia();
+
+        // Add web search if BRAVE_SEARCH_API_KEY is available
+        if let Ok(web_search) = WebSearchClient::from_env() {
+            researcher = researcher.with_web_search(web_search);
+        }
+
+        match researcher.research_artist(artist_id, &name_for_task).await {
+            Ok(result) => {
+                tracing::info!(
+                    artist = name_for_task,
+                    articles = result.total_articles_found,
+                    offenses = result.total_offenses_detected,
+                    quality = result.final_quality_score,
+                    "Background research completed"
+                );
+            }
+            Err(e) => {
+                tracing::error!(
+                    artist = name_for_task,
+                    error = %e,
+                    "Background research failed"
+                );
+            }
+        }
+    });
+
+    Ok((
+        StatusCode::ACCEPTED,
+        Json(serde_json::json!({
+            "success": true,
+            "status": "queued",
+            "artist_name": artist_name
         })),
     ))
 }

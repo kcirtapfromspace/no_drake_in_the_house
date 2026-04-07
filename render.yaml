@@ -90,6 +90,8 @@ services:
         sync: false
       - key: GITHUB_REDIRECT_URI
         value: https://api.nodrakeinthe.house/auth/callback/github
+      - key: CONVEX_URL
+        sync: false
 
   - type: web
     name: ndith-analytics
@@ -192,6 +194,10 @@ services:
           type: web
           name: ndith-backend
           envVarKey: CORS_ALLOWED_ORIGINS
+      - key: CONVEX_URL
+        sync: false
+      - key: NDITH_SERVICE_KEY
+        sync: false
 
   - type: keyvalue
     name: ndith-redis

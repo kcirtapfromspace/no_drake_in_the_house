@@ -324,6 +324,67 @@ export const _testSpotifyFetch = internalAction({
 });
 
 /**
+ * Diagnostic: test fetching tracks from a specific playlist.
+ * Usage: npx convex run librarySyncActions:_testPlaylistTracks '{"userId":"...","playlistId":"..."}'
+ */
+export const _testPlaylistTracks = internalAction({
+  args: { userId: v.id("users"), playlistId: v.string() },
+  handler: async (ctx, args) => {
+    const conn = await ctx.runQuery(
+      internal.librarySyncActions._getConnectionTokens,
+      { userId: args.userId, provider: "spotify" },
+    );
+    if (!conn?.encryptedAccessToken) return { error: "No connection" };
+
+    const accessToken = await decryptAccessToken(conn.encryptedAccessToken);
+
+    // Test WITH fields parameter (current code)
+    const urlWithFields =
+      `https://api.spotify.com/v1/playlists/${args.playlistId}/tracks` +
+      `?limit=5&offset=0` +
+      `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
+
+    // Test WITHOUT fields parameter
+    const urlWithoutFields =
+      `https://api.spotify.com/v1/playlists/${args.playlistId}/tracks?limit=5&offset=0`;
+
+    const results: Record<string, unknown> = {};
+
+    for (const [label, url] of [
+      ["with_fields", urlWithFields],
+      ["without_fields", urlWithoutFields],
+    ] as const) {
+      const start = Date.now();
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        const elapsed = Date.now() - start;
+        const body = await res.text();
+        results[label] = {
+          status: res.status,
+          elapsed_ms: elapsed,
+          body_length: body.length,
+          body_preview: body.substring(0, 500),
+        };
+      } catch (err: any) {
+        results[label] = {
+          error: err.message,
+          elapsed_ms: Date.now() - start,
+          name: err.name,
+        };
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
  * Diagnostic: fetch the most recent failed sync run for a platform.
  * Usage: npx convex run librarySyncActions:_debugRecentFailed '{"platform":"apple_music"}'
  */
@@ -606,7 +667,9 @@ interface SpotifyPlaylist {
 
 interface SpotifyPlaylistTrackItem {
   added_at?: string;
-  track?: SpotifyTrack;
+  // Spotify Feb 2026 dev mode migration: response field renamed track → item
+  // See: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
+  item?: SpotifyTrack;
 }
 
 // ---------------------------------------------------------------------------
@@ -998,10 +1061,12 @@ export const syncSpotifyLibrary = internalAction({
               return;
             }
 
+            // Spotify Feb 2026 dev mode: /tracks → /items, fields track() → item()
+            // See: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
             const url =
-              `https://api.spotify.com/v1/playlists/${playlistId}/tracks` +
+              `https://api.spotify.com/v1/playlists/${playlistId}/items` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
-              `&fields=next,items(added_at,track(id,name,artists(id,name),album(id,name)))`;
+              `&fields=next,items(added_at,item(id,name,artists(id,name),album(id,name)))`;
 
             let page: SpotifyPaging<SpotifyPlaylistTrackItem>;
             try {
@@ -1014,9 +1079,10 @@ export const syncSpotifyLibrary = internalAction({
               throw err;
             }
 
-            for (const item of page.items) {
-              if (!item.track?.id) continue;
-              const track = item.track;
+            for (const entry of page.items) {
+              // Feb 2026: playlist items response uses `item` not `track`
+              if (!entry.item?.id) continue;
+              const track = entry.item;
               await addTrack({
                 providerTrackId: `playlist:${playlistId}:${track.id}:${positionIndex}`,
                 trackName: track.name,

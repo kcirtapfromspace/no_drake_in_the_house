@@ -67,6 +67,9 @@ export default defineSchema({
     status: v.optional(v.string()),
     lastInvestigatedAt: v.optional(v.string()),
     investigationStatus: v.optional(v.string()),
+    researchQualityScore: v.optional(v.number()),
+    sourcesSearched: v.optional(v.array(v.string())),
+    researchIterations: v.optional(v.number()),
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_legacyArtistId", ["legacyArtistId"])
@@ -157,12 +160,15 @@ export default defineSchema({
     verifiedAt: v.optional(v.string()),
     verifiedByUserId: v.optional(v.id("users")),
     submittedByUserId: v.optional(v.id("users")),
+    confidence: v.optional(v.number()),
+    sourceArticleUrl: v.optional(v.string()),
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_artistId", ["artistId"])
     .index("by_category", ["category"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_artistId_and_category", ["artistId", "category"]),
 
   offenseEvidence: defineTable({
     ...legacyFields,
@@ -181,7 +187,8 @@ export default defineSchema({
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])
-    .index("by_offenseId", ["offenseId"]),
+    .index("by_offenseId", ["offenseId"])
+    .index("by_offenseId_and_url", ["offenseId", "url"]),
 
   userLibraryTracks: defineTable({
     ...legacyFields,

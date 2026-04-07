@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { nowIso } from "./lib/auth";
 
 /**
@@ -405,5 +406,153 @@ export const batchIngestArticles = mutation({
       classificationsInserted,
       totalArticles: args.articles.length,
     };
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/*  US-003: Write offense records and evidence to Convex              */
+/* ------------------------------------------------------------------ */
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+export const createOffenseFromResearch = mutation({
+  args: {
+    artistId: v.id("artists"),
+    category: v.string(),
+    severity: v.string(),
+    title: v.string(),
+    description: v.optional(v.string()),
+    confidence: v.number(),
+    sourceArticleUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const artist = await ctx.db.get(args.artistId);
+    if (!artist) {
+      throw new ConvexError("Artist not found.");
+    }
+
+    const now = nowIso();
+    const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
+
+    // Dedup: same artist + category within the last 30 days -> update existing
+    const candidates = await ctx.db
+      .query("artistOffenses")
+      .withIndex("by_artistId_and_category", (q) =>
+        q.eq("artistId", args.artistId).eq("category", args.category),
+      )
+      .take(100);
+
+    const recent = candidates.find((o) => o.createdAt >= thirtyDaysAgo);
+
+    if (recent) {
+      await ctx.db.patch(recent._id, {
+        severity: args.severity,
+        title: args.title,
+        description: args.description ?? recent.description,
+        confidence: args.confidence,
+        sourceArticleUrl: args.sourceArticleUrl,
+        updatedAt: now,
+      });
+      return { id: recent._id, upserted: "updated" as const };
+    }
+
+    // Create new offense
+    const legacyKey = `research:offense:${args.artistId}:${args.category}:${Date.now()}`;
+    const id: Id<"artistOffenses"> = await ctx.db.insert("artistOffenses", {
+      legacyKey,
+      artistId: args.artistId,
+      category: args.category,
+      severity: args.severity,
+      title: args.title,
+      description: args.description ?? "",
+      confidence: args.confidence,
+      sourceArticleUrl: args.sourceArticleUrl,
+      metadata: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { id, upserted: "created" as const };
+  },
+});
+
+export const linkOffenseEvidence = mutation({
+  args: {
+    offenseId: v.id("artistOffenses"),
+    sourceUrl: v.string(),
+    title: v.optional(v.string()),
+    excerpt: v.optional(v.string()),
+    credibilityScore: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const offense = await ctx.db.get(args.offenseId);
+    if (!offense) {
+      throw new ConvexError("Offense not found.");
+    }
+
+    const now = nowIso();
+
+    // Dedup by offenseId + sourceUrl
+    const existing = await ctx.db
+      .query("offenseEvidence")
+      .withIndex("by_offenseId_and_url", (q) =>
+        q.eq("offenseId", args.offenseId).eq("url", args.sourceUrl),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        title: args.title ?? existing.title,
+        excerpt: args.excerpt ?? existing.excerpt,
+        credibilityScore: args.credibilityScore ?? existing.credibilityScore,
+        updatedAt: now,
+      });
+      return { id: existing._id, upserted: "updated" as const };
+    }
+
+    const legacyKey = `research:evidence:${args.offenseId}:${Date.now()}`;
+    const id: Id<"offenseEvidence"> = await ctx.db.insert("offenseEvidence", {
+      legacyKey,
+      offenseId: args.offenseId,
+      url: args.sourceUrl,
+      title: args.title,
+      excerpt: args.excerpt,
+      credibilityScore: args.credibilityScore,
+      metadata: {},
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { id, upserted: "created" as const };
+  },
+});
+
+/* ------------------------------------------------------------------ */
+/*  US-004: Write research quality scores to Convex                   */
+/* ------------------------------------------------------------------ */
+
+export const updateArtistResearchQuality = mutation({
+  args: {
+    artistId: v.id("artists"),
+    qualityScore: v.number(),
+    sourcesSearched: v.array(v.string()),
+    researchIterations: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const artist = await ctx.db.get(args.artistId);
+    if (!artist) {
+      throw new ConvexError("Artist not found.");
+    }
+
+    const now = nowIso();
+
+    await ctx.db.patch(args.artistId, {
+      researchQualityScore: args.qualityScore,
+      sourcesSearched: args.sourcesSearched,
+      researchIterations: args.researchIterations,
+      updatedAt: now,
+    });
+
+    return { id: args.artistId, updated: true as const };
   },
 });

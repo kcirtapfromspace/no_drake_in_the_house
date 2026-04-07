@@ -14,17 +14,24 @@ pub enum UserRole {
     Moderator,
     /// Admin has full system access
     Admin,
+    /// Service-to-service (e.g. Convex calling the backend)
+    Service,
 }
 
 impl UserRole {
     /// Check if this role has moderator-level access or higher
     pub fn is_moderator_or_higher(&self) -> bool {
-        matches!(self, UserRole::Moderator | UserRole::Admin)
+        matches!(self, UserRole::Moderator | UserRole::Admin | UserRole::Service)
     }
 
     /// Check if this role has admin-level access
     pub fn is_admin(&self) -> bool {
         matches!(self, UserRole::Admin)
+    }
+
+    /// Check if this is a service-to-service role (no DB user required)
+    pub fn is_service(&self) -> bool {
+        matches!(self, UserRole::Service)
     }
 }
 
@@ -35,6 +42,7 @@ impl FromStr for UserRole {
         Ok(match s.to_lowercase().as_str() {
             "admin" => UserRole::Admin,
             "moderator" => UserRole::Moderator,
+            "service" => UserRole::Service,
             _ => UserRole::User,
         })
     }
@@ -43,11 +51,19 @@ impl FromStr for UserRole {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String, // user_id
+    /// Email (optional for service-to-service JWTs)
+    #[serde(default)]
     pub email: String,
     pub exp: i64,    // expiration timestamp
     pub iat: i64,    // issued at timestamp
+    /// JWT ID for token tracking (optional for service-to-service JWTs)
+    #[serde(default)]
     pub jti: String, // JWT ID for token tracking
+    /// Token type (defaults to Access for service-to-service JWTs)
+    #[serde(default = "default_token_type")]
     pub token_type: TokenType,
+    /// Scopes (defaults to empty for service-to-service JWTs)
+    #[serde(default)]
     pub scopes: Vec<String>,
     /// User's role for RBAC (defaults to User if not present for backwards compatibility)
     #[serde(default)]
@@ -58,6 +74,10 @@ pub struct Claims {
     /// JWT audience (RS256 tokens for Convex verification)
     #[serde(default)]
     pub aud: String,
+}
+
+fn default_token_type() -> TokenType {
+    TokenType::Access
 }
 
 #[async_trait::async_trait]

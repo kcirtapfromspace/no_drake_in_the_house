@@ -9,6 +9,24 @@ import type { Id } from "./_generated/dataModel";
 import { serviceAuthHeaders } from "./lib/serviceAuth";
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** UUID v4 regex for extracting PostgreSQL IDs from legacyKey values. */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Extract a PostgreSQL UUID from an artist's legacyKey.
+ * Returns the UUID string if the legacyKey is a valid UUID, or null
+ * for auto-created artists whose legacyKey is prefixed (e.g. "auto:artist:…").
+ */
+function extractPostgresUuid(legacyKey: string | undefined): string | null {
+  if (!legacyKey) return null;
+  return UUID_RE.test(legacyKey) ? legacyKey : null;
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -191,11 +209,17 @@ export const _markArtistInvestigated = internalMutation({
   },
   handler: async (ctx, args) => {
     const now = new Date().toISOString();
-    await ctx.db.patch(args.artistId, {
-      lastInvestigatedAt: now,
+    const patch: Record<string, string> = {
       investigationStatus: args.status,
       updatedAt: now,
-    });
+    };
+    // Only stamp lastInvestigatedAt on terminal statuses, NOT "in_progress".
+    // Setting it early prevents retries from re-investigating failed artists
+    // because _filterArtistsNeedingInvestigation skips recently-stamped ones.
+    if (args.status !== "in_progress") {
+      patch.lastInvestigatedAt = now;
+    }
+    await ctx.db.patch(args.artistId, patch);
   },
 });
 
@@ -327,13 +351,29 @@ export const investigateLibraryArtists = internalAction({
 
             const artistId = artistIds[i] as Id<"artists">;
 
-            // Get artist name for research
+            // Get artist record for research
             const artist: any = await ctx.runQuery(
               internal.evidenceFinder._getArtistById,
               { artistId },
             );
             if (!artist) {
               checkpoint.skipped++;
+              continue;
+            }
+
+            // Extract PostgreSQL UUID from legacyKey — the backend expects
+            // a UUID in the URL path, not a Convex document ID.
+            const pgUuid = extractPostgresUuid(artist.legacyKey);
+            if (!pgUuid) {
+              // Auto-created artist with no PostgreSQL record — skip
+              console.warn(
+                `[EvidenceFinder] Skipping artist ${artistId} (${artist.canonicalName}): no PostgreSQL UUID in legacyKey "${artist.legacyKey}"`,
+              );
+              checkpoint.skipped++;
+              await ctx.runMutation(
+                internal.evidenceFinder._markArtistInvestigated,
+                { artistId, status: "skipped_no_pg_id" },
+              );
               continue;
             }
 
@@ -344,18 +384,17 @@ export const investigateLibraryArtists = internalAction({
             );
 
             try {
-              // Call the Rust backend research endpoint
-              const response = await fetch(
-                `${backendUrl}/api/v1/news/research/artists/${artistId}/trigger`,
-                {
-                  method: "POST",
-                  headers: await serviceAuthHeaders(),
-                  body: JSON.stringify({
-                    artist_name: artist.canonicalName,
-                    artist_id: artistId,
-                  }),
-                },
-              );
+              // Call the Rust backend research endpoint with the PostgreSQL UUID
+              const url = `${backendUrl}/api/v1/news/research/artists/${pgUuid}/trigger`;
+              const response = await fetch(url, {
+                method: "POST",
+                headers: await serviceAuthHeaders(),
+                body: JSON.stringify({
+                  artist_name: artist.canonicalName,
+                  artist_id: pgUuid,
+                }),
+                redirect: "follow",
+              });
 
               if (response.ok) {
                 const result = await response.json();
@@ -368,13 +407,20 @@ export const investigateLibraryArtists = internalAction({
                   { artistId, status: "completed" },
                 );
               } else {
+                const body = await response.text().catch(() => "");
+                console.error(
+                  `[EvidenceFinder] Backend ${response.status} for artist ${artistId} (${artist.canonicalName}): ${body.slice(0, 200)}`,
+                );
                 checkpoint.failed++;
                 await ctx.runMutation(
                   internal.evidenceFinder._markArtistInvestigated,
                   { artistId, status: "failed" },
                 );
               }
-            } catch {
+            } catch (err: any) {
+              console.error(
+                `[EvidenceFinder] Exception researching artist ${artistId} (${artist.canonicalName}): ${err?.message ?? err}`,
+              );
               checkpoint.failed++;
               await ctx.runMutation(
                 internal.evidenceFinder._markArtistInvestigated,
@@ -481,11 +527,13 @@ export const _getArtistsByInvestigationAge = internalQuery({
     const neverInvestigated: Array<{
       artistId: Id<"artists">;
       canonicalName: string;
+      legacyKey: string;
       lastInvestigatedAt: string | null;
     }> = [];
     const stale: Array<{
       artistId: Id<"artists">;
       canonicalName: string;
+      legacyKey: string;
       lastInvestigatedAt: string | null;
     }> = [];
 
@@ -494,12 +542,14 @@ export const _getArtistsByInvestigationAge = internalQuery({
         neverInvestigated.push({
           artistId: a._id,
           canonicalName: a.canonicalName,
+          legacyKey: a.legacyKey,
           lastInvestigatedAt: null,
         });
       } else if (a.lastInvestigatedAt < cutoff) {
         stale.push({
           artistId: a._id,
           canonicalName: a.canonicalName,
+          legacyKey: a.legacyKey,
           lastInvestigatedAt: a.lastInvestigatedAt,
         });
       }
@@ -540,6 +590,7 @@ export const cycleArtistInventory = internalAction({
       const batch: Array<{
         artistId: Id<"artists">;
         canonicalName: string;
+        legacyKey: string;
         lastInvestigatedAt: string | null;
       }> = await ctx.runQuery(
         internal.evidenceFinder._getArtistsByInvestigationAge,
@@ -559,7 +610,7 @@ export const cycleArtistInventory = internalAction({
 
       const backendUrl = process.env.NDITH_BACKEND_URL;
 
-      for (const { artistId, canonicalName } of batch) {
+      for (const { artistId, canonicalName, legacyKey } of batch) {
         if (shouldPause()) {
           // Schedule continuation
           await ctx.runMutation(internal.librarySyncActions._updateSyncRun, {
@@ -574,6 +625,22 @@ export const cycleArtistInventory = internalAction({
           return;
         }
 
+        // Extract PostgreSQL UUID from legacyKey — the backend expects
+        // a UUID in the URL path, not a Convex document ID.
+        const pgUuid = extractPostgresUuid(legacyKey);
+        if (!pgUuid) {
+          // Auto-created artist with no PostgreSQL record — skip
+          console.warn(
+            `[EvidenceFinder:cycle] Skipping artist ${artistId} (${canonicalName}): no PostgreSQL UUID in legacyKey "${legacyKey}"`,
+          );
+          await ctx.runMutation(
+            internal.evidenceFinder._markArtistInvestigated,
+            { artistId, status: "skipped_no_pg_id" },
+          );
+          skipped++;
+          continue;
+        }
+
         await ctx.runMutation(
           internal.evidenceFinder._markArtistInvestigated,
           { artistId, status: "in_progress" },
@@ -581,22 +648,16 @@ export const cycleArtistInventory = internalAction({
 
         if (backendUrl) {
           try {
-            const response = await fetch(
-              `${backendUrl}/api/v1/news/research/artists/${artistId}/trigger`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  ...(process.env.NDITH_SERVICE_JWT
-                    ? { Authorization: `Bearer ${process.env.NDITH_SERVICE_JWT}` }
-                    : {}),
-                },
-                body: JSON.stringify({
-                  artist_name: canonicalName,
-                  artist_id: artistId,
-                }),
-              },
-            );
+            const url = `${backendUrl}/api/v1/news/research/artists/${pgUuid}/trigger`;
+            const response = await fetch(url, {
+              method: "POST",
+              headers: await serviceAuthHeaders(),
+              body: JSON.stringify({
+                artist_name: canonicalName,
+                artist_id: pgUuid,
+              }),
+              redirect: "follow",
+            });
 
             if (response.ok) {
               const result = await response.json();
@@ -608,13 +669,20 @@ export const cycleArtistInventory = internalAction({
                 { artistId, status: "completed" },
               );
             } else {
+              const body = await response.text().catch(() => "");
+              console.error(
+                `[EvidenceFinder:cycle] Backend ${response.status} for artist ${artistId} (${canonicalName}): ${body.slice(0, 200)}`,
+              );
               failed++;
               await ctx.runMutation(
                 internal.evidenceFinder._markArtistInvestigated,
                 { artistId, status: "failed" },
               );
             }
-          } catch {
+          } catch (err: any) {
+            console.error(
+              `[EvidenceFinder:cycle] Exception researching artist ${artistId} (${canonicalName}): ${err?.message ?? err}`,
+            );
             failed++;
             await ctx.runMutation(
               internal.evidenceFinder._markArtistInvestigated,

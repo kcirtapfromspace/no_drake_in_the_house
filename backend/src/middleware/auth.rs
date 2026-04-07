@@ -1,4 +1,4 @@
-use crate::models::{AuthenticatedUser, Claims, User};
+use crate::models::{AuthenticatedUser, Claims, User, UserRole};
 use crate::services::AuthService;
 use axum::{
     extract::{Request, State},
@@ -43,6 +43,32 @@ pub async fn auth_middleware(
         Ok(id) => id,
         Err(_) => return Err(StatusCode::UNAUTHORIZED),
     };
+
+    // Service-role JWTs (from Convex) don't have a corresponding user in
+    // PostgreSQL.  Synthesise a lightweight User so downstream handlers that
+    // extract AuthenticatedUser still work.
+    if claims.role == UserRole::Service {
+        let service_user = User {
+            id: user_id,
+            email: "service@internal".to_string(),
+            password_hash: None,
+            email_verified: true,
+            totp_secret: None,
+            totp_enabled: false,
+            oauth_accounts: vec![],
+            created_at: chrono::Utc::now(),
+            updated_at: chrono::Utc::now(),
+            last_login: None,
+            settings: crate::models::UserSettings {
+                two_factor_enabled: false,
+                email_notifications: false,
+                privacy_mode: false,
+            },
+        };
+        request.extensions_mut().insert(claims);
+        request.extensions_mut().insert(service_user);
+        return Ok(next.run(request).await);
+    }
 
     // Get user from auth service
     let user = match auth_service.get_user(user_id).await {

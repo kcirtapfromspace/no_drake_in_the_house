@@ -1,18 +1,28 @@
 //! News Repository
 //!
-//! Database persistence layer for news articles, entities, and offenses.
+//! Persistence layer for news articles, entities, and offenses.
+//! Write operations go to Convex via HTTP mutations.
+//! Read operations still use PostgreSQL (will be migrated separately).
 
 use super::ingestion::FetchedArticle;
 use super::processing::{ExtractedEntity, OffenseClassification};
+use crate::convex_client::{
+    BatchArticleArgs, BatchClassificationArgs, BatchEntityArgs, ConvexClient,
+};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-/// Repository for persisting news data to the database
+/// Repository for persisting news data.
+///
+/// Writes go to Convex via `ConvexClient`.
+/// Reads still hit PostgreSQL (migrated separately).
 pub struct NewsRepository {
-    db_pool: PgPool,
+    convex: Option<ConvexClient>,
+    /// PostgreSQL pool kept for read queries only
+    db_pool: Option<PgPool>,
 }
 
 /// Article summary for list views
@@ -42,168 +52,203 @@ pub struct ArticleFilters {
 }
 
 impl NewsRepository {
-    /// Create a new news repository
-    pub fn new(db_pool: PgPool) -> Self {
-        Self { db_pool }
+    /// Create a new news repository backed by Convex (writes) and PostgreSQL (reads).
+    pub fn new(convex: ConvexClient, db_pool: PgPool) -> Self {
+        Self {
+            convex: Some(convex),
+            db_pool: Some(db_pool),
+        }
     }
 
-    /// Check if an article URL already exists
-    pub async fn article_exists(&self, url: &str) -> Result<bool> {
-        let exists = sqlx::query_scalar!(
-            r#"SELECT EXISTS(SELECT 1 FROM news_articles WHERE url = $1) as "exists!""#,
-            url
-        )
-        .fetch_one(&self.db_pool)
-        .await
-        .context("Failed to check article existence")?;
-
-        Ok(exists)
+    /// Create a Convex-only repository (no PostgreSQL reads).
+    pub fn convex_only(convex: ConvexClient) -> Self {
+        Self {
+            convex: Some(convex),
+            db_pool: None,
+        }
     }
 
-    /// Insert a processed article with entities and offenses
+    /// Create a read-only repository backed by PostgreSQL.
+    ///
+    /// Only read queries are available; write operations will return errors.
+    /// Used by API handlers that only need to query existing data.
+    pub fn read_only(db_pool: PgPool) -> Self {
+        Self {
+            convex: None,
+            db_pool: Some(db_pool),
+        }
+    }
+
+    /// Get a reference to the Convex client, if configured.
+    pub fn convex_client(&self) -> Option<&ConvexClient> {
+        self.convex.as_ref()
+    }
+
+    // ---------------------------------------------------------------
+    // Write operations — Convex
+    // ---------------------------------------------------------------
+
+    /// Insert a processed article with entities and offenses into Convex.
+    ///
+    /// Uses `batchIngestArticles` for a single-call write of the article
+    /// plus all its entities and classifications.
+    ///
+    /// Returns an error if no Convex client is configured (read-only mode).
     pub async fn insert_article(
         &self,
         article: &FetchedArticle,
         entities: &[ExtractedEntity],
         offenses: &[OffenseClassification],
     ) -> Result<Uuid> {
-        // Insert the article
-        let article_id = sqlx::query_scalar!(
-            r#"
-            INSERT INTO news_articles (
-                id, source_id, url, title, content, excerpt,
-                author, published_at, fetched_at, image_url,
-                word_count, processing_status, processed_at
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'completed', NOW())
-            ON CONFLICT (url) DO UPDATE SET
-                title = EXCLUDED.title,
-                content = EXCLUDED.content,
-                processing_status = 'completed',
-                processed_at = NOW()
-            RETURNING id
-            "#,
-            article.id,
-            article.source_id,
-            &article.url,
-            &article.title,
-            article.content.as_deref(),
-            article.content.as_ref().map(|c| &c[..c.len().min(500)]), // Excerpt
-            article.authors.first().map(|s| s.as_str()),
-            article.published_at,
-            article.fetched_at,
-            article.image_url.as_deref(),
-            article
+        let convex = self
+            .convex
+            .as_ref()
+            .context("Convex client not configured — cannot write articles")?;
+        let batch_entities: Vec<BatchEntityArgs> = entities
+            .iter()
+            .map(|e| {
+                let entity_type = format!("{:?}", e.entity_type).to_lowercase();
+                BatchEntityArgs {
+                    legacy_key: e.id.to_string(),
+                    entity_name: e.name.clone(),
+                    entity_type,
+                    artist_id: e.artist_id.map(|id| id.to_string()),
+                    confidence: Some(e.confidence),
+                    metadata: None,
+                }
+            })
+            .collect();
+
+        let batch_classifications: Vec<BatchClassificationArgs> = offenses
+            .iter()
+            .map(|o| {
+                let category = o.category.to_string();
+                let severity = format!("{:?}", o.severity).to_lowercase();
+                BatchClassificationArgs {
+                    legacy_key: o.id.to_string(),
+                    entity_id: o.entity_id.map(|id| id.to_string()),
+                    artist_id: o.artist_id.map(|id| id.to_string()),
+                    category,
+                    severity,
+                    confidence: Some(o.confidence),
+                    human_verified: None,
+                    metadata: Some(serde_json::json!({
+                        "matchedKeywords": o.matched_keywords,
+                        "context": o.context,
+                        "needsReview": o.needs_review,
+                        "classificationSource": o.classification_source,
+                    })),
+                }
+            })
+            .collect();
+
+        let batch_article = BatchArticleArgs {
+            legacy_key: article.id.to_string(),
+            url: article.url.clone(),
+            title: article.title.clone(),
+            content: article.content.clone(),
+            summary: article
                 .content
                 .as_ref()
-                .map(|c| c.split_whitespace().count() as i32)
-        )
-        .fetch_one(&self.db_pool)
-        .await
-        .context("Failed to insert article")?;
+                .map(|c| c[..c.len().min(500)].to_string()),
+            published_at: article.published_at.map(|d| d.to_rfc3339()),
+            processing_status: Some("completed".to_string()),
+            embedding_generated: None,
+            source_id: None,
+            raw_data: None,
+            metadata: Some(serde_json::json!({
+                "authors": article.authors,
+                "categories": article.categories,
+            })),
+            entities: if batch_entities.is_empty() {
+                None
+            } else {
+                Some(batch_entities)
+            },
+            classifications: if batch_classifications.is_empty() {
+                None
+            } else {
+                Some(batch_classifications)
+            },
+        };
 
-        // Insert entities
-        for entity in entities {
-            self.insert_entity(article_id, entity).await?;
-        }
-
-        // Insert offenses
-        for offense in offenses {
-            self.insert_offense(article_id, offense).await?;
-        }
+        let response = convex
+            .batch_ingest_articles(&[batch_article])
+            .await
+            .context("Failed to batch-ingest article into Convex")?;
 
         tracing::debug!(
-            article_id = %article_id,
+            article_id = %article.id,
             url = %article.url,
             entities = entities.len(),
             offenses = offenses.len(),
-            "Persisted article with entities and offenses"
+            created = response.articles_created,
+            updated = response.articles_updated,
+            "Persisted article via Convex batch ingest"
         );
 
-        Ok(article_id)
+        Ok(article.id)
     }
 
-    /// Insert an extracted entity
-    async fn insert_entity(&self, article_id: Uuid, entity: &ExtractedEntity) -> Result<Uuid> {
-        let entity_type = format!("{:?}", entity.entity_type).to_lowercase();
-
-        let entity_id = sqlx::query_scalar!(
-            r#"
-            INSERT INTO news_article_entities (
-                id, article_id, artist_id, entity_name, entity_type,
-                confidence, context_snippet, position_start, position_end
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-            ON CONFLICT DO NOTHING
-            RETURNING id
-            "#,
-            entity.id,
-            article_id,
-            entity.artist_id,
-            &entity.name,
-            entity_type,
-            entity.confidence as f32,
-            &entity.context,
-            entity.position.0 as i32,
-            entity.position.1 as i32
-        )
-        .fetch_optional(&self.db_pool)
-        .await
-        .context("Failed to insert entity")?;
-
-        Ok(entity_id.unwrap_or(entity.id))
-    }
-
-    /// Insert an offense classification
-    async fn insert_offense(
+    /// Log a fetch operation.
+    ///
+    /// Previously wrote to `news_fetch_log` in PostgreSQL. Now emits a
+    /// structured log line instead (no Convex mutation for fetch logs yet).
+    pub async fn log_fetch(
         &self,
-        article_id: Uuid,
-        offense: &OffenseClassification,
-    ) -> Result<Uuid> {
-        let category = format!("{:?}", offense.category).to_lowercase();
-        let severity = format!("{:?}", offense.severity).to_lowercase();
-
-        // Use raw query to avoid sqlx enum type mapping issues
-        let offense_id: Option<Uuid> = sqlx::query_scalar(
-            r#"
-            INSERT INTO news_offense_classifications (
-                id, article_id, entity_id, artist_id,
-                offense_category, severity, confidence,
-                evidence_snippet, keywords_matched
-            )
-            VALUES (
-                $1, $2, $3, $4,
-                $5::offense_category, $6::offense_severity, $7,
-                $8, $9
-            )
-            ON CONFLICT DO NOTHING
-            RETURNING id
-            "#,
-        )
-        .bind(offense.id)
-        .bind(article_id)
-        .bind(offense.entity_id)
-        .bind(offense.artist_id)
-        .bind(&category)
-        .bind(&severity)
-        .bind(offense.confidence as f32)
-        .bind(&offense.context)
-        .bind(&offense.matched_keywords)
-        .fetch_optional(&self.db_pool)
-        .await
-        .context("Failed to insert offense")?;
-
-        Ok(offense_id.unwrap_or(offense.id))
+        source_id: Uuid,
+        articles_found: i32,
+        articles_new: i32,
+        status: &str,
+        error: Option<&str>,
+        duration_ms: i32,
+    ) -> Result<()> {
+        tracing::info!(
+            source_id = %source_id,
+            articles_found,
+            articles_new,
+            status,
+            error = error.unwrap_or("none"),
+            duration_ms,
+            "Fetch log"
+        );
+        Ok(())
     }
 
-    /// Get articles with pagination and filters
+    // ---------------------------------------------------------------
+    // Read operations — PostgreSQL (migrated separately)
+    // ---------------------------------------------------------------
+
+    /// Check if an article URL already exists (PostgreSQL read).
+    pub async fn article_exists(&self, url: &str) -> Result<bool> {
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
+        let exists = sqlx::query_scalar!(
+            r#"SELECT EXISTS(SELECT 1 FROM news_articles WHERE url = $1) as "exists!""#,
+            url
+        )
+        .fetch_one(pool)
+        .await
+        .context("Failed to check article existence")?;
+
+        Ok(exists)
+    }
+
+    /// Get articles with pagination and filters (PostgreSQL read).
     pub async fn get_articles(
         &self,
         _filters: &ArticleFilters,
         limit: i32,
         offset: i32,
     ) -> Result<Vec<ArticleSummary>> {
-        // Build dynamic query based on filters
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
         let articles = sqlx::query_as!(
             ArticleSummary,
             r#"
@@ -236,15 +281,20 @@ impl NewsRepository {
             limit as i64,
             offset as i64
         )
-        .fetch_all(&self.db_pool)
+        .fetch_all(pool)
         .await
         .context("Failed to fetch articles")?;
 
         Ok(articles)
     }
 
-    /// Get article by ID with full details
+    /// Get article by ID with full details (PostgreSQL read).
     pub async fn get_article_by_id(&self, article_id: Uuid) -> Result<Option<ArticleSummary>> {
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
         let article = sqlx::query_as!(
             ArticleSummary,
             r#"
@@ -274,15 +324,20 @@ impl NewsRepository {
             "#,
             article_id
         )
-        .fetch_optional(&self.db_pool)
+        .fetch_optional(pool)
         .await
         .context("Failed to fetch article")?;
 
         Ok(article)
     }
 
-    /// Get recent offenses
+    /// Get recent offenses (PostgreSQL read).
     pub async fn get_recent_offenses(&self, limit: i32) -> Result<Vec<serde_json::Value>> {
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
         let offenses = sqlx::query!(
             r#"
             SELECT
@@ -306,7 +361,7 @@ impl NewsRepository {
             "#,
             limit as i64
         )
-        .fetch_all(&self.db_pool)
+        .fetch_all(pool)
         .await
         .context("Failed to fetch offenses")?;
 
@@ -332,57 +387,34 @@ impl NewsRepository {
         Ok(results)
     }
 
-    /// Get article count
+    /// Get article count (PostgreSQL read).
     pub async fn get_article_count(&self) -> Result<i64> {
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
         let count = sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM news_articles"#)
-            .fetch_one(&self.db_pool)
+            .fetch_one(pool)
             .await
             .context("Failed to count articles")?;
 
         Ok(count)
     }
 
-    /// Get offense count
+    /// Get offense count (PostgreSQL read).
     pub async fn get_offense_count(&self) -> Result<i64> {
+        let pool = self
+            .db_pool
+            .as_ref()
+            .context("PostgreSQL pool not available for reads")?;
+
         let count =
             sqlx::query_scalar!(r#"SELECT COUNT(*) as "count!" FROM news_offense_classifications"#)
-                .fetch_one(&self.db_pool)
+                .fetch_one(pool)
                 .await
                 .context("Failed to count offenses")?;
 
         Ok(count)
-    }
-
-    /// Update fetch log for a source
-    pub async fn log_fetch(
-        &self,
-        source_id: Uuid,
-        articles_found: i32,
-        articles_new: i32,
-        status: &str,
-        error: Option<&str>,
-        duration_ms: i32,
-    ) -> Result<()> {
-        // Use raw query to avoid sqlx type inference issues with interval multiplication
-        sqlx::query(
-            r#"
-            INSERT INTO news_fetch_log (
-                source_id, fetch_started_at, fetch_completed_at,
-                status, articles_found, articles_new, error_message, response_time_ms
-            )
-            VALUES ($1, NOW() - make_interval(secs => $6::double precision / 1000.0), NOW(), $2, $3, $4, $5, $6)
-            "#,
-        )
-        .bind(source_id)
-        .bind(status)
-        .bind(articles_found)
-        .bind(articles_new)
-        .bind(error)
-        .bind(duration_ms)
-        .execute(&self.db_pool)
-        .await
-        .context("Failed to log fetch")?;
-
-        Ok(())
     }
 }

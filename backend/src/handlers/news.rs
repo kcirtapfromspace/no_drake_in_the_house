@@ -195,7 +195,7 @@ pub async fn list_articles_handler(
     }
 
     // Query database
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let filters = ArticleFilters {
         artist_id: query.artist_id,
         offense_category: query.offense_category.clone(),
@@ -254,7 +254,7 @@ pub async fn get_article_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(article_id = %article_id, "Get article detail request");
 
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let article = repository
         .get_article_by_id(article_id)
         .await
@@ -297,7 +297,7 @@ pub async fn get_artist_mentions_handler(
         "Get artist mentions request"
     );
 
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let filters = ArticleFilters {
         artist_id: Some(artist_id),
         ..Default::default()
@@ -367,7 +367,7 @@ pub async fn semantic_search_handler(
     }
 
     // Basic text search via SQL ILIKE (LanceDB semantic search can be added later)
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let filters = ArticleFilters {
         artist_id: request.artist_id,
         offense_category: request.offense_category.clone(),
@@ -417,7 +417,7 @@ pub async fn get_offenses_handler(
         "Get offenses request"
     );
 
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let offenses = repository
         .get_recent_offenses(query.limit)
         .await
@@ -606,7 +606,7 @@ pub async fn get_pipeline_status_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!("Pipeline status request");
 
-    let repository = NewsRepository::new(state.db_pool.clone());
+    let repository = NewsRepository::read_only(state.db_pool.clone());
     let article_count = repository.get_article_count().await.unwrap_or(0);
     let offense_count = repository.get_offense_count().await.unwrap_or(0);
 
@@ -1139,7 +1139,16 @@ pub async fn trigger_research_handler(
     let db_pool = state.db_pool.clone();
     let name_for_task = artist_name.clone();
     tokio::spawn(async move {
-        use ndith_news::{ArtistResearcher, ArtistResearcherConfig, WebSearchClient};
+        use ndith_news::{ArtistResearcher, ArtistResearcherConfig, ConvexClient, WebSearchClient};
+
+        // Create Convex client for writing research results
+        let convex = match ConvexClient::from_env() {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!(error = %e, "CONVEX_URL not set — cannot run research");
+                return;
+            }
+        };
 
         // Generate a UUID for the research session. A real artist UUID can be
         // resolved later when results are written to Convex (US-002).
@@ -1147,6 +1156,7 @@ pub async fn trigger_research_handler(
 
         let mut researcher = ArtistResearcher::new(
             db_pool,
+            convex,
             ArtistResearcherConfig {
                 target_quality: 50.0,
                 ..Default::default()

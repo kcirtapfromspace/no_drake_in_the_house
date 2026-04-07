@@ -2,6 +2,9 @@
 //!
 //! Coordinates all news ingestion sources and processing components.
 //! Manages scheduling, deduplication, and the overall processing pipeline.
+//!
+//! Write operations use Convex via `ConvexClient`.
+//! PostgreSQL pool is still passed for read queries used by downstream components.
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
@@ -11,6 +14,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
+
+use crate::convex_client::ConvexClient;
 
 use super::ingestion::{
     FetchedArticle, NewsApiClient, NewsApiConfig, RedditConfig, RedditMonitor, RssFetcher,
@@ -134,9 +139,9 @@ pub struct NewsPipelineOrchestrator {
     stats: Arc<RwLock<PipelineStats>>,
     /// Processing state
     is_running: Arc<RwLock<bool>>,
-    /// Database repository for persistence (optional)
+    /// Database repository for persistence (optional — writes go to Convex)
     repository: Option<NewsRepository>,
-    /// Offense creator for auto-creating artist_offenses (optional)
+    /// Offense creator for auto-creating artist_offenses (optional — writes go to Convex)
     offense_creator: Option<OffenseCreator>,
 }
 
@@ -161,9 +166,30 @@ impl NewsPipelineOrchestrator {
         }
     }
 
-    /// Create a new pipeline orchestrator with database persistence
-    /// This enables automatic persistence of articles and creation of artist_offenses
+    /// Create a new pipeline orchestrator with Convex persistence.
+    ///
+    /// Writes go to Convex via `ConvexClient`. The PostgreSQL pool is passed
+    /// through for read queries used by downstream components (e.g. repository
+    /// read queries, quality scorer reads).
     pub fn with_database(config: NewsPipelineConfig, db_pool: PgPool) -> Self {
+        // Try to create a ConvexClient from env. If CONVEX_URL is not set,
+        // fall back to a no-persistence orchestrator with a warning.
+        let convex = match ConvexClient::from_env() {
+            Ok(client) => client,
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "CONVEX_URL not set — pipeline will run without Convex persistence"
+                );
+                return Self::new(config);
+            }
+        };
+
+        Self::with_convex(config, convex, db_pool)
+    }
+
+    /// Create a new pipeline orchestrator with explicit Convex client and PG pool.
+    pub fn with_convex(config: NewsPipelineConfig, convex: ConvexClient, db_pool: PgPool) -> Self {
         Self {
             rss_fetcher: RssFetcher::new(config.rss.clone()),
             newsapi_client: NewsApiClient::new(config.newsapi.clone()),
@@ -177,8 +203,8 @@ impl NewsPipelineOrchestrator {
             seen_urls: Arc::new(RwLock::new(HashSet::new())),
             stats: Arc::new(RwLock::new(PipelineStats::default())),
             is_running: Arc::new(RwLock::new(false)),
-            repository: Some(NewsRepository::new(db_pool.clone())),
-            offense_creator: Some(OffenseCreator::new(db_pool)),
+            repository: Some(NewsRepository::new(convex.clone(), db_pool)),
+            offense_creator: Some(OffenseCreator::new(convex)),
         }
     }
 
@@ -429,7 +455,10 @@ impl NewsPipelineOrchestrator {
         deduplicated
     }
 
-    /// Process a batch of articles
+    /// Process a batch of articles.
+    ///
+    /// Articles are persisted to Convex via the repository (batch ingest).
+    /// Offense records are created via the offense creator (Convex mutations).
     async fn process_batch(&self, articles: Vec<FetchedArticle>) -> Result<Vec<ProcessedArticle>> {
         let mut processed = Vec::with_capacity(articles.len());
 
@@ -475,15 +504,15 @@ impl NewsPipelineOrchestrator {
 
             let duration = start.elapsed().as_millis() as u64;
 
-            // Persist to database if repository is configured
+            // Persist to Convex via repository
             if let Some(ref repository) = self.repository {
                 if let Err(e) = repository
                     .insert_article(&article, &entities, &offenses)
                     .await
                 {
-                    tracing::warn!(url = %article.url, error = %e, "Failed to persist article");
+                    tracing::warn!(url = %article.url, error = %e, "Failed to persist article to Convex");
                 } else {
-                    // Create artist_offenses from detected offenses
+                    // Create artist_offenses from detected offenses via Convex
                     if let Some(ref offense_creator) = self.offense_creator {
                         let results = offense_creator
                             .process_article_offenses(
@@ -502,7 +531,7 @@ impl NewsPipelineOrchestrator {
                                     tracing::info!(
                                         article_id = %article.id,
                                         offenses_created = created,
-                                        "Auto-created artist offenses from news"
+                                        "Auto-created artist offenses via Convex"
                                     );
                                 }
                             }
@@ -510,7 +539,7 @@ impl NewsPipelineOrchestrator {
                                 tracing::warn!(
                                     article_id = %article.id,
                                     error = %e,
-                                    "Failed to create artist offenses"
+                                    "Failed to create artist offenses via Convex"
                                 );
                             }
                         }

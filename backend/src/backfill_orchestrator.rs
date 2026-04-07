@@ -157,9 +157,14 @@ impl BackfillOrchestrator {
             .as_ref()
             .context("News pipeline not configured")?;
 
+        // Create Convex client for writing research results
+        let convex = ndith_news::ConvexClient::from_env()
+            .context("CONVEX_URL not set — cannot run research")?;
+
         // Single-pass researcher — no iterations, no LLM
         let mut researcher = ArtistResearcher::new(
             self.db_pool.clone(),
+            convex,
             ArtistResearcherConfig {
                 target_quality: 50.0,
                 ..Default::default()

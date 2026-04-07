@@ -8,16 +8,18 @@
 //!   2. Existing RSS articles from DB (free, already ingested)
 //!   3. Brave Search (free, within monthly quota)
 //!   4. NewsAPI search (free, within daily quota)
-//!   5. Persist results to DB
+//!   5. Persist results to Convex
 //!   6. Calculate quality score
 //!   7. Mark artist as researched — DONE
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use uuid::Uuid;
+
+use crate::convex_client::{ConvexClient, UpdateResearchQualityArgs};
 
 use super::ingestion::{WebSearchClient, WikipediaClient};
 use super::orchestrator::NewsPipelineOrchestrator;
@@ -104,9 +106,14 @@ pub struct ResearchResult {
     pub duration_seconds: f64,
 }
 
-/// Single-pass artist researcher — no loops, no LLM, all free sources
+/// Single-pass artist researcher — no loops, no LLM, all free sources.
+///
+/// Quality score persistence goes to Convex via `ConvexClient`.
+/// The `ResearchQualityScorer` (PostgreSQL) is still used for score *calculation*
+/// since it reads from existing news tables. The final result is written to Convex.
 pub struct ArtistResearcher {
-    db_pool: PgPool,
+    convex: ConvexClient,
+    #[allow(dead_code)]
     config: ArtistResearcherConfig,
     quality_scorer: ResearchQualityScorer,
     news_pipeline: Option<Arc<NewsPipelineOrchestrator>>,
@@ -116,15 +123,15 @@ pub struct ArtistResearcher {
 }
 
 impl ArtistResearcher {
-    pub fn new(db_pool: PgPool, config: ArtistResearcherConfig) -> Self {
-        let quality_scorer = ResearchQualityScorer::new(db_pool.clone());
+    pub fn new(db_pool: PgPool, convex: ConvexClient, config: ArtistResearcherConfig) -> Self {
+        let quality_scorer = ResearchQualityScorer::new(db_pool);
         let free_tier_budget = Arc::new(FreeTierBudget::new(
             config.brave_monthly_limit,
             config.newsapi_daily_limit,
         ));
 
         Self {
-            db_pool,
+            convex,
             config,
             quality_scorer,
             news_pipeline: None,
@@ -278,15 +285,49 @@ impl ArtistResearcher {
             }
         }
 
-        // ── Step 4: Record sources searched ──
-        self.record_sources_searched(artist_id, &sources_used)
-            .await?;
-
-        // ── Step 5: Calculate and persist quality score ──
+        // ── Step 4: Calculate quality score (still reads from PG for calculation) ──
         let score = self.quality_scorer.calculate(artist_id).await?;
         let mut persisted_score = score;
         persisted_score.research_iterations = 1; // Single pass = 1 iteration
-        self.quality_scorer.persist(&persisted_score).await?;
+        persisted_score.sources_searched = sources_used.clone();
+
+        // ── Step 5: Persist quality score to Convex ──
+        let quality_args = UpdateResearchQualityArgs {
+            artist_id: artist_id.to_string(),
+            quality_score: persisted_score.quality_score,
+            sources_searched: persisted_score.sources_searched.clone(),
+            research_iterations: persisted_score.research_iterations as f64,
+        };
+
+        match self
+            .convex
+            .update_artist_research_quality(&quality_args)
+            .await
+        {
+            Ok(resp) => {
+                tracing::debug!(
+                    artist_id = %artist_id,
+                    convex_id = %resp.id,
+                    quality = persisted_score.quality_score,
+                    "Persisted research quality to Convex"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    artist_id = %artist_id,
+                    error = %e,
+                    "Failed to persist research quality to Convex — falling back to PG"
+                );
+                // Fall back to PostgreSQL persist so we don't lose the score
+                if let Err(pg_err) = self.quality_scorer.persist(&persisted_score).await {
+                    tracing::error!(
+                        artist_id = %artist_id,
+                        error = %pg_err,
+                        "PostgreSQL fallback also failed for quality score"
+                    );
+                }
+            }
+        }
 
         let result = ResearchResult {
             artist_id,
@@ -309,32 +350,6 @@ impl ArtistResearcher {
         );
 
         Ok(result)
-    }
-
-    /// Record which sources were searched for this artist
-    async fn record_sources_searched(&self, artist_id: Uuid, sources: &[String]) -> Result<()> {
-        if sources.is_empty() {
-            return Ok(());
-        }
-
-        let sources_json = serde_json::to_value(sources)?;
-
-        sqlx::query(
-            r#"
-            INSERT INTO artist_research_quality (artist_id, sources_searched, updated_at)
-            VALUES ($1, $2, NOW())
-            ON CONFLICT (artist_id) DO UPDATE SET
-                sources_searched = $2,
-                updated_at = NOW()
-            "#,
-        )
-        .bind(artist_id)
-        .bind(&sources_json)
-        .execute(&self.db_pool)
-        .await
-        .context("Failed to record sources searched")?;
-
-        Ok(())
     }
 }
 

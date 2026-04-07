@@ -523,6 +523,11 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    if (method === 'POST' && pathname === '/api/v1/library/taste-grade/refresh') {
+      await convexMutation<any>(anyApi.library.refreshTasteGrade, {});
+      return ok({ scheduled: true }) as BridgedApiResponse<T>;
+    }
+
     if (method === 'GET' && pathname === '/api/v1/library/offenders') {
       const result = await convexQuery<any>(anyApi.library.listOffenders, {});
       return ok(result) as BridgedApiResponse<T>;

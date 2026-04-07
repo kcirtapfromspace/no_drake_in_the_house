@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
 export const scanLibrary = query({
@@ -280,14 +281,7 @@ export const tasteGrade = query({
       .unique();
 
     if (!summary) {
-      return {
-        grade: "pending",
-        total_artists: 0,
-        total_tracks: 0,
-        total_offenses: 0,
-        total_severity: 0,
-        offender_ratio: 0,
-      };
+      return null;
     }
 
     const totalSeverity = summary.offenders.reduce(
@@ -295,14 +289,139 @@ export const tasteGrade = query({
       0,
     );
 
+    // ── Derive an overall score from the offense data ──────────────────
+    // The score is 0..100, where 100 = perfectly clean library.
+    // We use `1 - offenderRatio` as a base, scaled to 100.
+    const cleanRatio = 1 - summary.offenderRatio;
+    const overallScore = Math.round(cleanRatio * 10000) / 100; // two decimal places
+
+    // Helper: grade a single ratio (same scale as computeGrade in offensePipeline)
+    function gradeFromRatio(ratio: number): string {
+      if (ratio > 0.5) return "F";
+      if (ratio > 0.3) return "D";
+      if (ratio > 0.2) return "C";
+      if (ratio > 0.1) return "B";
+      if (ratio > 0.05) return "A";
+      return "A+";
+    }
+
+    // ── Build component breakdown ──────────────────────────────────────
+    // 1. Offender Ratio — how many of your artists are flagged
+    const offenderRatioScore = cleanRatio * 100;
+    const offenderRatioGrade = gradeFromRatio(summary.offenderRatio);
+
+    // 2. Severity Density — average severity per flagged artist
+    const avgSeverity = summary.flaggedArtistCount > 0
+      ? totalSeverity / summary.flaggedArtistCount
+      : 0;
+    // Normalize: 0 is best, 12 (egregious) is worst → score out of 100
+    const severityScore = Math.max(0, 100 - (avgSeverity / 12) * 100);
+    const severityRatio = avgSeverity / 12;
+    const severityGrade = gradeFromRatio(severityRatio);
+
+    // 3. Track Exposure — what % of tracks belong to flagged artists
+    const trackExposure = summary.totalTracks > 0
+      ? summary.flaggedTrackCount / summary.totalTracks
+      : 0;
+    const trackExposureScore = Math.max(0, (1 - trackExposure) * 100);
+    const trackExposureGrade = gradeFromRatio(trackExposure);
+
+    const components = [
+      {
+        id: "offender_ratio",
+        label: "Artist Flags",
+        weight: 0.5,
+        score: Math.round(offenderRatioScore * 100) / 100,
+        grade: offenderRatioGrade,
+        summary: `${summary.flaggedArtistCount} of ${summary.totalArtists} artists flagged`,
+      },
+      {
+        id: "severity_density",
+        label: "Severity",
+        weight: 0.25,
+        score: Math.round(severityScore * 100) / 100,
+        grade: severityGrade,
+        summary: avgSeverity > 0
+          ? `Avg severity ${avgSeverity.toFixed(1)} per offender`
+          : "No offenders detected",
+      },
+      {
+        id: "track_exposure",
+        label: "Track Exposure",
+        weight: 0.25,
+        score: Math.round(trackExposureScore * 100) / 100,
+        grade: trackExposureGrade,
+        summary: `${summary.flaggedTrackCount} of ${summary.totalTracks} tracks from flagged artists`,
+      },
+    ];
+
+    // ── Signals ────────────────────────────────────────────────────────
+    const signals: string[] = [];
+    if (summary.flaggedArtistCount === 0) {
+      signals.push("No flagged artists found in your library");
+    } else {
+      signals.push(`${summary.flaggedArtistCount} artist(s) in your library have offense records`);
+      if (summary.flaggedTrackCount > 0) {
+        signals.push(`${summary.flaggedTrackCount} track(s) belong to flagged artists`);
+      }
+      // Top offender signal
+      const topOffender = summary.offenders[0] as any;
+      if (topOffender) {
+        signals.push(`Highest exposure: ${topOffender.artistName} (${topOffender.trackCount} tracks, severity ${topOffender.severityTotal})`);
+      }
+    }
+    signals.push(`Library: ${summary.totalTracks} tracks across ${summary.totalArtists} artists`);
+
+    // ── Recommendations ────────────────────────────────────────────────
+    const recommendations: string[] = [];
+    if (summary.offenderRatio > 0.2) {
+      recommendations.push("Review flagged artists and consider removing or blocking the worst offenders");
+    }
+    if (trackExposure > 0.1) {
+      recommendations.push("A significant portion of your tracks come from flagged artists — explore the Offenders tab for details");
+    }
+    if (summary.flaggedArtistCount > 0 && summary.flaggedArtistCount <= 3) {
+      recommendations.push("Only a few flagged artists — review them in the Offenders section to decide if action is needed");
+    }
+    if (summary.flaggedArtistCount === 0) {
+      recommendations.push("Your library is clean — keep it up!");
+    }
+
     return {
-      grade: summary.grade,
+      computed_at: summary.computedAt,
+      overall_score: overallScore,
+      overall_grade: summary.grade,
+      components,
+      signals,
+      recommendations,
+      // Keep raw data available for any consumers that use it
       total_artists: summary.totalArtists,
       total_tracks: summary.totalTracks,
       total_offenses: summary.flaggedArtistCount,
       total_severity: totalSeverity,
       offender_ratio: summary.offenderRatio,
     };
+  },
+});
+
+/**
+ * Trigger a recompute of the user's offense summary and taste grade.
+ * Called when the user clicks "Refresh Grade" in the sync dashboard.
+ * Schedules the recompute as an internal action (query-then-mutate pattern)
+ * to avoid write conflicts with ongoing syncs.
+ */
+export const refreshTasteGrade = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { user } = await requireCurrentUser(ctx);
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.offensePipeline.recomputeUserOffenseSummary,
+      { userId: user._id, triggerReason: "manual_refresh", force: true },
+    );
+
+    return { scheduled: true };
   },
 });
 

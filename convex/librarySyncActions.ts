@@ -34,6 +34,7 @@ interface CheckpointData {
   albumCount: number;
   artistCount: number;
   playlistTrackCount: number;
+  playlistsSkipped403?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -348,11 +349,26 @@ export const _testPlaylistTracks = internalAction({
     const urlWithoutFields =
       `https://api.spotify.com/v1/playlists/${args.playlistId}/tracks?limit=5&offset=0`;
 
+    // Test the main playlist endpoint (returns tracks inline) - with fields
+    const urlPlaylistDirect =
+      `https://api.spotify.com/v1/playlists/${args.playlistId}?fields=id,name,tracks.items(added_at,track(id,name,artists(id,name),album(id,name))),tracks.next,tracks.total`;
+
+    // Test the main playlist endpoint without fields filter
+    const urlPlaylistNoFields =
+      `https://api.spotify.com/v1/playlists/${args.playlistId}`;
+
+    // Test the /items path (attempted Feb 2026 migration)
+    const urlItems =
+      `https://api.spotify.com/v1/playlists/${args.playlistId}/items?limit=5&offset=0`;
+
     const results: Record<string, unknown> = {};
 
     for (const [label, url] of [
       ["with_fields", urlWithFields],
       ["without_fields", urlWithoutFields],
+      ["playlist_direct", urlPlaylistDirect],
+      ["playlist_no_fields", urlPlaylistNoFields],
+      ["items_path", urlItems],
     ] as const) {
       const start = Date.now();
       try {
@@ -369,7 +385,7 @@ export const _testPlaylistTracks = internalAction({
           status: res.status,
           elapsed_ms: elapsed,
           body_length: body.length,
-          body_preview: body.substring(0, 500),
+          body_preview: body.substring(0, 1500),
         };
       } catch (err: any) {
         results[label] = {
@@ -667,8 +683,7 @@ interface SpotifyPlaylist {
 
 interface SpotifyPlaylistTrackItem {
   added_at?: string;
-  // Spotify Feb 2026 dev mode migration: response field renamed track → item
-  // See: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
+  // Feb 2026 dev mode: response field renamed track → item
   item?: SpotifyTrack;
 }
 
@@ -1044,8 +1059,20 @@ export const syncSpotifyLibrary = internalAction({
         const playlistIds = checkpoint.playlistIds ?? [];
         const playlistNames = checkpoint.playlistNames ?? [];
         let plIdx = checkpoint.playlistIndex ?? 0;
+        // Once we see a 403 on playlist tracks, all subsequent playlists will
+        // also fail (Spotify dev-mode restriction). Skip the rest to avoid
+        // hammering the API with guaranteed-to-fail requests.
+        let playlistTracks403 = false;
 
         while (plIdx < playlistIds.length) {
+          if (playlistTracks403) {
+            // Count remaining playlists as skipped
+            checkpoint.playlistsSkipped403 =
+              (checkpoint.playlistsSkipped403 ?? 0) + 1;
+            plIdx++;
+            continue;
+          }
+
           const playlistId = playlistIds[plIdx];
           const playlistName = playlistNames[plIdx] ?? "Unknown Playlist";
           let trackOffset = checkpoint.playlistTrackOffset ?? 0;
@@ -1062,7 +1089,7 @@ export const syncSpotifyLibrary = internalAction({
             }
 
             // Spotify Feb 2026 dev mode: /tracks → /items, fields track() → item()
-            // See: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
+            // Verified: https://developer.spotify.com/documentation/web-api/references/changes/february-2026
             const url =
               `https://api.spotify.com/v1/playlists/${playlistId}/items` +
               `?limit=${PLAYLIST_TRACK_PAGE_SIZE}&offset=${trackOffset}` +
@@ -1073,14 +1100,22 @@ export const syncSpotifyLibrary = internalAction({
               page = await spotifyGet<SpotifyPaging<SpotifyPlaylistTrackItem>>(url);
             } catch (err: any) {
               if (err.message?.includes("403")) {
-                console.warn(`[Spotify sync] Playlist ${playlistId} items returned 403 — skipping`);
+                checkpoint.playlistsSkipped403 =
+                  (checkpoint.playlistsSkipped403 ?? 0) + 1;
+                playlistTracks403 = true;
+                console.warn(
+                  `[Spotify sync] Playlist tracks returned 403 for playlist ${playlistId} (${playlistName}). ` +
+                  `This is a Spotify Development Mode restriction — the /playlists/{id}/tracks endpoint ` +
+                  `is blocked until the app is approved for Extended Quota Mode. ` +
+                  `Skipping all ${playlistIds.length} playlists.`,
+                );
                 break;
               }
               throw err;
             }
 
             for (const entry of page.items) {
-              // Feb 2026: playlist items response uses `item` not `track`
+              // Feb 2026 dev mode: response uses `item` not `track`
               if (!entry.item?.id) continue;
               const track = entry.item;
               await addTrack({
@@ -1124,6 +1159,9 @@ export const syncSpotifyLibrary = internalAction({
           albumCount: checkpoint.albumCount,
           artistCount: checkpoint.artistCount,
           playlistTrackCount: checkpoint.playlistTrackCount,
+          playlistsDiscovered: (checkpoint.playlistIds ?? []).length,
+          playlistsSkipped403: checkpoint.playlistsSkipped403 ?? 0,
+          playlistTracksBlocked: (checkpoint.playlistsSkipped403 ?? 0) > 0,
           durationMs: Date.now() - startTime,
         },
       });

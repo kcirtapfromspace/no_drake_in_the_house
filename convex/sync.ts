@@ -171,7 +171,9 @@ export const providerSyncStatus = query({
         : state === "failed"
           ? lastError?.message ?? "Sync failed"
           : state === "completed"
-            ? "Sync complete"
+            ? (metadata.playlistTracksBlocked
+            ? "Sync complete (playlist tracks unavailable in Spotify dev mode)"
+            : "Sync complete")
             : "No sync history";
 
     return {
@@ -186,6 +188,8 @@ export const providerSyncStatus = query({
       artist_count: metadata.artistCount ?? checkpoint.artistCount ?? 0,
       playlist_track_count:
         metadata.playlistTrackCount ?? checkpoint.playlistTrackCount ?? 0,
+      playlists_discovered: metadata.playlistsDiscovered ?? (checkpoint.playlistIds ?? []).length,
+      playlist_tracks_blocked: metadata.playlistTracksBlocked ?? false,
       duration_ms: metadata.durationMs ?? null,
       error_message: state === "failed" ? (lastError?.message ?? null) : null,
       run_id: latest._id,

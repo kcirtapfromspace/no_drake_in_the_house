@@ -1420,7 +1420,7 @@
     void refreshLibraryItems({ reset: true });
   }
 
-  async function refreshTasteGrade() {
+  async function refreshTasteGrade(options?: { forceRecompute?: boolean }) {
     tasteGradeLoading = true;
     tasteGradeError = null;
 
@@ -1433,14 +1433,30 @@
     }
 
     try {
+      // When the user explicitly clicks "Refresh Grade", trigger a recompute
+      // of the offense summary so the grade reflects the latest sync data.
+      if (options?.forceRecompute) {
+        await apiClient.authenticatedRequest(
+          'POST',
+          '/api/v1/library/taste-grade/refresh',
+          undefined
+        );
+
+        // Give the scheduled recompute a moment to finish (it runs as an
+        // internal action: query tracks -> write summary, typically < 5s).
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+
       const result = await apiClient.authenticatedRequest<TasteGradeResponse>(
         'GET',
         '/api/v1/library/taste-grade',
         undefined
       );
 
-      if (result.success && result.data) {
-        tasteGrade = result.data;
+      if (result.success) {
+        // data is null when no offense summary has been computed yet — this is
+        // not an error, the template shows a "sync a library" prompt instead.
+        tasteGrade = result.data ?? null;
       } else {
         tasteGrade = null;
         tasteGradeError = result.message || 'Failed to load taste grade';
@@ -1747,7 +1763,7 @@
         <h2 class="text-xl font-semibold text-white">Taste Grade</h2>
         <button
           type="button"
-          on:click={refreshTasteGrade}
+          on:click={() => refreshTasteGrade({ forceRecompute: true })}
           disabled={tasteGradeLoading || $connectionsStore.isLoading}
           class="brand-button brand-button--secondary brand-button--compact"
         >

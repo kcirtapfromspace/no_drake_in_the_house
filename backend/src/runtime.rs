@@ -6,7 +6,7 @@ use crate::services::{
     AppleMusicConfig, AppleMusicService, NotificationService, TokenRefreshBackgroundJob,
 };
 use crate::{
-    create_analytics_router, create_graph_router, create_news_router, create_pool,
+    create_analytics_router, create_graph_router, create_pool,
     create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
     AuditLoggingService, AuthService, BackfillOrchestrator, CircuitBreakerConfig,
     CircuitBreakerService, CreditsSyncService, DatabaseConfig, DnpListService, MonitoringConfig,
@@ -69,7 +69,10 @@ impl ServiceMode {
             Self::Monolith | Self::Api => create_router(state),
             Self::Analytics => create_analytics_router(state),
             Self::Graph => create_graph_router(state),
-            Self::News => create_news_router(state),
+            #[cfg(feature = "news")]
+            Self::News => crate::create_news_router(state),
+            #[cfg(not(feature = "news"))]
+            Self::News => create_router(state),
         }
     }
 

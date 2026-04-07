@@ -26,6 +26,7 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
+#[cfg(any(feature = "analytics", feature = "news"))]
 use axum::routing::post;
 use axum::{http::StatusCode, response::IntoResponse};
 
@@ -676,6 +677,7 @@ pub fn create_analytics_router(state: AppState) -> Router {
     create_scoped_service_router(state, add_analytics_routes(Router::new()))
 }
 
+#[cfg(feature = "news")]
 pub fn create_news_router(state: AppState) -> Router {
     let auth_service = state.auth_service.clone();
     let metrics = state.metrics.clone();

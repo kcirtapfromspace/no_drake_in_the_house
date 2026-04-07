@@ -26,7 +26,6 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-#[cfg(any(feature = "analytics", feature = "news"))]
 use axum::routing::post;
 use axum::{http::StatusCode, response::IntoResponse};
 

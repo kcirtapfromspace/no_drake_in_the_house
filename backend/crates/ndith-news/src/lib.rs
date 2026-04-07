@@ -2,8 +2,12 @@
 //!
 //! This crate isolates the heavyweight dependencies: lancedb, arrow, fastembed, scraper.
 
+pub mod convex_client;
 pub mod databases;
 pub mod news_pipeline;
+
+// Re-export Convex client
+pub use convex_client::ConvexClient;
 
 // Re-export database clients
 pub use databases::LanceDbClient;

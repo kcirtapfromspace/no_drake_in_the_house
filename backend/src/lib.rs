@@ -669,10 +669,12 @@ pub fn create_router(state: AppState) -> Router {
         .with_state(state)
 }
 
+#[cfg(feature = "analytics")]
 pub fn create_graph_router(state: AppState) -> Router {
     create_scoped_service_router(state, add_graph_routes(Router::new()))
 }
 
+#[cfg(feature = "analytics")]
 pub fn create_analytics_router(state: AppState) -> Router {
     create_scoped_service_router(state, add_analytics_routes(Router::new()))
 }

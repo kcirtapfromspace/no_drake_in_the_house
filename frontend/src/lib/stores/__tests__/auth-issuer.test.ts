@@ -48,4 +48,12 @@ describe('hasValidIssuer', () => {
   it('returns false for malformed tokens', () => {
     expect(hasValidIssuer('not-a-jwt')).toBe(false);
   });
+
+  it('returns false when issuer is a non-string value', () => {
+    const numericIssuer = createToken({ iss: 12345, aud: 'convex' });
+    const nullIssuer = createToken({ iss: null, aud: 'convex' });
+
+    expect(hasValidIssuer(numericIssuer)).toBe(false);
+    expect(hasValidIssuer(nullIssuer)).toBe(false);
+  });
 });

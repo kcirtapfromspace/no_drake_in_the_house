@@ -67,6 +67,11 @@ pub struct AuthService {
     oauth_security_logger: Arc<OAuthSecurityLogger>,
 }
 
+fn apply_convex_claims(claims: &mut Claims, issuer: &str) {
+    claims.iss = issuer.to_string();
+    claims.aud = "convex".to_string();
+}
+
 impl AuthService {
     pub fn new(db_pool: PgPool) -> Self {
         // Use environment variable or generate a random JWT secret for demo
@@ -759,9 +764,8 @@ impl AuthService {
             cached_user.email.clone(),
             self.access_token_ttl,
         );
+        apply_convex_claims(&mut access_claims, &self.jwt_issuer);
         let access_token = if let Some(ref rsa_key) = self.rsa_encoding_key {
-            access_claims.iss = self.jwt_issuer.clone();
-            access_claims.aud = "convex".to_string();
             let mut header = Header::new(Algorithm::RS256);
             header.kid = Some("ndith-1".to_string());
             encode(&header, &access_claims, rsa_key)?
@@ -1451,8 +1455,7 @@ impl AuthService {
             Claims::new_access_token(user_id, email.to_string(), self.access_token_ttl);
 
         // Convex requires issuer and audience claims regardless of signing algorithm.
-        access_claims.iss = self.jwt_issuer.clone();
-        access_claims.aud = "convex".to_string();
+        apply_convex_claims(&mut access_claims, &self.jwt_issuer);
 
         // Use RS256 if RSA key is configured, otherwise HS256
         let access_token = if let Some(ref rsa_key) = self.rsa_encoding_key {
@@ -3524,4 +3527,48 @@ impl AuthService {
     //     // Temporarily commented out due to SQLx cache issues
     //     Ok(vec![])
     // }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn apply_convex_claims_sets_issuer_and_audience() {
+        let mut claims =
+            Claims::new_access_token(Uuid::new_v4(), "test@example.com".to_string(), 3600);
+        apply_convex_claims(&mut claims, "https://issuer.example");
+
+        assert_eq!(claims.iss, "https://issuer.example");
+        assert_eq!(claims.aud, "convex");
+    }
+
+    #[test]
+    fn hs256_token_contains_issuer_and_audience_after_claim_application() {
+        let mut claims =
+            Claims::new_access_token(Uuid::new_v4(), "test@example.com".to_string(), 3600);
+        apply_convex_claims(&mut claims, "https://issuer.example");
+
+        let secret = "unit-test-secret";
+        let token = encode(
+            &Header::default(),
+            &claims,
+            &EncodingKey::from_secret(secret.as_bytes()),
+        )
+        .expect("failed to encode HS256 token");
+
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.validate_aud = false;
+        validation.validate_exp = false;
+
+        let decoded = decode::<Claims>(
+            &token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &validation,
+        )
+        .expect("failed to decode HS256 token");
+
+        assert_eq!(decoded.claims.iss, "https://issuer.example");
+        assert_eq!(decoded.claims.aud, "convex");
+    }
 }

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::error::{AppError, Result};
+use crate::error::{AppError, OAuthError, Result, TokenType};
 use crate::handlers::provider_library_sync_status::{
     get_provider_library_sync_status, imported_items_count, store_provider_library_sync_status,
     ProviderLibrarySyncCounts, ProviderLibrarySyncStatus,
@@ -37,6 +37,8 @@ use std::collections::HashMap;
 const SPOTIFY_SYNC_STATUS_KEY: &str = "spotify";
 const SPOTIFY_PROVIDER_LABEL: &str = "Spotify";
 const SPOTIFY_TOKEN_REFRESH_WINDOW_MINUTES: i64 = 5;
+const SPOTIFY_RECONNECT_REQUIRED_MESSAGE: &str =
+    "Spotify authorization is invalid or expired. Disconnect and reconnect Spotify, then sync again.";
 
 enum SpotifyRefreshFailureKind {
     NeedsReauth(&'static str),
@@ -552,12 +554,32 @@ pub async fn spotify_library_sync_handler(
 
     tracing::info!(connection_id = %connection.id, "Found Spotify connection");
 
-    let access_token =
-        resolve_spotify_access_token_for_sync(&state.db_pool, authenticated_user.id, &connection)
-            .await?;
+    let started_at = Utc::now();
+    let access_token = match resolve_spotify_access_token_for_sync(
+        &state.db_pool,
+        authenticated_user.id,
+        &connection,
+    )
+    .await
+    {
+        Ok(token) => token,
+        Err(error) => {
+            if let Some(reason) = classify_spotify_token_resolution_failure(&error) {
+                handle_spotify_sync_token_resolution_failure(
+                    &state,
+                    authenticated_user.id,
+                    started_at,
+                    &reason,
+                )
+                .await;
+                return Err(spotify_token_resolution_error(reason));
+            }
+
+            return Err(error);
+        }
+    };
     tracing::info!("Spotify access token ready, starting background library sync");
 
-    let started_at = Utc::now();
     store_provider_library_sync_status(
         &state.redis_pool,
         SPOTIFY_SYNC_STATUS_KEY,
@@ -794,6 +816,72 @@ fn map_spotify_sync_error(error: &AppError) -> (String, bool) {
         )
     } else {
         (raw, false)
+    }
+}
+
+fn spotify_token_resolution_error(reason: impl Into<String>) -> AppError {
+    AppError::OAuth(OAuthError::InvalidToken {
+        provider: OAuthProviderType::Spotify,
+        token_type: TokenType::AccessToken,
+        reason: reason.into(),
+    })
+}
+
+fn classify_spotify_token_resolution_failure(error: &AppError) -> Option<String> {
+    match error {
+        AppError::OAuth(OAuthError::InvalidToken { reason, .. }) => Some(reason.clone()),
+        AppError::OperationNotAllowed { reason } => Some(reason.clone()),
+        AppError::ExternalServiceError(message) => {
+            let lowered = message.to_ascii_lowercase();
+
+            if lowered.contains("stored spotify token")
+                || lowered.contains("spotify refresh token could not be decrypted")
+                || lowered.contains("token-vault")
+            {
+                Some(SPOTIFY_RECONNECT_REQUIRED_MESSAGE.to_string())
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+async fn handle_spotify_sync_token_resolution_failure(
+    state: &AppState,
+    user_id: Uuid,
+    started_at: chrono::DateTime<Utc>,
+    message: &str,
+) {
+    if let Err(update_error) = sqlx::query(
+        "UPDATE connections SET status = 'needs_reauth', error_code = $1 WHERE user_id = $2 AND provider = 'spotify'",
+    )
+    .bind(message)
+    .bind(user_id)
+    .execute(&state.db_pool)
+    .await
+    {
+        tracing::warn!(
+            user_id = %user_id,
+            error = %update_error,
+            "Failed to mark Spotify connection as needs_reauth after token resolution failure"
+        );
+    }
+
+    if let Err(status_error) = store_provider_library_sync_status(
+        &state.redis_pool,
+        SPOTIFY_SYNC_STATUS_KEY,
+        user_id,
+        &ProviderLibrarySyncStatus::failed(message.to_string(), started_at, Utc::now()),
+        PROVIDER_LIBRARY_SYNC_STATUS_TTL_SECONDS,
+    )
+    .await
+    {
+        tracing::error!(
+            user_id = %user_id,
+            error = %status_error,
+            "Failed to persist Spotify sync status after token resolution failure"
+        );
     }
 }
 
@@ -1896,5 +1984,34 @@ mod tests {
         let kind = classify_spotify_refresh_failure("Spotify refresh failure: upstream 500");
 
         assert!(matches!(kind, SpotifyRefreshFailureKind::Upstream(_)));
+    }
+
+    #[test]
+    fn spotify_token_resolution_error_maps_to_unauthorized_oauth_invalid_token() {
+        let error = spotify_token_resolution_error("invalid token state");
+
+        assert_eq!(error.status_code(), StatusCode::UNAUTHORIZED);
+        assert_eq!(error.error_code(), "OAUTH_INVALID_TOKEN");
+    }
+
+    #[test]
+    fn classify_token_resolution_failure_for_decryption_errors() {
+        let error = AppError::ExternalServiceError(
+            "Stored Spotify token could not be decrypted via token-vault compatibility fallback"
+                .to_string(),
+        );
+
+        let reason = classify_spotify_token_resolution_failure(&error)
+            .expect("expected reconnect classification");
+        assert_eq!(reason, SPOTIFY_RECONNECT_REQUIRED_MESSAGE);
+    }
+
+    #[test]
+    fn classify_token_resolution_failure_ignores_rate_limit_errors() {
+        let error = AppError::RateLimitExceeded {
+            retry_after: Some(60),
+        };
+
+        assert!(classify_spotify_token_resolution_failure(&error).is_none());
     }
 }

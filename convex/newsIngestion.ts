@@ -8,6 +8,18 @@ import { nowIso } from "./lib/auth";
  * news articles, entities, and classifications into Convex.
  */
 
+/**
+ * Validate an artist ID string: if it looks like a valid Convex document ID
+ * (not a UUID), return it as Id<"artists">; otherwise return undefined.
+ * UUIDs contain dashes; Convex IDs are alphanumeric.
+ */
+function resolveArtistId(raw: string | undefined): Id<"artists"> | undefined {
+  if (!raw) return undefined;
+  // UUIDs have dashes (e.g. "5195f26c-33b8-..."), Convex IDs don't
+  if (raw.includes("-")) return undefined;
+  return raw as Id<"artists">;
+}
+
 export const ingestArticle = mutation({
   args: {
     legacyKey: v.string(),
@@ -245,7 +257,8 @@ export const batchIngestArticles = mutation({
               legacyKey: v.string(),
               entityName: v.string(),
               entityType: v.string(),
-              artistId: v.optional(v.id("artists")),
+              // Accept string to handle both Convex IDs and UUIDs from Rust pipeline
+              artistId: v.optional(v.string()),
               confidence: v.optional(v.number()),
               metadata: v.optional(v.any()),
             }),
@@ -255,8 +268,9 @@ export const batchIngestArticles = mutation({
           v.array(
             v.object({
               legacyKey: v.string(),
-              entityId: v.optional(v.id("newsArticleEntities")),
-              artistId: v.optional(v.id("artists")),
+              entityId: v.optional(v.string()),
+              // Accept string to handle both Convex IDs and UUIDs from Rust pipeline
+              artistId: v.optional(v.string()),
               category: v.string(),
               severity: v.string(),
               confidence: v.optional(v.number()),
@@ -335,7 +349,7 @@ export const batchIngestArticles = mutation({
             await ctx.db.patch(existingEntity._id, {
               entityName: entity.entityName,
               entityType: entity.entityType,
-              artistId: entity.artistId,
+              artistId: resolveArtistId(entity.artistId),
               confidence: entity.confidence,
               metadata: entity.metadata ?? existingEntity.metadata,
               updatedAt: now,
@@ -346,7 +360,7 @@ export const batchIngestArticles = mutation({
               articleId,
               entityName: entity.entityName,
               entityType: entity.entityType,
-              artistId: entity.artistId,
+              artistId: resolveArtistId(entity.artistId),
               confidence: entity.confidence,
               metadata: entity.metadata ?? {},
               createdAt: now,
@@ -370,8 +384,8 @@ export const batchIngestArticles = mutation({
           if (existingCls) {
             await ctx.db.patch(existingCls._id, {
               articleId,
-              entityId: cls.entityId,
-              artistId: cls.artistId,
+              entityId: cls.entityId?.includes("-") ? undefined : cls.entityId as Id<"newsArticleEntities"> | undefined,
+              artistId: resolveArtistId(cls.artistId),
               category: cls.category,
               severity: cls.severity,
               confidence: cls.confidence,
@@ -383,8 +397,8 @@ export const batchIngestArticles = mutation({
             await ctx.db.insert("newsOffenseClassifications", {
               legacyKey: cls.legacyKey,
               articleId,
-              entityId: cls.entityId,
-              artistId: cls.artistId,
+              entityId: cls.entityId?.includes("-") ? undefined : cls.entityId as Id<"newsArticleEntities"> | undefined,
+              artistId: resolveArtistId(cls.artistId),
               category: cls.category,
               severity: cls.severity,
               confidence: cls.confidence,

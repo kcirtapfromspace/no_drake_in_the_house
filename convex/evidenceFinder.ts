@@ -776,3 +776,25 @@ export const dailyInvestigation = internalMutation({
     return { usersResolved: userIds.length, cycleStarted: true };
   },
 });
+
+/**
+ * One-off: Reset all artist investigation timestamps so the evidence finder
+ * re-investigates them with the now-working pipeline.
+ * Safe to remove after first use.
+ */
+export const _resetInvestigationTimestamps = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    let cleared = 0;
+    for await (const artist of ctx.db.query("artists")) {
+      if (artist.lastInvestigatedAt || artist.investigationStatus) {
+        await ctx.db.patch(artist._id, {
+          lastInvestigatedAt: undefined,
+          investigationStatus: undefined,
+        });
+        cleared++;
+      }
+    }
+    return { cleared };
+  },
+});

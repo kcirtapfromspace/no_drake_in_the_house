@@ -202,6 +202,12 @@ impl AuthService {
                 }
             };
 
+        if rsa_encoding_key.is_none() {
+            tracing::warn!(
+                "JWT_RSA_PRIVATE_KEY not configured -- Convex will reject HS256 tokens"
+            );
+        }
+
         let auth_service = Self {
             db_pool,
             jwt_secret,
@@ -1444,10 +1450,12 @@ impl AuthService {
         let mut access_claims =
             Claims::new_access_token(user_id, email.to_string(), self.access_token_ttl);
 
+        // Convex requires issuer and audience claims regardless of signing algorithm.
+        access_claims.iss = self.jwt_issuer.clone();
+        access_claims.aud = "convex".to_string();
+
         // Use RS256 if RSA key is configured, otherwise HS256
         let access_token = if let Some(ref rsa_key) = self.rsa_encoding_key {
-            access_claims.iss = self.jwt_issuer.clone();
-            access_claims.aud = "convex".to_string();
             let mut header = Header::new(Algorithm::RS256);
             header.kid = Some("ndith-1".to_string());
             encode(&header, &access_claims, rsa_key)?

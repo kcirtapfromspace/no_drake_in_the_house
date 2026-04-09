@@ -72,6 +72,34 @@ export const justRegistered = derived(
   ($auth) => $auth.justRegistered,
 );
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+
+  const payload = parts[1];
+  const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const padding = (4 - (normalized.length % 4)) % 4;
+  const padded = normalized + '='.repeat(padding);
+
+  try {
+    const decoded = atob(padded);
+    const parsed: unknown = JSON.parse(decoded);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+export function hasValidIssuer(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  const issuer = payload?.iss;
+  return typeof issuer === 'string' && issuer.trim().length > 0;
+}
+
 function resetState() {
   authStore.set({
     user: null,
@@ -493,8 +521,21 @@ export const authActions = {
 };
 
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('auth_token');
-  if (token) {
+  void (async () => {
+    const storedToken = localStorage.getItem('auth_token');
+    if (!storedToken) return;
+
+    let token = storedToken;
+    if (!hasValidIssuer(storedToken)) {
+      const refreshed = await authActions.refreshToken();
+      const refreshedToken = localStorage.getItem('auth_token');
+      if (!refreshed || !refreshedToken || !hasValidIssuer(refreshedToken)) {
+        await authActions.logout();
+        return;
+      }
+      token = refreshedToken;
+    }
+
     apiClient.setAuthToken(token);
     setConvexAuthToken(token);
     authStore.update((state) => ({
@@ -503,8 +544,8 @@ if (typeof window !== 'undefined') {
       isAuthenticated: true,
       justRegistered: false,
     }));
-    void authActions.fetchProfile();
-  }
+    await authActions.fetchProfile();
+  })();
 
   window.addEventListener('auth:logout', () => {
     void authActions.logout();

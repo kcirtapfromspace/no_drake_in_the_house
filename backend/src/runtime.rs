@@ -245,6 +245,17 @@ pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Er
     );
     tracing::info!("Catalog sync orchestrator initialized");
 
+    #[cfg(feature = "news")]
+    let (backfill_orchestrator, news_pipeline) = if mode.should_start_news_pipeline() {
+        initialize_full_platform_services(db_pool.clone()).await
+    } else {
+        tracing::info!(
+            service_mode = mode.as_str(),
+            "Skipping news pipeline bootstrap for scoped service"
+        );
+        (None, None)
+    };
+    #[cfg(not(feature = "news"))]
     let backfill_orchestrator = if mode.should_start_news_pipeline() {
         initialize_full_platform_services(db_pool.clone()).await
     } else {
@@ -313,6 +324,8 @@ pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Er
         platform_config,
         credits_sync,
         backfill_orchestrator,
+        #[cfg(feature = "news")]
+        news_pipeline,
         apple_music_service,
         circuit_breaker,
         test_user_id: None,
@@ -372,7 +385,7 @@ fn init_tracing() {
 #[cfg(feature = "news")]
 async fn initialize_full_platform_services(
     db_pool: sqlx::PgPool,
-) -> Option<Arc<BackfillOrchestrator>> {
+) -> (Option<Arc<BackfillOrchestrator>>, Option<Arc<NewsPipelineOrchestrator>>) {
     let news_config = NewsPipelineConfig::default();
     let news_pipeline = Arc::new(NewsPipelineOrchestrator::with_database(
         news_config,
@@ -395,10 +408,13 @@ async fn initialize_full_platform_services(
         "News pipeline started"
     );
 
-    Some(Arc::new(BackfillOrchestrator::with_news_pipeline(
-        db_pool,
-        news_pipeline,
-    )))
+    (
+        Some(Arc::new(BackfillOrchestrator::with_news_pipeline(
+            db_pool,
+            news_pipeline.clone(),
+        ))),
+        Some(news_pipeline),
+    )
 }
 
 #[cfg(not(feature = "news"))]

@@ -1037,6 +1037,8 @@ pub async fn get_artist_research_handler(
 pub struct TriggerResearchRequest {
     /// Artist name to research
     pub artist_name: String,
+    /// Convex artist document ID (passed from evidenceFinder for quality score writes)
+    pub artist_id: Option<String>,
 }
 
 /// Manually trigger research for a specific artist (legacy UUID-path version).
@@ -1133,11 +1135,17 @@ pub async fn trigger_research_handler(
         ));
     }
 
-    tracing::info!(artist_name = %artist_name, "Queuing artist research (service-key auth)");
+    tracing::info!(artist_name = %artist_name, artist_id = ?body.artist_id, "Queuing artist research (service-key auth)");
 
     // Spawn research as a background task
     let db_pool = state.db_pool.clone();
     let name_for_task = artist_name.clone();
+    let convex_artist_id = body.artist_id.clone();
+
+    // Get the news pipeline from state for article processing + Convex writes
+    #[cfg(feature = "news")]
+    let news_pipeline = state.news_pipeline.clone();
+
     tokio::spawn(async move {
         use ndith_news::{ArtistResearcher, ArtistResearcherConfig, ConvexClient, WebSearchClient};
 
@@ -1150,8 +1158,7 @@ pub async fn trigger_research_handler(
             }
         };
 
-        // Generate a UUID for the research session. A real artist UUID can be
-        // resolved later when results are written to Convex (US-002).
+        // Use a transient UUID for internal pipeline tracking
         let artist_id = Uuid::new_v4();
 
         let mut researcher = ArtistResearcher::new(
@@ -1169,7 +1176,13 @@ pub async fn trigger_research_handler(
             researcher = researcher.with_web_search(web_search);
         }
 
-        match researcher.research_artist(artist_id, &name_for_task).await {
+        // Wire up the news pipeline for article processing + Convex persistence
+        #[cfg(feature = "news")]
+        if let Some(pipeline) = news_pipeline {
+            researcher = researcher.with_news_pipeline(pipeline);
+        }
+
+        match researcher.research_artist(artist_id, &name_for_task, convex_artist_id.as_deref()).await {
             Ok(result) => {
                 tracing::info!(
                     artist = name_for_task,

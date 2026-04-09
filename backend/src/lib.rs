@@ -125,6 +125,9 @@ pub struct AppState {
     pub platform_config: PlatformSyncConfig,
     pub credits_sync: Option<Arc<CreditsSyncService>>,
     pub backfill_orchestrator: Option<Arc<BackfillOrchestrator>>,
+    /// News pipeline for artist research (feature-gated)
+    #[cfg(feature = "news")]
+    pub news_pipeline: Option<Arc<NewsPipelineOrchestrator>>,
     pub apple_music_service: Arc<ndith_services::AppleMusicService>,
     /// Circuit breaker for provider API calls (US-026)
     pub circuit_breaker: Arc<CircuitBreakerService>,

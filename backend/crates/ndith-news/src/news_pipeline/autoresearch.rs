@@ -170,10 +170,15 @@ impl ArtistResearcher {
     }
 
     /// Research a single artist — one pass through all free sources, then done.
+    ///
+    /// `convex_artist_id` is the Convex document ID (e.g., `"j57394xkh..."`) passed
+    /// from the evidence finder. When provided, it is used for the quality score
+    /// write so the update lands on the correct artist record in Convex.
     pub async fn research_artist(
         &self,
         artist_id: Uuid,
         artist_name: &str,
+        convex_artist_id: Option<&str>,
     ) -> Result<ResearchResult> {
         let start = std::time::Instant::now();
         let mut total_articles = 0usize;
@@ -292,8 +297,15 @@ impl ArtistResearcher {
         persisted_score.sources_searched = sources_used.clone();
 
         // ── Step 5: Persist quality score to Convex ──
+        // Use Convex document ID when available (passed from evidenceFinder),
+        // otherwise fall back to the transient UUID (will likely fail in Convex
+        // but we still try + fall back to PG).
+        let id_for_convex = convex_artist_id
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| artist_id.to_string());
+
         let quality_args = UpdateResearchQualityArgs {
-            artist_id: artist_id.to_string(),
+            artist_id: id_for_convex.clone(),
             quality_score: persisted_score.quality_score,
             sources_searched: persisted_score.sources_searched.clone(),
             research_iterations: persisted_score.research_iterations as f64,
@@ -306,7 +318,7 @@ impl ArtistResearcher {
         {
             Ok(resp) => {
                 tracing::debug!(
-                    artist_id = %artist_id,
+                    artist_id = %id_for_convex,
                     convex_id = %resp.id,
                     quality = persisted_score.quality_score,
                     "Persisted research quality to Convex"
@@ -314,7 +326,7 @@ impl ArtistResearcher {
             }
             Err(e) => {
                 tracing::warn!(
-                    artist_id = %artist_id,
+                    artist_id = %id_for_convex,
                     error = %e,
                     "Failed to persist research quality to Convex — falling back to PG"
                 );

@@ -92,6 +92,10 @@ services:
         value: https://api.nodrakeinthe.house/auth/callback/github
       - key: CONVEX_URL
         sync: false
+      - key: NDITH_SERVICE_KEY
+        sync: false
+      - key: BRAVE_SEARCH_API_KEY
+        sync: false
 
   - type: web
     name: ndith-analytics

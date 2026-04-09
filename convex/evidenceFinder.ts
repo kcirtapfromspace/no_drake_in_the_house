@@ -351,13 +351,14 @@ export const investigateLibraryArtists = internalAction({
             );
 
             try {
-              // Call the Rust backend research endpoint with artist name (US-005 + US-006)
+              // Call the Rust backend research endpoint with artist name + Convex ID
               const url = `${backendUrl}/api/v1/news/research/trigger`;
               const response = await fetch(url, {
                 method: "POST",
                 headers: serviceAuthHeaders(),
                 body: JSON.stringify({
                   artist_name: artistInfo.canonicalName,
+                  artist_id: artistId,
                 }),
                 redirect: "follow",
               });
@@ -606,13 +607,14 @@ export const cycleArtistInventory = internalAction({
 
         if (backendUrl) {
           try {
-            // Call the Rust backend research endpoint with artist name (US-005 + US-006)
+            // Call the Rust backend research endpoint with artist name + Convex ID
             const url = `${backendUrl}/api/v1/news/research/trigger`;
             const response = await fetch(url, {
               method: "POST",
               headers: serviceAuthHeaders(),
               body: JSON.stringify({
                 artist_name: canonicalName,
+                artist_id: artistId,
               }),
               redirect: "follow",
             });

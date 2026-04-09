@@ -179,7 +179,7 @@ impl BackfillOrchestrator {
         }
 
         match researcher
-            .research_artist(artist.id, &artist.canonical_name)
+            .research_artist(artist.id, &artist.canonical_name, None)
             .await
         {
             Ok(result) => Ok(result.total_offenses_detected),

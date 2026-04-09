@@ -733,8 +733,11 @@ export async function maybeHandleConvexRoute<T = unknown>(
     }
 
     if (method === 'POST' && pathname === '/api/v1/sync/trigger') {
+      // The sync store sends { platforms: string[] } (plural) but Convex
+      // triggerSync expects { platform: string } (singular). Handle both shapes.
+      const platform = data?.platform ?? data?.platforms?.[0];
       const result = await convexAction<any>(anyApi.sync.triggerSync, {
-        platform: data?.platform,
+        platform,
       });
       return ok(result) as BridgedApiResponse<T>;
     }

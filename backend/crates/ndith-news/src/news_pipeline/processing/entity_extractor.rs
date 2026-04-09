@@ -44,6 +44,9 @@ pub struct ExtractedEntity {
     pub context: String,
     /// Matched artist ID if resolved
     pub artist_id: Option<Uuid>,
+    /// Convex document ID for the artist (when available, used instead of UUID for Convex writes)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub convex_artist_id: Option<String>,
 }
 
 /// Entity extractor configuration
@@ -74,6 +77,9 @@ pub struct KnownArtist {
     pub name: String,
     pub aliases: Vec<String>,
     pub genres: Vec<String>,
+    /// Convex document ID (e.g. "j57394xkh..."). When set, this is used instead
+    /// of the UUID when writing entities/classifications to Convex.
+    pub convex_id: Option<String>,
 }
 
 /// Entity extractor
@@ -145,6 +151,16 @@ impl EntityExtractor {
         }
     }
 
+    /// Look up the Convex document ID for a known artist by their internal UUID.
+    /// Returns `None` if the artist isn't known or has no convex_id set.
+    pub async fn get_convex_id(&self, artist_uuid: &Uuid) -> Option<String> {
+        let artists = self.known_artists.read().await;
+        artists
+            .values()
+            .find(|a| a.id == *artist_uuid)
+            .and_then(|a| a.convex_id.clone())
+    }
+
     /// Normalize an artist name for matching
     fn normalize_name(&self, name: &str) -> String {
         name.to_lowercase()
@@ -193,6 +209,12 @@ impl EntityExtractor {
                         let end = name_match.end();
                         let context = self.extract_context(&full_text, start, end);
 
+                        // Look up convex_id if we have a matched artist_id
+                        let convex_artist_id = match artist_id {
+                            Some(uuid) => self.get_convex_id(&uuid).await,
+                            None => None,
+                        };
+
                         entities.push(ExtractedEntity {
                             id: Uuid::new_v4(),
                             name: name.to_string(),
@@ -202,6 +224,7 @@ impl EntityExtractor {
                             position: (start, end),
                             context,
                             artist_id,
+                            convex_artist_id,
                         });
                     }
                 }
@@ -235,6 +258,7 @@ impl EntityExtractor {
                     position: (pos, pos + artist.name.len()),
                     context,
                     artist_id: Some(artist.id),
+                    convex_artist_id: artist.convex_id.clone(),
                 });
             }
         }
@@ -498,6 +522,7 @@ mod tests {
             name: "Kanye West".to_string(),
             aliases: vec!["Ye".to_string(), "Yeezy".to_string()],
             genres: vec!["hip hop".to_string()],
+            convex_id: None,
         };
 
         extractor.add_known_artist(artist).await;
@@ -519,6 +544,7 @@ mod tests {
             name: "Jay-Z".to_string(),
             aliases: vec!["Jay Z".to_string(), "Hov".to_string()],
             genres: vec!["hip hop".to_string()],
+            convex_id: None,
         };
 
         extractor.add_known_artist(artist).await;

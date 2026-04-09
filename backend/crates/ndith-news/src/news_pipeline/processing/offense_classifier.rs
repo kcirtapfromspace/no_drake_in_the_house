@@ -97,6 +97,9 @@ pub struct OffenseClassification {
     pub entity_id: Option<Uuid>,
     /// Artist ID (if resolved)
     pub artist_id: Option<Uuid>,
+    /// Convex document ID for the artist (when available)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub convex_artist_id: Option<String>,
     /// Offense category
     pub category: OffenseCategory,
     /// Severity level
@@ -731,6 +734,7 @@ impl OffenseClassifier {
                     article_id,
                     entity_id: None,
                     artist_id: None,
+                    convex_artist_id: None,
                     category: category.clone(),
                     severity: max_severity.clone(),
                     confidence,
@@ -748,6 +752,7 @@ impl OffenseClassifier {
                         article_id,
                         entity_id: Some(entity.id),
                         artist_id: entity.artist_id,
+                        convex_artist_id: entity.convex_artist_id.clone(),
                         category: category.clone(),
                         severity: max_severity.clone(),
                         confidence,

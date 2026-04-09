@@ -112,7 +112,7 @@ impl NewsRepository {
                     legacy_key: e.id.to_string(),
                     entity_name: e.name.clone(),
                     entity_type,
-                    artist_id: e.artist_id.map(|id| id.to_string()),
+                    artist_id: e.convex_artist_id.clone().or_else(|| e.artist_id.map(|id| id.to_string())),
                     confidence: Some(e.confidence),
                     metadata: None,
                 }
@@ -127,7 +127,7 @@ impl NewsRepository {
                 BatchClassificationArgs {
                     legacy_key: o.id.to_string(),
                     entity_id: o.entity_id.map(|id| id.to_string()),
-                    artist_id: o.artist_id.map(|id| id.to_string()),
+                    artist_id: o.convex_artist_id.clone().or_else(|| o.artist_id.map(|id| id.to_string())),
                     category,
                     severity,
                     confidence: Some(o.confidence),

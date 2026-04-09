@@ -89,8 +89,14 @@ impl OffenseCreator {
         let category = classification.category.to_string();
         let severity = format!("{:?}", classification.severity).to_lowercase();
 
+        // Use Convex document ID if available, otherwise fall back to UUID
+        let convex_id = classification
+            .convex_artist_id
+            .clone()
+            .unwrap_or_else(|| artist_id.to_string());
+
         let create_args = CreateOffenseArgs {
-            artist_id: artist_id.to_string(),
+            artist_id: convex_id,
             category: category.clone(),
             severity,
             title: format!("Auto-detected: {}", article_title),

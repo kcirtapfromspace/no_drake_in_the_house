@@ -191,6 +191,27 @@ impl ArtistResearcher {
             "Starting single-pass research"
         );
 
+        // ── Step 0: Register artist in the entity extractor ──
+        // This ensures entities matching this artist name get resolved to the
+        // correct artist_id, so classifications are linked and can be promoted.
+        if let Some(pipeline) = &self.news_pipeline {
+            use crate::news_pipeline::processing::KnownArtist;
+            pipeline
+                .entity_extractor()
+                .add_known_artist(KnownArtist {
+                    id: artist_id,
+                    name: artist_name.to_string(),
+                    aliases: vec![],
+                    genres: vec![],
+                    convex_id: convex_artist_id.map(|s| s.to_string()),
+                })
+                .await;
+            tracing::debug!(
+                artist = artist_name,
+                "Registered artist in entity extractor for classification linking"
+            );
+        }
+
         // ── Step 1: Wikipedia (free, unlimited) ──
         if let Some(wiki) = &self.wikipedia_client {
             match wiki.fetch_artist_controversies(artist_name).await {

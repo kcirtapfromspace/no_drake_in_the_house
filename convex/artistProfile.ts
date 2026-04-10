@@ -108,68 +108,13 @@ export const getCatalog = query({
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
-    // Get canonical tracks for this artist (via tracks.artistId or albumArtists)
-    const canonicalTracks = await ctx.db
-      .query("tracks")
-      .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
-
-    // Also get tracks via albumArtists → albums → tracks
+    // Get albums for this artist (lightweight — only album metadata)
     const albumLinks = await ctx.db
       .query("albumArtists")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
+      .take(200);
 
-    const canonicalTrackIds = new Set(canonicalTracks.map((t) => t._id as string));
-    for (const link of albumLinks) {
-      const albumTracks = await ctx.db
-        .query("tracks")
-        .withIndex("by_albumId", (q) => q.eq("albumId", link.albumId))
-        .collect();
-      for (const at of albumTracks) {
-        if (!canonicalTrackIds.has(at._id as string)) {
-          canonicalTracks.push(at);
-          canonicalTrackIds.add(at._id as string);
-        }
-      }
-    }
-
-    // If no canonical tracks yet, fall back to userLibraryTracks directly
-    if (canonicalTracks.length === 0) {
-      const libraryTracks = await ctx.db
-        .query("userLibraryTracks")
-        .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-        .collect();
-
-      const userTracks = libraryTracks.filter((t) => t.userId === user._id);
-      const seen = new Set<string>();
-      const tracks: any[] = [];
-
-      for (const t of userTracks) {
-        const trackName = t.trackName ?? "Unknown Track";
-        const dedupKey = `${trackName}::${t.albumName ?? ""}`;
-        if (seen.has(dedupKey)) continue;
-        seen.add(dedupKey);
-
-        tracks.push({
-          id: t._id,
-          title: trackName,
-          album: t.albumName ?? null,
-          albumCover: null,
-          role: "main",
-          year: null,
-          isBlocked: false,
-          collaborators: [],
-          duration: null,
-          providers: [t.provider],
-        });
-      }
-
-      tracks.sort((a: any, b: any) => (a.album ?? "").localeCompare(b.album ?? ""));
-      return { artist_id: args.artistId, artist_name: artist.canonicalName, tracks };
-    }
-
-    // Build enriched catalog from canonical tracks
+    // Build album-grouped catalog
     const tracks: {
       id: string;
       title: string;
@@ -183,63 +128,88 @@ export const getCatalog = query({
       providers: string[];
     }[] = [];
 
-    for (const ct of canonicalTracks) {
-      // Get album info
-      let albumTitle: string | null = null;
-      let albumCover: string | null = null;
-      let year: number | null = null;
-      if (ct.albumId) {
-        const album = await ctx.db.get(ct.albumId);
-        if (album) {
-          albumTitle = album.title;
-          year = album.releaseDate
-            ? new Date(album.releaseDate).getFullYear()
-            : null;
-          albumCover =
-            (album.metadata as Record<string, any>)?.coverUrl ?? null;
+    // Fetch tracks per album (much more efficient than scanning all tracks)
+    for (const link of albumLinks) {
+      const album = await ctx.db.get(link.albumId);
+      if (!album) continue;
+
+      const albumMeta = (album.metadata ?? {}) as Record<string, any>;
+      const albumCover = albumMeta.coverUrl ?? null;
+      const year = album.releaseDate
+        ? new Date(album.releaseDate).getFullYear()
+        : null;
+
+      const albumTracks = await ctx.db
+        .query("tracks")
+        .withIndex("by_albumId", (q) => q.eq("albumId", album._id))
+        .take(100);
+
+      for (const ct of albumTracks) {
+        // Parse featuring artists from track title
+        const collaborators: string[] = [];
+        const featMatch = ct.title.match(
+          /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,
+        );
+        if (featMatch) {
+          collaborators.push(
+            ...featMatch[1].split(/[,&]/).map((s: string) => s.trim()).filter(Boolean),
+          );
         }
+
+        tracks.push({
+          id: ct._id,
+          title: ct.title,
+          album: album.title,
+          albumCover,
+          role: "main",
+          year,
+          isBlocked: false,
+          collaborators,
+          duration: ct.duration ? `${Math.floor(ct.duration / 60000)}:${String(Math.floor((ct.duration % 60000) / 1000)).padStart(2, "0")}` : null,
+          providers: [],
+        });
       }
-
-      // Get which providers the user has this track on
-      const libraryEntries = await ctx.db
-        .query("userLibraryTracks")
-        .withIndex("by_canonicalTrackId", (q) =>
-          q.eq("canonicalTrackId", ct._id),
-        )
-        .collect();
-      const userEntries = libraryEntries.filter((e) => e.userId === user._id);
-      const providers = [...new Set(userEntries.map((e) => e.provider))];
-
-      // Get collaborators from track credits
-      const credits = await ctx.db
-        .query("trackCredits")
-        .withIndex("by_trackId", (q) => q.eq("trackId", ct._id))
-        .collect();
-      const collaborators = credits
-        .filter((c) => c.artistId !== args.artistId && c.role === "featured")
-        .map((c) => c.creditedName);
-
-      const mainCredit = credits.find(
-        (c) => c.artistId === args.artistId,
-      );
-
-      tracks.push({
-        id: ct._id,
-        title: ct.title,
-        album: albumTitle,
-        albumCover,
-        role: mainCredit?.role ?? "main",
-        year,
-        isBlocked: false,
-        collaborators,
-        duration: (ct.metadata as Record<string, any>)?.duration ?? null,
-        providers,
-      });
     }
 
+    // If no albums found, fall back to tracks by artistId (limited)
+    if (tracks.length === 0) {
+      const directTracks = await ctx.db
+        .query("tracks")
+        .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
+        .take(200);
+
+      for (const ct of directTracks) {
+        let albumTitle: string | null = null;
+        let albumCover: string | null = null;
+        let year: number | null = null;
+        if (ct.albumId) {
+          const album = await ctx.db.get(ct.albumId);
+          if (album) {
+            albumTitle = album.title;
+            year = album.releaseDate ? new Date(album.releaseDate).getFullYear() : null;
+            albumCover = (album.metadata as Record<string, any>)?.coverUrl ?? null;
+          }
+        }
+
+        tracks.push({
+          id: ct._id,
+          title: ct.title,
+          album: albumTitle,
+          albumCover,
+          role: "main",
+          year,
+          isBlocked: false,
+          collaborators: [],
+          duration: ct.duration ? `${Math.floor(ct.duration / 60000)}:${String(Math.floor((ct.duration % 60000) / 1000)).padStart(2, "0")}` : null,
+          providers: [],
+        });
+      }
+    }
+
+    // Sort by year (newest first), then album name
     tracks.sort((a, b) => {
-      const albumCmp = (a.album ?? "").localeCompare(b.album ?? "");
-      return albumCmp !== 0 ? albumCmp : a.title.localeCompare(b.title);
+      const yearCmp = (b.year ?? 0) - (a.year ?? 0);
+      return yearCmp !== 0 ? yearCmp : (a.album ?? "").localeCompare(b.album ?? "");
     });
 
     return {

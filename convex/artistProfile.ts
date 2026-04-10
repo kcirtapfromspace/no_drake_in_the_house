@@ -225,45 +225,41 @@ export const getCredits = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
-    const { user } = await requireCurrentUser(ctx);
+    await requireCurrentUser(ctx);
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
-    // Build credits from userLibraryTracks by parsing featuring artists
-    const libraryTracks = await ctx.db
-      .query("userLibraryTracks")
+    // Get all tracks where this artist is credited (from golden catalog)
+    const artistCredits = await ctx.db
+      .query("trackCredits")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
+      .take(500);
 
-    const userTracks = libraryTracks.filter((t) => t.userId === user._id);
-
-    // Extract collaborators from track names and deduplicate
+    // For each track, find OTHER credited artists (collaborators)
     const collabMap = new Map<
       string,
-      { name: string; trackCount: number; isFlagged: boolean; imageUrl: string | null }
+      { name: string; role: string; trackCount: number; isFlagged: boolean; imageUrl: string | null }
     >();
 
-    for (const t of userTracks) {
-      if (!t.trackName) continue;
-      // Parse "feat.", "ft.", "featuring", "with", "&" patterns
-      const featMatch = t.trackName.match(
-        /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,
-      );
-      if (!featMatch) continue;
+    for (const credit of artistCredits) {
+      // Get other credits on this track
+      const otherCredits = await ctx.db
+        .query("trackCredits")
+        .withIndex("by_trackId", (q) => q.eq("trackId", credit.trackId))
+        .collect();
 
-      const names = featMatch[1]
-        .split(/[,&]/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+      for (const other of otherCredits) {
+        // Skip self
+        if (other.creditedName.toLowerCase() === artist.canonicalName.toLowerCase()) continue;
 
-      for (const name of names) {
-        const key = name.toLowerCase();
+        const key = other.creditedName.toLowerCase();
         const existing = collabMap.get(key);
         if (existing) {
           existing.trackCount++;
         } else {
           collabMap.set(key, {
-            name,
+            name: other.creditedName,
+            role: other.role,
             trackCount: 1,
             isFlagged: false,
             imageUrl: null,
@@ -272,19 +268,37 @@ export const getCredits = query({
       }
     }
 
-    // Convert to sorted arrays
-    const writers = [...collabMap.entries()]
-      .map(([key, entry]) => ({
+    // Split into writers (collaborators/featured) and producers
+    const writers: {
+      id: string;
+      name: string;
+      role: string;
+      track_count: number;
+      is_flagged: boolean;
+      image_url: string | null;
+    }[] = [];
+    const producers: typeof writers = [];
+
+    for (const [key, entry] of collabMap) {
+      const item = {
         id: `name:${key}`,
         name: entry.name,
-        role: "collaborator",
+        role: entry.role,
         track_count: entry.trackCount,
         is_flagged: entry.isFlagged,
         image_url: entry.imageUrl,
-      }))
-      .sort((a, b) => b.track_count - a.track_count);
+      };
+      if (entry.role === "producer") {
+        producers.push(item);
+      } else {
+        writers.push(item);
+      }
+    }
 
-    return { writers, producers: [] };
+    writers.sort((a, b) => b.track_count - a.track_count);
+    producers.sort((a, b) => b.track_count - a.track_count);
+
+    return { writers, producers };
   },
 });
 

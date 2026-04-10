@@ -43,7 +43,7 @@ function normalizeAlbumKey(albumName: string): string {
 export const _getUnresolvedTracks = internalQuery({
   args: { limit: v.number() },
   handler: async (ctx, args) => {
-    // Scan tracks without canonicalTrackId — use the index to find nulls
+    // Use the canonicalTrackId index to find unresolved tracks (null values)
     const results: Array<{
       _id: Id<"userLibraryTracks">;
       trackName: string;
@@ -54,8 +54,12 @@ export const _getUnresolvedTracks = internalQuery({
       providerTrackId: string;
     }> = [];
 
-    for await (const track of ctx.db.query("userLibraryTracks")) {
-      if (track.canonicalTrackId) continue;
+    // Query tracks where canonicalTrackId is undefined (not yet resolved)
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_canonicalTrackId", (q) =>
+        q.eq("canonicalTrackId", undefined as any),
+      )) {
       if (!track.trackName) continue;
 
       results.push({

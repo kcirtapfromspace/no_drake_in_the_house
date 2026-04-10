@@ -649,7 +649,7 @@ pub async fn get_pipeline_status_handler(
                 "twitter_enabled": false,
                 "reddit_enabled": true,
                 "wikipedia_enabled": true,
-                "web_search_enabled": std::env::var("BRAVE_SEARCH_API_KEY").is_ok()
+                "web_search_enabled": std::env::var("FIRECRAWL_API_KEY").is_ok() || std::env::var("BRAVE_SEARCH_API_KEY").is_ok()
             }
         }
     })))
@@ -1182,7 +1182,10 @@ pub async fn trigger_research_handler(
             researcher = researcher.with_news_pipeline(pipeline);
         }
 
-        match researcher.research_artist(artist_id, &name_for_task, convex_artist_id.as_deref()).await {
+        match researcher
+            .research_artist(artist_id, &name_for_task, convex_artist_id.as_deref())
+            .await
+        {
             Ok(result) => {
                 tracing::info!(
                     artist = name_for_task,

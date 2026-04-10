@@ -239,7 +239,7 @@ impl ArtistResearcher {
             }
         }
 
-        // ── Step 2: Brave Search (free, within monthly quota) ──
+        // ── Step 2: Web Search via Firecrawl (free tier, within budget) ──
         if let Some(search) = &self.web_search_client {
             if self.free_tier_budget.can_use_brave() {
                 match search.search_artist_controversies(artist_name).await {
@@ -265,17 +265,17 @@ impl ArtistResearcher {
                             artist = artist_name,
                             articles = count,
                             remaining = self.free_tier_budget.brave_remaining(),
-                            "Brave Search done"
+                            "Firecrawl search done"
                         );
                     }
                     Err(e) => {
-                        tracing::warn!(artist = artist_name, error = %e, "Brave Search failed");
+                        tracing::warn!(artist = artist_name, error = %e, "Firecrawl search failed");
                     }
                 }
             } else {
                 tracing::debug!(
                     artist = artist_name,
-                    "Brave Search skipped — monthly quota exhausted"
+                    "Web search skipped — budget exhausted"
                 );
             }
         }

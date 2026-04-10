@@ -229,41 +229,48 @@ export const getCredits = query({
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
-    // Get all tracks where this artist is credited (from golden catalog)
-    const artistCredits = await ctx.db
-      .query("trackCredits")
+    // Get tracks for this artist via albums (same efficient pattern as getCatalog)
+    const albumLinks = await ctx.db
+      .query("albumArtists")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .take(500);
+      .take(100);
 
-    // For each track, find OTHER credited artists (collaborators)
+    // For each album's tracks, collect all credited collaborators
     const collabMap = new Map<
       string,
       { name: string; role: string; trackCount: number; isFlagged: boolean; imageUrl: string | null }
     >();
 
-    for (const credit of artistCredits) {
-      // Get other credits on this track
-      const otherCredits = await ctx.db
-        .query("trackCredits")
-        .withIndex("by_trackId", (q) => q.eq("trackId", credit.trackId))
-        .collect();
+    const artistNameLower = artist.canonicalName.toLowerCase();
 
-      for (const other of otherCredits) {
-        // Skip self
-        if (other.creditedName.toLowerCase() === artist.canonicalName.toLowerCase()) continue;
+    for (const link of albumLinks) {
+      const albumTracks = await ctx.db
+        .query("tracks")
+        .withIndex("by_albumId", (q) => q.eq("albumId", link.albumId))
+        .take(50);
 
-        const key = other.creditedName.toLowerCase();
-        const existing = collabMap.get(key);
-        if (existing) {
-          existing.trackCount++;
-        } else {
-          collabMap.set(key, {
-            name: other.creditedName,
-            role: other.role,
-            trackCount: 1,
-            isFlagged: false,
-            imageUrl: null,
-          });
+      for (const track of albumTracks) {
+        const credits = await ctx.db
+          .query("trackCredits")
+          .withIndex("by_trackId", (q) => q.eq("trackId", track._id))
+          .collect();
+
+        for (const credit of credits) {
+          if (credit.creditedName.toLowerCase() === artistNameLower) continue;
+
+          const key = credit.creditedName.toLowerCase();
+          const existing = collabMap.get(key);
+          if (existing) {
+            existing.trackCount++;
+          } else {
+            collabMap.set(key, {
+              name: credit.creditedName,
+              role: credit.role,
+              trackCount: 1,
+              isFlagged: false,
+              imageUrl: null,
+            });
+          }
         }
       }
     }

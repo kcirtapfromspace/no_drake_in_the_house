@@ -61,4 +61,11 @@ crons.daily(
   internal.catalogResolver.resolveAll,
 );
 
+// Enrich artist catalogs from Spotify (full discographies).
+crons.daily(
+  "enrich-artist-catalogs",
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.catalogEnrichment.enrichBatch,
+);
+
 export default crons;

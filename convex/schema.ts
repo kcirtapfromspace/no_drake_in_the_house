@@ -70,6 +70,7 @@ export default defineSchema({
     researchQualityScore: v.optional(v.number()),
     sourcesSearched: v.optional(v.array(v.string())),
     researchIterations: v.optional(v.number()),
+    catalogEnrichedAt: v.optional(v.string()),
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_legacyArtistId", ["legacyArtistId"])
@@ -414,6 +415,8 @@ export default defineSchema({
     tidalId: v.optional(v.string()),
     deezerId: v.optional(v.string()),
     isrc: v.optional(v.string()),
+    duration: v.optional(v.number()),
+    trackNumber: v.optional(v.number()),
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])

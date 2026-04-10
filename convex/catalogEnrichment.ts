@@ -364,8 +364,10 @@ export const enrichArtist = internalAction({
     let offset = 0;
 
     while (true) {
-      const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?include_groups=album%2Csingle%2Ccompilation&limit=20&offset=${offset}`;
+      const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?limit=20&offset=${offset}`;
+      console.log(`[CatalogEnrichment] Fetching: ${url}`);
       const res = await spotifyFetch(url, accessToken);
+      console.log(`[CatalogEnrichment] Response status: ${res.status}`);
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");
         console.error(`[CatalogEnrichment] Spotify albums ${res.status} for ${artist.canonicalName}: ${errBody.slice(0, 300)}`);

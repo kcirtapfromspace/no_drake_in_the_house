@@ -365,9 +365,14 @@ export const enrichArtist = internalAction({
     let offset = 0;
 
     while (true) {
-      const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?limit=20&offset=${offset}`;
+      // Use a plain fetch instead of spotifyFetch to debug the 400 issue
+      const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?offset=${offset}`;
       console.log(`[CatalogEnrichment] Fetching: ${url}`);
-      const res = await spotifyFetch(url, accessToken);
+      const res = await fetch(url, {
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+        },
+      });
       console.log(`[CatalogEnrichment] Response status: ${res.status}`);
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");

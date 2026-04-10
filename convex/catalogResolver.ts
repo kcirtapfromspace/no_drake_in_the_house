@@ -354,7 +354,7 @@ export const resolveAll = internalAction({
         const result = await ctx.runMutation(
           internal.catalogResolver._resolveTrackBatch,
           {
-            tracks: unresolved.map((t) => ({
+            tracks: unresolved.map((t: { _id: Id<"userLibraryTracks">; trackName: string; albumName: string; artistName: string; artistId: string | null; provider: string; providerTrackId: string }) => ({
               libraryTrackId: t._id,
               trackName: t.trackName,
               albumName: t.albumName,

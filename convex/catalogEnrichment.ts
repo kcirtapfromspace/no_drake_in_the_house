@@ -471,27 +471,28 @@ export const enrichArtist = internalAction({
 /** Batch enrich unenriched artists. */
 export const enrichBatch = internalAction({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ enriched: number; total: number }> => {
     const BATCH_SIZE = 10;
-    const artists = await ctx.runQuery(
-      internal.catalogEnrichment._getUnenrichedArtists,
-      { limit: BATCH_SIZE },
-    );
+    const artists: Array<{ _id: Id<"artists">; canonicalName: string; spotifyId: string | null }> =
+      await ctx.runQuery(
+        internal.catalogEnrichment._getUnenrichedArtists,
+        { limit: BATCH_SIZE },
+      );
 
     if (artists.length === 0) {
       console.log("[CatalogEnrichment] No unenriched artists found");
-      return { enriched: 0 };
+      return { enriched: 0, total: 0 };
     }
 
     let enriched = 0;
     for (const artist of artists) {
       try {
-        await ctx.runAction(internal.catalogEnrichment.enrichArtist, {
+        await ctx.scheduler.runAfter(enriched * 5000, internal.catalogEnrichment.enrichArtist, {
           artistId: artist._id,
         });
         enriched++;
       } catch (e: any) {
-        console.error(`[CatalogEnrichment] Failed for ${artist.canonicalName}: ${e.message}`);
+        console.error(`[CatalogEnrichment] Failed to schedule ${artist.canonicalName}: ${e.message}`);
       }
     }
 

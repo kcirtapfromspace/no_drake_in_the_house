@@ -39,11 +39,14 @@ function normalizeAlbumKey(albumName: string): string {
 // Internal queries
 // ---------------------------------------------------------------------------
 
-/** Get a batch of userLibraryTracks that have no canonicalTrackId set. */
+/** Get a batch of userLibraryTracks that have no canonicalTrackId set.
+ *  Uses cursor-based pagination to avoid bandwidth limits on full scans. */
 export const _getUnresolvedTracks = internalQuery({
-  args: { limit: v.number() },
+  args: {
+    limit: v.number(),
+    afterId: v.optional(v.id("userLibraryTracks")),
+  },
   handler: async (ctx, args) => {
-    // Use the canonicalTrackId index to find unresolved tracks (null values)
     const results: Array<{
       _id: Id<"userLibraryTracks">;
       trackName: string;
@@ -54,12 +57,21 @@ export const _getUnresolvedTracks = internalQuery({
       providerTrackId: string;
     }> = [];
 
-    // Query tracks where canonicalTrackId is undefined (not yet resolved)
-    for await (const track of ctx.db
-      .query("userLibraryTracks")
-      .withIndex("by_canonicalTrackId", (q) =>
-        q.eq("canonicalTrackId", undefined as any),
-      )) {
+    let scanned = 0;
+    const MAX_SCAN = 2000; // scan up to 2000 docs per call to stay under bandwidth
+
+    for await (const track of ctx.db.query("userLibraryTracks")) {
+      // Skip past cursor
+      if (args.afterId && scanned === 0) {
+        if (track._id !== args.afterId) continue;
+        scanned++;
+        continue; // skip the cursor doc itself
+      }
+
+      scanned++;
+      if (scanned > MAX_SCAN) break;
+
+      if (track.canonicalTrackId) continue;
       if (!track.trackName) continue;
 
       results.push({
@@ -276,7 +288,7 @@ export const resolveAll = internalAction({
     while (Date.now() - startTime < MAX_RUNTIME_MS) {
       const unresolved = await ctx.runQuery(
         internal.catalogResolver._getUnresolvedTracks,
-        { limit: BATCH_SIZE },
+        { limit: BATCH_SIZE, afterId: undefined },
       );
 
       if (unresolved.length === 0) break;

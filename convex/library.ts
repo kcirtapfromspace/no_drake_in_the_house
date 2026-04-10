@@ -460,18 +460,8 @@ export const listPlaylists = query({
   handler: async (ctx: QueryCtx, args) => {
     const { user } = await requireCurrentUser(ctx);
 
-    // First pass: async-iterate tracks to build lightweight playlist groups
-    // (only keep the fields we need, not full documents)
-    const tracksQuery = args.provider
-      ? ctx.db
-          .query("userLibraryTracks")
-          .withIndex("by_user_provider", (q) =>
-            q.eq("userId", user._id).eq("provider", args.provider!),
-          )
-      : ctx.db
-          .query("userLibraryTracks")
-          .withIndex("by_userId", (q) => q.eq("userId", user._id));
-
+    // Build lightweight playlist groups by scanning per-provider
+    // to stay within the 16MB byte read limit.
     type TrackSlim = {
       artistId: string | undefined;
       artistName: string | undefined;
@@ -483,23 +473,38 @@ export const listPlaylists = query({
     >();
     const playlistArtistIds = new Set<string>();
 
-    for await (const track of tracksQuery) {
-      if (!track.playlistName) continue;
-      const key = `${track.provider}::${track.playlistName}`;
-      if (!groups.has(key)) {
-        groups.set(key, {
-          provider: track.provider,
-          playlistName: track.playlistName,
-          tracks: [],
+    // Determine which providers to scan
+    const providers = args.provider
+      ? [args.provider]
+      : await ctx.db
+          .query("providerConnections")
+          .withIndex("by_userId", (q) => q.eq("userId", user._id))
+          .take(20)
+          .then((conns) => conns.map((c) => c.provider));
+
+    for (const provider of providers) {
+      for await (const track of ctx.db
+        .query("userLibraryTracks")
+        .withIndex("by_user_provider", (q) =>
+          q.eq("userId", user._id).eq("provider", provider),
+        )) {
+        if (!track.playlistName) continue;
+        const key = `${track.provider}::${track.playlistName}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            provider: track.provider,
+            playlistName: track.playlistName,
+            tracks: [],
+          });
+        }
+        const aid = track.artistId as string | undefined;
+        groups.get(key)!.tracks.push({
+          artistId: aid,
+          artistName: track.artistName,
+          lastSyncedAt: track.lastSyncedAt,
         });
+        if (aid) playlistArtistIds.add(aid);
       }
-      const aid = track.artistId as string | undefined;
-      groups.get(key)!.tracks.push({
-        artistId: aid,
-        artistName: track.artistName,
-        lastSyncedAt: track.lastSyncedAt,
-      });
-      if (aid) playlistArtistIds.add(aid);
     }
 
     // Batch-lookup offending artist IDs
@@ -521,7 +526,7 @@ export const listPlaylists = query({
     const userBlocks = await ctx.db
       .query("userArtistBlocks")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+      .take(500);
     const blockedArtistIds = new Set(
       userBlocks.map((b) => b.artistId as string),
     );
@@ -624,7 +629,7 @@ export const getPlaylistTracks = query({
     const userBlocks = await ctx.db
       .query("userArtistBlocks")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect();
+      .take(500);
     const blockedArtistIds = new Set(
       userBlocks.map((b) => b.artistId as string),
     );

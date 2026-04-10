@@ -54,4 +54,11 @@ crons.daily(
   internal.evidenceFinder.dailyInvestigation,
 );
 
+// Canonicalize any unresolved library tracks into the golden record catalog.
+crons.daily(
+  "resolve-catalog-golden-records",
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.catalogResolver.resolveAll,
+);
+
 export default crons;

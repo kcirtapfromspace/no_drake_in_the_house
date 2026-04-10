@@ -327,7 +327,6 @@ export const enrichArtist = internalAction({
 
     // 2. Get Spotify token via client credentials (no user auth needed)
     const accessToken = await getSpotifyClientToken();
-    console.log(`[CatalogEnrichment] Token obtained: ${accessToken ? `${accessToken.slice(0, 10)}... (${accessToken.length} chars)` : 'null'}`);
     if (!accessToken) {
       console.log("[CatalogEnrichment] Could not get Spotify client credentials token — check SPOTIFY_CLIENT_ID/SECRET env vars");
       return { status: "no_token" };
@@ -365,15 +364,10 @@ export const enrichArtist = internalAction({
     let offset = 0;
 
     while (true) {
-      // Use a plain fetch instead of spotifyFetch to debug the 400 issue
       const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?offset=${offset}`;
-      console.log(`[CatalogEnrichment] Fetching: ${url}`);
       const res = await fetch(url, {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-        },
+        headers: { "Authorization": `Bearer ${accessToken}` },
       });
-      console.log(`[CatalogEnrichment] Response status: ${res.status}`);
       if (!res.ok) {
         const errBody = await res.text().catch(() => "");
         console.error(`[CatalogEnrichment] Spotify albums ${res.status} for ${artist.canonicalName}: ${errBody.slice(0, 300)}`);
@@ -383,8 +377,8 @@ export const enrichArtist = internalAction({
       const albums = data.items ?? [];
       allAlbums.push(...albums);
 
-      if (!data.next || albums.length < 20) break;
-      offset += 20;
+      if (!data.next) break;
+      offset += albums.length;
     }
 
     console.log(`[CatalogEnrichment] ${artist.canonicalName}: ${allAlbums.length} albums found`);

@@ -74,6 +74,7 @@ export default defineSchema({
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_legacyArtistId", ["legacyArtistId"])
+    .index("by_lastInvestigatedAt", ["lastInvestigatedAt"])
     .searchIndex("search_canonicalName", {
       searchField: "canonicalName",
     }),

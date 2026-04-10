@@ -533,42 +533,33 @@ export const _getArtistsByInvestigationAge = internalQuery({
     ).toISOString();
     const limit = args.limit ?? BATCH_SIZE;
 
-    // Use async iteration instead of .collect() to avoid loading entire
-    // artists table into memory. Stop early once we have enough candidates.
-    const neverInvestigated: Array<{
-      artistId: Id<"artists">;
-      canonicalName: string;
-      lastInvestigatedAt: string | null;
-    }> = [];
-    const stale: Array<{
+    // Use the by_lastInvestigatedAt index to avoid full table scans.
+    // Convex sorts undefined values first, so ascending order gives us:
+    //   1. Never-investigated artists (lastInvestigatedAt = undefined)
+    //   2. Oldest-investigated artists
+    // We take a small batch and filter out recently investigated ones.
+    const candidates: Array<{
       artistId: Id<"artists">;
       canonicalName: string;
       lastInvestigatedAt: string | null;
     }> = [];
 
-    for await (const a of ctx.db.query("artists")) {
-      if (!a.lastInvestigatedAt) {
-        neverInvestigated.push({
-          artistId: a._id,
-          canonicalName: a.canonicalName,
-          lastInvestigatedAt: null,
-        });
-      } else if (a.lastInvestigatedAt < cutoff) {
-        stale.push({
-          artistId: a._id,
-          canonicalName: a.canonicalName,
-          lastInvestigatedAt: a.lastInvestigatedAt,
-        });
-      }
-      // Stop scanning once we have more than enough candidates
-      if (neverInvestigated.length >= limit && stale.length >= limit) break;
+    for await (const a of ctx.db
+      .query("artists")
+      .withIndex("by_lastInvestigatedAt")
+      .order("asc")) {
+      // Skip recently investigated artists
+      if (a.lastInvestigatedAt && a.lastInvestigatedAt >= cutoff) break;
+
+      candidates.push({
+        artistId: a._id,
+        canonicalName: a.canonicalName,
+        lastInvestigatedAt: a.lastInvestigatedAt ?? null,
+      });
+      if (candidates.length >= limit) break;
     }
 
-    // Priority: never investigated first, then oldest stale
-    stale.sort((a, b) =>
-      (a.lastInvestigatedAt ?? "").localeCompare(b.lastInvestigatedAt ?? ""),
-    );
-    return [...neverInvestigated, ...stale].slice(0, limit);
+    return candidates;
   },
 });
 

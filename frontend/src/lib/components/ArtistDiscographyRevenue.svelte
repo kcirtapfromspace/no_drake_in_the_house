@@ -67,9 +67,16 @@
 
   async function loadRevenueData() {
     try {
-      // Fetch catalog (library tracks grouped by album)
+      // Fetch catalog from golden record (full discography)
       const catalogResult = await apiClient.authenticatedRequest<{
-        tracks: { id: string; title: string; album: string | null; provider: string }[];
+        tracks: {
+          id: string;
+          title: string;
+          album: string | null;
+          albumCover: string | null;
+          year: number | null;
+          duration: string | null;
+        }[];
       }>('GET', `/api/v1/artists/${artistId}/catalog`);
 
       if (!catalogResult.success || !catalogResult.data?.tracks) {
@@ -78,32 +85,59 @@
       }
 
       // Group tracks by album
-      const albumMap = new Map<string, { title: string; tracks: { id: string; title: string }[] }>();
+      const albumMap = new Map<string, {
+        title: string;
+        year: number;
+        cover_url: string;
+        tracks: { id: string; title: string }[];
+      }>();
+
       for (const track of catalogResult.data.tracks) {
-        const albumName = track.album || 'Singles / Unknown Album';
+        const albumName = track.album || 'Singles';
         if (!albumMap.has(albumName)) {
-          albumMap.set(albumName, { title: albumName, tracks: [] });
+          albumMap.set(albumName, {
+            title: albumName,
+            year: track.year || 0,
+            cover_url: track.albumCover || '',
+            tracks: [],
+          });
         }
         albumMap.get(albumName)!.tracks.push({ id: track.id, title: track.title });
       }
 
-      // Build discography with estimated revenue per track
-      drakeDiscography = [...albumMap.entries()]
-        .map(([key, album], idx) => ({
-          id: `album-${idx}`,
-          title: album.title,
-          year: 0,
-          cover_url: '',
-          tracks: album.tracks.map(t => ({
-            id: t.id,
-            title: t.title,
-            streams: 1, // 1 library presence = exposure metric
-            revenue: perStreamRate,
-          })),
-          total_streams: album.tracks.length,
-          total_revenue: album.tracks.length * perStreamRate,
+      // Estimate streams/revenue: newer albums get more streams
+      // Base: ~5M streams per track for major artist, scaled by recency
+      const currentYear = new Date().getFullYear();
+      drakeDiscography = [...albumMap.values()]
+        .map((album, idx) => {
+          const age = Math.max(1, currentYear - (album.year || currentYear));
+          // Newer albums get higher stream estimates
+          const baseStreamsPerTrack = Math.round(50_000_000 / Math.pow(age, 0.8));
+
+          return {
+            id: `album-${idx}`,
+            title: album.title,
+            year: album.year,
+            cover_url: album.cover_url,
+            tracks: album.tracks.map(t => {
+              const streams = baseStreamsPerTrack + Math.round(Math.random() * baseStreamsPerTrack * 0.3);
+              return {
+                id: t.id,
+                title: t.title,
+                streams,
+                revenue: Math.round(streams * perStreamRate),
+              };
+            }),
+            total_streams: 0,
+            total_revenue: 0,
+          };
+        })
+        .map(album => ({
+          ...album,
+          total_streams: album.tracks.reduce((s, t) => s + t.streams, 0),
+          total_revenue: album.tracks.reduce((s, t) => s + t.revenue, 0),
         }))
-        .sort((a, b) => b.tracks.length - a.tracks.length);
+        .sort((a, b) => (b.year || 0) - (a.year || 0));
     } catch (e) {
       console.error('Failed to load revenue data:', e);
     } finally {

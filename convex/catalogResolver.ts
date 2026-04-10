@@ -85,14 +85,16 @@ export const _getUnresolvedTracks = internalQuery({
 
 /** Debug: find all artist name variations containing a substring. */
 export const _findArtistNameVariations = internalQuery({
-  args: { userId: v.id("users"), search: v.string() },
+  args: { userId: v.id("users"), provider: v.string(), search: v.string() },
   handler: async (ctx, args) => {
     const searchLower = args.search.toLowerCase();
     const variations = new Map<string, number>();
 
     for await (const track of ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
       const name = track.artistName ?? "";
       if (name.toLowerCase().includes(searchLower)) {
         variations.set(name, (variations.get(name) ?? 0) + 1);

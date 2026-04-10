@@ -40,10 +40,12 @@ function normalizeAlbumKey(albumName: string): string {
 // ---------------------------------------------------------------------------
 
 /** Get a batch of userLibraryTracks that have no canonicalTrackId set.
- *  Uses cursor-based pagination to avoid bandwidth limits on full scans. */
+ *  Scans per-provider to stay within bandwidth limits. */
 export const _getUnresolvedTracks = internalQuery({
   args: {
     limit: v.number(),
+    userId: v.id("users"),
+    provider: v.string(),
   },
   handler: async (ctx, args) => {
     const results: Array<{
@@ -58,7 +60,9 @@ export const _getUnresolvedTracks = internalQuery({
 
     for await (const track of ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId")) {
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
       if (track.canonicalTrackId) continue;
       if (!track.trackName) continue;
 
@@ -73,6 +77,25 @@ export const _getUnresolvedTracks = internalQuery({
       });
 
       if (results.length >= args.limit) break;
+    }
+
+    return results;
+  },
+});
+
+/** Get all user+provider combinations that have library tracks. */
+export const _getUserProviders = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const seen = new Set<string>();
+    const results: Array<{ userId: Id<"users">; provider: string }> = [];
+
+    for await (const track of ctx.db.query("userLibraryTracks")) {
+      const key = `${track.userId}:${track.provider}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({ userId: track.userId, provider: track.provider });
+      if (seen.size >= 50) break; // safety limit
     }
 
     return results;
@@ -273,39 +296,48 @@ export const resolveAll = internalAction({
     const startTime = Date.now();
     const MAX_RUNTIME_MS = 20 * 60 * 1000; // 20 min safety margin
 
-    while (Date.now() - startTime < MAX_RUNTIME_MS) {
-      const unresolved = await ctx.runQuery(
-        internal.catalogResolver._getUnresolvedTracks,
-        { limit: BATCH_SIZE },
-      );
+    // Get all user+provider combinations
+    const userProviders = await ctx.runQuery(
+      internal.catalogResolver._getUserProviders,
+      {},
+    );
 
-      if (unresolved.length === 0) break;
+    for (const { userId, provider } of userProviders) {
+      console.log(`[CatalogResolver] Processing ${provider} for user ${userId}`);
 
-      const result = await ctx.runMutation(
-        internal.catalogResolver._resolveTrackBatch,
-        {
-          tracks: unresolved.map((t) => ({
-            libraryTrackId: t._id,
-            trackName: t.trackName,
-            albumName: t.albumName,
-            artistName: t.artistName,
-            artistId: t.artistId ?? undefined,
-            provider: t.provider,
-            providerTrackId: t.providerTrackId,
-          })),
-        },
-      );
+      while (Date.now() - startTime < MAX_RUNTIME_MS) {
+        const unresolved = await ctx.runQuery(
+          internal.catalogResolver._getUnresolvedTracks,
+          { limit: BATCH_SIZE, userId, provider },
+        );
 
-      totalCreated += result.created;
-      totalLinked += result.linked;
-      rounds++;
+        if (unresolved.length === 0) break;
 
-      console.log(
-        `[CatalogResolver] Round ${rounds}: ${result.created} created, ${result.linked} linked, ${result.albumsCreated} albums (${unresolved.length} processed)`,
-      );
+        const result = await ctx.runMutation(
+          internal.catalogResolver._resolveTrackBatch,
+          {
+            tracks: unresolved.map((t) => ({
+              libraryTrackId: t._id,
+              trackName: t.trackName,
+              albumName: t.albumName,
+              artistName: t.artistName,
+              artistId: t.artistId ?? undefined,
+              provider: t.provider,
+              providerTrackId: t.providerTrackId,
+            })),
+          },
+        );
 
-      // If we got fewer than batch size, we're done
-      if (unresolved.length < BATCH_SIZE) break;
+        totalCreated += result.created;
+        totalLinked += result.linked;
+        rounds++;
+
+        console.log(
+          `[CatalogResolver] Round ${rounds}: ${result.created} created, ${result.linked} linked, ${result.albumsCreated} albums (${unresolved.length} processed)`,
+        );
+
+        if (unresolved.length < BATCH_SIZE) break;
+      }
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

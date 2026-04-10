@@ -384,7 +384,8 @@ export const enrichArtist = internalAction({
       const url = `https://api.spotify.com/v1/artists/${spotifyArtistId}/albums?include_groups=album,single,compilation&limit=${SPOTIFY_PAGE_SIZE}&offset=${offset}`;
       const res = await spotifyFetch(url, accessToken);
       if (!res.ok) {
-        console.error(`[CatalogEnrichment] Spotify albums ${res.status} for ${artist.canonicalName}`);
+        const errBody = await res.text().catch(() => "");
+        console.error(`[CatalogEnrichment] Spotify albums ${res.status} for ${artist.canonicalName}: ${errBody.slice(0, 300)}`);
         break;
       }
       const data = await res.json();

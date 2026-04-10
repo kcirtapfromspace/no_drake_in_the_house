@@ -83,22 +83,15 @@ export const _getUnresolvedTracks = internalQuery({
   },
 });
 
-/** Get all user+provider combinations that have library tracks. */
+/** Get all user+provider combinations from provider connections. */
 export const _getUserProviders = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const seen = new Set<string>();
-    const results: Array<{ userId: Id<"users">; provider: string }> = [];
-
-    for await (const track of ctx.db.query("userLibraryTracks")) {
-      const key = `${track.userId}:${track.provider}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      results.push({ userId: track.userId, provider: track.provider });
-      if (seen.size >= 50) break; // safety limit
-    }
-
-    return results;
+    const connections = await ctx.db.query("providerConnections").collect();
+    return connections.map((c) => ({
+      userId: c.userId,
+      provider: c.provider,
+    }));
   },
 });
 

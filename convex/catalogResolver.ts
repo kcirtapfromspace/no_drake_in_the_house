@@ -83,6 +83,28 @@ export const _getUnresolvedTracks = internalQuery({
   },
 });
 
+/** Debug: find all artist name variations containing a substring. */
+export const _findArtistNameVariations = internalQuery({
+  args: { userId: v.id("users"), search: v.string() },
+  handler: async (ctx, args) => {
+    const searchLower = args.search.toLowerCase();
+    const variations = new Map<string, number>();
+
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      const name = track.artistName ?? "";
+      if (name.toLowerCase().includes(searchLower)) {
+        variations.set(name, (variations.get(name) ?? 0) + 1);
+      }
+    }
+
+    return [...variations.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  },
+});
+
 /** Debug: count tracks with/without canonicalTrackId for a provider. */
 export const _debugCounts = internalQuery({
   args: { userId: v.id("users"), provider: v.string() },

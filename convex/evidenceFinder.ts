@@ -39,18 +39,34 @@ interface InvestigationCheckpoint {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
+/** Get a user's active provider names (small table, bounded read). */
+export const _getUserActiveProviders = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const connections = await ctx.db
+      .query("providerConnections")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .take(20);
+    return connections
+      .filter((c) => c.status === "active")
+      .map((c) => c.provider);
+  },
+});
+
 /**
- * Get unique artist IDs from a user's library tracks.
- * Only returns tracks that have an artistId resolved.
+ * Get unique artist IDs from a user's library tracks for a single provider.
+ * Scans per-provider via by_user_provider to stay within read limits.
  */
 export const _getLibraryArtistIds = internalQuery({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), provider: v.string() },
   handler: async (ctx, args) => {
     const seen = new Set<string>();
     const result: string[] = [];
     for await (const track of ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
       if (track.artistId && !seen.has(track.artistId as string)) {
         seen.add(track.artistId as string);
         result.push(track.artistId as string);
@@ -65,12 +81,14 @@ export const _getLibraryArtistIds = internalQuery({
  * Returns { name, count } pairs sorted by track count descending.
  */
 export const _getUnresolvedArtistNames = internalQuery({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), provider: v.string() },
   handler: async (ctx, args) => {
     const nameCounts = new Map<string, number>();
     for await (const track of ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
       if (!track.artistId && track.artistName) {
         const name = track.artistName;
         nameCounts.set(name, (nameCounts.get(name) ?? 0) + 1);
@@ -262,39 +280,52 @@ export const investigateLibraryArtists = internalAction({
     try {
       // ── Phase: resolve ──────────────────────────────────────────────
       if (checkpoint.phase === "resolve") {
-        // First resolve unresolved artist names
-        const unresolved: Array<{ name: string; count: number }> =
-          await ctx.runQuery(
-            internal.evidenceFinder._getUnresolvedArtistNames,
-            { userId },
-          );
-
-        for (const { name } of unresolved) {
-          if (shouldPause()) {
-            await saveCheckpoint();
-            await ctx.scheduler.runAfter(
-              0,
-              internal.evidenceFinder.investigateLibraryArtists,
-              { runId, userId },
-            );
-            return;
-          }
-
-          const artistId: Id<"artists"> = await ctx.runMutation(
-            internal.evidenceFinder._resolveOrCreateArtist,
-            { name },
-          );
-          await ctx.runMutation(
-            internal.evidenceFinder._linkTracksToArtist,
-            { userId, artistName: name, artistId },
-          );
-        }
-
-        // Now get all resolved artist IDs
-        const allArtistIds: string[] = await ctx.runQuery(
-          internal.evidenceFinder._getLibraryArtistIds,
+        // Get user's active providers to split scans (stays within read limits)
+        const providers: string[] = await ctx.runQuery(
+          internal.evidenceFinder._getUserActiveProviders,
           { userId },
         );
+
+        // Resolve unresolved artist names per provider
+        for (const provider of providers) {
+          const unresolved: Array<{ name: string; count: number }> =
+            await ctx.runQuery(
+              internal.evidenceFinder._getUnresolvedArtistNames,
+              { userId, provider },
+            );
+
+          for (const { name } of unresolved) {
+            if (shouldPause()) {
+              await saveCheckpoint();
+              await ctx.scheduler.runAfter(
+                0,
+                internal.evidenceFinder.investigateLibraryArtists,
+                { runId, userId },
+              );
+              return;
+            }
+
+            const artistId: Id<"artists"> = await ctx.runMutation(
+              internal.evidenceFinder._resolveOrCreateArtist,
+              { name },
+            );
+            await ctx.runMutation(
+              internal.evidenceFinder._linkTracksToArtist,
+              { userId, artistName: name, artistId },
+            );
+          }
+        }
+
+        // Get all resolved artist IDs (per provider, deduped)
+        const allArtistIdSet = new Set<string>();
+        for (const provider of providers) {
+          const ids: string[] = await ctx.runQuery(
+            internal.evidenceFinder._getLibraryArtistIds,
+            { userId, provider },
+          );
+          for (const id of ids) allArtistIdSet.add(id);
+        }
+        const allArtistIds = [...allArtistIdSet];
 
         // Filter to those needing investigation
         const needsInvestigation: string[] = await ctx.runQuery(
@@ -722,7 +753,7 @@ export const dailyInvestigation = internalMutation({
     // First, resolve any unresolved artist names from all users' library tracks
     const connections = await ctx.db
       .query("providerConnections")
-      .collect();
+      .take(500);
 
     const userIds = [
       ...new Set(

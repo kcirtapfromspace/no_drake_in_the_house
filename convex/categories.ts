@@ -31,6 +31,10 @@ export const CATEGORY_COPY: Record<string, { name: string; description: string }
     name: "Antisemitism",
     description: "Artists associated with antisemitic acts or statements.",
   },
+  homophobia: {
+    name: "Homophobia",
+    description: "Artists with documented homophobic speech or conduct.",
+  },
   violent_crime: {
     name: "Violent Crime",
     description: "Artists tied to assaults, shootings, or other violent crimes.",
@@ -43,11 +47,32 @@ export const CATEGORY_COPY: Record<string, { name: string; description: string }
     name: "Fraud",
     description: "Artists associated with fraud or financial deception cases.",
   },
+  harassment: {
+    name: "Harassment",
+    description: "Artists with documented harassment or stalking incidents.",
+  },
+  animal_cruelty: {
+    name: "Animal Cruelty",
+    description: "Artists linked to animal cruelty or abuse cases.",
+  },
   certified_creeper: {
     name: "Certified Creeper",
     description: "High-signal artists with repeated predatory behavior evidence.",
   },
 };
+
+/** Map research pipeline category names to canonical CATEGORY_COPY keys. */
+const CATEGORY_ALIASES: Record<string, string> = {
+  violent_crimes: "violent_crime",
+  financial_crimes: "fraud",
+  drug_offenses: "drug_trafficking",
+  plagiarism: "fraud",
+};
+
+function normalizeCategoryKey(raw: string): string {
+  const key = raw.toLowerCase().replace(/[\s-]+/g, "_");
+  return CATEGORY_ALIASES[key] ?? key;
+}
 
 function categoryCopy(category: string) {
   return (
@@ -70,7 +95,7 @@ export const list = query({
         .query("categorySubscriptions")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
-      ctx.db.query("artistOffenses").collect(),
+      ctx.db.query("artistOffenses").take(2000),
     ]);
 
     const subscribed = new Set(subscriptions.map((subscription) => subscription.category));
@@ -79,9 +104,10 @@ export const list = query({
     const offenseCounts = new Map<string, number>();
 
     for (const offense of offenses) {
-      offenseCounts.set(offense.category, (offenseCounts.get(offense.category) ?? 0) + 1);
-      if (!artistSets.has(offense.category)) artistSets.set(offense.category, new Set());
-      artistSets.get(offense.category)!.add(offense.artistId as string);
+      const category = normalizeCategoryKey(offense.category);
+      offenseCounts.set(category, (offenseCounts.get(category) ?? 0) + 1);
+      if (!artistSets.has(category)) artistSets.set(category, new Set());
+      artistSets.get(category)!.add(offense.artistId as string);
     }
 
     const allCategories = Object.keys(CATEGORY_COPY);
@@ -169,8 +195,10 @@ export const blockedArtists = query({
       return [];
     }
 
-    const offenses = await ctx.db.query("artistOffenses").collect();
-    const matching = offenses.filter((offense) => categories.includes(offense.category));
+    const offenses = await ctx.db.query("artistOffenses").take(2000);
+    const matching = offenses.filter((offense) =>
+      categories.includes(normalizeCategoryKey(offense.category)),
+    );
 
     const byArtist = new Map<string, typeof matching[number]>();
     for (const offense of matching) {

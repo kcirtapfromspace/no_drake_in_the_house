@@ -58,11 +58,13 @@ export const _getUnresolvedTracks = internalQuery({
       providerTrackId: string;
     }> = [];
 
+    let scanned = 0;
     for await (const track of ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
         q.eq("userId", args.userId).eq("provider", args.provider),
       )) {
+      if (++scanned > 4000) break;
       if (track.canonicalTrackId) continue;
       if (!track.trackName) continue;
 
@@ -90,11 +92,13 @@ export const _findArtistNameVariations = internalQuery({
     const searchLower = args.search.toLowerCase();
     const variations = new Map<string, number>();
 
+    let scanned = 0;
     for await (const track of ctx.db
       .query("userLibraryTracks")
       .withIndex("by_user_provider", (q) =>
         q.eq("userId", args.userId).eq("provider", args.provider),
       )) {
+      if (++scanned > 4000) break;
       const name = track.artistName ?? "";
       if (name.toLowerCase().includes(searchLower)) {
         variations.set(name, (variations.get(name) ?? 0) + 1);
@@ -132,7 +136,7 @@ export const _debugCounts = internalQuery({
 export const _getUserProviders = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const connections = await ctx.db.query("providerConnections").collect();
+    const connections = await ctx.db.query("providerConnections").take(200);
     return connections.map((c) => ({
       userId: c.userId,
       provider: c.provider,

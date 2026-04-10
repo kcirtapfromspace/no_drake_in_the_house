@@ -37,8 +37,8 @@ function computeGrade(offenderRatio: number): string {
 export const rebuildOffendingArtistIndex = internalMutation({
   args: {},
   handler: async (ctx) => {
-    // Load all offenses
-    const allOffenses = await ctx.db.query("artistOffenses").collect();
+    // Load offenses (bounded to avoid read limits)
+    const allOffenses = await ctx.db.query("artistOffenses").take(2000);
 
     // Group by artist
     const byArtist = new Map<
@@ -67,7 +67,7 @@ export const rebuildOffendingArtistIndex = internalMutation({
     }
 
     // Delete all existing index rows
-    const existingRows = await ctx.db.query("offendingArtistIndex").collect();
+    const existingRows = await ctx.db.query("offendingArtistIndex").take(2000);
     for (const row of existingRows) {
       await ctx.db.delete(row._id);
     }
@@ -106,22 +106,24 @@ export const rebuildOffendingArtistIndex = internalMutation({
 /** Minimum interval between recomputes for the same user (30 minutes). */
 const RECOMPUTE_COOLDOWN_MS = 30 * 60 * 1000;
 
-/** Phase 1: Read track data as a QUERY (no write-conflict participation). */
+/** Phase 1: Read track data per provider as a QUERY (no write-conflict participation).
+ *  Scans per-provider via by_user_provider to stay within read limits. */
 export const _readTrackArtistCounts = internalQuery({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), provider: v.string() },
   handler: async (ctx, args) => {
     const tracksByArtist = new Map<string, number>();
     let totalTrackCount = 0;
     for await (const track of ctx.db
       .query("userLibraryTracks")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))) {
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
       totalTrackCount++;
       if (track.artistId) {
         const aid = track.artistId as string;
         tracksByArtist.set(aid, (tracksByArtist.get(aid) ?? 0) + 1);
       }
     }
-    // Convert Map to plain object for serialization
     return {
       totalTrackCount,
       artistCounts: Object.fromEntries(tracksByArtist),
@@ -266,13 +268,28 @@ export const recomputeUserOffenseSummary = internalAction({
     force: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Phase 1: Read tracks as a QUERY — does not participate in OCC,
+    // Get user's active providers to split scans (stays within read limits)
+    const providers: string[] = await ctx.runQuery(
+      internal.evidenceFinder._getUserActiveProviders,
+      { userId: args.userId },
+    );
+
+    // Phase 1: Read tracks per provider then merge. Does not participate in OCC,
     // so concurrent mutations on userLibraryTracks won't conflict.
-    const trackData: { totalTrackCount: number; artistCounts: Record<string, number> } =
-      await ctx.runQuery(
-        internal.offensePipeline._readTrackArtistCounts,
-        { userId: args.userId },
-      );
+    let totalTrackCount = 0;
+    const mergedArtistCounts: Record<string, number> = {};
+    for (const provider of providers) {
+      const data: { totalTrackCount: number; artistCounts: Record<string, number> } =
+        await ctx.runQuery(
+          internal.offensePipeline._readTrackArtistCounts,
+          { userId: args.userId, provider },
+        );
+      totalTrackCount += data.totalTrackCount;
+      for (const [artistId, count] of Object.entries(data.artistCounts)) {
+        mergedArtistCounts[artistId] = (mergedArtistCounts[artistId] ?? 0) + count;
+      }
+    }
+    const trackData = { totalTrackCount, artistCounts: mergedArtistCounts };
 
     // Phase 2: Write summary — only touches userOffenseSummaries,
     // offendingArtistIndex, and artists tables. Zero reads on userLibraryTracks.
@@ -333,7 +350,7 @@ export const _getTracksByArtist = internalQuery({
     const tracks = await ctx.db
       .query("userLibraryTracks")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
+      .take(500);
     return tracks.map((t) => ({ userId: t.userId as string }));
   },
 });
@@ -350,10 +367,10 @@ export const promoteClassifications = internalMutation({
     const CONFIDENCE_THRESHOLD = 0.7;
     const now = new Date().toISOString();
 
-    // Load all classifications that are high-confidence or human-verified
+    // Load classifications (bounded to avoid read limits)
     const allClassifications = await ctx.db
       .query("newsOffenseClassifications")
-      .collect();
+      .take(2000);
 
     const eligible = allClassifications.filter(
       (c) =>
@@ -362,7 +379,7 @@ export const promoteClassifications = internalMutation({
     );
 
     // Load existing artistOffenses for dedup
-    const existingOffenses = await ctx.db.query("artistOffenses").collect();
+    const existingOffenses = await ctx.db.query("artistOffenses").take(2000);
     const offenseKeys = new Set(
       existingOffenses.map((o) => `${o.artistId}:${o.category}`),
     );
@@ -461,7 +478,7 @@ export const dailySweep = internalMutation({
   args: {},
   handler: async (ctx) => {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const allSummaries = await ctx.db.query("userOffenseSummaries").collect();
+    const allSummaries = await ctx.db.query("userOffenseSummaries").take(500);
 
     let scheduled = 0;
     for (const summary of allSummaries) {

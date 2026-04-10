@@ -40,6 +40,27 @@ export const getProfile = query({
       0,
     );
 
+    // Fetch evidence for each offense so the profile page can display sources
+    const offensesWithEvidence = await Promise.all(
+      offenses.map(async (o) => {
+        const evidence = await ctx.db
+          .query("offenseEvidence")
+          .withIndex("by_offenseId", (q) => q.eq("offenseId", o._id))
+          .take(50);
+        return {
+          id: o._id,
+          category: o.category,
+          severity: o.severity,
+          title: o.title,
+          description: o.description,
+          incident_date: o.incidentDate,
+          procedural_state: o.proceduralState,
+          status: o.status,
+          evidence,
+        };
+      }),
+    );
+
     return {
       id: artist._id,
       canonical_name: artist.canonicalName,
@@ -51,15 +72,7 @@ export const getProfile = query({
       collaboration_count: collaborations.length,
       block_count: blocks.length,
       trouble_score: troubleScore,
-      offenses: offenses.map((o) => ({
-        id: o._id,
-        category: o.category,
-        severity: o.severity,
-        title: o.title,
-        description: o.description,
-        incident_date: o.incidentDate,
-        status: o.status,
-      })),
+      offenses: offensesWithEvidence,
       categories: [...new Set(offenses.map((o) => o.category))],
       severity_breakdown: offenses.reduce<Record<string, number>>((acc, o) => {
         acc[o.severity] = (acc[o.severity] ?? 0) + 1;

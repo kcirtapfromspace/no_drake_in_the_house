@@ -83,6 +83,27 @@ export const _getUnresolvedTracks = internalQuery({
   },
 });
 
+/** Debug: count tracks with/without canonicalTrackId for a provider. */
+export const _debugCounts = internalQuery({
+  args: { userId: v.id("users"), provider: v.string() },
+  handler: async (ctx, args) => {
+    let total = 0;
+    let withCanonical = 0;
+    let withoutCanonical = 0;
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
+      total++;
+      if (track.canonicalTrackId) withCanonical++;
+      else withoutCanonical++;
+      if (total >= 500) break; // sample first 500
+    }
+    return { total, withCanonical, withoutCanonical };
+  },
+});
+
 /** Get all user+provider combinations from provider connections. */
 export const _getUserProviders = internalQuery({
   args: {},

@@ -133,13 +133,14 @@ export const getCatalog = query({
     }[] = [];
 
     for (const t of userTracks) {
-      const dedupKey = `${t.trackName}::${t.albumName ?? ""}`;
+      const trackName = t.trackName ?? "Unknown Track";
+      const dedupKey = `${trackName}::${t.albumName ?? ""}`;
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
 
       // Parse featuring artists from track name
       const collaborators: string[] = [];
-      const featMatch = t.trackName.match(
+      const featMatch = trackName.match(
         /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,
       );
       if (featMatch) {
@@ -156,7 +157,7 @@ export const getCatalog = query({
 
       tracks.push({
         id: t._id,
-        title: t.trackName,
+        title: trackName,
         album: t.albumName ?? null,
         albumCover: null,
         role,
@@ -206,6 +207,7 @@ export const getCredits = query({
     >();
 
     for (const t of userTracks) {
+      if (!t.trackName) continue;
       // Parse "feat.", "ft.", "featuring", "with", "&" patterns
       const featMatch = t.trackName.match(
         /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,

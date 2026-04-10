@@ -327,6 +327,7 @@ export const enrichArtist = internalAction({
 
     // 2. Get Spotify token via client credentials (no user auth needed)
     const accessToken = await getSpotifyClientToken();
+    console.log(`[CatalogEnrichment] Token obtained: ${accessToken ? `${accessToken.slice(0, 10)}... (${accessToken.length} chars)` : 'null'}`);
     if (!accessToken) {
       console.log("[CatalogEnrichment] Could not get Spotify client credentials token — check SPOTIFY_CLIENT_ID/SECRET env vars");
       return { status: "no_token" };

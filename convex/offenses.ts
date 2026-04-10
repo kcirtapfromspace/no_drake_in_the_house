@@ -235,6 +235,72 @@ export const fixMalformedArchiveUrls = internalMutation({
   },
 });
 
+/**
+ * One-time cleanup: delete misattributed offenses and strip HTML from
+ * offense descriptions and evidence excerpts.
+ */
+export const cleanupBadOffenses = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const stripHtml = (s: string | undefined) =>
+      s?.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim() ?? "";
+
+    const offenses = await ctx.db.query("artistOffenses").take(2000);
+    let deleted = 0;
+    let htmlFixed = 0;
+
+    for (const offense of offenses) {
+      const desc = offense.description ?? "";
+      const title = offense.title ?? "";
+
+      // Delete misattributed offenses (Bambaataa articles on wrong artists)
+      if (
+        title.toLowerCase().includes("bambaata") ||
+        desc.toLowerCase().includes("bambaata")
+      ) {
+        // Also delete linked evidence
+        const evidence = await ctx.db
+          .query("offenseEvidence")
+          .withIndex("by_offenseId", (q) => q.eq("offenseId", offense._id))
+          .take(50);
+        for (const ev of evidence) {
+          await ctx.db.delete(ev._id);
+        }
+        await ctx.db.delete(offense._id);
+        deleted++;
+        continue;
+      }
+
+      // Strip HTML from description and title
+      const hasHtml = /<[a-z/]/i.test(desc) || /<[a-z/]/i.test(title);
+      if (hasHtml) {
+        await ctx.db.patch(offense._id, {
+          description: stripHtml(desc),
+          title: stripHtml(title),
+        });
+        htmlFixed++;
+      }
+    }
+
+    // Also strip HTML from evidence excerpts
+    const allEvidence = await ctx.db.query("offenseEvidence").take(2000);
+    let evidenceFixed = 0;
+    for (const ev of allEvidence) {
+      const excerpt = ev.excerpt ?? "";
+      const evTitle = ev.title ?? "";
+      if (/<[a-z/]/i.test(excerpt) || /<[a-z/]/i.test(evTitle)) {
+        await ctx.db.patch(ev._id, {
+          excerpt: stripHtml(excerpt) || undefined,
+          title: stripHtml(evTitle) || undefined,
+        });
+        evidenceFixed++;
+      }
+    }
+
+    return { deleted, htmlFixed, evidenceFixed };
+  },
+});
+
 export const verifyOffense = mutation({
   args: {
     offenseId: v.id("artistOffenses"),

@@ -17,6 +17,16 @@ use super::processing::OffenseClassification;
 /// Minimum confidence threshold for auto-creating offenses
 const CONFIDENCE_THRESHOLD: f64 = 0.7;
 
+/// Strip HTML tags and collapse whitespace from article content.
+fn strip_html(s: &str) -> String {
+    // Remove HTML tags
+    let re = regex::Regex::new(r"<[^>]*>").unwrap();
+    let stripped = re.replace_all(s, "");
+    // Collapse whitespace
+    let ws = regex::Regex::new(r"\s+").unwrap();
+    ws.replace_all(&stripped, " ").trim().to_string()
+}
+
 /// Service for creating offense records from news detections.
 ///
 /// Writes to Convex via `ConvexClient`. No PostgreSQL dependency.
@@ -99,8 +109,8 @@ impl OffenseCreator {
             artist_id: convex_id,
             category: category.clone(),
             severity,
-            title: format!("Auto-detected: {}", article_title),
-            description: Some(classification.context.clone()),
+            title: format!("Auto-detected: {}", strip_html(article_title)),
+            description: Some(strip_html(&classification.context)),
             confidence: classification.confidence,
             source_article_url: Some(article_url.to_string()),
         };
@@ -164,11 +174,12 @@ impl OffenseCreator {
         title: &str,
         excerpt: &str,
     ) -> Result<UpsertResponse> {
+        let clean_excerpt = strip_html(excerpt);
         let args = LinkEvidenceArgs {
             offense_id: convex_offense_id.to_string(),
             source_url: source_url.to_string(),
-            title: Some(title.to_string()),
-            excerpt: Some(excerpt[..excerpt.len().min(500)].to_string()),
+            title: Some(strip_html(title)),
+            excerpt: Some(clean_excerpt[..clean_excerpt.len().min(500)].to_string()),
             credibility_score: Some(3.0), // Default credibility
         };
 
@@ -273,10 +284,7 @@ mod tests {
             _parse_category("SEXUAL_MISCONDUCT"),
             OffenseCategory::SexualMisconduct
         ));
-        assert!(matches!(
-            _parse_category("unknown"),
-            OffenseCategory::Other
-        ));
+        assert!(matches!(_parse_category("unknown"), OffenseCategory::Other));
     }
 
     #[test]

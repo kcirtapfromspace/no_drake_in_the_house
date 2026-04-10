@@ -386,3 +386,160 @@ export const resolveAll = internalAction({
     return { totalCreated, totalLinked, rounds };
   },
 });
+
+// ---------------------------------------------------------------------------
+// Multi-artist linking: find tracks where artistName contains an artist name
+// as a token (handles "Drake & 21 Savage", "Lil Baby, Gunna & Drake", etc.)
+// ---------------------------------------------------------------------------
+
+/** Link tracks with multi-artist names to additional artist records.
+ *  Scans per provider, finds tracks where artistName contains known artist
+ *  names separated by commas, ampersands, or "feat." patterns. */
+export const _linkMultiArtistBatch = internalMutation({
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+    artistId: v.id("artists"),
+    artistName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const nameLower = args.artistName.toLowerCase();
+    let linked = 0;
+    let catalogLinked = 0;
+
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_user_provider", (q) =>
+        q.eq("userId", args.userId).eq("provider", args.provider),
+      )) {
+      // Skip tracks already linked to this artist
+      if (track.artistId === args.artistId) continue;
+
+      const trackArtist = (track.artistName ?? "").toLowerCase();
+      if (!trackArtist.includes(nameLower)) continue;
+
+      // Verify it's a token match (not substring of another name like "Pete Drake")
+      // Split by common separators and check for exact token
+      const tokens = trackArtist
+        .split(/[,&]|(?:feat\.?|ft\.?|featuring|with|and)\s/i)
+        .map((s) => s.trim());
+      if (!tokens.some((t) => t === nameLower)) continue;
+
+      // Link library track to this artist (secondary link via canonical track)
+      if (track.canonicalTrackId) {
+        const canonicalTrack = await ctx.db.get(track.canonicalTrackId);
+        if (canonicalTrack) {
+          // Add album-artist link if album exists
+          if (canonicalTrack.albumId) {
+            const existingLink = await ctx.db
+              .query("albumArtists")
+              .withIndex("by_albumId", (q) => q.eq("albumId", canonicalTrack.albumId!))
+              .collect()
+              .then((links) => links.find((l) => l.artistId === args.artistId));
+
+            if (!existingLink) {
+              const now = new Date().toISOString();
+              await ctx.db.insert("albumArtists", {
+                legacyKey: `catalog:aa:${canonicalTrack.albumId}:${args.artistId}`,
+                albumId: canonicalTrack.albumId,
+                artistId: args.artistId,
+                createdAt: now,
+                updatedAt: now,
+              });
+              catalogLinked++;
+            }
+          }
+
+          // Add track credit if not already present
+          const existingCredit = await ctx.db
+            .query("trackCredits")
+            .withIndex("by_trackId", (q) => q.eq("trackId", track.canonicalTrackId!))
+            .collect()
+            .then((credits) => credits.find((c) => c.artistId === args.artistId));
+
+          if (!existingCredit) {
+            const now = new Date().toISOString();
+            await ctx.db.insert("trackCredits", {
+              legacyKey: `catalog:credit:${track.canonicalTrackId}:${args.artistId}:main`,
+              trackId: track.canonicalTrackId,
+              artistId: args.artistId,
+              creditedName: args.artistName,
+              role: "main",
+              metadata: {},
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
+        }
+      }
+
+      linked++;
+    }
+
+    return { linked, catalogLinked };
+  },
+});
+
+/** Link multi-artist tracks for all known artists across all providers. */
+export const linkMultiArtistTracks = internalAction({
+  args: {
+    artistId: v.optional(v.id("artists")),
+  },
+  handler: async (ctx, args) => {
+    const userProviders = await ctx.runQuery(
+      internal.catalogResolver._getUserProviders,
+      {},
+    );
+
+    // If specific artist requested, just do that one
+    let artists: Array<{ _id: any; canonicalName: string }>;
+    if (args.artistId) {
+      const artist = await ctx.runQuery(
+        internal.evidenceFinder._getArtistById,
+        { artistId: args.artistId },
+      );
+      artists = artist ? [{ _id: args.artistId, canonicalName: artist.canonicalName }] : [];
+    } else {
+      // Get top artists (by library presence) — limit to avoid timeout
+      artists = await ctx.runQuery(
+        internal.catalogResolver._getTopArtists,
+        { limit: 200 },
+      );
+    }
+
+    let totalLinked = 0;
+    for (const artist of artists) {
+      for (const { userId, provider } of userProviders) {
+        const result = await ctx.runMutation(
+          internal.catalogResolver._linkMultiArtistBatch,
+          {
+            userId,
+            provider,
+            artistId: artist._id,
+            artistName: artist.canonicalName,
+          },
+        );
+        totalLinked += result.linked;
+        if (result.linked > 0) {
+          console.log(
+            `[MultiArtistLink] ${artist.canonicalName} on ${provider}: ${result.linked} tracks, ${result.catalogLinked} albums linked`,
+          );
+        }
+      }
+    }
+
+    return { totalLinked, artistsChecked: artists.length };
+  },
+});
+
+/** Get top artists by track count for multi-artist linking. */
+export const _getTopArtists = internalQuery({
+  args: { limit: v.number() },
+  handler: async (ctx, args) => {
+    const artists = await ctx.db.query("artists").take(args.limit);
+    return artists.map((a) => ({
+      _id: a._id,
+      canonicalName: a.canonicalName,
+    }));
+  },
+});

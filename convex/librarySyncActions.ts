@@ -496,11 +496,12 @@ async function cleanupStaleTracks(
 async function resolveTrackArtists(
   ctx: { runQuery: (ref: any, args: any) => Promise<any>; runMutation: (ref: any, args: any) => Promise<any> },
   userId: string,
+  provider: string,
 ): Promise<number> {
   const unresolved: Array<{ name: string; count: number }> =
     await ctx.runQuery(
       internal.evidenceFinder._getUnresolvedArtistNames,
-      { userId },
+      { userId, provider },
     );
 
   let resolved = 0;
@@ -1169,7 +1170,7 @@ export const syncSpotifyLibrary = internalAction({
       // ── Resolve artist names into artist records ─────────────────────
       // Delay to avoid write conflicts with the batch import / cleanup
       await new Promise((r) => setTimeout(r, 5_000));
-      await resolveTrackArtists(ctx, userId);
+      await resolveTrackArtists(ctx, userId, "spotify");
 
       // ── Canonicalize tracks into golden record catalog ──
       await ctx.scheduler.runAfter(
@@ -1754,7 +1755,7 @@ export const syncTidalLibrary = internalAction({
       });
 
       await new Promise((r) => setTimeout(r, 5_000));
-      await resolveTrackArtists(ctx, userId);
+      await resolveTrackArtists(ctx, userId, "tidal");
 
       await ctx.scheduler.runAfter(
         60_000,
@@ -2219,7 +2220,7 @@ export const syncAppleMusicLibrary = internalAction({
       });
 
       await new Promise((r) => setTimeout(r, 5_000));
-      await resolveTrackArtists(ctx, userId);
+      await resolveTrackArtists(ctx, userId, "apple_music");
 
       await ctx.scheduler.runAfter(
         60_000,
@@ -2400,7 +2401,7 @@ export const syncYouTubeLibrary = internalAction({
       });
 
       await new Promise((r) => setTimeout(r, 5_000));
-      await resolveTrackArtists(ctx, userId);
+      await resolveTrackArtists(ctx, userId, "youtube");
 
       await ctx.scheduler.runAfter(
         60_000,

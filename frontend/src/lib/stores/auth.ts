@@ -237,6 +237,14 @@ export const authActions = {
         await setAuthenticatedUser(result.data);
       } else {
         console.error('Failed to fetch profile:', result.message);
+        // Token is invalid or expired — clear session so UI shows login
+        const msg = typeof result.message === 'string' ? result.message : '';
+        if (msg.includes('Unauthenticated') || msg.includes('expired') || msg.includes('OIDC')) {
+          apiClient.clearAuthToken();
+          setConvexAuthToken(null);
+          localStorage.removeItem('refresh_token');
+          resetState();
+        }
       }
     } catch (error) {
       console.error('Failed to fetch profile:', error);
@@ -520,10 +528,31 @@ export const authActions = {
   },
 };
 
+/** Check if a JWT is expired (with 60s buffer). */
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!payload.exp) return false;
+    return payload.exp * 1000 < Date.now() - 60_000;
+  } catch {
+    return true;
+  }
+}
+
 if (typeof window !== 'undefined') {
   void (async () => {
     const storedToken = localStorage.getItem('auth_token');
     if (!storedToken) return;
+
+    // Clear expired tokens immediately instead of showing a broken state
+    if (isTokenExpired(storedToken)) {
+      apiClient.clearAuthToken();
+      setConvexAuthToken(null);
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('refresh_token');
+      resetState();
+      return;
+    }
 
     let token = storedToken;
     if (!hasValidIssuer(storedToken)) {

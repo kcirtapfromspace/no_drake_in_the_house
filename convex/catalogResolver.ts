@@ -44,7 +44,6 @@ function normalizeAlbumKey(albumName: string): string {
 export const _getUnresolvedTracks = internalQuery({
   args: {
     limit: v.number(),
-    afterId: v.optional(v.id("userLibraryTracks")),
   },
   handler: async (ctx, args) => {
     const results: Array<{
@@ -57,20 +56,9 @@ export const _getUnresolvedTracks = internalQuery({
       providerTrackId: string;
     }> = [];
 
-    let scanned = 0;
-    const MAX_SCAN = 2000; // scan up to 2000 docs per call to stay under bandwidth
-
-    for await (const track of ctx.db.query("userLibraryTracks")) {
-      // Skip past cursor
-      if (args.afterId && scanned === 0) {
-        if (track._id !== args.afterId) continue;
-        scanned++;
-        continue; // skip the cursor doc itself
-      }
-
-      scanned++;
-      if (scanned > MAX_SCAN) break;
-
+    for await (const track of ctx.db
+      .query("userLibraryTracks")
+      .withIndex("by_userId")) {
       if (track.canonicalTrackId) continue;
       if (!track.trackName) continue;
 
@@ -288,7 +276,7 @@ export const resolveAll = internalAction({
     while (Date.now() - startTime < MAX_RUNTIME_MS) {
       const unresolved = await ctx.runQuery(
         internal.catalogResolver._getUnresolvedTracks,
-        { limit: BATCH_SIZE, afterId: undefined },
+        { limit: BATCH_SIZE },
       );
 
       if (unresolved.length === 0) break;

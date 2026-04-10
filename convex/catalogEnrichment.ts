@@ -6,7 +6,7 @@ import {
 } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { decryptToken, getEncryptionKey, isEncrypted } from "./lib/crypto";
+// Client credentials flow used for catalog enrichment (no user tokens needed)
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -49,26 +49,22 @@ async function spotifyFetch(url: string, token: string): Promise<Response> {
 // Internal queries
 // ---------------------------------------------------------------------------
 
-/** Get a Spotify access token from any active Spotify connection. */
-export const _getSpotifyToken = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const connection = await ctx.db
-      .query("providerConnections")
-      .filter((q) => q.eq(q.field("provider"), "spotify"))
-      .filter((q) => q.eq(q.field("status"), "active"))
-      .first();
+/** Get a Spotify access token via client credentials (no user auth needed). */
+async function getSpotifyClientToken(): Promise<string | null> {
+  const clientId = process.env.SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return null;
 
-    if (!connection) return null;
+  const res = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=client_credentials&client_id=${clientId}&client_secret=${clientSecret}`,
+  });
 
-    return {
-      connectionId: connection._id,
-      userId: connection.userId,
-      encryptedAccessToken: connection.encryptedAccessToken ?? null,
-      encryptedRefreshToken: connection.encryptedRefreshToken ?? null,
-    };
-  },
-});
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data.access_token ?? null;
+}
 
 /** Get artists that need catalog enrichment. */
 export const _getUnenrichedArtists = internalQuery({
@@ -329,23 +325,10 @@ export const enrichArtist = internalAction({
     });
     if (!artist) throw new Error("Artist not found");
 
-    // 2. Get Spotify token
-    const tokenInfo = await ctx.runQuery(internal.catalogEnrichment._getSpotifyToken, {});
-    if (!tokenInfo) {
-      console.log("[CatalogEnrichment] No active Spotify connection — skipping");
-      return { status: "no_token" };
-    }
-
-    const key = getEncryptionKey();
-    let accessToken: string;
-    if (tokenInfo.encryptedAccessToken && isEncrypted(tokenInfo.encryptedAccessToken)) {
-      accessToken = await decryptToken(tokenInfo.encryptedAccessToken, key);
-    } else {
-      accessToken = tokenInfo.encryptedAccessToken ?? "";
-    }
-
+    // 2. Get Spotify token via client credentials (no user auth needed)
+    const accessToken = await getSpotifyClientToken();
     if (!accessToken) {
-      console.log("[CatalogEnrichment] Could not decrypt Spotify token");
+      console.log("[CatalogEnrichment] Could not get Spotify client credentials token — check SPOTIFY_CLIENT_ID/SECRET env vars");
       return { status: "no_token" };
     }
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { slide } from 'svelte/transition';
+  import { apiClient } from '../utils/api-client';
 
   // Props
   export let artistId: string;
@@ -10,6 +11,7 @@
 
   let expandedAlbums: Set<string> = new Set();
   let prefersReducedMotion = false;
+  let loading = true;
   $: slideDuration = prefersReducedMotion ? 0 : 200;
 
   function toggleAlbum(albumId: string) {
@@ -49,267 +51,79 @@
     total_revenue: number;
   }
 
-  // Drake's comprehensive discography with tracks - Real Spotify album art URLs
-  const drakeDiscography: AlbumWithTracks[] = [
-    {
-      id: 'fatd-2023',
-      title: 'For All The Dogs',
-      year: 2023,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273929008d1bec2f6f89fb0c3f6',
-      tracks: [
-        { id: 'fatd-1', title: 'Virginia Beach', streams: 45000000, revenue: 180000 },
-        { id: 'fatd-2', title: 'Amen', streams: 38000000, revenue: 152000 },
-        { id: 'fatd-3', title: 'Calling For You', streams: 52000000, revenue: 208000 },
-        { id: 'fatd-4', title: 'Fear Of Heights', streams: 41000000, revenue: 164000 },
-        { id: 'fatd-5', title: 'Daylight', streams: 35000000, revenue: 140000 },
-        { id: 'fatd-6', title: 'First Person Shooter', streams: 120000000, revenue: 480000 },
-        { id: 'fatd-7', title: 'IDGAF', streams: 55000000, revenue: 220000 },
-        { id: 'fatd-8', title: 'What Would Pluto Do', streams: 28000000, revenue: 112000 },
-        { id: 'fatd-9', title: 'Slime You Out', streams: 95000000, revenue: 380000 },
-        { id: 'fatd-10', title: 'Rich Baby Daddy', streams: 75000000, revenue: 300000 },
-      ],
-      total_streams: 584000000,
-      total_revenue: 2336000
-    },
-    {
-      id: 'herloss-2022',
-      title: 'Her Loss',
-      year: 2022,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b2732a1d0e45e67c5c4e5e5d8fdb',
-      tracks: [
-        { id: 'hl-1', title: 'Rich Flex', streams: 450000000, revenue: 1800000 },
-        { id: 'hl-2', title: 'Major Distribution', streams: 180000000, revenue: 720000 },
-        { id: 'hl-3', title: 'On BS', streams: 120000000, revenue: 480000 },
-        { id: 'hl-4', title: 'Backoutsideboyz', streams: 85000000, revenue: 340000 },
-        { id: 'hl-5', title: 'Privileged Rappers', streams: 95000000, revenue: 380000 },
-        { id: 'hl-6', title: 'Spin Bout U', streams: 150000000, revenue: 600000 },
-        { id: 'hl-7', title: 'Hours In Silence', streams: 110000000, revenue: 440000 },
-        { id: 'hl-8', title: 'Circo Loco', streams: 200000000, revenue: 800000 },
-      ],
-      total_streams: 1390000000,
-      total_revenue: 5560000
-    },
-    {
-      id: 'hn-2022',
-      title: 'Honestly, Nevermind',
-      year: 2022,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273cd945b4e3de57edd28481a3f',
-      tracks: [
-        { id: 'hn-1', title: 'Intro', streams: 25000000, revenue: 100000 },
-        { id: 'hn-2', title: 'Falling Back', streams: 85000000, revenue: 340000 },
-        { id: 'hn-3', title: 'Texts Go Green', streams: 95000000, revenue: 380000 },
-        { id: 'hn-4', title: 'Currents', streams: 65000000, revenue: 260000 },
-        { id: 'hn-5', title: 'A Keeper', streams: 55000000, revenue: 220000 },
-        { id: 'hn-6', title: 'Calling My Name', streams: 120000000, revenue: 480000 },
-        { id: 'hn-7', title: 'Sticky', streams: 180000000, revenue: 720000 },
-        { id: 'hn-8', title: 'Jimmy Cooks', streams: 350000000, revenue: 1400000 },
-      ],
-      total_streams: 975000000,
-      total_revenue: 3900000
-    },
-    {
-      id: 'clb-2021',
-      title: 'Certified Lover Boy',
-      year: 2021,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b2738dc0d801766a5aa6a33cbe37',
-      tracks: [
-        { id: 'clb-1', title: 'Champagne Poetry', streams: 280000000, revenue: 1120000 },
-        { id: 'clb-2', title: 'Papi\'s Home', streams: 150000000, revenue: 600000 },
-        { id: 'clb-3', title: "Girls Want Girls", streams: 450000000, revenue: 1800000 },
-        { id: 'clb-4', title: 'In The Bible', streams: 120000000, revenue: 480000 },
-        { id: 'clb-5', title: "Love All", streams: 180000000, revenue: 720000 },
-        { id: 'clb-6', title: 'Fair Trade', streams: 320000000, revenue: 1280000 },
-        { id: 'clb-7', title: 'Way 2 Sexy', streams: 650000000, revenue: 2600000 },
-        { id: 'clb-8', title: 'TSU', streams: 200000000, revenue: 800000 },
-        { id: 'clb-9', title: 'N 2 Deep', streams: 180000000, revenue: 720000 },
-        { id: 'clb-10', title: 'Knife Talk', streams: 420000000, revenue: 1680000 },
-      ],
-      total_streams: 2950000000,
-      total_revenue: 11800000
-    },
-    {
-      id: 'dldt-2020',
-      title: 'Dark Lane Demo Tapes',
-      year: 2020,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273d4e1e1e9e0f0f5c2beb9c5a5',
-      tracks: [
-        { id: 'dldt-1', title: 'Deep Pockets', streams: 95000000, revenue: 380000 },
-        { id: 'dldt-2', title: 'When To Say When', streams: 120000000, revenue: 480000 },
-        { id: 'dldt-3', title: 'Chicago Freestyle', streams: 280000000, revenue: 1120000 },
-        { id: 'dldt-4', title: 'Not You Too', streams: 85000000, revenue: 340000 },
-        { id: 'dldt-5', title: 'Toosie Slide', streams: 950000000, revenue: 3800000 },
-        { id: 'dldt-6', title: 'D4L', streams: 75000000, revenue: 300000 },
-        { id: 'dldt-7', title: 'Pain 1993', streams: 350000000, revenue: 1400000 },
-      ],
-      total_streams: 1955000000,
-      total_revenue: 7820000
-    },
-    {
-      id: 'scorpion-2018',
-      title: 'Scorpion',
-      year: 2018,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b2731c5d8e4f3b8c7d6e5f4a3b2c',
-      tracks: [
-        { id: 'sc-1', title: 'Survival', streams: 180000000, revenue: 720000 },
-        { id: 'sc-2', title: 'Nonstop', streams: 850000000, revenue: 3400000 },
-        { id: 'sc-3', title: 'Emotionless', streams: 280000000, revenue: 1120000 },
-        { id: 'sc-4', title: "God's Plan", streams: 2800000000, revenue: 11200000 },
-        { id: 'sc-5', title: "I'm Upset", streams: 450000000, revenue: 1800000 },
-        { id: 'sc-6', title: 'In My Feelings', streams: 1500000000, revenue: 6000000 },
-        { id: 'sc-7', title: "Don't Matter To Me", streams: 550000000, revenue: 2200000 },
-        { id: 'sc-8', title: 'Nice For What', streams: 1200000000, revenue: 4800000 },
-        { id: 'sc-9', title: 'Mob Ties', streams: 320000000, revenue: 1280000 },
-        { id: 'sc-10', title: 'Ratchet Happy Birthday', streams: 180000000, revenue: 720000 },
-      ],
-      total_streams: 8310000000,
-      total_revenue: 33240000
-    },
-    {
-      id: 'morelife-2017',
-      title: 'More Life',
-      year: 2017,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b2739b9f6e7a8c7d6e5f4a3b2c1d',
-      tracks: [
-        { id: 'ml-1', title: 'Free Smoke', streams: 350000000, revenue: 1400000 },
-        { id: 'ml-2', title: 'No Long Talk', streams: 180000000, revenue: 720000 },
-        { id: 'ml-3', title: 'Passionfruit', streams: 1800000000, revenue: 7200000 },
-        { id: 'ml-4', title: 'Jorja Interlude', streams: 280000000, revenue: 1120000 },
-        { id: 'ml-5', title: 'Get It Together', streams: 220000000, revenue: 880000 },
-        { id: 'ml-6', title: 'Portland', streams: 650000000, revenue: 2600000 },
-        { id: 'ml-7', title: 'Fake Love', streams: 1200000000, revenue: 4800000 },
-        { id: 'ml-8', title: 'Gyalchester', streams: 450000000, revenue: 1800000 },
-      ],
-      total_streams: 5130000000,
-      total_revenue: 20520000
-    },
-    {
-      id: 'views-2016',
-      title: 'Views',
-      year: 2016,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273e7d4f4a3b2c1d0e9f8a7b6c5',
-      tracks: [
-        { id: 'v-1', title: 'Keep The Family Close', streams: 280000000, revenue: 1120000 },
-        { id: 'v-2', title: '9', streams: 220000000, revenue: 880000 },
-        { id: 'v-3', title: 'U With Me?', streams: 350000000, revenue: 1400000 },
-        { id: 'v-4', title: 'Feel No Ways', streams: 480000000, revenue: 1920000 },
-        { id: 'v-5', title: 'Hype', streams: 380000000, revenue: 1520000 },
-        { id: 'v-6', title: 'Weston Road Flows', streams: 280000000, revenue: 1120000 },
-        { id: 'v-7', title: 'One Dance', streams: 2800000000, revenue: 11200000 },
-        { id: 'v-8', title: 'Controlla', streams: 1100000000, revenue: 4400000 },
-        { id: 'v-9', title: 'Too Good', streams: 850000000, revenue: 3400000 },
-        { id: 'v-10', title: 'Hotline Bling', streams: 2200000000, revenue: 8800000 },
-      ],
-      total_streams: 8940000000,
-      total_revenue: 35760000
-    },
-    {
-      id: 'iyrtitl-2015',
-      title: "If You're Reading This It's Too Late",
-      year: 2015,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273f9f8a7b6c5d4e3f2a1b0c9d8',
-      tracks: [
-        { id: 'iy-1', title: 'Legend', streams: 380000000, revenue: 1520000 },
-        { id: 'iy-2', title: 'Energy', streams: 750000000, revenue: 3000000 },
-        { id: 'iy-3', title: '10 Bands', streams: 480000000, revenue: 1920000 },
-        { id: 'iy-4', title: 'Know Yourself', streams: 950000000, revenue: 3800000 },
-        { id: 'iy-5', title: 'No Tellin\'', streams: 280000000, revenue: 1120000 },
-        { id: 'iy-6', title: 'Madonna', streams: 220000000, revenue: 880000 },
-        { id: 'iy-7', title: 'Star67', streams: 350000000, revenue: 1400000 },
-        { id: 'iy-8', title: 'Jungle', streams: 420000000, revenue: 1680000 },
-      ],
-      total_streams: 3830000000,
-      total_revenue: 15320000
-    },
-    {
-      id: 'nwts-2013',
-      title: 'Nothing Was the Same',
-      year: 2013,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273d0e8b8c7a6f5e4d3c2b1a0f9',
-      tracks: [
-        { id: 'nwts-1', title: 'Tuscan Leather', streams: 280000000, revenue: 1120000 },
-        { id: 'nwts-2', title: 'Furthest Thing', streams: 350000000, revenue: 1400000 },
-        { id: 'nwts-3', title: 'Started From The Bottom', streams: 1500000000, revenue: 6000000 },
-        { id: 'nwts-4', title: 'Wu-Tang Forever', streams: 280000000, revenue: 1120000 },
-        { id: 'nwts-5', title: 'Own It', streams: 220000000, revenue: 880000 },
-        { id: 'nwts-6', title: 'Worst Behavior', streams: 380000000, revenue: 1520000 },
-        { id: 'nwts-7', title: 'From Time', streams: 450000000, revenue: 1800000 },
-        { id: 'nwts-8', title: 'Hold On, We\'re Going Home', streams: 1800000000, revenue: 7200000 },
-      ],
-      total_streams: 5260000000,
-      total_revenue: 21040000
-    },
-    {
-      id: 'tc-2011',
-      title: 'Take Care',
-      year: 2011,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273c0e8a9b8d7f6e5c4b3a2d1e0',
-      tracks: [
-        { id: 'tc-1', title: 'Over My Dead Body', streams: 280000000, revenue: 1120000 },
-        { id: 'tc-2', title: 'Shot For Me', streams: 350000000, revenue: 1400000 },
-        { id: 'tc-3', title: 'Headlines', streams: 850000000, revenue: 3400000 },
-        { id: 'tc-4', title: 'Crew Love', streams: 650000000, revenue: 2600000 },
-        { id: 'tc-5', title: 'Take Care', streams: 1200000000, revenue: 4800000 },
-        { id: 'tc-6', title: 'Marvins Room', streams: 950000000, revenue: 3800000 },
-        { id: 'tc-7', title: 'Make Me Proud', streams: 380000000, revenue: 1520000 },
-        { id: 'tc-8', title: 'HYFR', streams: 550000000, revenue: 2200000 },
-        { id: 'tc-9', title: 'The Motto', streams: 750000000, revenue: 3000000 },
-      ],
-      total_streams: 5960000000,
-      total_revenue: 23840000
-    },
-    {
-      id: 'tml-2010',
-      title: 'Thank Me Later',
-      year: 2010,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273e1f8b9a8c7d6e5f4a3b2c1d0',
-      tracks: [
-        { id: 'tml-1', title: 'Fireworks', streams: 180000000, revenue: 720000 },
-        { id: 'tml-2', title: 'Karaoke', streams: 120000000, revenue: 480000 },
-        { id: 'tml-3', title: 'The Resistance', streams: 95000000, revenue: 380000 },
-        { id: 'tml-4', title: 'Over', streams: 450000000, revenue: 1800000 },
-        { id: 'tml-5', title: 'Show Me A Good Time', streams: 150000000, revenue: 600000 },
-        { id: 'tml-6', title: 'Miss Me', streams: 280000000, revenue: 1120000 },
-        { id: 'tml-7', title: 'Find Your Love', streams: 550000000, revenue: 2200000 },
-      ],
-      total_streams: 1825000000,
-      total_revenue: 7300000
-    },
-    {
-      id: 'sfg-2009',
-      title: 'So Far Gone',
-      year: 2009,
-      cover_url: 'https://i.scdn.co/image/ab67616d0000b273f2a9c8b7d6e5f4a3b2c1d0e9',
-      tracks: [
-        { id: 'sfg-1', title: 'Lust For Life', streams: 180000000, revenue: 720000 },
-        { id: 'sfg-2', title: 'Houstatlantavegas', streams: 220000000, revenue: 880000 },
-        { id: 'sfg-3', title: 'Successful', streams: 350000000, revenue: 1400000 },
-        { id: 'sfg-4', title: 'Best I Ever Had', streams: 850000000, revenue: 3400000 },
-        { id: 'sfg-5', title: 'I\'m Goin In', streams: 280000000, revenue: 1120000 },
-      ],
-      total_streams: 1880000000,
-      total_revenue: 7520000
-    },
-  ];
+  // Dynamic discography built from library data
+  let drakeDiscography: AlbumWithTracks[] = [];
 
   // Calculate totals
   $: totalStreams = drakeDiscography.reduce((sum, a) => sum + a.total_streams, 0);
   $: totalRevenue = drakeDiscography.reduce((sum, a) => sum + a.total_revenue, 0);
   $: totalTracks = drakeDiscography.reduce((sum, a) => sum + a.tracks.length, 0);
 
-  // Simulated monthly figures (divide by 12 for monthly estimate from all-time)
-  $: monthlyStreams = Math.round(totalStreams / 24); // Assume 2 year average
+  $: monthlyStreams = Math.round(totalStreams / 24);
   $: monthlyRevenue = Math.round(totalRevenue / 24);
 
   const perStreamRate = 0.004;
-  $: maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue), 0);
+  $: maxRevenue = Math.max(...drakeDiscography.map(a => a.total_revenue), 1);
+
+  async function loadRevenueData() {
+    try {
+      // Fetch catalog (library tracks grouped by album)
+      const catalogResult = await apiClient.authenticatedRequest<{
+        tracks: { id: string; title: string; album: string | null; provider: string }[];
+      }>('GET', `/api/v1/artists/${artistId}/catalog`);
+
+      if (!catalogResult.success || !catalogResult.data?.tracks) {
+        loading = false;
+        return;
+      }
+
+      // Group tracks by album
+      const albumMap = new Map<string, { title: string; tracks: { id: string; title: string }[] }>();
+      for (const track of catalogResult.data.tracks) {
+        const albumName = track.album || 'Singles / Unknown Album';
+        if (!albumMap.has(albumName)) {
+          albumMap.set(albumName, { title: albumName, tracks: [] });
+        }
+        albumMap.get(albumName)!.tracks.push({ id: track.id, title: track.title });
+      }
+
+      // Build discography with estimated revenue per track
+      drakeDiscography = [...albumMap.entries()]
+        .map(([key, album], idx) => ({
+          id: `album-${idx}`,
+          title: album.title,
+          year: 0,
+          cover_url: '',
+          tracks: album.tracks.map(t => ({
+            id: t.id,
+            title: t.title,
+            streams: 1, // 1 library presence = exposure metric
+            revenue: perStreamRate,
+          })),
+          total_streams: album.tracks.length,
+          total_revenue: album.tracks.length * perStreamRate,
+        }))
+        .sort((a, b) => b.tracks.length - a.tracks.length);
+    } catch (e) {
+      console.error('Failed to load revenue data:', e);
+    } finally {
+      loading = false;
+    }
+  }
 
   onMount(() => {
     prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    loadRevenueData();
   });
 </script>
 
 <div class="artist-discography-revenue surface-panel" data-testid="artist-discography-revenue">
 
+  {#if loading}
+    <div class="rev-loading">Loading revenue data...</div>
+  {:else if drakeDiscography.length === 0}
+    <div class="rev-loading">No catalog data available. Sync your library to populate.</div>
+  {:else}
     <!-- Revenue Stat Bar — 4 cells inline -->
     <div class="rev-stats" data-testid="revenue-summary">
       <div class="rev-stats__cell rev-stats__cell--hero">
@@ -454,16 +268,24 @@
       </div>
     </div>
 
-    <!-- Simulation Note -->
+    <!-- Data Source Note -->
     <div class="rev-note" data-testid="simulation-note">
-      Data is simulated for demonstration purposes. Connect streaming accounts for real analytics.
+      Revenue estimates based on library presence across connected platforms (~$0.004 per track exposure). Actual streaming revenue varies by platform, region, and contract terms.
     </div>
+  {/if}
 </div>
 
 <style>
   .artist-discography-revenue {
     border-radius: 1rem;
     padding: 1.5rem;
+  }
+
+  .rev-loading {
+    padding: 2rem;
+    text-align: center;
+    color: var(--color-text-tertiary, #71717a);
+    font-size: 0.875rem;
   }
 
   /* === Stats Bar === */

@@ -108,24 +108,17 @@ export const getCatalog = query({
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
-    // Get albums linked to this artist
-    const albumArtistLinks = await ctx.db
-      .query("albumArtists")
+    // Build catalog from userLibraryTracks (the actual synced library data)
+    const libraryTracks = await ctx.db
+      .query("userLibraryTracks")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
       .collect();
 
-    // Get user's track blocks for this artist
-    const trackBlocks = await ctx.db
-      .query("userTrackBlocks")
-      .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
-    const blockedTrackIds = new Set(
-      trackBlocks
-        .filter((b) => b.userId === user._id)
-        .map((b) => b.trackId as string),
-    );
+    // Filter to current user's tracks
+    const userTracks = libraryTracks.filter((t) => t.userId === user._id);
 
-    // Fetch albums and their tracks
+    // Deduplicate by trackName + albumName (same track may appear from multiple providers)
+    const seen = new Set<string>();
     const tracks: {
       id: string;
       title: string;
@@ -136,102 +129,50 @@ export const getCatalog = query({
       isBlocked: boolean;
       collaborators: string[];
       duration: string | null;
+      provider: string;
     }[] = [];
 
-    for (const link of albumArtistLinks) {
-      const album = await ctx.db.get(link.albumId);
-      if (!album) continue;
+    for (const t of userTracks) {
+      const dedupKey = `${t.trackName}::${t.albumName ?? ""}`;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
 
-      const albumTracks = await ctx.db
-        .query("tracks")
-        .withIndex("by_albumId", (q) => q.eq("albumId", album._id))
-        .collect();
-
-      const year = album.releaseDate
-        ? new Date(album.releaseDate).getFullYear()
-        : null;
-      const cover =
-        (album.metadata as Record<string, any>)?.coverUrl ?? null;
-
-      for (const track of albumTracks) {
-        // Determine role from trackCredits
-        const credits = await ctx.db
-          .query("trackCredits")
-          .withIndex("by_trackId", (q) => q.eq("trackId", track._id))
-          .collect();
-
-        const artistCredit = credits.find(
-          (c) => c.artistId === args.artistId,
+      // Parse featuring artists from track name
+      const collaborators: string[] = [];
+      const featMatch = t.trackName.match(
+        /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,
+      );
+      if (featMatch) {
+        collaborators.push(
+          ...featMatch[1].split(/[,&]/).map((s) => s.trim()).filter(Boolean),
         );
-        const role = artistCredit?.role ?? "main";
-
-        // Collaborators are other credited artists on this track
-        const collabNames = credits
-          .filter((c) => c.artistId !== args.artistId)
-          .map((c) => c.creditedName);
-
-        const meta = track.metadata as Record<string, any> | undefined;
-        tracks.push({
-          id: track._id,
-          title: track.title,
-          album: album.title,
-          albumCover: cover,
-          role,
-          year,
-          isBlocked: blockedTrackIds.has(track._id),
-          collaborators: collabNames,
-          duration: meta?.duration ?? null,
-        });
-      }
-    }
-
-    // Also get tracks where this artist has credits but isn't the album artist
-    const creditLinks = await ctx.db
-      .query("trackCredits")
-      .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
-      .collect();
-
-    const existingTrackIds = new Set(tracks.map((t) => t.id));
-    for (const credit of creditLinks) {
-      if (existingTrackIds.has(credit.trackId as string)) continue;
-
-      const track = await ctx.db.get(credit.trackId);
-      if (!track) continue;
-
-      let albumTitle: string | null = null;
-      let albumYear: number | null = null;
-      let albumCover: string | null = null;
-      if (track.albumId) {
-        const album = await ctx.db.get(track.albumId);
-        if (album) {
-          albumTitle = album.title;
-          albumYear = album.releaseDate
-            ? new Date(album.releaseDate).getFullYear()
-            : null;
-          albumCover =
-            (album.metadata as Record<string, any>)?.coverUrl ?? null;
-        }
       }
 
-      const otherCredits = await ctx.db
-        .query("trackCredits")
-        .withIndex("by_trackId", (q) => q.eq("trackId", track._id))
-        .collect();
+      // Determine role from source type
+      const role =
+        t.sourceType === "playlist_track"
+          ? "featured"
+          : "main";
 
       tracks.push({
-        id: track._id,
-        title: track.title,
-        album: albumTitle,
-        albumCover,
-        role: credit.role,
-        year: albumYear,
-        isBlocked: blockedTrackIds.has(track._id),
-        collaborators: otherCredits
-          .filter((c) => c.artistId !== args.artistId)
-          .map((c) => c.creditedName),
-        duration: (track.metadata as Record<string, any>)?.duration ?? null,
+        id: t._id,
+        title: t.trackName,
+        album: t.albumName ?? null,
+        albumCover: null,
+        role,
+        year: t.addedAt ? new Date(t.addedAt).getFullYear() : null,
+        isBlocked: false,
+        collaborators,
+        duration: null,
+        provider: t.provider,
       });
     }
+
+    // Sort by album name, then track name
+    tracks.sort((a, b) => {
+      const albumCmp = (a.album ?? "").localeCompare(b.album ?? "");
+      return albumCmp !== 0 ? albumCmp : a.title.localeCompare(b.title);
+    });
 
     return {
       artist_id: args.artistId,
@@ -246,90 +187,65 @@ export const getCredits = query({
     artistId: v.id("artists"),
   },
   handler: async (ctx, args) => {
-    await requireCurrentUser(ctx);
+    const { user } = await requireCurrentUser(ctx);
     const artist = await ctx.db.get(args.artistId);
     if (!artist) return null;
 
-    // Get all tracks where this artist has credits
-    const creditLinks = await ctx.db
-      .query("trackCredits")
+    // Build credits from userLibraryTracks by parsing featuring artists
+    const libraryTracks = await ctx.db
+      .query("userLibraryTracks")
       .withIndex("by_artistId", (q) => q.eq("artistId", args.artistId))
       .collect();
 
-    // For each track, find other credited people
-    const creditMap = new Map<
+    const userTracks = libraryTracks.filter((t) => t.userId === user._id);
+
+    // Extract collaborators from track names and deduplicate
+    const collabMap = new Map<
       string,
-      { name: string; role: string; trackCount: number; isFlagged: boolean; imageUrl: string | null }
+      { name: string; trackCount: number; isFlagged: boolean; imageUrl: string | null }
     >();
 
-    for (const credit of creditLinks) {
-      const otherCredits = await ctx.db
-        .query("trackCredits")
-        .withIndex("by_trackId", (q) => q.eq("trackId", credit.trackId))
-        .collect();
+    for (const t of userTracks) {
+      // Parse "feat.", "ft.", "featuring", "with", "&" patterns
+      const featMatch = t.trackName.match(
+        /\(?(?:feat\.?|ft\.?|featuring|with)\s+(.+?)\)?$/i,
+      );
+      if (!featMatch) continue;
 
-      for (const other of otherCredits) {
-        if (other.artistId === args.artistId) continue;
+      const names = featMatch[1]
+        .split(/[,&]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
 
-        const key = other.artistId
-          ? (other.artistId as string)
-          : `name:${other.creditedName}`;
-        const existing = creditMap.get(key);
+      for (const name of names) {
+        const key = name.toLowerCase();
+        const existing = collabMap.get(key);
         if (existing) {
           existing.trackCount++;
         } else {
-          let isFlagged = false;
-          let imageUrl: string | null = null;
-          if (other.artistId) {
-            const otherArtist = await ctx.db.get(other.artistId);
-            if (otherArtist) {
-              isFlagged = otherArtist.status === "flagged";
-              imageUrl =
-                (otherArtist.metadata as Record<string, any>)?.imageUrl ??
-                null;
-            }
-          }
-          creditMap.set(key, {
-            name: other.creditedName,
-            role: other.role,
+          collabMap.set(key, {
+            name,
             trackCount: 1,
-            isFlagged,
-            imageUrl,
+            isFlagged: false,
+            imageUrl: null,
           });
         }
       }
     }
 
-    const writers: {
-      id: string;
-      name: string;
-      role: string;
-      track_count: number;
-      is_flagged: boolean;
-      image_url: string | null;
-    }[] = [];
-    const producers: typeof writers = [];
-
-    for (const [id, entry] of creditMap) {
-      const item = {
-        id,
+    // Convert to sorted arrays
+    const writers = [...collabMap.entries()]
+      .map(([key, entry]) => ({
+        id: `name:${key}`,
         name: entry.name,
-        role: entry.role,
+        role: "collaborator",
         track_count: entry.trackCount,
         is_flagged: entry.isFlagged,
         image_url: entry.imageUrl,
-      };
-      if (entry.role === "producer") {
-        producers.push(item);
-      } else {
-        writers.push(item);
-      }
-    }
+      }))
+      .sort((a, b) => b.track_count - a.track_count);
 
-    writers.sort((a, b) => b.track_count - a.track_count);
-    producers.sort((a, b) => b.track_count - a.track_count);
-
-    return { writers, producers };
+    return { writers, producers: [] };
   },
 });
 

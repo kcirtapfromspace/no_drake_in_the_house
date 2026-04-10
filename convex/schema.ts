@@ -204,13 +204,15 @@ export default defineSchema({
     playlistName: v.optional(v.string()),
     addedAt: v.optional(v.string()),
     lastSyncedAt: v.optional(v.string()),
+    canonicalTrackId: v.optional(v.id("tracks")),
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_userId", ["userId"])
     .index("by_user_provider", ["userId", "provider"])
     .index("by_artistId", ["artistId"])
-    .index("by_user_artistName", ["userId", "artistName"]),
+    .index("by_user_artistName", ["userId", "artistName"])
+    .index("by_canonicalTrackId", ["canonicalTrackId"]),
 
   libraryScans: defineTable({
     ...legacyFields,
@@ -377,13 +379,16 @@ export default defineSchema({
     ...legacyFields,
     ...lifecycleFields,
     title: v.string(),
+    normalizedTitle: v.optional(v.string()),
     releaseDate: v.optional(v.string()),
     appleMusicId: v.optional(v.string()),
     spotifyId: v.optional(v.string()),
+    tidalId: v.optional(v.string()),
     deezerId: v.optional(v.string()),
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])
+    .index("by_normalizedTitle", ["normalizedTitle"])
     .index("by_spotifyId", ["spotifyId"])
     .index("by_appleMusicId", ["appleMusicId"]),
 
@@ -401,15 +406,20 @@ export default defineSchema({
     ...legacyFields,
     ...lifecycleFields,
     title: v.string(),
+    normalizedKey: v.optional(v.string()),
     albumId: v.optional(v.id("albums")),
+    artistId: v.optional(v.id("artists")),
     appleMusicId: v.optional(v.string()),
     spotifyId: v.optional(v.string()),
+    tidalId: v.optional(v.string()),
     deezerId: v.optional(v.string()),
     isrc: v.optional(v.string()),
     metadata: blob,
   })
     .index("by_legacyKey", ["legacyKey"])
     .index("by_albumId", ["albumId"])
+    .index("by_artistId", ["artistId"])
+    .index("by_normalizedKey", ["normalizedKey"])
     .index("by_spotifyId", ["spotifyId"])
     .index("by_appleMusicId", ["appleMusicId"]),
 

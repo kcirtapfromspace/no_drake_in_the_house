@@ -458,7 +458,7 @@ export const enrichArtist = internalAction({
 export const enrichBatch = internalAction({
   args: {},
   handler: async (ctx): Promise<{ enriched: number; total: number }> => {
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 50;
     const artists: Array<{ _id: Id<"artists">; canonicalName: string; spotifyId: string | null }> =
       await ctx.runQuery(
         internal.catalogEnrichment._getUnenrichedArtists,

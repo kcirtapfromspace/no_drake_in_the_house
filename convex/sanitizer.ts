@@ -3,6 +3,7 @@ import { action, mutation, query } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { requireCurrentUser } from "./lib/auth";
+import { decryptToken, getEncryptionKey, isEncrypted } from "./lib/crypto";
 
 const _computeGrade = query({
   args: {
@@ -272,16 +273,147 @@ export const updatePlan = mutation({
   },
 });
 
+/**
+ * Apply sanitization changes to a playlist: remove flagged tracks and
+ * optionally add accepted replacement tracks.
+ */
 export const publishPlan = action({
   args: {
     planId: v.string(),
+    provider: v.optional(v.string()),
+    playlistId: v.optional(v.string()),
+    tracksToRemove: v.optional(v.array(v.string())),
+    tracksToAdd: v.optional(v.array(v.string())),
   },
-  handler: async (_ctx, args) => {
+  handler: async (ctx, args) => {
+    const provider = args.provider ?? "spotify";
+    const playlistId = args.playlistId;
+
+    if (!playlistId) {
+      return {
+        plan_id: args.planId,
+        status: "error",
+        message: "playlistId is required to apply changes.",
+      };
+    }
+
+    // Get the user's access token
+    const connection: any = await ctx.runQuery(
+      api.sanitizer._getConnection,
+      { provider },
+    );
+
+    if (!connection?.accessToken) {
+      return {
+        plan_id: args.planId,
+        status: "error",
+        message: `No active ${provider} connection found.`,
+      };
+    }
+
+    // Decrypt token if encrypted
+    let accessToken: string;
+    try {
+      const key = getEncryptionKey();
+      accessToken = isEncrypted(connection.accessToken)
+        ? await decryptToken(connection.accessToken, key)
+        : connection.accessToken;
+    } catch {
+      accessToken = connection.accessToken;
+    }
+    let removed = 0;
+    let added = 0;
+    const errors: string[] = [];
+
+    if (provider === "spotify") {
+      // --- Remove flagged tracks from playlist ---
+      if (args.tracksToRemove && args.tracksToRemove.length > 0) {
+        // Spotify expects track URIs: spotify:track:{id}
+        // Our providerTrackIds may be in format "liked:{id}" or "playlist:{pid}:{id}"
+        const trackUris = args.tracksToRemove
+          .map((id) => {
+            const spotifyId = id.replace(/^(?:liked:|playlist:[^:]+:)/, "");
+            return { uri: `spotify:track:${spotifyId}` };
+          })
+          .filter((t) => t.uri.length > 15); // sanity check
+
+        // Remove in chunks of 100 (Spotify limit)
+        for (let i = 0; i < trackUris.length; i += 100) {
+          const chunk = trackUris.slice(i, i + 100);
+          try {
+            const resp = await fetch(
+              `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+              {
+                method: "DELETE",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ tracks: chunk }),
+              },
+            );
+
+            if (resp.ok) {
+              removed += chunk.length;
+            } else {
+              const err = await resp.text().catch(() => "");
+              errors.push(`Remove failed (${resp.status}): ${err.slice(0, 100)}`);
+            }
+          } catch (e: any) {
+            errors.push(`Remove error: ${e.message}`);
+          }
+        }
+      }
+
+      // --- Add replacement tracks to playlist ---
+      if (args.tracksToAdd && args.tracksToAdd.length > 0) {
+        const uris = args.tracksToAdd.map((id) => `spotify:track:${id}`);
+
+        // Add in chunks of 100
+        for (let i = 0; i < uris.length; i += 100) {
+          const chunk = uris.slice(i, i + 100);
+          try {
+            const resp = await fetch(
+              `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ uris: chunk }),
+              },
+            );
+
+            if (resp.ok) {
+              added += chunk.length;
+            } else {
+              const err = await resp.text().catch(() => "");
+              errors.push(`Add failed (${resp.status}): ${err.slice(0, 100)}`);
+            }
+          } catch (e: any) {
+            errors.push(`Add error: ${e.message}`);
+          }
+        }
+      }
+    } else {
+      return {
+        plan_id: args.planId,
+        status: "error",
+        message: `Playlist sanitization is currently only supported for Spotify. ${provider} support coming soon.`,
+      };
+    }
+
     return {
       plan_id: args.planId,
-      status: "published",
+      status: errors.length === 0 ? "applied" : "partial",
+      removed,
+      added,
+      errors: errors.length > 0 ? errors : undefined,
       message:
-        "Plan published. Changes will be applied once provider API integration is complete.",
+        errors.length === 0
+          ? `Successfully removed ${removed} track(s) and added ${added} replacement(s).`
+          : `Applied with ${errors.length} error(s): removed ${removed}, added ${added}.`,
     };
   },
 });

@@ -266,18 +266,24 @@ export const risingArtists = query({
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
     // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
-    const index = await ctx.db.query("offendingArtistIndex").collect();
-    const artistScores = new Map<string, number>();
+    const index = await ctx.db.query("offendingArtistIndex").take(2000);
+    const artistData = new Map<
+      string,
+      { severityTotal: number; offenseCount: number }
+    >();
 
     for (const row of index) {
-      artistScores.set(row.artistId as string, row.severityTotal);
+      artistData.set(row.artistId as string, {
+        severityTotal: row.severityTotal,
+        offenseCount: row.offenseCount,
+      });
     }
 
     // Fetch the most recent trouble_scores snapshot for delta comparison
     const snapshots = await ctx.db
       .query("derivedSnapshots")
       .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "trouble_scores"))
-      .collect();
+      .take(50);
     const latestSnapshot = snapshots.sort((a, b) =>
       b.computedAt.localeCompare(a.computedAt),
     )[0];
@@ -288,14 +294,16 @@ export const risingArtists = query({
     const deltas: Array<{
       artistId: string;
       score: number;
+      offenseCount: number;
       delta: number | null;
     }> = [];
-    for (const [artistId, score] of artistScores) {
+    for (const [artistId, data] of artistData) {
       const prev = previousScores[artistId];
       deltas.push({
         artistId,
-        score,
-        delta: prev !== undefined ? score - prev : null,
+        score: data.severityTotal,
+        offenseCount: data.offenseCount,
+        delta: prev !== undefined ? data.severityTotal - prev : null,
       });
     }
 
@@ -310,12 +318,14 @@ export const risingArtists = query({
       .slice(0, args.limit ?? 10);
 
     const results = await Promise.all(
-      sorted.map(async ({ artistId, score, delta }) => {
+      sorted.map(async ({ artistId, score, offenseCount, delta }) => {
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
           artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
+          offense_count: offenseCount,
+          mentions: offenseCount,
           delta,
           is_new: delta === null,
         };
@@ -333,18 +343,24 @@ export const fallingArtists = query({
   handler: async (ctx, args) => {
     await requireCurrentUser(ctx);
     // Use offendingArtistIndex (pre-aggregated) instead of scanning all offenses
-    const index = await ctx.db.query("offendingArtistIndex").collect();
-    const artistScores = new Map<string, number>();
+    const index = await ctx.db.query("offendingArtistIndex").take(2000);
+    const artistData = new Map<
+      string,
+      { severityTotal: number; offenseCount: number }
+    >();
 
     for (const row of index) {
-      artistScores.set(row.artistId as string, row.severityTotal);
+      artistData.set(row.artistId as string, {
+        severityTotal: row.severityTotal,
+        offenseCount: row.offenseCount,
+      });
     }
 
     // Fetch the most recent trouble_scores snapshot for delta comparison
     const snapshots = await ctx.db
       .query("derivedSnapshots")
       .withIndex("by_kind_subjectKey", (q) => q.eq("kind", "trouble_scores"))
-      .collect();
+      .take(50);
     const latestSnapshot = snapshots.sort((a, b) =>
       b.computedAt.localeCompare(a.computedAt),
     )[0];
@@ -355,12 +371,18 @@ export const fallingArtists = query({
     const deltas: Array<{
       artistId: string;
       score: number;
+      offenseCount: number;
       delta: number;
     }> = [];
-    for (const [artistId, score] of artistScores) {
+    for (const [artistId, data] of artistData) {
       const prev = previousScores[artistId];
       if (prev !== undefined) {
-        deltas.push({ artistId, score, delta: score - prev });
+        deltas.push({
+          artistId,
+          score: data.severityTotal,
+          offenseCount: data.offenseCount,
+          delta: data.severityTotal - prev,
+        });
       }
     }
 
@@ -370,12 +392,14 @@ export const fallingArtists = query({
       .slice(0, args.limit ?? 10);
 
     const results = await Promise.all(
-      sorted.map(async ({ artistId, score, delta }) => {
+      sorted.map(async ({ artistId, score, offenseCount, delta }) => {
         const artist = await ctx.db.get(artistId as any);
         return {
           artist_id: artistId,
           artist_name: (artist as any)?.canonicalName ?? "Unknown",
           trouble_score: score,
+          offense_count: offenseCount,
+          mentions: offenseCount,
           delta,
         };
       }),

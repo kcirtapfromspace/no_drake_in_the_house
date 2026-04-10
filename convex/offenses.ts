@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 
@@ -198,6 +198,40 @@ export const addEvidence = mutation({
     });
 
     return await ctx.db.get(evidenceId);
+  },
+});
+
+/**
+ * One-time fix: correct malformed Wayback Machine URLs in evidence records.
+ * Changes `web/YYYY/` to `web/YYYY* /` so archive.org resolves to the nearest snapshot.
+ */
+export const fixMalformedArchiveUrls = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const evidence = await ctx.db.query("offenseEvidence").take(2000);
+    const archiveUrlPattern = /web\.archive\.org\/web\/(\d{4})\//;
+    let fixed = 0;
+
+    for (const record of evidence) {
+      let patched = false;
+      const patch: Record<string, string> = {};
+
+      if (record.url && archiveUrlPattern.test(record.url)) {
+        patch.url = record.url.replace(archiveUrlPattern, 'web.archive.org/web/$1*/');
+        patched = true;
+      }
+      if (record.archivedUrl && archiveUrlPattern.test(record.archivedUrl)) {
+        patch.archivedUrl = record.archivedUrl.replace(archiveUrlPattern, 'web.archive.org/web/$1*/');
+        patched = true;
+      }
+
+      if (patched) {
+        await ctx.db.patch(record._id, patch);
+        fixed++;
+      }
+    }
+
+    return { fixed, total: evidence.length };
   },
 });
 

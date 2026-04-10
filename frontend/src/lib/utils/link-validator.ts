@@ -21,6 +21,18 @@ const pendingChecks = new Map<string, Promise<LinkCheckResult>>();
 
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
+/**
+ * Fix malformed Wayback Machine URLs.
+ * `web/2024/` (bare year) is invalid — needs `web/2024* /` (wildcard) to
+ * auto-redirect to the closest snapshot.
+ */
+function fixArchiveUrl(url: string): string {
+  return url.replace(
+    /web\.archive\.org\/web\/(\d{4})\//,
+    'web.archive.org/web/$1*/',
+  );
+}
+
 /** Clear the internal link cache — useful for testing. */
 export function clearLinkCache(): void {
   linkCache.clear();
@@ -105,8 +117,22 @@ export async function validateLink(
   if (pending) return pending;
 
   const check = (async (): Promise<LinkCheckResult> => {
-    // If we already have an archived URL, prefer it as fallback without probing
-    const knownArchive = existingArchivedUrl || null;
+    // Fix malformed archive URLs and normalize the known archived fallback
+    const knownArchive = existingArchivedUrl ? fixArchiveUrl(existingArchivedUrl) : null;
+
+    // If this URL is itself an archive.org URL, fix its format and use directly
+    if (url.includes('web.archive.org/web/')) {
+      const fixedUrl = fixArchiveUrl(url);
+      const result: LinkCheckResult = {
+        originalUrl: url,
+        status: 'archived',
+        resolvedUrl: fixedUrl,
+        archivedUrl: fixedUrl,
+        checkedAt: Date.now(),
+      };
+      linkCache.set(url, result);
+      return result;
+    }
 
     const isReachable = await probeUrl(url);
 

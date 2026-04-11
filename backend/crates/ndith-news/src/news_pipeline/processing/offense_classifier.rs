@@ -106,6 +106,8 @@ pub struct OffenseClassification {
     pub severity: OffenseSeverity,
     /// Confidence score (0.0 - 1.0)
     pub confidence: f64,
+    /// Music context score (0.0 - 1.0) for entity disambiguation
+    pub music_context_score: f64,
     /// Keywords that triggered the classification
     pub matched_keywords: Vec<String>,
     /// Context snippet
@@ -143,6 +145,47 @@ struct CategoryKeywords {
     patterns: Vec<Regex>,
     severity_modifiers: HashMap<String, OffenseSeverity>,
 }
+
+/// Music context terms for entity disambiguation
+const MUSIC_CONTEXT_TERMS: &[&str] = &[
+    "album", "song", "tour", "rapper", "singer", "musician", "band", "track",
+    "grammy", "billboard", "spotify", "concert", "hip-hop", "hip hop", "r&b",
+    "music video", "record label", "recording", "lyrics", "feat.", "ft.", "ep",
+    "mixtape", "single", "studio", "producer", "dj", "mc", "emcee", "genre",
+    "platinum", "gold record", "charts", "streaming", "apple music", "tidal",
+    "soundcloud",
+];
+
+/// US state names and abbreviations for place-name detection
+const US_STATES: &[&str] = &[
+    "alabama", "alaska", "arizona", "arkansas", "california", "colorado",
+    "connecticut", "delaware", "florida", "georgia", "hawaii", "idaho",
+    "illinois", "indiana", "iowa", "kansas", "kentucky", "louisiana",
+    "maine", "maryland", "massachusetts", "michigan", "minnesota",
+    "mississippi", "missouri", "montana", "nebraska", "nevada",
+    "new hampshire", "new jersey", "new mexico", "new york",
+    "north carolina", "north dakota", "ohio", "oklahoma", "oregon",
+    "pennsylvania", "rhode island", "south carolina", "south dakota",
+    "tennessee", "texas", "utah", "vermont", "virginia", "washington",
+    "west virginia", "wisconsin", "wyoming",
+    // Common abbreviations
+    "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga", "hi",
+    "id", "il", "in", "ia", "ks", "ky", "la", "me", "md", "ma", "mi",
+    "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj", "nm", "ny", "nc",
+    "nd", "oh", "ok", "or", "pa", "ri", "sc", "sd", "tn", "tx", "ut",
+    "vt", "va", "wa", "wv", "wi", "wy",
+];
+
+/// Common country names for place-name detection
+const COUNTRIES: &[&str] = &[
+    "canada", "mexico", "england", "france", "germany", "spain", "italy",
+    "australia", "brazil", "japan", "china", "india", "russia", "uk",
+    "united kingdom", "united states", "usa", "ireland", "scotland",
+    "south africa", "nigeria", "kenya", "ghana", "colombia", "argentina",
+    "chile", "peru", "sweden", "norway", "denmark", "finland", "netherlands",
+    "belgium", "switzerland", "austria", "portugal", "greece", "turkey",
+    "poland", "czech republic", "hungary", "romania", "ukraine",
+];
 
 /// Offense classifier
 pub struct OffenseClassifier {
@@ -728,7 +771,7 @@ impl OffenseClassifier {
                 .collect();
 
             if relevant_entities.is_empty() {
-                // General classification
+                // General classification — no entity to disambiguate
                 classifications.push(OffenseClassification {
                     id: Uuid::new_v4(),
                     article_id,
@@ -738,6 +781,7 @@ impl OffenseClassifier {
                     category: category.clone(),
                     severity: max_severity.clone(),
                     confidence,
+                    music_context_score: 1.0,
                     matched_keywords: matched_keywords.clone(),
                     context: contexts.first().cloned().unwrap_or_default(),
                     needs_review: confidence < self.config.high_confidence_threshold
@@ -745,8 +789,16 @@ impl OffenseClassifier {
                     classification_source: Some("keyword".to_string()),
                 });
             } else {
-                // Entity-specific classifications
+                // Entity-specific classifications with music context disambiguation
                 for entity in relevant_entities {
+                    let music_context_score =
+                        Self::compute_music_context_score(&full_text, &entity.name);
+                    let adjusted_confidence = confidence * music_context_score;
+
+                    if adjusted_confidence < self.config.min_confidence {
+                        continue;
+                    }
+
                     classifications.push(OffenseClassification {
                         id: Uuid::new_v4(),
                         article_id,
@@ -755,10 +807,12 @@ impl OffenseClassifier {
                         convex_artist_id: entity.convex_artist_id.clone(),
                         category: category.clone(),
                         severity: max_severity.clone(),
-                        confidence,
+                        confidence: adjusted_confidence,
+                        music_context_score,
                         matched_keywords: matched_keywords.clone(),
                         context: entity.context.clone(),
-                        needs_review: confidence < self.config.high_confidence_threshold
+                        needs_review: adjusted_confidence
+                            < self.config.high_confidence_threshold
                             || has_negation,
                         classification_source: Some("keyword".to_string()),
                     });
@@ -796,6 +850,93 @@ impl OffenseClassifier {
                     return true;
                 }
             }
+        }
+        false
+    }
+
+    /// Compute a music context score for an entity name within article text.
+    ///
+    /// Scans for music-related terms within ~200 chars of each occurrence of
+    /// the artist name. Returns 0.1 if the name appears as a place name
+    /// (e.g. "Caribou, Maine"), otherwise scores based on nearby music term count.
+    fn compute_music_context_score(text: &str, entity_name: &str) -> f64 {
+        let lower_text = text.to_lowercase();
+        let lower_name = entity_name.to_lowercase();
+
+        // Check for place-name pattern: "ArtistName, <state/country>"
+        if Self::has_place_name_pattern(&lower_text, &lower_name) {
+            return 0.1;
+        }
+
+        // Count music context terms near each occurrence of the artist name
+        let mut total_music_terms = 0usize;
+        let mut search_start = 0;
+        while let Some(pos) = lower_text[search_start..].find(&lower_name) {
+            let abs_pos = search_start + pos;
+            let window_start = abs_pos.saturating_sub(200);
+            let window_end = (abs_pos + lower_name.len() + 200).min(lower_text.len());
+
+            // Snap to char boundaries
+            let window_start = floor_char_boundary(&lower_text, window_start);
+            let window_end = ceil_char_boundary(&lower_text, window_end);
+
+            let window = &lower_text[window_start..window_end];
+            for term in MUSIC_CONTEXT_TERMS {
+                if window.contains(term) {
+                    total_music_terms += 1;
+                }
+            }
+
+            search_start = abs_pos + lower_name.len();
+        }
+
+        match total_music_terms {
+            0 => 0.3,
+            1..=2 => 0.7,
+            _ => 1.0,
+        }
+    }
+
+    /// Check if the artist name appears followed by a comma and a US state or country name.
+    fn has_place_name_pattern(lower_text: &str, lower_name: &str) -> bool {
+        let mut search_start = 0;
+        while let Some(pos) = lower_text[search_start..].find(lower_name) {
+            let abs_pos = search_start + pos;
+            let after_name = abs_pos + lower_name.len();
+
+            // Look for ", <place>" immediately after the name
+            if let Some(rest) = lower_text.get(after_name..) {
+                let trimmed = rest.trim_start();
+                if let Some(after_comma) = trimmed.strip_prefix(',') {
+                    let place = after_comma.trim_start();
+                    let place_lower = place.to_lowercase();
+                    for state in US_STATES {
+                        if place_lower.starts_with(state) {
+                            // Make sure it's a word boundary (not a prefix of a longer word)
+                            let after_state = state.len();
+                            if place.len() == after_state
+                                || !place.as_bytes().get(after_state)
+                                    .map_or(false, |b| b.is_ascii_alphanumeric())
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    for country in COUNTRIES {
+                        if place_lower.starts_with(country) {
+                            let after_country = country.len();
+                            if place.len() == after_country
+                                || !place.as_bytes().get(after_country)
+                                    .map_or(false, |b| b.is_ascii_alphanumeric())
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            search_start = abs_pos + lower_name.len();
         }
         false
     }
@@ -922,6 +1063,118 @@ mod tests {
         assert!(classifications
             .iter()
             .any(|c| c.category == OffenseCategory::Plagiarism));
+    }
+
+    #[test]
+    fn test_music_context_score_high_with_music_terms() {
+        let text = "Caribou announced a new album and is going on tour. \
+                     The rapper was accused of domestic violence against his partner.";
+        let score = OffenseClassifier::compute_music_context_score(text, "Caribou");
+        assert!(
+            score >= 0.7,
+            "Expected score >= 0.7 with music terms nearby, got {score}"
+        );
+    }
+
+    #[test]
+    fn test_music_context_score_low_without_music_terms() {
+        let text = "Caribou is a small city in northern Maine. \
+                     The mayor was accused of financial crimes and fraud.";
+        let score = OffenseClassifier::compute_music_context_score(text, "Caribou");
+        assert!(
+            (score - 0.3).abs() < f64::EPSILON,
+            "Expected score 0.3 with no music terms, got {score}"
+        );
+    }
+
+    #[test]
+    fn test_music_context_score_place_name_pattern() {
+        let text = "A violent incident occurred in Caribou, Maine last week. \
+                     Police reported an assault near the town center.";
+        let score = OffenseClassifier::compute_music_context_score(text, "Caribou");
+        assert!(
+            (score - 0.1).abs() < f64::EPSILON,
+            "Expected score 0.1 for place-name pattern, got {score}"
+        );
+    }
+
+    #[test]
+    fn test_disambiguation_drops_confidence_for_place_entity() {
+        let config = OffenseClassifierConfig::default();
+        let classifier = OffenseClassifier::new(config);
+
+        let article_id = Uuid::new_v4();
+        // Article about a place, not a musician
+        let text = "A violent assault occurred in Caribou, Maine last week. \
+                     Police reported the attack near the town center.";
+        let entity = ExtractedEntity {
+            id: Uuid::new_v4(),
+            name: "Caribou".to_string(),
+            normalized_name: Some("caribou".to_string()),
+            entity_type: crate::EntityType::Artist,
+            confidence: 0.9,
+            position: (30, 37),
+            context: text.to_string(),
+            artist_id: None,
+            convex_artist_id: None,
+        };
+
+        let classifications = classifier
+            .classify(article_id, text, None, &[entity])
+            .unwrap();
+
+        // With place-name pattern (0.1 multiplier), entity-linked classifications
+        // should either be dropped (below min_confidence) or have very low confidence
+        for c in &classifications {
+            if c.entity_id.is_some() {
+                assert!(
+                    c.confidence < 0.7,
+                    "Place-name entity should have confidence < 0.7, got {}",
+                    c.confidence
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_disambiguation_keeps_confidence_for_musician_entity() {
+        let config = OffenseClassifierConfig::default();
+        let classifier = OffenseClassifier::new(config);
+
+        let article_id = Uuid::new_v4();
+        // Article clearly about a musician
+        let text = "Caribou, the electronic musician known for his album 'Swim', \
+                     was accused of domestic violence against his partner during \
+                     a concert tour stop.";
+        let entity = ExtractedEntity {
+            id: Uuid::new_v4(),
+            name: "Caribou".to_string(),
+            normalized_name: Some("caribou".to_string()),
+            entity_type: crate::EntityType::Artist,
+            confidence: 0.9,
+            position: (0, 7),
+            context: text.to_string(),
+            artist_id: None,
+            convex_artist_id: None,
+        };
+
+        let classifications = classifier
+            .classify(article_id, text, None, &[entity])
+            .unwrap();
+
+        let dv = classifications
+            .iter()
+            .find(|c| c.category == OffenseCategory::DomesticViolence && c.entity_id.is_some());
+        assert!(
+            dv.is_some(),
+            "Should classify musician entity for domestic violence"
+        );
+        let dv = dv.unwrap();
+        assert!(
+            dv.music_context_score >= 0.7,
+            "Music context score should be >= 0.7 for musician, got {}",
+            dv.music_context_score
+        );
     }
 
     #[test]

@@ -40,13 +40,19 @@ export const getProfile = query({
       0,
     );
 
-    // Fetch evidence for each offense so the profile page can display sources
+    // Fetch evidence and contest counts for each offense
     const offensesWithEvidence = await Promise.all(
       offenses.map(async (o) => {
-        const evidence = await ctx.db
-          .query("offenseEvidence")
-          .withIndex("by_offenseId", (q) => q.eq("offenseId", o._id))
-          .take(50);
+        const [evidence, contests] = await Promise.all([
+          ctx.db
+            .query("offenseEvidence")
+            .withIndex("by_offenseId", (q) => q.eq("offenseId", o._id))
+            .take(50),
+          ctx.db
+            .query("offenseContests")
+            .withIndex("by_offenseId", (q) => q.eq("offenseId", o._id))
+            .collect(),
+        ]);
         return {
           id: o._id,
           category: o.category,
@@ -57,6 +63,7 @@ export const getProfile = query({
           procedural_state: o.proceduralState,
           status: o.status,
           evidence,
+          contestCount: contests.length,
         };
       }),
     );

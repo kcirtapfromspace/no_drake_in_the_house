@@ -577,6 +577,18 @@ export default defineSchema({
     .index("by_stripeCustomerId", ["stripeCustomerId"])
     .index("by_stripeSubscriptionId", ["stripeSubscriptionId"]),
 
+  offenseContests: defineTable({
+    ...legacyFields,
+    ...lifecycleFields,
+    offenseId: v.id("artistOffenses"),
+    userId: v.id("users"),
+    reason: v.string(),
+    reasonCategory: v.string(),
+  })
+    .index("by_offenseId", ["offenseId"])
+    .index("by_userId", ["userId"])
+    .index("by_offense_user", ["offenseId", "userId"]),
+
   offendingArtistIndex: defineTable({
     ...legacyFields,
     ...lifecycleFields,

@@ -301,6 +301,47 @@ export const cleanupBadOffenses = internalMutation({
   },
 });
 
+export const contestOffense = mutation({
+  args: {
+    offenseId: v.id("artistOffenses"),
+    reason: v.string(),
+    reasonCategory: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { user } = await requireCurrentUser(ctx);
+
+    const offense = await ctx.db.get(args.offenseId);
+    if (!offense) {
+      throw new ConvexError("Offense not found.");
+    }
+
+    // Prevent duplicate: one contest per user per offense
+    const existing = await ctx.db
+      .query("offenseContests")
+      .withIndex("by_offense_user", (q) =>
+        q.eq("offenseId", args.offenseId).eq("userId", user._id),
+      )
+      .unique();
+
+    if (existing) {
+      throw new ConvexError("You have already contested this offense.");
+    }
+
+    const now = nowIso();
+    const contestId = await ctx.db.insert("offenseContests", {
+      legacyKey: `runtime:contest:${args.offenseId}:${user._id}`,
+      offenseId: args.offenseId,
+      userId: user._id,
+      reason: args.reason,
+      reasonCategory: args.reasonCategory,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return await ctx.db.get(contestId);
+  },
+});
+
 export const verifyOffense = mutation({
   args: {
     offenseId: v.id("artistOffenses"),

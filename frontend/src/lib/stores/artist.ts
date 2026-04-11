@@ -84,6 +84,7 @@ export interface Offense {
   procedural_state: ProceduralState;
   evidence: Evidence[];
   evidence_strength: EvidenceStrength;
+  contestCount?: number;
   last_updated: string;
   created_at: string;
 }

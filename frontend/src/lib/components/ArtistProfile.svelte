@@ -239,9 +239,21 @@
   $: catalogBehindCount = catalog.filter(t => t.role === 'producer' || t.role === 'writer').length;
 
   let expandedOffenseId: string | null = null;
-  let showReportModal = false;
-  let reportDescription = '';
-  let reportCategory = 'factual_error';
+
+  // Contest state (US-001)
+  let contestingOffenseId: string | null = null;
+  let contestReason = '';
+  let contestReasonCategory = 'wrong_artist';
+  let contestSubmitting = false;
+  let contestedOffenseIds: Set<string> = new Set();
+
+  // Evidence submission modal state (US-003)
+  let showEvidenceModal = false;
+  let evidenceUrl = '';
+  let evidenceCategory = '';
+  let evidenceSubmitting = false;
+  let evidenceResult: { verified: boolean; category?: string; credibilityScore?: number; reason?: string } | null = null;
+  let evidenceAutoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   // DNP state
   let isBlocked = false;
@@ -561,6 +573,7 @@
         verified: e.verified || false,
       })),
       evidence_strength: determineEvidenceStrength(data.evidence || []),
+      contestCount: data.contestCount || 0,
       last_updated: data.updated_at || new Date().toISOString(),
       created_at: data.created_at || new Date().toISOString(),
     };
@@ -604,19 +617,59 @@
     }
   }
 
-  async function submitReport() {
-    if (!reportDescription.trim()) return;
-
+  async function submitContest(offenseId: string) {
+    if (!contestReason.trim()) return;
+    contestSubmitting = true;
     try {
-      await apiClient.post('/api/v1/offenses/report-error', {
-        artist_id: artistId,
-        description: reportDescription,
-        category: reportCategory,
+      await apiClient.post(`/api/v1/offenses/${offenseId}/contest`, {
+        offenseId,
+        reason: contestReason,
+        reasonCategory: contestReasonCategory,
       });
-      showReportModal = false;
-      reportDescription = '';
+      contestedOffenseIds.add(offenseId);
+      contestedOffenseIds = new Set(contestedOffenseIds);
+      contestingOffenseId = null;
+      contestReason = '';
+      contestReasonCategory = 'wrong_artist';
     } catch (e) {
-      console.error('Failed to submit report:', e);
+      console.error('Failed to submit contest:', e);
+    } finally {
+      contestSubmitting = false;
+    }
+  }
+
+  function closeEvidenceModal() {
+    showEvidenceModal = false;
+    evidenceUrl = '';
+    evidenceCategory = '';
+    evidenceSubmitting = false;
+    evidenceResult = null;
+    if (evidenceAutoCloseTimer) {
+      clearTimeout(evidenceAutoCloseTimer);
+      evidenceAutoCloseTimer = null;
+    }
+  }
+
+  async function submitEvidence() {
+    if (!evidenceUrl.trim()) return;
+    evidenceSubmitting = true;
+    evidenceResult = null;
+    try {
+      const payload: Record<string, string> = { artistId, url: evidenceUrl };
+      if (evidenceCategory) payload.category = evidenceCategory;
+      const result = await apiClient.post<any>('/api/v1/offenses/submit-evidence', payload);
+      if (result.success && result.data) {
+        evidenceResult = result.data;
+      } else {
+        evidenceResult = { verified: false, reason: result.message || 'Verification failed' };
+      }
+      if (evidenceResult?.verified) {
+        evidenceAutoCloseTimer = setTimeout(() => closeEvidenceModal(), 3000);
+      }
+    } catch (e: any) {
+      evidenceResult = { verified: false, reason: e.message || 'Failed to submit evidence' };
+    } finally {
+      evidenceSubmitting = false;
     }
   }
 
@@ -866,23 +919,13 @@
               <div class="profile__secondary-actions">
                 <button
                   type="button"
-                  on:click={() => activeTab = 'evidence'}
+                  on:click={() => showEvidenceModal = true}
                   class="profile__action-btn profile__action-btn--primary"
                 >
                   <svg class="profile__action-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                   </svg>
-                  Evidence
-                </button>
-                <button
-                  type="button"
-                  on:click={() => showReportModal = true}
-                  class="profile__action-btn profile__action-btn--secondary"
-                >
-                  <svg class="profile__action-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  Report
+                  Add Evidence
                 </button>
               </div>
           </div>
@@ -941,6 +984,9 @@
                     <span class="ev-pill" style="background: {hexToRgba(catColor.icon, 0.18)}; color: {catColor.icon};">{offense.category.name}</span>
                     <span class="ev-pill ev-pill--muted">{getProceduralStateLabel(offense.procedural_state)}</span>
                     <span class="ev-pill" style="background: {hexToRgba(evidenceStrength.color, 0.22)}; color: {evidenceStrength.color};">{evidenceStrength.label} Evidence</span>
+                    {#if (offense.contestCount ?? 0) > 0 || contestedOffenseIds.has(offense.id)}
+                      <span class="ev-pill ev-pill--contested">Contested</span>
+                    {/if}
                     {#if offense.incident_date}
                       <span class="ev-card__date">{formatDate(offense.incident_date)}</span>
                     {/if}
@@ -950,12 +996,65 @@
                   <p class="ev-card__desc">{offense.description}</p>
 
                   <div class="ev-card__footer">
-                    <span class="ev-card__sources">{offense.evidence.length} source{offense.evidence.length !== 1 ? 's' : ''}</span>
+                    <div class="ev-card__footer-left">
+                      <span class="ev-card__sources">{offense.evidence.length} source{offense.evidence.length !== 1 ? 's' : ''}</span>
+                      {#if contestedOffenseIds.has(offense.id) || (offense.contestCount ?? 0) > 0}
+                        <span class="ev-contest-btn ev-contest-btn--done">Contested</span>
+                      {:else}
+                        <button
+                          type="button"
+                          class="ev-contest-btn"
+                          on:click|stopPropagation={() => { contestingOffenseId = contestingOffenseId === offense.id ? null : offense.id; }}
+                        >Contest</button>
+                      {/if}
+                    </div>
                     <svg class="ev-card__chevron {isExpanded ? 'ev-card__chevron--open' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                 </button>
+
+                {#if contestingOffenseId === offense.id}
+                  <div class="ev-contest-form" transition:slide={{ duration: slideDuration }}>
+                    <h4 class="ev-contest-form__heading">Contest this offense</h4>
+                    <div class="ev-contest-form__field">
+                      <label for="contest-category-{offense.id}" class="ev-contest-form__label">Reason category</label>
+                      <select id="contest-category-{offense.id}" bind:value={contestReasonCategory} class="ev-contest-form__select">
+                        <option value="wrong_artist">Wrong artist (name confusion)</option>
+                        <option value="wrong_category">Article doesn't support this category</option>
+                        <option value="outdated">Outdated / resolved</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div class="ev-contest-form__field">
+                      <label for="contest-reason-{offense.id}" class="ev-contest-form__label">Explanation</label>
+                      <textarea
+                        id="contest-reason-{offense.id}"
+                        bind:value={contestReason}
+                        maxlength="500"
+                        rows="3"
+                        placeholder="Explain why this offense should be contested..."
+                        class="ev-contest-form__textarea"
+                      ></textarea>
+                      <span class="ev-contest-form__charcount">{contestReason.length}/500</span>
+                    </div>
+                    <div class="ev-contest-form__actions">
+                      <button
+                        type="button"
+                        class="ev-contest-form__btn ev-contest-form__btn--cancel"
+                        on:click={() => { contestingOffenseId = null; contestReason = ''; contestReasonCategory = 'wrong_artist'; }}
+                      >Cancel</button>
+                      <button
+                        type="button"
+                        class="ev-contest-form__btn ev-contest-form__btn--submit"
+                        disabled={!contestReason.trim() || contestSubmitting}
+                        on:click={() => submitContest(offense.id)}
+                      >
+                        {#if contestSubmitting}Submitting...{:else}Submit Contest{/if}
+                      </button>
+                    </div>
+                  </div>
+                {/if}
 
                 {#if isExpanded}
                   <div class="ev-sources" transition:slide={{ duration: slideDuration }}>
@@ -1398,64 +1497,93 @@
     </main>
     </div><!-- end profile__content-card -->
 
-    <!-- Report Error Modal -->
-    {#if showReportModal}
-      <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85">
-        <div
-          class="w-full max-w-md rounded-2xl p-6 surface-panel-thin"
-         
-        >
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-xl font-bold text-white">Report an Error</h3>
+    <!-- Evidence Submission Modal (US-003) -->
+    {#if showEvidenceModal}
+      <div class="ev-modal-overlay" on:click|self={closeEvidenceModal} role="presentation">
+        <div class="ev-modal">
+          <div class="ev-modal__header">
+            <h3 class="ev-modal__title">Submit Evidence</h3>
             <button
               type="button"
-              on:click={() => showReportModal = false}
-              class="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-700"
+              on:click={closeEvidenceModal}
+              class="ev-modal__close"
             >
-              <svg class="w-5 h-5" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div class="space-y-4">
-            <div>
-              <label for="error-type" class="block text-sm font-medium text-zinc-300 mb-2">Error Type</label>
-              <select id="error-type" bind:value={reportCategory} class="w-full px-4 py-3 rounded-lg text-white surface-panel-thin" >
-                <option value="factual_error">Factual Error</option>
-                <option value="wrong_artist">Wrong Artist</option>
-                <option value="outdated_info">Outdated Information</option>
-                <option value="missing_context">Missing Context</option>
-                <option value="source_issue">Source Issue</option>
-                <option value="other">Other</option>
-              </select>
+          {#if evidenceResult}
+            <div class="ev-modal__result {evidenceResult.verified ? 'ev-modal__result--success' : 'ev-modal__result--fail'}">
+              {#if evidenceResult.verified}
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="ev-modal__result-text">Evidence verified</p>
+                {#if evidenceResult.category}
+                  <p class="ev-modal__result-detail">Category: <strong>{evidenceResult.category}</strong></p>
+                {/if}
+                {#if evidenceResult.credibilityScore}
+                  <p class="ev-modal__result-detail">Credibility score: <strong>{evidenceResult.credibilityScore}</strong></p>
+                {/if}
+              {:else}
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p class="ev-modal__result-text">{evidenceResult.reason || 'Could not verify this URL'}</p>
+              {/if}
+              <button type="button" class="ev-modal__result-close" on:click={closeEvidenceModal}>Close</button>
             </div>
-
-            <div>
-              <label for="error-description" class="block text-sm font-medium text-zinc-300 mb-2">Description</label>
-              <textarea id="error-description" bind:value={reportDescription} rows="4" placeholder="Describe the error and provide any supporting information..." class="w-full px-4 py-3 rounded-lg text-white placeholder-zinc-500 resize-none surface-panel-thin" ></textarea>
+          {:else}
+            <div class="ev-modal__body">
+              <div class="ev-modal__field">
+                <label for="evidence-url" class="ev-modal__label">URL</label>
+                <input
+                  id="evidence-url"
+                  type="url"
+                  bind:value={evidenceUrl}
+                  placeholder="https://..."
+                  class="ev-modal__input"
+                  disabled={evidenceSubmitting}
+                />
+              </div>
+              <div class="ev-modal__field">
+                <label for="evidence-category" class="ev-modal__label">Category (optional)</label>
+                <select id="evidence-category" bind:value={evidenceCategory} class="ev-modal__select" disabled={evidenceSubmitting}>
+                  <option value="">Auto-detect</option>
+                  <option value="sexual_misconduct">Sexual Misconduct</option>
+                  <option value="domestic_violence">Domestic Violence</option>
+                  <option value="violent_crime">Violent Crime</option>
+                  <option value="hate_speech">Hate Speech</option>
+                  <option value="fraud">Fraud</option>
+                  <option value="drug_offense">Drug Offense</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
             </div>
-
-            <div class="flex gap-3 pt-2">
+            <div class="ev-modal__footer">
               <button
                 type="button"
-                on:click={() => showReportModal = false}
-                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors hover:bg-zinc-700 surface-panel-thin text-white"
-               
-              >
-                Cancel
-              </button>
+                class="ev-modal__btn ev-modal__btn--cancel"
+                on:click={closeEvidenceModal}
+                disabled={evidenceSubmitting}
+              >Cancel</button>
               <button
                 type="button"
-                on:click={submitReport}
-                disabled={!reportDescription.trim()}
-                class="flex-1 px-4 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 hover:bg-rose-700 bg-rose-600 text-white"
-               
+                class="ev-modal__btn ev-modal__btn--submit"
+                disabled={!evidenceUrl.trim() || evidenceSubmitting}
+                on:click={submitEvidence}
               >
-                Submit Report
+                {#if evidenceSubmitting}
+                  <div class="ev-modal__spinner"></div>
+                  Verifying...
+                {:else}
+                  Verify & Submit
+                {/if}
               </button>
             </div>
-          </div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -2784,4 +2912,393 @@
   }
 
   .conn-warning strong { color: #fafafa; }
+
+  /* ===== Contested Badge ===== */
+  .ev-pill--contested {
+    background: rgba(245, 158, 11, 0.22);
+    color: #F59E0B;
+  }
+
+  /* ===== Contest Button in Footer ===== */
+  .ev-card__footer-left {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .ev-contest-btn {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.1875rem 0.5rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-tertiary);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ev-contest-btn:hover {
+    background: rgba(245, 158, 11, 0.15);
+    color: #F59E0B;
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+
+  .ev-contest-btn--done {
+    background: rgba(245, 158, 11, 0.18);
+    color: #F59E0B;
+    border-color: rgba(245, 158, 11, 0.25);
+    cursor: default;
+  }
+
+  /* ===== Inline Contest Form ===== */
+  .ev-contest-form {
+    padding: 1rem 1.25rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .ev-contest-form__heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #F59E0B;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.75rem;
+  }
+
+  .ev-contest-form__field {
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+
+  .ev-contest-form__label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.375rem;
+  }
+
+  .ev-contest-form__select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    appearance: auto;
+  }
+
+  .ev-contest-form__select:focus {
+    outline: none;
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+
+  .ev-contest-form__textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    resize: vertical;
+    font-family: inherit;
+  }
+
+  .ev-contest-form__textarea::placeholder {
+    color: #52525b;
+  }
+
+  .ev-contest-form__textarea:focus {
+    outline: none;
+    border-color: rgba(245, 158, 11, 0.4);
+  }
+
+  .ev-contest-form__charcount {
+    position: absolute;
+    bottom: 0.375rem;
+    right: 0.75rem;
+    font-size: 0.625rem;
+    color: #52525b;
+  }
+
+  .ev-contest-form__actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .ev-contest-form__btn {
+    padding: 0.375rem 0.875rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+
+  .ev-contest-form__btn--cancel {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-tertiary);
+  }
+
+  .ev-contest-form__btn--cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+  }
+
+  .ev-contest-form__btn--submit {
+    background: rgba(245, 158, 11, 0.2);
+    color: #F59E0B;
+  }
+
+  .ev-contest-form__btn--submit:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.3);
+  }
+
+  .ev-contest-form__btn--submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ===== Evidence Submission Modal (US-003) ===== */
+  .ev-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+  }
+
+  .ev-modal {
+    width: 100%;
+    max-width: 480px;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)),
+      rgba(17, 17, 19, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+  }
+
+  .ev-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .ev-modal__title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0;
+  }
+
+  .ev-modal__close {
+    padding: 0.375rem;
+    border-radius: 0.5rem;
+    background: none;
+    border: none;
+    color: #71717a;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ev-modal__close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .ev-modal__body {
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .ev-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .ev-modal__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+
+  .ev-modal__input {
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: inherit;
+  }
+
+  .ev-modal__input::placeholder {
+    color: #52525b;
+  }
+
+  .ev-modal__input:focus {
+    outline: none;
+    border-color: rgba(244, 63, 94, 0.4);
+  }
+
+  .ev-modal__input:disabled {
+    opacity: 0.6;
+  }
+
+  .ev-modal__select {
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    appearance: auto;
+  }
+
+  .ev-modal__select:focus {
+    outline: none;
+    border-color: rgba(244, 63, 94, 0.4);
+  }
+
+  .ev-modal__select:disabled {
+    opacity: 0.6;
+  }
+
+  .ev-modal__footer {
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem 1.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .ev-modal__btn {
+    flex: 1;
+    padding: 0.625rem 1rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .ev-modal__btn--cancel {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
+  }
+
+  .ev-modal__btn--cancel:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
+
+  .ev-modal__btn--cancel:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ev-modal__btn--submit {
+    background: var(--color-brand-gradient, linear-gradient(135deg, #f43f5e, #ec4899));
+    color: #fff;
+  }
+
+  .ev-modal__btn--submit:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .ev-modal__btn--submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .ev-modal__spinner {
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: profile-spin 1s linear infinite;
+  }
+
+  /* Evidence result states */
+  .ev-modal__result {
+    padding: 2rem 1.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ev-modal__result--success svg {
+    color: #22c55e;
+  }
+
+  .ev-modal__result--fail svg {
+    color: #F59E0B;
+  }
+
+  .ev-modal__result-text {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: #fff;
+    margin: 0;
+  }
+
+  .ev-modal__result--success .ev-modal__result-text {
+    color: #22c55e;
+  }
+
+  .ev-modal__result--fail .ev-modal__result-text {
+    color: #F59E0B;
+  }
+
+  .ev-modal__result-detail {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .ev-modal__result-detail strong {
+    color: #fff;
+  }
+
+  .ev-modal__result-close {
+    margin-top: 0.75rem;
+    padding: 0.375rem 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .ev-modal__result-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+  }
 </style>

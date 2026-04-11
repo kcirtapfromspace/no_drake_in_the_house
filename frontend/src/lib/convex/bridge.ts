@@ -351,6 +351,26 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    const offenseContestMatch = matchPath(pathname, /^\/api\/v1\/offenses\/([^/]+)\/contest$/);
+    if (offenseContestMatch && method === 'POST') {
+      const offenseId = parseId(offenseContestMatch[1]);
+      const result = await convexMutation<any>(anyApi.offenses.contestOffense, {
+        offenseId,
+        reason: data?.reason ?? '',
+        reasonCategory: data?.reasonCategory ?? data?.reason_category ?? 'other',
+      });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
+    if (method === 'POST' && pathname === '/api/v1/offenses/submit-evidence') {
+      const result = await convexAction<any>(anyApi.evidenceVerifier.submitEvidence, {
+        artistId: data?.artistId ?? data?.artist_id,
+        url: data?.url,
+        category: data?.category,
+      });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     const offenseByIdMatch = matchPath(pathname, /^\/api\/v1\/offenses\/([^/]+)$/);
     if (offenseByIdMatch && method === 'GET') {
       const offenseId = parseId(offenseByIdMatch[1]);

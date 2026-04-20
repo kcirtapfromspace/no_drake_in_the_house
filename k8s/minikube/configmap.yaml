@@ -5,6 +5,7 @@ metadata:
   namespace: music-blocklist-dev
 data:
   RUST_LOG: "debug"
+  APPLE_MUSIC_ENFORCE_READINESS: "false"
   DATABASE_MAX_CONNECTIONS: "10"
   REDIS_MAX_CONNECTIONS: "5"
   RATE_LIMIT_WINDOW: "3600"

@@ -64,6 +64,8 @@ kubectl get secrets -n ndith-production
 - `JWT_SECRET`: Strong random key for JWT signing
 - `KMS_KEY_ID`: AWS KMS key for token encryption
 - `SPOTIFY_CLIENT_SECRET`: Spotify API credentials
+- `APPLE_MUSIC_TEAM_ID`: Apple Developer Team ID
+- `APPLE_MUSIC_KEY_ID`: Apple Music key identifier
 - `APPLE_MUSIC_PRIVATE_KEY`: Apple Music API key
 - `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: For S3 backups
 
@@ -180,7 +182,7 @@ kubectl describe ingress ndith-ingress -n ndith-production
 
 # Test health endpoints
 curl -f https://api.yourdomain.com/health
-curl -f https://api.yourdomain.com/ready
+curl -f https://api.yourdomain.com/health/ready
 curl -f https://api.yourdomain.com/metrics
 ```
 

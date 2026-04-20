@@ -62,6 +62,16 @@ spec:
             secretKeyRef:
               name: ndith-secrets
               key: SPOTIFY_CLIENT_SECRET
+        - name: APPLE_MUSIC_TEAM_ID
+          valueFrom:
+            secretKeyRef:
+              name: ndith-secrets
+              key: APPLE_MUSIC_TEAM_ID
+        - name: APPLE_MUSIC_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: ndith-secrets
+              key: APPLE_MUSIC_KEY_ID
         - name: APPLE_MUSIC_PRIVATE_KEY
           valueFrom:
             secretKeyRef:
@@ -87,7 +97,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /ready
+            path: /health/ready
             port: 9090
           initialDelaySeconds: 5
           periodSeconds: 5

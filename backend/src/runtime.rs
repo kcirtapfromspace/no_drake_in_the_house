@@ -288,7 +288,21 @@ pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Er
         AppleMusicService::new(apple_music_config, token_vault)
             .expect("Failed to create Apple Music service"),
     );
-    tracing::info!("Apple Music enforcement service initialized");
+    if crate::apple_music_readiness_required() {
+        apple_music_service
+            .generate_developer_token()
+            .await
+            .map_err(|error| format!("Apple Music readiness guard failed (required): {}", error))?;
+        tracing::info!("Apple Music enforcement service initialized (readiness guard passed)");
+    } else {
+        if let Err(error) = apple_music_service.generate_developer_token().await {
+            tracing::warn!(
+                error = %error,
+                "Apple Music credentials are missing/invalid; continuing because readiness guard is not enforced"
+            );
+        }
+        tracing::info!("Apple Music enforcement service initialized");
+    }
 
     let app_state = AppState {
         db_pool,

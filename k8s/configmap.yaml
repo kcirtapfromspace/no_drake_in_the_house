@@ -5,6 +5,7 @@ metadata:
   namespace: ndith-production
 data:
   RUST_LOG: "info"
+  APPLE_MUSIC_ENFORCE_READINESS: "true"
   DATABASE_MAX_CONNECTIONS: "20"
   REDIS_MAX_CONNECTIONS: "10"
   RATE_LIMIT_WINDOW: "3600"

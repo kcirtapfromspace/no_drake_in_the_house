@@ -23,6 +23,7 @@ use serde::Serialize;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
@@ -1021,12 +1022,95 @@ async fn oauth_callback_redirect(
     Redirect::temporary(&redirect_to)
 }
 
+fn parse_bool_env(var_name: &str) -> Option<bool> {
+    let raw = std::env::var(var_name).ok()?;
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "1" | "true" | "yes" | "on" => Some(true),
+        "0" | "false" | "no" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+pub(crate) fn apple_music_readiness_required() -> bool {
+    if let Some(explicit) = parse_bool_env("APPLE_MUSIC_ENFORCE_READINESS") {
+        return explicit;
+    }
+
+    matches!(
+        std::env::var("ENVIRONMENT")
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase()
+            .as_str(),
+        "production" | "prod"
+    )
+}
+
+fn health_status_label(status: &HealthStatus) -> &'static str {
+    match status {
+        HealthStatus::Healthy => "healthy",
+        HealthStatus::Degraded => "degraded",
+        HealthStatus::Unhealthy => "unhealthy",
+    }
+}
+
+async fn check_apple_music_configuration(state: &AppState) -> health::ServiceHealthInfo {
+    let required = apple_music_readiness_required();
+    let start = Instant::now();
+    let last_check = Utc::now();
+
+    match state.apple_music_service.generate_developer_token().await {
+        Ok(_) => health::ServiceHealthInfo {
+            status: HealthStatus::Healthy,
+            response_time_ms: start.elapsed().as_millis() as u64,
+            last_check,
+            error_message: None,
+            details: Some(serde_json::json!({
+                "configured": true,
+                "readiness_enforced": required,
+            })),
+        },
+        Err(error) => {
+            let status = if required {
+                HealthStatus::Unhealthy
+            } else {
+                HealthStatus::Degraded
+            };
+
+            health::ServiceHealthInfo {
+                status,
+                response_time_ms: start.elapsed().as_millis() as u64,
+                last_check,
+                error_message: Some(error.to_string()),
+                details: Some(serde_json::json!({
+                    "configured": false,
+                    "readiness_enforced": required,
+                    "missing_config_state": true,
+                })),
+            }
+        }
+    }
+}
+
 /// Health check endpoint with comprehensive error handling
 async fn health_check(State(state): State<AppState>) -> Result<Json<HealthCheckResponse>> {
-    let health_response = state
+    let mut health_response = state
         .monitoring
         .check_health(&state.db_pool, &state.redis_pool)
         .await;
+    let apple_music_health = check_apple_music_configuration(&state).await;
+
+    if matches!(apple_music_health.status, HealthStatus::Unhealthy) {
+        health_response.status = HealthStatus::Unhealthy;
+    } else if matches!(apple_music_health.status, HealthStatus::Degraded)
+        && matches!(health_response.status, HealthStatus::Healthy)
+    {
+        health_response.status = HealthStatus::Degraded;
+    }
+
+    health_response
+        .services
+        .insert("apple_music_config".to_string(), apple_music_health);
 
     tracing::info!(
         status = ?health_response.status,
@@ -1038,15 +1122,56 @@ async fn health_check(State(state): State<AppState>) -> Result<Json<HealthCheckR
 }
 
 /// Readiness check endpoint for Kubernetes
-async fn readiness_check_endpoint(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>> {
-    readiness_check(&state.db_pool, &state.redis_pool).await?;
+async fn readiness_check_endpoint(State(state): State<AppState>) -> impl IntoResponse {
+    if let Err(error) = readiness_check(&state.db_pool, &state.redis_pool).await {
+        return error.into_response();
+    }
 
-    Ok(Json(serde_json::json!({
-        "status": "ready",
-        "timestamp": chrono::Utc::now().to_rfc3339()
-    })))
+    let apple_music_health = check_apple_music_configuration(&state).await;
+    let apple_music_payload = serde_json::json!({
+        "status": health_status_label(&apple_music_health.status),
+        "error": apple_music_health.error_message,
+        "details": apple_music_health.details,
+        "last_check": apple_music_health.last_check.to_rfc3339(),
+    });
+
+    if matches!(apple_music_health.status, HealthStatus::Unhealthy) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "status": "not_ready",
+                "reason": "apple_music_config_invalid",
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "services": {
+                    "apple_music_config": apple_music_payload,
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    if matches!(apple_music_health.status, HealthStatus::Degraded) {
+        return (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "status": "ready_with_warnings",
+                "timestamp": chrono::Utc::now().to_rfc3339(),
+                "services": {
+                    "apple_music_config": apple_music_payload,
+                }
+            })),
+        )
+            .into_response();
+    }
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "status": "ready",
+            "timestamp": chrono::Utc::now().to_rfc3339()
+        })),
+    )
+        .into_response()
 }
 
 /// Liveness check endpoint for Kubernetes

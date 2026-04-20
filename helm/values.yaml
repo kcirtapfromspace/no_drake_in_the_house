@@ -23,6 +23,7 @@ backend:
     DATABASE_URL: "postgres://ndith:password@ndith-postgresql:5432/ndith"
     REDIS_URL: "redis://ndith-redis-master:6379"
     JWT_SECRET: "production_jwt_secret_change_me"
+    APPLE_MUSIC_ENFORCE_READINESS: "false"
     RUST_LOG: "info"
     TOTP_ISSUER: "No Drake in the House"
   
@@ -45,7 +46,7 @@ backend:
   
   readinessProbe:
     httpGet:
-      path: /health
+      path: /health/ready
       port: 3000
     initialDelaySeconds: 5
     periodSeconds: 5
@@ -208,4 +209,6 @@ secrets:
   jwtSecret: ""
   kmsKeyId: ""
   spotifyClientSecret: ""
+  appleMusicTeamId: ""
+  appleMusicKeyId: ""
   appleMusicPrivateKey: ""

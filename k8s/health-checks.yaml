@@ -62,15 +62,14 @@ data:
     SERVICE_URL="http://localhost:3000"
     
     # Check if service is responding
-    if ! curl -f -s "$SERVICE_URL/ready" > /dev/null; then
+    if ! curl -f -s "$SERVICE_URL/health/ready" > /dev/null; then
         echo "Service not ready"
         exit 1
     fi
     
-    # Check if all dependencies are available
-    RESPONSE=$(curl -s "$SERVICE_URL/ready/dependencies")
-    if [[ "$RESPONSE" != *"\"status\":\"ok\""* ]]; then
-        echo "Dependencies not ready: $RESPONSE"
+    RESPONSE=$(curl -s "$SERVICE_URL/health/ready")
+    if [[ "$RESPONSE" != *"\"status\":\"ready\""* ]] && [[ "$RESPONSE" != *"\"status\":\"ready_with_warnings\""* ]]; then
+        echo "Unexpected readiness payload: $RESPONSE"
         exit 1
     fi
     

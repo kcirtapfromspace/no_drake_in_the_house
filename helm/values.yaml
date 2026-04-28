@@ -25,6 +25,19 @@ backend:
     JWT_SECRET: "production_jwt_secret_change_me"
     RUST_LOG: "info"
     TOTP_ISSUER: "No Drake in the House"
+    DUCKDB_PATH: "/var/lib/ndith/analytics/analytics.duckdb"
+
+  # Persistent DuckDB analytics storage (NOD-196).
+  # When enabled, a PVC is provisioned and mounted at `mountPath`, and
+  # DUCKDB_PATH must point at a file inside that mountPath.
+  duckdb:
+    enabled: true
+    mountPath: /var/lib/ndith/analytics
+    persistence:
+      size: 10Gi
+      storageClass: ""
+      accessModes:
+        - ReadWriteOnce
   
   resources:
     requests:

@@ -22,6 +22,17 @@ backend:
   env:
     RUST_LOG: "warn"
     ENVIRONMENT: "production"
+    DUCKDB_PATH: "/var/lib/ndith/analytics/analytics.duckdb"
+
+  # Persistent DuckDB analytics storage (NOD-196).
+  duckdb:
+    enabled: true
+    mountPath: /var/lib/ndith/analytics
+    persistence:
+      size: 20Gi
+      storageClass: "fast-ssd"
+      accessModes:
+        - ReadWriteOnce
 
   autoscaling:
     enabled: true

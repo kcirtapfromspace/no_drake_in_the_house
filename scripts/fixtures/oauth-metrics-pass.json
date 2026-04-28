@@ -1,0 +1,48 @@
+{
+  "timestamp": "2026-04-09T12:00:00Z",
+  "window": "5m",
+  "providers": {
+    "spotify": {
+      "error_rate": 0.01,
+      "failed_auth_count": 2,
+      "failed_provider_streak": 0,
+      "rate_limited_duration_min": 0,
+      "callback_p95_ms": 850,
+      "refresh_p95_ms": 420,
+      "probe_p95_ms": 1200,
+      "callback_budget_burn": 1.2,
+      "refresh_budget_burn": 0.8,
+      "probe_consecutive_fail": 0
+    },
+    "apple_music": {
+      "error_rate": 0.005,
+      "failed_auth_count": 0,
+      "failed_provider_streak": 0,
+      "rate_limited_duration_min": 0,
+      "callback_p95_ms": 600,
+      "refresh_p95_ms": 310,
+      "probe_p95_ms": 900,
+      "callback_budget_burn": 0.5,
+      "refresh_budget_burn": 0.3,
+      "probe_consecutive_fail": 0
+    },
+    "tidal": {
+      "error_rate": 0.02,
+      "failed_auth_count": 1,
+      "failed_provider_streak": 0,
+      "rate_limited_duration_min": 0,
+      "callback_p95_ms": 950,
+      "refresh_p95_ms": 480,
+      "probe_p95_ms": 1500,
+      "callback_budget_burn": 1.0,
+      "refresh_budget_burn": 0.6,
+      "probe_consecutive_fail": 0
+    }
+  },
+  "global": {
+    "failed_system_count": 0,
+    "total_auth_attempts": 1500,
+    "total_successful_auths": 1478,
+    "active_providers": 3
+  }
+}

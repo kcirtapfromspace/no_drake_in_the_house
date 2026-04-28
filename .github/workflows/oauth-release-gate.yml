@@ -1,0 +1,33 @@
+name: OAuth Release Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/src/handlers/oauth.rs'
+      - 'backend/crates/ndith-services/src/oauth*.rs'
+      - 'backend/crates/ndith-core/src/models/oauth.rs'
+      - 'backend/crates/ndith-core/src/error/oauth.rs'
+      - 'convex/providerOAuth.ts'
+      - 'frontend/src/lib/utils/oauth-callback.ts'
+      - 'frontend/src/lib/components/OAuthCallback.svelte'
+      - 'scripts/oauth-release-gate.sh'
+      - 'scripts/fixtures/oauth-metrics-*.json'
+
+jobs:
+  oauth-release-gate:
+    name: OAuth SLO Release Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run OAuth release gate smoke test
+        run: |
+          chmod +x scripts/oauth-release-gate.sh
+          ./scripts/oauth-release-gate.sh scripts/fixtures/oauth-metrics-pass.json

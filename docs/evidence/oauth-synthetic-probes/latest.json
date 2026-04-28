@@ -1,0 +1,160 @@
+{
+  "generated_at": "2026-04-28T17:14:48.783Z",
+  "dry_run": true,
+  "provider_target": "all",
+  "definitions_path": "/Users/thinkstudio/.paperclip/instances/default/workspaces/5ac7562e-a4ed-4fda-8da4-f8b36fbbd108/no_drake_probe_schedule/scripts/oauth-probes/definitions.json",
+  "state_path": "/Users/thinkstudio/.paperclip/instances/default/workspaces/5ac7562e-a4ed-4fda-8da4-f8b36fbbd108/no_drake_probe_schedule/data/oauth-synthetic-probe-state.json",
+  "probe_count": 9,
+  "results": [
+    {
+      "provider": "spotify",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "spotify:oauth_login_callback:login_callback_success",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.login_callback_success",
+      "details": {
+        "assertion": "callback path resolves to success redirect handling",
+        "deterministic": true,
+        "reason": "dry-run deterministic safety"
+      }
+    },
+    {
+      "provider": "spotify",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "spotify:oauth_token_refresh:token_refresh_failure_class",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.token_refresh_failure_class",
+      "details": {
+        "simulated_error": "invalid_grant",
+        "expected_classification": "token_refresh_failure_class",
+        "deterministic": true,
+        "reason": "real provider token invalidation is unsafe in synthetic runs"
+      }
+    },
+    {
+      "provider": "spotify",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "spotify:provider_api:provider_unavailable_timeout",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+      "details": {
+        "simulated_transport": "timeout",
+        "timeout_ms": 5000,
+        "deterministic": true,
+        "reason": "real provider outage simulation is unsafe"
+      }
+    },
+    {
+      "provider": "apple",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "apple:oauth_login_callback:login_callback_success",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.login_callback_success",
+      "details": {
+        "assertion": "callback path resolves to success redirect handling",
+        "deterministic": true,
+        "reason": "dry-run deterministic safety"
+      }
+    },
+    {
+      "provider": "apple",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "apple:oauth_token_refresh:token_refresh_failure_class",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.token_refresh_failure_class",
+      "details": {
+        "simulated_error": "invalid_grant",
+        "expected_classification": "token_refresh_failure_class",
+        "deterministic": true,
+        "reason": "real provider token invalidation is unsafe in synthetic runs"
+      }
+    },
+    {
+      "provider": "apple",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "apple:provider_api:provider_unavailable_timeout",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+      "details": {
+        "simulated_transport": "timeout",
+        "timeout_ms": 5000,
+        "deterministic": true,
+        "reason": "real provider outage simulation is unsafe"
+      }
+    },
+    {
+      "provider": "tidal",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "tidal:oauth_login_callback:login_callback_success",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.login_callback_success",
+      "details": {
+        "assertion": "callback path resolves to success redirect handling",
+        "deterministic": true,
+        "reason": "dry-run deterministic safety"
+      }
+    },
+    {
+      "provider": "tidal",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "tidal:oauth_token_refresh:token_refresh_failure_class",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.token_refresh_failure_class",
+      "details": {
+        "simulated_error": "invalid_grant",
+        "expected_classification": "token_refresh_failure_class",
+        "deterministic": true,
+        "reason": "real provider token invalidation is unsafe in synthetic runs"
+      }
+    },
+    {
+      "provider": "tidal",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "last_success": "2026-04-28T17:14:48.790Z",
+      "status": "pass",
+      "timestamp": "2026-04-28T17:14:48.790Z",
+      "probe_id": "tidal:provider_api:provider_unavailable_timeout",
+      "simulation": true,
+      "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+      "details": {
+        "simulated_transport": "timeout",
+        "timeout_ms": 5000,
+        "deterministic": true,
+        "reason": "real provider outage simulation is unsafe"
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "definitions": [
+    {
+      "id": "spotify:oauth_login_callback:login_callback_success",
+      "provider": "spotify",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "spotify:oauth_token_refresh:token_refresh_failure_class",
+      "provider": "spotify",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "spotify:provider_api:provider_unavailable_timeout",
+      "provider": "spotify",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "apple:oauth_login_callback:login_callback_success",
+      "provider": "apple",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "apple:oauth_token_refresh:token_refresh_failure_class",
+      "provider": "apple",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "apple:provider_api:provider_unavailable_timeout",
+      "provider": "apple",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "tidal:oauth_login_callback:login_callback_success",
+      "provider": "tidal",
+      "flow": "oauth_login_callback",
+      "class": "login_callback_success",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "tidal:oauth_token_refresh:token_refresh_failure_class",
+      "provider": "tidal",
+      "flow": "oauth_token_refresh",
+      "class": "token_refresh_failure_class",
+      "strategy": "deterministic"
+    },
+    {
+      "id": "tidal:provider_api:provider_unavailable_timeout",
+      "provider": "tidal",
+      "flow": "provider_api",
+      "class": "provider_unavailable_timeout",
+      "strategy": "deterministic"
+    }
+  ]
+}

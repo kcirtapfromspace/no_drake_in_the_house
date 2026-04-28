@@ -68,4 +68,15 @@ crons.daily(
   internal.catalogEnrichment.enrichBatch,
 );
 
+// Run OAuth synthetic probes on a deterministic schedule. Mirrors the
+// one-shot dry-run entrypoint at scripts/oauth-probes/run.mjs and emits
+// records satisfying the locked output contract (provider, flow, class,
+// last_success, status, timestamp). No alerting/paging is wired here.
+crons.interval(
+  "run-oauth-synthetic-probes",
+  { minutes: 15 },
+  internal.oauthSyntheticProbes.runProbes,
+  { provider: "all" },
+);
+
 export default crons;

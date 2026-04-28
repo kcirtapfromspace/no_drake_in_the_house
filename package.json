@@ -7,7 +7,7 @@
     "convex:dev": "convex dev",
     "convex:deploy": "convex deploy",
     "migrate:convex": "tsx scripts/convex/migrate-postgres-to-convex.ts",
-    "probe:oauth": "node scripts/oauth-probes/run.mjs",
+    "probe:oauth": "tsx scripts/oauth-probes/run.ts",
     "lint": "npm run lint --prefix frontend"
   },
   "devDependencies": {

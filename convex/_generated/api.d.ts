@@ -24,6 +24,8 @@ import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_bloom from "../lib/bloom.js";
 import type * as lib_crypto from "../lib/crypto.js";
+import type * as lib_oauthSyntheticProbes from "../lib/oauthSyntheticProbes.js";
+import type * as oauthSyntheticProbes from "../oauthSyntheticProbes.js";
 import type * as library from "../library.js";
 import type * as librarySyncActions from "../librarySyncActions.js";
 import type * as migration from "../migration.js";
@@ -64,6 +66,8 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/bloom": typeof lib_bloom;
   "lib/crypto": typeof lib_crypto;
+  "lib/oauthSyntheticProbes": typeof lib_oauthSyntheticProbes;
+  oauthSyntheticProbes: typeof oauthSyntheticProbes;
   library: typeof library;
   librarySyncActions: typeof librarySyncActions;
   migration: typeof migration;

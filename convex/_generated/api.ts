@@ -28,6 +28,7 @@ import type * as librarySyncActions from "../librarySyncActions.js";
 import type * as migration from "../migration.js";
 import type * as news from "../news.js";
 import type * as newsIngestion from "../newsIngestion.js";
+import type * as oauthSyntheticProbes from "../oauthSyntheticProbes.js";
 import type * as offensePipeline from "../offensePipeline.js";
 import type * as offenses from "../offenses.js";
 import type * as providerConnections from "../providerConnections.js";
@@ -60,6 +61,7 @@ const fullApi: ApiFromModules<{
   migration: typeof migration;
   news: typeof news;
   newsIngestion: typeof newsIngestion;
+  oauthSyntheticProbes: typeof oauthSyntheticProbes;
   offensePipeline: typeof offensePipeline;
   offenses: typeof offenses;
   providerConnections: typeof providerConnections;

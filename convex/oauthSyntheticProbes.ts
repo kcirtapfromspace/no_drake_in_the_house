@@ -1,153 +1,78 @@
 // Scheduled execution path for OAuth synthetic probes (NOD-185).
 //
 // This module is the in-Convex equivalent of the local CLI runner at
-// scripts/oauth-probes/run.mjs. Both paths produce records that
-// satisfy the same locked output contract: every record exposes
-// provider, flow, class, last_success, status, and timestamp.
+// scripts/oauth-probes/run.ts. Both paths import the canonical probe
+// definitions, classifier, and record builder from
+// convex/lib/oauthSyntheticProbes.ts so scheduled mode cannot fork
+// from dry-run.
 //
-// The CLI runner is the developer one-shot dry-run entrypoint; this
-// internal action is the deterministic scheduled entrypoint invoked by
-// convex/crons.ts. By mirroring the same definitions and deterministic
-// execution logic, scheduled mode never diverges from dry-run.
-//
-// No alerting/paging is wired here — records are emitted as structured
-// logs (observable via `npx convex logs`) and returned to the caller.
+// `last_success` is persisted in the oauthSyntheticProbeState table so
+// it survives across scheduled runs (the CLI mirrors this in
+// data/oauth-synthetic-probe-state.json). `status` is derived by the
+// shared classifier — the only signal these synthetic probes carry is
+// "did the canonical classifier still route the simulated input to the
+// expected class?". No alerting/paging is wired here; records emit as
+// structured logs and are returned to the caller.
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { internal } from "./_generated/api";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+} from "./_generated/server";
+import {
+  buildRecord,
+  filterDefinitions,
+  type ProbeRecord,
+} from "./lib/oauthSyntheticProbes";
 
-type ProbeProvider = "spotify" | "apple" | "tidal";
-type ProbeFlow =
-  | "oauth_login_callback"
-  | "oauth_token_refresh"
-  | "provider_api";
-type ProbeClass =
-  | "login_callback_success"
-  | "token_refresh_failure_class"
-  | "provider_unavailable_timeout";
+export const getProbeState = internalQuery({
+  args: { probeIds: v.array(v.string()) },
+  handler: async (ctx, args) => {
+    const entries: Record<string, string | null> = {};
+    for (const probeId of args.probeIds) {
+      const row = await ctx.db
+        .query("oauthSyntheticProbeState")
+        .withIndex("by_probeId", (q) => q.eq("probeId", probeId))
+        .unique();
+      entries[probeId] = row?.lastSuccessAt ?? null;
+    }
+    return entries;
+  },
+});
 
-type ProbeDefinition = {
-  id: string;
-  provider: ProbeProvider;
-  flow: ProbeFlow;
-  class: ProbeClass;
-  strategy: "deterministic";
-};
-
-const DEFINITIONS: ProbeDefinition[] = [
-  {
-    id: "spotify:oauth_login_callback:login_callback_success",
-    provider: "spotify",
-    flow: "oauth_login_callback",
-    class: "login_callback_success",
-    strategy: "deterministic",
+export const upsertProbeState = internalMutation({
+  args: {
+    runAt: v.string(),
+    updates: v.array(
+      v.object({
+        probeId: v.string(),
+        lastSuccessAt: v.union(v.string(), v.null()),
+      }),
+    ),
   },
-  {
-    id: "spotify:oauth_token_refresh:token_refresh_failure_class",
-    provider: "spotify",
-    flow: "oauth_token_refresh",
-    class: "token_refresh_failure_class",
-    strategy: "deterministic",
+  handler: async (ctx, args) => {
+    for (const update of args.updates) {
+      const existing = await ctx.db
+        .query("oauthSyntheticProbeState")
+        .withIndex("by_probeId", (q) => q.eq("probeId", update.probeId))
+        .unique();
+      const lastSuccessAt = update.lastSuccessAt ?? undefined;
+      if (existing) {
+        await ctx.db.patch(existing._id, {
+          lastSuccessAt,
+          lastRunAt: args.runAt,
+        });
+      } else {
+        await ctx.db.insert("oauthSyntheticProbeState", {
+          probeId: update.probeId,
+          lastSuccessAt,
+          lastRunAt: args.runAt,
+        });
+      }
+    }
   },
-  {
-    id: "spotify:provider_api:provider_unavailable_timeout",
-    provider: "spotify",
-    flow: "provider_api",
-    class: "provider_unavailable_timeout",
-    strategy: "deterministic",
-  },
-  {
-    id: "apple:oauth_login_callback:login_callback_success",
-    provider: "apple",
-    flow: "oauth_login_callback",
-    class: "login_callback_success",
-    strategy: "deterministic",
-  },
-  {
-    id: "apple:oauth_token_refresh:token_refresh_failure_class",
-    provider: "apple",
-    flow: "oauth_token_refresh",
-    class: "token_refresh_failure_class",
-    strategy: "deterministic",
-  },
-  {
-    id: "apple:provider_api:provider_unavailable_timeout",
-    provider: "apple",
-    flow: "provider_api",
-    class: "provider_unavailable_timeout",
-    strategy: "deterministic",
-  },
-  {
-    id: "tidal:oauth_login_callback:login_callback_success",
-    provider: "tidal",
-    flow: "oauth_login_callback",
-    class: "login_callback_success",
-    strategy: "deterministic",
-  },
-  {
-    id: "tidal:oauth_token_refresh:token_refresh_failure_class",
-    provider: "tidal",
-    flow: "oauth_token_refresh",
-    class: "token_refresh_failure_class",
-    strategy: "deterministic",
-  },
-  {
-    id: "tidal:provider_api:provider_unavailable_timeout",
-    provider: "tidal",
-    flow: "provider_api",
-    class: "provider_unavailable_timeout",
-    strategy: "deterministic",
-  },
-];
-
-type ProbeExecution = {
-  status: "pass" | "fail";
-  simulationLabel: string;
-  details: Record<string, unknown>;
-};
-
-function executeDefinition(definition: ProbeDefinition): ProbeExecution {
-  switch (definition.class) {
-    case "login_callback_success":
-      return {
-        status: "pass",
-        simulationLabel: "deterministic.mock.login_callback_success",
-        details: {
-          assertion: "callback path resolves to success redirect handling",
-          deterministic: true,
-          reason: "scheduled deterministic safety",
-        },
-      };
-    case "token_refresh_failure_class":
-      return {
-        status: "pass",
-        simulationLabel: "deterministic.mock.token_refresh_failure_class",
-        details: {
-          simulated_error: "invalid_grant",
-          expected_classification: "token_refresh_failure_class",
-          deterministic: true,
-          reason: "real provider token invalidation is unsafe in synthetic runs",
-        },
-      };
-    case "provider_unavailable_timeout":
-      return {
-        status: "pass",
-        simulationLabel: "deterministic.mock.provider_unavailable_timeout",
-        details: {
-          simulated_transport: "timeout",
-          timeout_ms: 5000,
-          deterministic: true,
-          reason: "real provider outage simulation is unsafe",
-        },
-      };
-  }
-}
-
-function filterDefinitions(target: ProbeProvider | "all"): ProbeDefinition[] {
-  if (target === "all") {
-    return DEFINITIONS;
-  }
-  return DEFINITIONS.filter((definition) => definition.provider === target);
-}
+});
 
 export const runProbes = internalAction({
   args: {
@@ -160,39 +85,38 @@ export const runProbes = internalAction({
       ),
     ),
   },
-  handler: async (_ctx, args) => {
-    const target: ProbeProvider | "all" = args.provider ?? "all";
+  handler: async (ctx, args) => {
+    const target = args.provider ?? "all";
     const definitions = filterDefinitions(target);
     const generatedAt = new Date().toISOString();
 
-    const results = definitions.map((definition) => {
+    const probeIds = definitions.map((d) => d.id);
+    const previousState: Record<string, string | null> = await ctx.runQuery(
+      internal.oauthSyntheticProbes.getProbeState,
+      { probeIds },
+    );
+
+    const results: ProbeRecord[] = definitions.map((definition) => {
       const timestamp = new Date().toISOString();
-      const execution = executeDefinition(definition);
-      const lastSuccess = execution.status === "pass" ? timestamp : null;
-      return {
-        provider: definition.provider,
-        flow: definition.flow,
-        class: definition.class,
-        last_success: lastSuccess,
-        status: execution.status,
-        timestamp,
-        probe_id: definition.id,
-        simulation: true,
-        simulation_label: execution.simulationLabel,
-        details: execution.details,
-      };
+      const previousLastSuccess = previousState[definition.id] ?? null;
+      return buildRecord(definition, timestamp, previousLastSuccess);
+    });
+
+    await ctx.runMutation(internal.oauthSyntheticProbes.upsertProbeState, {
+      runAt: generatedAt,
+      updates: results.map((r) => ({
+        probeId: r.probe_id,
+        lastSuccessAt: r.last_success,
+      })),
     });
 
     const payload = {
       generated_at: generatedAt,
-      dry_run: false,
       provider_target: target,
       probe_count: results.length,
       results,
     };
 
-    // Structured log line per probe — readable in `npx convex logs` for
-    // operational verification without any alerting/paging.
     for (const result of results) {
       console.log(
         `oauth_synthetic_probe ${JSON.stringify({

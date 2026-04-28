@@ -1,8 +1,7 @@
-# OAuth Synthetic Probe Dry-Run Evidence
+# OAuth Synthetic Probe Evidence
 
-- generated_at: 2026-04-28T17:14:48.783Z
+- generated_at: 2026-04-28T17:38:45.661Z
 - provider_target: all
-- dry_run: true
 - records: 9
 
 ## spotify | login_callback_success | PASS
@@ -12,16 +11,20 @@
   "provider": "spotify",
   "flow": "oauth_login_callback",
   "class": "login_callback_success",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "spotify:oauth_login_callback:login_callback_success",
   "simulation": true,
-  "simulation_label": "deterministic.mock.login_callback_success",
+  "simulation_label": "deterministic.classifier.login_callback_success",
   "details": {
-    "assertion": "callback path resolves to success redirect handling",
-    "deterministic": true,
-    "reason": "dry-run deterministic safety"
+    "expected_classification": "login_callback_success",
+    "actual_classification": "login_callback_success",
+    "signal": {
+      "kind": "callback_response",
+      "success": true
+    },
+    "deterministic": true
   }
 }
 ```
@@ -33,17 +36,20 @@
   "provider": "spotify",
   "flow": "oauth_token_refresh",
   "class": "token_refresh_failure_class",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "spotify:oauth_token_refresh:token_refresh_failure_class",
   "simulation": true,
-  "simulation_label": "deterministic.mock.token_refresh_failure_class",
+  "simulation_label": "deterministic.classifier.token_refresh_failure_class",
   "details": {
-    "simulated_error": "invalid_grant",
     "expected_classification": "token_refresh_failure_class",
-    "deterministic": true,
-    "reason": "real provider token invalidation is unsafe in synthetic runs"
+    "actual_classification": "token_refresh_failure_class",
+    "signal": {
+      "kind": "token_refresh_response",
+      "error": "invalid_grant"
+    },
+    "deterministic": true
   }
 }
 ```
@@ -55,17 +61,20 @@
   "provider": "spotify",
   "flow": "provider_api",
   "class": "provider_unavailable_timeout",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "spotify:provider_api:provider_unavailable_timeout",
   "simulation": true,
-  "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+  "simulation_label": "deterministic.classifier.provider_unavailable_timeout",
   "details": {
-    "simulated_transport": "timeout",
-    "timeout_ms": 5000,
-    "deterministic": true,
-    "reason": "real provider outage simulation is unsafe"
+    "expected_classification": "provider_unavailable_timeout",
+    "actual_classification": "provider_unavailable_timeout",
+    "signal": {
+      "kind": "provider_request_outcome",
+      "outcome": "timeout"
+    },
+    "deterministic": true
   }
 }
 ```
@@ -77,16 +86,20 @@
   "provider": "apple",
   "flow": "oauth_login_callback",
   "class": "login_callback_success",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "apple:oauth_login_callback:login_callback_success",
   "simulation": true,
-  "simulation_label": "deterministic.mock.login_callback_success",
+  "simulation_label": "deterministic.classifier.login_callback_success",
   "details": {
-    "assertion": "callback path resolves to success redirect handling",
-    "deterministic": true,
-    "reason": "dry-run deterministic safety"
+    "expected_classification": "login_callback_success",
+    "actual_classification": "login_callback_success",
+    "signal": {
+      "kind": "callback_response",
+      "success": true
+    },
+    "deterministic": true
   }
 }
 ```
@@ -98,17 +111,20 @@
   "provider": "apple",
   "flow": "oauth_token_refresh",
   "class": "token_refresh_failure_class",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "apple:oauth_token_refresh:token_refresh_failure_class",
   "simulation": true,
-  "simulation_label": "deterministic.mock.token_refresh_failure_class",
+  "simulation_label": "deterministic.classifier.token_refresh_failure_class",
   "details": {
-    "simulated_error": "invalid_grant",
     "expected_classification": "token_refresh_failure_class",
-    "deterministic": true,
-    "reason": "real provider token invalidation is unsafe in synthetic runs"
+    "actual_classification": "token_refresh_failure_class",
+    "signal": {
+      "kind": "token_refresh_response",
+      "error": "invalid_grant"
+    },
+    "deterministic": true
   }
 }
 ```
@@ -120,17 +136,20 @@
   "provider": "apple",
   "flow": "provider_api",
   "class": "provider_unavailable_timeout",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "apple:provider_api:provider_unavailable_timeout",
   "simulation": true,
-  "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+  "simulation_label": "deterministic.classifier.provider_unavailable_timeout",
   "details": {
-    "simulated_transport": "timeout",
-    "timeout_ms": 5000,
-    "deterministic": true,
-    "reason": "real provider outage simulation is unsafe"
+    "expected_classification": "provider_unavailable_timeout",
+    "actual_classification": "provider_unavailable_timeout",
+    "signal": {
+      "kind": "provider_request_outcome",
+      "outcome": "timeout"
+    },
+    "deterministic": true
   }
 }
 ```
@@ -142,16 +161,20 @@
   "provider": "tidal",
   "flow": "oauth_login_callback",
   "class": "login_callback_success",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "tidal:oauth_login_callback:login_callback_success",
   "simulation": true,
-  "simulation_label": "deterministic.mock.login_callback_success",
+  "simulation_label": "deterministic.classifier.login_callback_success",
   "details": {
-    "assertion": "callback path resolves to success redirect handling",
-    "deterministic": true,
-    "reason": "dry-run deterministic safety"
+    "expected_classification": "login_callback_success",
+    "actual_classification": "login_callback_success",
+    "signal": {
+      "kind": "callback_response",
+      "success": true
+    },
+    "deterministic": true
   }
 }
 ```
@@ -163,17 +186,20 @@
   "provider": "tidal",
   "flow": "oauth_token_refresh",
   "class": "token_refresh_failure_class",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "tidal:oauth_token_refresh:token_refresh_failure_class",
   "simulation": true,
-  "simulation_label": "deterministic.mock.token_refresh_failure_class",
+  "simulation_label": "deterministic.classifier.token_refresh_failure_class",
   "details": {
-    "simulated_error": "invalid_grant",
     "expected_classification": "token_refresh_failure_class",
-    "deterministic": true,
-    "reason": "real provider token invalidation is unsafe in synthetic runs"
+    "actual_classification": "token_refresh_failure_class",
+    "signal": {
+      "kind": "token_refresh_response",
+      "error": "invalid_grant"
+    },
+    "deterministic": true
   }
 }
 ```
@@ -185,17 +211,20 @@
   "provider": "tidal",
   "flow": "provider_api",
   "class": "provider_unavailable_timeout",
-  "last_success": "2026-04-28T17:14:48.790Z",
+  "last_success": "2026-04-28T17:38:45.662Z",
   "status": "pass",
-  "timestamp": "2026-04-28T17:14:48.790Z",
+  "timestamp": "2026-04-28T17:38:45.662Z",
   "probe_id": "tidal:provider_api:provider_unavailable_timeout",
   "simulation": true,
-  "simulation_label": "deterministic.mock.provider_unavailable_timeout",
+  "simulation_label": "deterministic.classifier.provider_unavailable_timeout",
   "details": {
-    "simulated_transport": "timeout",
-    "timeout_ms": 5000,
-    "deterministic": true,
-    "reason": "real provider outage simulation is unsafe"
+    "expected_classification": "provider_unavailable_timeout",
+    "actual_classification": "provider_unavailable_timeout",
+    "signal": {
+      "kind": "provider_request_outcome",
+      "outcome": "timeout"
+    },
+    "deterministic": true
   }
 }
 ```

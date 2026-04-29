@@ -55,6 +55,7 @@ Manifest line evidence (`rg -n` over `k8s/`):
 
 - `k8s/configmap.yaml:18` — `DUCKDB_PATH: "/var/lib/ndith/analytics/analytics.duckdb"`
 - `k8s/duckdb-pvc.yaml:4` — PVC name `ndith-duckdb-data`
+- `k8s/duckdb-pvc.yaml:14` — `storage: 20Gi` (matches Helm production)
 - `k8s/api-deployment.yaml:32-33` — `runAsUser: 1000`, `fsGroup: 2000`
 - `k8s/api-deployment.yaml:106` — `readOnlyRootFilesystem: true`
 - `k8s/api-deployment.yaml:117-118` — volumeMount `duckdb-data` →
@@ -170,3 +171,60 @@ fsGroup mismatch, file disappearing on restart) at the manifest and
 engine levels. The remaining cluster-bound steps are about confirming
 the cluster matches the rendered manifests — which is what the
 post-deploy probes are designed to do.
+
+## Scope caveat — runtime mismatch (added 2026-04-29 after NOD-251 cross-link)
+
+Independent verification of the structural finding raised by Release
+Engineer in [NOD-251](/NOD/issues/NOD-251):
+
+```
+$ grep -nE 'DUCKDB|duckdb|disk:|persistentVolume|/var/lib/ndith|analytics\.duckdb' render.yaml
+(no matches)
+
+$ git diff main..release/duckdb-runtime-storage-nod-196 -- render.yaml
++      - key: FIRECRAWL_API_KEY    # ndith-backend
++      - key: FIRECRAWL_API_KEY    # ndith-news
+(no DuckDB/disk/mount additions)
+
+$ grep -nE '^\s*-\s*type:|^\s*name:\s' render.yaml
+6:  - type: web         7:    name: ndith-backend
+102:  - type: web       103:    name: ndith-analytics
+136:  - type: web       137:    name: ndith-graph
+170:  - type: web       171:    name: ndith-news
+210:  - type: keyvalue  211:    name: ndith-redis
+216:  - type: web       217:    name: ndith-frontend
+```
+
+The live production runtime defined in `render.yaml` is Render, not
+Kubernetes, and PR #33 does not add a Render `disk:` block, a
+`DUCKDB_PATH` env, or a mount path for any of the six services. After
+PR #33 merges, the running services on Render will still write DuckDB
+to whatever path the binary defaults to (ephemeral container FS),
+which means the production gap [NOD-192](/NOD/issues/NOD-192) is
+asking us to close is **not** closed by this PR's manifest changes
+alone.
+
+**Re-scoped QA verdict:** every PASS in the summary table above
+applies to *K8s manifest correctness + DuckDB engine write/persistence
+semantics*, i.e. "K8s migration prep is wired right." None of them
+prove "DuckDB writes are durable on the live Render runtime today."
+The runbook (`docs/release/duckdb-storage-runbook.md`) targets the
+non-existent `ndith-production` K8s cluster, so its probes are not
+runnable against current production regardless of whether Release/SRE
+holds credentials.
+
+This is the structural cause of the cluster-bound gap noted above.
+Pending CTO scoping decision among the three options listed in
+[NOD-251](/NOD/issues/NOD-251):
+
+1. Re-scope NOD-196 + NOD-251 to "K8s migration prep" and open a
+   Render-side fix lane that actually closes NOD-192.
+2. Stand up `ndith-production` Kubernetes for real.
+3. Hybrid: close NOD-196 + NOD-251 on K8s manifests + local sim
+   evidence and open a separate Render-side issue blocking NOD-192.
+
+For options 1 and 3, the evidence in this report already supports
+closing the K8s lane — no further QA work is needed there. For
+option 2, the cluster-bound probes would be run for real once the
+cluster exists, replacing the "NOT EXECUTED" rows in the summary
+table with kubectl evidence.

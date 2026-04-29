@@ -1,5 +1,17 @@
 <script lang="ts">
-  import { connectionActions, spotifyConnection, appleMusicConnection, tidalConnection, youtubeConnection } from '../stores/connections';
+  import {
+    connectionActions,
+    spotifyConnection,
+    appleMusicConnection,
+    tidalConnection,
+    youtubeConnection,
+    type ServiceConnection,
+  } from '../stores/connections';
+  import {
+    deriveCanonicalOAuthState,
+    getOAuthStateCopy,
+    mapOAuthActionError,
+  } from '../utils/oauth-state';
   import { createEventDispatcher } from 'svelte';
 
   const dispatch = createEventDispatcher();
@@ -8,6 +20,7 @@
     id: string;
     name: string;
     color: string;
+    connection: ServiceConnection | null;
     connected: boolean;
     needsReconnect: boolean;
   }
@@ -17,34 +30,71 @@
       id: 'spotify',
       name: 'Spotify',
       color: '#1DB954',
-      connected: $spotifyConnection?.status === 'active',
-      needsReconnect: !!$spotifyConnection && $spotifyConnection.status !== 'active',
+      connection: $spotifyConnection ?? null,
+      connected:
+        deriveCanonicalOAuthState($spotifyConnection, {
+          failureHint: $spotifyConnection?.error_code,
+        }) === 'connected',
+      needsReconnect: getOAuthStateCopy(
+        deriveCanonicalOAuthState($spotifyConnection, {
+          failureHint: $spotifyConnection?.error_code,
+        }),
+        'Spotify'
+      ).reconnectCta,
     },
     {
       id: 'apple',
       name: 'Apple Music',
       color: '#FC3C44',
-      connected: $appleMusicConnection?.status === 'active',
-      needsReconnect: !!$appleMusicConnection && $appleMusicConnection.status !== 'active',
+      connection: $appleMusicConnection ?? null,
+      connected:
+        deriveCanonicalOAuthState($appleMusicConnection, {
+          failureHint: $appleMusicConnection?.error_code,
+        }) === 'connected',
+      needsReconnect: getOAuthStateCopy(
+        deriveCanonicalOAuthState($appleMusicConnection, {
+          failureHint: $appleMusicConnection?.error_code,
+        }),
+        'Apple Music'
+      ).reconnectCta,
     },
     {
       id: 'tidal',
       name: 'Tidal',
       color: '#ffffff',
-      connected: $tidalConnection?.status === 'active',
-      needsReconnect: !!$tidalConnection && $tidalConnection.status !== 'active',
+      connection: $tidalConnection ?? null,
+      connected:
+        deriveCanonicalOAuthState($tidalConnection, {
+          failureHint: $tidalConnection?.error_code,
+        }) === 'connected',
+      needsReconnect: getOAuthStateCopy(
+        deriveCanonicalOAuthState($tidalConnection, {
+          failureHint: $tidalConnection?.error_code,
+        }),
+        'Tidal'
+      ).reconnectCta,
     },
     {
       id: 'youtube',
       name: 'YouTube Music',
       color: '#FF0000',
-      connected: $youtubeConnection?.status === 'active',
-      needsReconnect: !!$youtubeConnection && $youtubeConnection.status !== 'active',
+      connection: $youtubeConnection ?? null,
+      connected:
+        deriveCanonicalOAuthState($youtubeConnection, {
+          failureHint: $youtubeConnection?.error_code,
+        }) === 'connected',
+      needsReconnect: getOAuthStateCopy(
+        deriveCanonicalOAuthState($youtubeConnection, {
+          failureHint: $youtubeConnection?.error_code,
+        }),
+        'YouTube Music'
+      ).reconnectCta,
     },
     {
       id: 'deezer',
       name: 'Deezer',
       color: '#A238FF',
+      connection: null,
       connected: false,
       needsReconnect: false,
     },
@@ -52,6 +102,7 @@
       id: 'amazon',
       name: 'Amazon Music',
       color: '#25D1DA',
+      connection: null,
       connected: false,
       needsReconnect: false,
     },
@@ -59,6 +110,7 @@
       id: 'soundcloud',
       name: 'SoundCloud',
       color: '#FF5500',
+      connection: null,
       connected: false,
       needsReconnect: false,
     },
@@ -66,6 +118,7 @@
       id: 'lastfm',
       name: 'Last.fm',
       color: '#D51007',
+      connection: null,
       connected: false,
       needsReconnect: false,
     },
@@ -78,23 +131,41 @@
     connectingId = service.id;
 
     try {
+      let result: { success: boolean; message?: string } | null = null;
+
       switch (service.id) {
         case 'spotify':
-          await connectionActions.initiateSpotifyAuth();
+          result = await connectionActions.initiateSpotifyAuth();
           break;
         case 'apple':
-          await connectionActions.connectAppleMusic();
+          result = await connectionActions.connectAppleMusic();
           break;
         case 'tidal':
-          await connectionActions.initiateTidalAuth();
+          result = await connectionActions.initiateTidalAuth();
           break;
         case 'youtube':
-          await connectionActions.initiateYouTubeAuth();
+          result = await connectionActions.initiateYouTubeAuth();
           break;
         default:
           dispatch('unsupported', { service: service.id });
           break;
       }
+
+      if (result && !result.success) {
+        dispatch('error', {
+          service: service.id,
+          message: mapOAuthActionError(service.name, 'connect', result.message),
+        });
+      }
+    } catch (error) {
+      dispatch('error', {
+        service: service.id,
+        message: mapOAuthActionError(
+          service.name,
+          'connect',
+          error instanceof Error ? error.message : 'connection error'
+        ),
+      });
     } finally {
       connectingId = null;
     }

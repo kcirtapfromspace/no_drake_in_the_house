@@ -8,6 +8,9 @@
     isConnectionProvider,
     resolveOAuthCallback,
   } from '../utils/oauth-callback';
+  import { mapOAuthActionError } from '../utils/oauth-state';
+  import { markSpotifyPostConnect } from '../utils/post-connect-guidance';
+  import { captureEvent } from '../utils/posthog';
   import { OAUTH_BROADCAST_CHANNEL } from '../stores/connections';
 
   let status: 'loading' | 'success' | 'error' = 'loading';
@@ -30,6 +33,16 @@
     provider = result.provider;
 
     if (result.status === 'success') {
+      if (result.provider === 'spotify') {
+        const marker = markSpotifyPostConnect('oauth_callback');
+        captureEvent('spotify_post_connect_connected', {
+          provider: 'spotify',
+          source: marker.source,
+          connected_at: marker.connectedAt,
+          flow: isPopup ? 'popup' : 'redirect',
+        });
+      }
+
       if (isPopup && isConnectionProvider(result.provider)) {
         // Notify the opener via BroadcastChannel (COOP-safe: works even when
         // window.opener was severed by Cross-Origin-Opener-Policy).
@@ -45,7 +58,11 @@
       }, 1500);
     } else {
       status = 'error';
-      errorMessage = result.errorMessage;
+      errorMessage = mapOAuthActionError(
+        getProviderName(result.provider),
+        'callback',
+        result.errorMessage
+      );
     }
   });
 

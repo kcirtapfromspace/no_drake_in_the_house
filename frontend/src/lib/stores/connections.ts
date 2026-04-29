@@ -3,6 +3,10 @@ import { apiClient } from '../utils/api-client';
 import { maybeHandleConvexRoute } from '../convex/bridge';
 import config from '../utils/config';
 import * as musicKit from '../utils/musickit';
+import {
+  markSpotifyFirstSyncStarted,
+  markSpotifyPostConnect,
+} from '../utils/post-connect-guidance';
 
 /** Channel name used by the OAuth popup to signal completion back to the opener. */
 export const OAUTH_BROADCAST_CHANNEL = 'oauth-callback';
@@ -87,6 +91,8 @@ export interface ServiceConnection {
   last_health_check?: string;
   created_at: string;
   error_code?: string;
+  oauth_state?: string;
+  oauth_error_class?: string;
 }
 
 export interface ConnectionsState {
@@ -111,6 +117,8 @@ interface ConnectionHealthRecord {
   last_used_at?: string;
   error_message?: string;
   scopes?: string[];
+  oauth_state?: string;
+  oauth_error_class?: string;
 }
 
 interface ConnectionsHealthPayload {
@@ -170,6 +178,8 @@ function mapConnectionRecord(connection: ConnectionHealthRecord): ServiceConnect
     last_health_check: connection.last_used_at,
     created_at: connection.last_used_at ?? connection.expires_at ?? new Date().toISOString(),
     error_code: connection.error_message,
+    ...(connection.oauth_state ? { oauth_state: connection.oauth_state } : {}),
+    ...(connection.oauth_error_class ? { oauth_error_class: connection.oauth_error_class } : {}),
   };
 }
 
@@ -419,7 +429,9 @@ export const connectionActions = {
         sessionStorage.setItem('oauth_link_state_spotify', response.data.state);
       }
       return runOAuthPopup(authUrl, 'spotify-auth', () => {
+        markSpotifyPostConnect('popup');
         connectionActions.fetchConnections().then(() => {
+          markSpotifyFirstSyncStarted();
           apiClient.authenticatedRequest('POST', '/api/v1/connections/spotify/library/sync')
             .catch(() => {}); // fire-and-forget; SyncDashboard polls status
         });

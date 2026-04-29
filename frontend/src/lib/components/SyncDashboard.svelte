@@ -3,11 +3,29 @@
   import { get } from 'svelte/store';
   import { syncStore, syncActions, isAnySyncRunning, platformsStatus, recentRuns } from '../stores/sync';
   import type { TriggerSyncRequest } from '../stores/sync';
+  import { currentUser } from '../stores/auth';
   import { navigateTo, navigateToArtist } from '../utils/simple-router';
   import { connectionsStore, connectionActions, type ServiceConnection } from '../stores/connections';
+  import config from '../utils/config';
   import { apiClient } from '../utils/api-client';
   import { blockingStore } from '../stores/blocking';
   import { timeAgo } from '../utils/time-ago';
+  import { captureEvent } from '../utils/posthog';
+  import {
+    deriveCanonicalOAuthState,
+    getOAuthStateCopy,
+    isAlreadyConnectedMessage,
+    mapOAuthActionError,
+  } from '../utils/oauth-state';
+  import {
+    clearSpotifyPostConnectGuidance,
+    getSpotifyGuidanceCanaryDecision,
+    getSpotifyPostConnectGuidanceState,
+    markSpotifyFirstSyncStarted,
+    markSpotifyGuidanceCompleted,
+    markSpotifyGuidanceDismissed,
+    markSpotifyGuidanceShown,
+  } from '../utils/post-connect-guidance';
   import { HEAVY_LIBRARY_GROUP_TTL_MS, syncDashboardHeavyCache } from '../utils/sync-dashboard-cache';
   import ServiceConnector from './ServiceConnector.svelte';
   import ProviderIcon from './ProviderIcon.svelte';
@@ -20,6 +38,15 @@
   let connectionSuccess: string | null = null;
   let connectionError: string | null = null;
   let connectionBannerTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  interface SpotifyGuidanceBannerState {
+    connectedAt: string;
+    source: 'oauth_callback' | 'popup';
+    rolloutPercent: number;
+    bucket: number;
+  }
+
+  let spotifyGuidanceBanner: SpotifyGuidanceBannerState | null = null;
 
   interface AppleLibraryPreview {
     tracks: Array<{ id: string; name?: string; artist?: string; album?: string }>;
@@ -292,6 +319,7 @@
   let connectionsByProvider = new Map<string, ServiceConnection>();
   let activeProviders = new Set<string>();
   let connectedPlatforms: Platform[] = [];
+  let currentUserIdForCanary: string | null = null;
 
   $: connectionsByProvider = new Map<string, ServiceConnection>(
     ($connectionsStore.connections ?? []).map((conn) => [conn.provider, conn])
@@ -307,6 +335,13 @@
     const provider = platform.connectionProvider;
     return provider != null && !platform.disabled && activeProviders.has(provider);
   });
+
+  $: currentUserIdForCanary = $currentUser?.id ?? null;
+
+  $: hydrateSpotifyGuidanceBanner(
+    currentUserIdForCanary,
+    activeProviders.has('spotify')
+  );
 
   $: activeGenericSyncProviders = $platformsStatus
     .filter((status) => POLLED_SYNC_PLATFORMS.has((status.platform || '').toLowerCase()) && status.status === 'running')
@@ -343,6 +378,121 @@
 
   function getProviderName(provider: string): string {
     return platforms.find(platform => (platform.connectionProvider || platform.id) === provider)?.name ?? provider;
+  }
+
+  function getConnectionOAuthState(platform: Platform, connection: ServiceConnection | null) {
+    return deriveCanonicalOAuthState(connection, {
+      isAuthorizing: connectingPlatform === platform.id,
+      isRefreshing: syncingLibrary === platform.id,
+      failureHint: connection?.error_code,
+    });
+  }
+
+  function getConnectionCopy(platform: Platform, connection: ServiceConnection | null) {
+    return getOAuthStateCopy(getConnectionOAuthState(platform, connection), platform.name);
+  }
+
+  function hydrateSpotifyGuidanceBanner(
+    currentUserId: string | null,
+    isSpotifyConnected: boolean
+  ): void {
+    const marker = getSpotifyPostConnectGuidanceState();
+
+    if (!marker) {
+      spotifyGuidanceBanner = null;
+      return;
+    }
+
+    if (marker.completedAt || marker.dismissedAt) {
+      spotifyGuidanceBanner = null;
+      return;
+    }
+
+    if (!isSpotifyConnected) {
+      spotifyGuidanceBanner = null;
+      return;
+    }
+
+    const canaryDecision = getSpotifyGuidanceCanaryDecision(currentUserId);
+    if (!canaryDecision.enabled) {
+      if (
+        canaryDecision.reason === 'disabled' ||
+        canaryDecision.reason === 'no_rollout'
+      ) {
+        clearSpotifyPostConnectGuidance();
+      }
+      spotifyGuidanceBanner = null;
+      return;
+    }
+
+    const shownMarker = marker.shownAt ? marker : markSpotifyGuidanceShown();
+
+    if (!marker.shownAt) {
+      captureEvent('spotify_post_connect_guidance_shown', {
+        provider: 'spotify',
+        source: shownMarker?.source ?? marker.source,
+        connected_at: shownMarker?.connectedAt ?? marker.connectedAt,
+        rollout_percent: canaryDecision.rolloutPercent,
+        canary_bucket: canaryDecision.bucket,
+      });
+    }
+
+    spotifyGuidanceBanner = {
+      connectedAt: shownMarker?.connectedAt ?? marker.connectedAt,
+      source: shownMarker?.source ?? marker.source,
+      rolloutPercent: canaryDecision.rolloutPercent,
+      bucket: canaryDecision.bucket,
+    };
+  }
+
+  function maybeTrackSpotifyGuidanceCompletion(
+    status: ProviderLibrarySyncStatus | null | undefined
+  ): void {
+    if (status?.state !== 'completed') return;
+
+    const marker = getSpotifyPostConnectGuidanceState();
+    if (!marker || marker.completedAt || marker.dismissedAt) return;
+
+    const completedMarker = markSpotifyGuidanceCompleted();
+    const completedAtIso = completedMarker?.completedAt ?? new Date().toISOString();
+    const connectedAtMs = Date.parse(marker.connectedAt);
+    const completedAtMs = Date.parse(completedAtIso);
+    const elapsedMs =
+      Number.isNaN(connectedAtMs) || Number.isNaN(completedAtMs)
+        ? null
+        : Math.max(0, completedAtMs - connectedAtMs);
+
+    captureEvent('spotify_post_connect_guidance_sync_completed', {
+      provider: 'spotify',
+      source: marker.source,
+      connected_at: marker.connectedAt,
+      first_sync_started_at: marker.firstSyncStartedAt,
+      completed_at: completedAtIso,
+      elapsed_ms: elapsedMs,
+    });
+
+    showConnectionSuccess(
+      'Spotify sync completed. Setup guidance canary marked complete.',
+      7000
+    );
+    spotifyGuidanceBanner = null;
+  }
+
+  async function startSpotifyGuidanceSync(): Promise<void> {
+    const spotifyPlatform = getPlatformById('spotify');
+    if (!spotifyPlatform || !spotifyPlatform.connectionProvider) return;
+
+    await syncLibrary(spotifyPlatform);
+  }
+
+  function dismissSpotifyGuidanceBanner(): void {
+    const marker = markSpotifyGuidanceDismissed();
+    captureEvent('spotify_post_connect_guidance_dismissed', {
+      provider: 'spotify',
+      source: marker?.source ?? 'oauth_callback',
+      connected_at: marker?.connectedAt,
+    });
+    spotifyGuidanceBanner = null;
   }
 
   function kindFromImportedItem(item: ImportedLibraryTrack): Exclude<LibraryItemKind, 'all'> {
@@ -494,6 +644,11 @@
     const statuses = await Promise.all(
       providerSyncPlatforms.map((platform) => refreshProviderLibrarySyncStatus(platform))
     );
+    providerSyncPlatforms.forEach((platform, index) => {
+      if (platform === 'spotify') {
+        maybeTrackSpotifyGuidanceCompletion(statuses[index]);
+      }
+    });
 
     if (options.queueRunning !== true) return;
 
@@ -599,6 +754,11 @@
       const statuses = await Promise.all(
         platformsToPoll.map((platform) => refreshProviderLibrarySyncStatus(platform))
       );
+      platformsToPoll.forEach((platform, index) => {
+        if (platform === 'spotify') {
+          maybeTrackSpotifyGuidanceCompletion(statuses[index]);
+        }
+      });
       const runningProviders = platformsToPoll.filter(
         (_, index) => statuses[index]?.state === 'running'
       );
@@ -1039,6 +1199,8 @@
   function isAlreadyConnectedError(message: string | undefined, platform: Platform): boolean {
     if (!message) return false;
 
+    if (isAlreadyConnectedMessage(message)) return true;
+
     const normalized = message.toLowerCase();
     if (!normalized.includes('already have an active')) return false;
     if (normalized.includes('disconnect first to reconnect')) return true;
@@ -1118,14 +1280,38 @@
           await connectionActions.fetchConnections();
           showAlreadyConnectedMessage(platform.name);
         } else {
-          showConnectionError(result.message || `Failed to connect ${platform.name}`);
+          showConnectionError(mapOAuthActionError(platform.name, 'connect', result.message));
         }
       } else if (platform.id === 'spotify') {
-        await connectionActions.initiateSpotifyAuth();
+        const result = await connectionActions.initiateSpotifyAuth();
+        if (!result.success) {
+          if (isAlreadyConnectedError(result.message, platform)) {
+            await connectionActions.fetchConnections();
+            showAlreadyConnectedMessage(platform.name);
+          } else {
+            showConnectionError(mapOAuthActionError(platform.name, 'connect', result.message));
+          }
+        }
       } else if (platform.id === 'youtube') {
-        await connectionActions.initiateYouTubeAuth();
+        const result = await connectionActions.initiateYouTubeAuth();
+        if (!result.success) {
+          if (isAlreadyConnectedError(result.message, platform)) {
+            await connectionActions.fetchConnections();
+            showAlreadyConnectedMessage(platform.name);
+          } else {
+            showConnectionError(mapOAuthActionError(platform.name, 'connect', result.message));
+          }
+        }
       } else if (platform.id === 'tidal') {
-        await connectionActions.initiateTidalAuth();
+        const result = await connectionActions.initiateTidalAuth();
+        if (!result.success) {
+          if (isAlreadyConnectedError(result.message, platform)) {
+            await connectionActions.fetchConnections();
+            showAlreadyConnectedMessage(platform.name);
+          } else {
+            showConnectionError(mapOAuthActionError(platform.name, 'connect', result.message));
+          }
+        }
       }
     } catch (error) {
       const errorMessage =
@@ -1134,7 +1320,7 @@
         await connectionActions.fetchConnections();
         showAlreadyConnectedMessage(platform.name);
       } else {
-        showConnectionError(errorMessage);
+        showConnectionError(mapOAuthActionError(platform.name, 'connect', errorMessage));
       }
     } finally {
       await refreshHeavyLibraryViews({ force: true });
@@ -1156,6 +1342,8 @@
         appleLibraryRequested = false;
       } else if (platform.id === 'spotify') {
         await connectionActions.disconnectSpotify();
+        clearSpotifyPostConnectGuidance();
+        spotifyGuidanceBanner = null;
       } else if (platform.id === 'tidal') {
         await connectionActions.disconnectTidal();
       } else if (platform.id === 'youtube') {
@@ -1163,8 +1351,10 @@
       } else {
         await connectionActions.fetchConnections();
       }
+      showConnectionSuccess(`${platform.name} disconnected.`);
     } catch (error) {
-      console.error(`Failed to disconnect ${platform.name}:`, error);
+      const hint = error instanceof Error ? error.message : '';
+      showConnectionError(mapOAuthActionError(platform.name, 'disconnect', hint));
     } finally {
       await refreshHeavyLibraryViews({ force: true });
       connectingPlatform = null;
@@ -1175,6 +1365,23 @@
   async function syncLibrary(platform: Platform) {
     if (!platform.connectionProvider) return;
     if (!hasActiveConnection(platform.connectionProvider)) return;
+
+    if (platform.id === 'spotify') {
+      const existingMarker = getSpotifyPostConnectGuidanceState();
+      const startedMarker = markSpotifyFirstSyncStarted();
+      if (
+        startedMarker?.firstSyncStartedAt &&
+        !existingMarker?.firstSyncStartedAt &&
+        !startedMarker.completedAt
+      ) {
+        captureEvent('spotify_post_connect_guidance_sync_started', {
+          provider: 'spotify',
+          source: startedMarker.source,
+          connected_at: startedMarker.connectedAt,
+          first_sync_started_at: startedMarker.firstSyncStartedAt,
+        });
+      }
+    }
 
     // Check scan limit before syncing
     const scanAccess = await billingActions.checkFeature('scans');
@@ -1277,18 +1484,9 @@
           syncResult.error_code === 'HTTP_405'
         ) {
           await triggerGenericSync();
-        } else if (syncResult.error_code === 'HTTP_502' || syncResult.error_code === 'HTTP_504') {
-          showConnectionError(
-            `${platform.name} sync timed out. The sync may still be running — check back in a minute.`
-          );
-        } else if (syncResult.error_code === 'HTTP_429') {
-          showConnectionError(
-            `${platform.name} is rate-limiting requests. Please wait a few minutes and try again.`
-          );
         } else {
-          showConnectionError(
-            syncResult.message || `Failed to sync ${platform.name} library`
-          );
+          const hint = `${syncResult.error_code ?? ''} ${syncResult.message ?? ''}`.trim();
+          showConnectionError(mapOAuthActionError(platform.name, 'sync', hint));
         }
       } else {
         // Fallback to generic catalog sync for other platforms
@@ -1298,7 +1496,7 @@
       const message =
         error instanceof Error ? error.message : `Failed to sync library from ${platform.name}`;
       console.error(`Failed to sync library from ${platform.name}:`, error);
-      showConnectionError(message);
+      showConnectionError(mapOAuthActionError(platform.name, 'sync', message));
       if (platform.id === 'apple') {
         blockingStore.addToast({
           type: 'error',
@@ -1318,11 +1516,12 @@
         if (providerStatus?.state === 'running') {
           queueProviderSyncPolling([providerSyncPlatform], true);
         } else if (providerStatus?.state === 'completed') {
+          if (providerSyncPlatform === 'spotify') {
+            maybeTrackSpotifyGuidanceCompletion(providerStatus);
+          }
           await refreshHeavyLibraryViews({ force: true });
         } else if (providerStatus?.state === 'failed') {
-          showConnectionError(
-            providerStatus.message || `Failed to sync ${platform.name} library`
-          );
+          showConnectionError(mapOAuthActionError(platform.name, 'sync', providerStatus.message));
         } else {
           await refreshHeavyLibraryViews({ force: true });
         }
@@ -1846,6 +2045,49 @@
       </div>
     {/if}
 
+    {#if spotifyGuidanceBanner && config.features.postConnectSpotifyGuidanceCanary}
+      <div class="mb-6 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-emerald-200">
+              Spotify connected. One step left to finish setup.
+            </p>
+            <p class="mt-1 text-sm text-emerald-100/90">
+              Run your first Spotify library sync to complete the canary onboarding flow.
+            </p>
+            <p class="mt-2 text-xs text-emerald-200/80">
+              Canary cohort: {spotifyGuidanceBanner.bucket} / rollout {spotifyGuidanceBanner.rolloutPercent}%
+            </p>
+          </div>
+          <button
+            type="button"
+            class="text-xs text-emerald-200 hover:text-white"
+            on:click={dismissSpotifyGuidanceBanner}
+          >
+            Dismiss
+          </button>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            class="brand-button brand-button--primary"
+            on:click={startSpotifyGuidanceSync}
+            disabled={syncingLibrary === 'spotify'}
+          >
+            {#if syncingLibrary === 'spotify'}
+              Syncing...
+            {:else}
+              Run first Spotify sync
+            {/if}
+          </button>
+          <span class="text-xs text-emerald-100/90">
+            Connected at {timeAgo(spotifyGuidanceBanner.connectedAt)}
+          </span>
+        </div>
+      </div>
+    {/if}
+
     <!-- Service Connector Grid -->
     <div class="mb-8">
       <h2 class="text-xl font-semibold text-white mb-4">Connect Your Services</h2>
@@ -1861,8 +2103,10 @@
           {@const provider = platform.connectionProvider || platform.id}
           {@const connection = connectionsByProvider.get(provider) ?? null}
           {@const libraryRow = libraryStatsByProvider.get(provider) ?? null}
-          {@const connected = connection?.status === 'active'}
-          {@const needsReconnect = connection && connection.status !== 'active'}
+          {@const oauthState = getConnectionOAuthState(platform, connection)}
+          {@const oauthCopy = getConnectionCopy(platform, connection)}
+          {@const connected = oauthState === 'connected' || oauthState === 'refreshing'}
+          {@const needsReconnect = !connected && oauthCopy.reconnectCta}
           <div class="surface-card rounded-xl p-5 {platform.disabled ? 'opacity-60' : ''} transition-all hover:border-zinc-600" >
             <!-- Header with icon and status -->
             <div class="flex items-start justify-between mb-4">
@@ -1900,11 +2144,11 @@
                     </span>
                     {#if connected}
                       <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30">
-                        Connected
+                        {oauthCopy.label}
                       </span>
                     {:else if needsReconnect}
-                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        Reconnect Required
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {oauthCopy.tone === 'error' ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'} border">
+                        {oauthCopy.label}
                       </span>
                     {/if}
                   </div>
@@ -2152,12 +2396,12 @@
             {:else}
               <!-- Not connected state -->
               <div class="text-sm text-zinc-500 mb-4">
-                {#if needsReconnect && connection?.error_code}
-                  <div class="text-xs text-amber-300 bg-amber-500/10 rounded p-2 border border-amber-500/20">
-                    {connection.error_code}
+                {#if needsReconnect}
+                  <div class="text-xs rounded p-2 border {oauthCopy.tone === 'error' ? 'text-red-300 bg-red-500/10 border-red-500/20' : 'text-amber-300 bg-amber-500/10 border-amber-500/20'}">
+                    {oauthCopy.message}
                   </div>
                 {:else}
-                  Connect your account to sync your playlists and favorites
+                  {oauthCopy.message}
                 {/if}
               </div>
               <button
@@ -2183,7 +2427,7 @@
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
-                  {needsReconnect ? 'Reconnect Account' : 'Connect Account'}
+                  {oauthCopy.reconnectCta ? 'Reconnect Account' : 'Connect Account'}
                 {/if}
               </button>
             {/if}

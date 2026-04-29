@@ -3,6 +3,11 @@
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 const RELATIVE_API_SENTINEL = '__RELATIVE__';
 const normalizeEnvValue = (value: string) => value.replace(/^(['"])(.*)\1$/, '$2');
+const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
+const parseRolloutPercent = (rawValue: string, fallback = 0): number => {
+  const parsed = Number.parseInt(rawValue, 10);
+  return Number.isFinite(parsed) ? clampPercent(parsed) : fallback;
+};
 const POSTHOG_PROXY_HOST = 'https://t.nodrakeinthe.house';
 const POSTHOG_DEFAULT_DIRECT_HOST = 'https://us.i.posthog.com';
 const resolveApiUrl = (value: string) => {
@@ -49,6 +54,11 @@ export const config = {
     twoFactorAuth: import.meta.env.VITE_ENABLE_2FA === 'true',
     communityLists: import.meta.env.VITE_ENABLE_COMMUNITY_LISTS === 'true',
     analytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
+    postConnectSpotifyGuidanceCanary:
+      import.meta.env.VITE_ENABLE_POST_CONNECT_SPOTIFY_GUIDANCE_CANARY === 'true',
+    postConnectSpotifyGuidanceRolloutPercent: parseRolloutPercent(
+      import.meta.env.VITE_POST_CONNECT_SPOTIFY_GUIDANCE_ROLLOUT_PERCENT || '0'
+    ),
   },
   
   // Development Configuration

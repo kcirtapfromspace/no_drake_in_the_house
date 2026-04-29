@@ -7,6 +7,12 @@
     connectionActions,
     type ServiceConnection,
   } from '../stores/connections';
+  import {
+    deriveCanonicalOAuthState,
+    getOAuthStateCopy,
+    isAlreadyConnectedMessage,
+    mapOAuthActionError,
+  } from '../utils/oauth-state';
   import { theme, resolvedTheme } from '../stores/theme';
   import {
     billingStore,
@@ -204,6 +210,23 @@
     return getConnection(service)?.status === 'active';
   }
 
+  function getServiceOAuthState(
+    service: ServicePlatform,
+    connection: ServiceConnection | null
+  ) {
+    return deriveCanonicalOAuthState(connection, {
+      isAuthorizing: connectingProvider === service.connectionProvider,
+      failureHint: connection?.error_code,
+    });
+  }
+
+  function settingsToneClass(tone: 'idle' | 'connected' | 'warning' | 'error'): string {
+    if (tone === 'connected') return 'settings__status-pill--connected';
+    if (tone === 'warning') return 'settings__status-pill--warning';
+    if (tone === 'error') return 'settings__status-pill--error';
+    return 'settings__status-pill--idle';
+  }
+
   function serviceStatusLabel(
     service: ServicePlatform,
     connection: ServiceConnection | null
@@ -211,10 +234,11 @@
     if (service.disabled) return service.statusLabel;
     if (service.catalogOnly) return service.statusLabel;
     if (isLoadingConnections && !connection) return 'Checking...';
-    if (connection?.status === 'active') return 'Connected';
-    if (connection?.status === 'expired') return 'Needs Reconnect';
-    if (connection?.status === 'error') return 'Action Required';
-    return 'Not Connected';
+
+    return getOAuthStateCopy(
+      getServiceOAuthState(service, connection),
+      service.name
+    ).label;
   }
 
   function serviceStatusTone(
@@ -223,10 +247,9 @@
   ): string {
     if (service.disabled) return 'settings__status-pill--paused';
     if (service.catalogOnly) return 'settings__status-pill--catalog';
-    if (connection?.status === 'active') return 'settings__status-pill--connected';
-    if (connection?.status === 'expired') return 'settings__status-pill--warning';
-    if (connection?.status === 'error') return 'settings__status-pill--error';
-    return 'settings__status-pill--idle';
+    return settingsToneClass(
+      getOAuthStateCopy(getServiceOAuthState(service, connection), service.name).tone
+    );
   }
 
   function requestDisconnect(serviceId: ServiceId) {
@@ -260,10 +283,14 @@
         if (result.success || isSuccessLikeMessage(result.message)) {
           await loadConnections();
           showConnectionSuccess(
-            'Apple Music connected. Use Library Control to run the first library import.'
+            `${service.name} connected. Open Library Control to start syncing.`
+          );
+        } else if (isAlreadyConnectedMessage(result.message)) {
+          showConnectionSuccess(
+            `${service.name} is already connected. Open Library Control to sync or disconnect first.`
           );
         } else {
-          showConnectionError(result.message || 'Failed to connect Apple Music');
+          showConnectionError(mapOAuthActionError(service.name, 'connect', result.message));
         }
         return;
       }
@@ -271,7 +298,13 @@
       if (service.id === 'spotify') {
         const result = await connectionActions.initiateSpotifyAuth();
         if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate Spotify auth');
+          if (isAlreadyConnectedMessage(result.message)) {
+            showConnectionSuccess(
+              `${service.name} is already connected. Open Library Control to sync or disconnect first.`
+            );
+          } else {
+            showConnectionError(mapOAuthActionError(service.name, 'connect', result.message));
+          }
         }
         return;
       }
@@ -279,7 +312,13 @@
       if (service.id === 'youtube') {
         const result = await connectionActions.initiateYouTubeAuth();
         if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate YouTube Music auth');
+          if (isAlreadyConnectedMessage(result.message)) {
+            showConnectionSuccess(
+              `${service.name} is already connected. Open Library Control to sync or disconnect first.`
+            );
+          } else {
+            showConnectionError(mapOAuthActionError(service.name, 'connect', result.message));
+          }
         }
         return;
       }
@@ -287,13 +326,18 @@
       if (service.id === 'tidal') {
         const result = await connectionActions.initiateTidalAuth();
         if (!result.success) {
-          showConnectionError(result.message || 'Failed to initiate Tidal auth');
+          if (isAlreadyConnectedMessage(result.message)) {
+            showConnectionSuccess(
+              `${service.name} is already connected. Open Library Control to sync or disconnect first.`
+            );
+          } else {
+            showConnectionError(mapOAuthActionError(service.name, 'connect', result.message));
+          }
         }
       }
     } catch (error) {
-      showConnectionError(
-        error instanceof Error ? error.message : `Failed to connect ${service.name}`
-      );
+      const hint = error instanceof Error ? error.message : '';
+      showConnectionError(mapOAuthActionError(service.name, 'connect', hint));
     } finally {
       connectingProvider = null;
     }
@@ -323,12 +367,11 @@
         await loadConnections();
         showConnectionSuccess(`${service.name} disconnected.`);
       } else {
-        showConnectionError(result.message || `Failed to disconnect ${service.name}`);
+        showConnectionError(mapOAuthActionError(service.name, 'disconnect', result.message));
       }
     } catch (error) {
-      showConnectionError(
-        error instanceof Error ? error.message : `Failed to disconnect ${service.name}`
-      );
+      const hint = error instanceof Error ? error.message : '';
+      showConnectionError(mapOAuthActionError(service.name, 'disconnect', hint));
     } finally {
       connectingProvider = null;
     }

@@ -49,11 +49,14 @@ Net effect on this runbook:
   write proof, until the writer wiring lands.
 
 Tracking: write-path wiring is the live-prod durability gap on
-[NOD-192](/NOD/issues/NOD-192). A follow-up issue under that lane will
-either land a startup heartbeat writer or split out the analytics
-service write path. **When that issue ships, replace probe 4 below
-with a real production write trigger and re-run the full sequence on
-a redeploy.**
+[NOD-192](/NOD/issues/NOD-192). The CTO scope split (HIGH 1 decision)
+locked this as Option (B): **NOD-252 stays the infra-readiness lane,
+and application writer-path enablement is owned in
+[NOD-253](/NOD/issues/NOD-253) "Implement production DuckDB writer
+path in ndith-analytics-service".** When [NOD-253](/NOD/issues/NOD-253)
+ships, replace probe 4 below with the real production write trigger
+from that issue's runbook section and re-run the full sequence on a
+redeploy.
 
 ## Pre-deploy checks (run from a workstation)
 
@@ -127,13 +130,14 @@ inspect the disk attachment in the Render dashboard.
 ls -lah "$DUCKDB_PATH" || true
 ```
 
-Expected (current state, until write-path wiring lands): `No such
-file or directory`. The DuckDB file legitimately does not exist
-because no production code opens it yet. Once the follow-up issue
-lands a real writer, replace this section with:
+Expected (current state, until [NOD-253](/NOD/issues/NOD-253) ships):
+`No such file or directory`. The DuckDB file legitimately does not
+exist because no production code opens it yet. Once
+[NOD-253](/NOD/issues/NOD-253) lands a real writer, replace this
+section with:
 
-> Hit `<the new write trigger>`; then `ls -lah "$DUCKDB_PATH"` returns
-> a non-zero `analytics.duckdb` file.
+> Hit the writer trigger from [NOD-253](/NOD/issues/NOD-253); then
+> `ls -lah "$DUCKDB_PATH"` returns a non-zero `analytics.duckdb` file.
 
 ### 5. Persistence across rollout
 
@@ -217,8 +221,8 @@ mutable `analytics-latest`). To pin to a known-good SHA:
   single point of data loss the moment a real write path lands. This
   is acceptable as a starter posture for a sync-metrics OLAP store
   (lossy is okay; analytics can be back-filled from PostgreSQL), but
-  it must be tracked. The follow-up under [NOD-192](/NOD/issues/NOD-192)
-  for the write path should also schedule a `pg_dump`-equivalent
+  it must be tracked. [NOD-253](/NOD/issues/NOD-253) (writer-path
+  enablement) should also schedule a `pg_dump`-equivalent
   snapshot job (e.g. nightly `EXPORT DATABASE` to S3) before the table
   retention exceeds what we can re-derive from Postgres.
 - **Monitoring:** add a Prometheus alert (or Render log alert) on the

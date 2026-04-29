@@ -278,7 +278,7 @@ impl MusicBrainzImporter {
                 .as_ref()
                 .map(|tags| {
                     let mut sorted_tags = tags.clone();
-                    sorted_tags.sort_by(|a, b| b.count.cmp(&a.count));
+                    sorted_tags.sort_by_key(|b| std::cmp::Reverse(b.count));
                     sorted_tags.into_iter().take(5).map(|t| t.name).collect()
                 })
                 .unwrap_or_default();
@@ -464,7 +464,7 @@ impl MusicBrainzArtist {
             .as_ref()
             .map(|tags| {
                 let mut sorted = tags.clone();
-                sorted.sort_by(|a, b| b.count.cmp(&a.count));
+                sorted.sort_by_key(|b| std::cmp::Reverse(b.count));
                 sorted.into_iter().take(5).map(|t| t.name).collect()
             })
             .unwrap_or_default();

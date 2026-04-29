@@ -1098,7 +1098,7 @@ pub async fn get_revenue_by_category_handler(
 
     // Sort by revenue and take top 20
     let mut sorted_artists: Vec<_> = top_artists.into_iter().collect();
-    sorted_artists.sort_by(|a, b| b.4.cmp(&a.4));
+    sorted_artists.sort_by_key(|artist| std::cmp::Reverse(artist.4));
     let top_20: Vec<_> = sorted_artists.into_iter().take(20).collect();
 
     // Calculate grand totals

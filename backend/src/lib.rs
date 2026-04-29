@@ -723,39 +723,6 @@ pub fn create_news_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-fn create_scoped_service_router(state: AppState, protected_routes: Router<AppState>) -> Router {
-    let auth_service = state.auth_service.clone();
-    let metrics = state.metrics.clone();
-
-    Router::new()
-        .route("/health", get(health_check))
-        .route("/health/ready", get(readiness_check_endpoint))
-        .route("/health/live", get(liveness_check_endpoint))
-        .route("/metrics", get(metrics_endpoint))
-        .route("/metrics/prometheus", get(prometheus_metrics_endpoint))
-        .route("/monitoring", get(comprehensive_monitoring_endpoint))
-        .nest(
-            "/api/v1",
-            protected_routes.layer(axum::middleware::from_fn_with_state(
-                auth_service,
-                crate::middleware::auth::auth_middleware,
-            )),
-        )
-        .layer(
-            ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                .layer(create_cors_layer()),
-        )
-        .layer(axum::middleware::from_fn(
-            crate::middleware::security::security_headers_middleware,
-        ))
-        .layer(axum::middleware::from_fn_with_state(
-            metrics,
-            crate::middleware::latency::latency_middleware,
-        ))
-        .with_state(state)
-}
-
 fn add_full_platform_routes(router: Router<AppState>) -> Router<AppState> {
     add_news_routes(add_analytics_routes(add_graph_routes(router)))
 }

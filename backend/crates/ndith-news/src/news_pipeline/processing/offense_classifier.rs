@@ -1069,7 +1069,7 @@ impl OffenseClassifier {
                                 || !place
                                     .as_bytes()
                                     .get(after_state)
-                                    .map_or(false, |b| b.is_ascii_alphanumeric())
+                                    .is_some_and(|b| b.is_ascii_alphanumeric())
                             {
                                 return true;
                             }
@@ -1082,7 +1082,7 @@ impl OffenseClassifier {
                                 || !place
                                     .as_bytes()
                                     .get(after_country)
-                                    .map_or(false, |b| b.is_ascii_alphanumeric())
+                                    .is_some_and(|b| b.is_ascii_alphanumeric())
                             {
                                 return true;
                             }

@@ -1,0 +1,108 @@
+name: Operator Probe Lane
+
+# NOD-237: board/CTO-triggered prod probe lane.
+# Holds the only credentialed surface allowed to reach prod for read +
+# audit_log marker-insert probes. Evidence is auto-posted to the target
+# Paperclip issue. Self-audited via operator_probe_run rows in audit_log.
+#
+# Inputs are constrained to choice lists or regex-validated to avoid
+# workflow command injection. All dynamic values are passed via env:
+# blocks per GitHub's hardening guidance.
+
+on:
+  workflow_dispatch:
+    inputs:
+      probe_name:
+        description: Registered probe set under scripts/operator-probes/<name>.sh
+        required: true
+        default: audit-log-health
+        type: choice
+        options:
+          - audit-log-health
+      target_issue:
+        description: Paperclip issue identifier (e.g. NOD-195) to receive evidence
+        required: true
+        type: string
+      target_env:
+        description: Probe target environment label
+        required: true
+        default: prod
+        type: choice
+        options:
+          - prod
+          - staging
+      dry_run:
+        description: Skip audit_log writes and Paperclip post (smoke test only)
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: operator-probe-${{ inputs.target_env }}
+  cancel-in-progress: false
+
+jobs:
+  run-probe:
+    name: probe ${{ inputs.probe_name }} -> ${{ inputs.target_issue }} (${{ inputs.target_env }})
+    runs-on: ubuntu-latest
+    environment: operator-probe-${{ inputs.target_env }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install psql + jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client jq
+
+      - name: Validate inputs
+        env:
+          PROBE_NAME: ${{ inputs.probe_name }}
+          TARGET_ISSUE: ${{ inputs.target_issue }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f "scripts/operator-probes/${PROBE_NAME}.sh" ]]; then
+            echo "::error::probe '${PROBE_NAME}' is not registered"
+            exit 1
+          fi
+          if [[ ! "${TARGET_ISSUE}" =~ ^([A-Z]+-[0-9]+|[0-9a-f-]{36})$ ]]; then
+            echo "::error::TARGET_ISSUE must be a Paperclip identifier or UUID"
+            exit 1
+          fi
+
+      - name: Run operator probe
+        env:
+          DATABASE_URL: ${{ secrets.PROBE_RUNNER_DATABASE_URL }}
+          PAPERCLIP_API_URL: ${{ secrets.PAPERCLIP_API_URL }}
+          PAPERCLIP_API_KEY: ${{ secrets.PAPERCLIP_PROBE_API_KEY }}
+          PROBE_NAME: ${{ inputs.probe_name }}
+          TARGET_ISSUE: ${{ inputs.target_issue }}
+          PROBE_TARGET_ENV: ${{ inputs.target_env }}
+          PROBE_DRY_RUN: ${{ inputs.dry_run }}
+          GH_ACTOR: ${{ github.actor }}
+          GH_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          export PROBE_ACTOR="github-actions:${GH_ACTOR}:run-${GH_RUN_ID}"
+          chmod +x scripts/operator-probe-runner.sh \
+                   scripts/audit-log-schema-probe.sh \
+                   scripts/operator-probes/*.sh
+          ./scripts/operator-probe-runner.sh
+
+      - name: Upload captured probe output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: operator-probe-${{ github.run_id }}
+          path: |
+            **/probe-output.txt
+          if-no-files-found: ignore
+          retention-days: 30

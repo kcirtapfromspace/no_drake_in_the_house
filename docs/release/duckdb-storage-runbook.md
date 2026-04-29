@@ -9,44 +9,41 @@ This runbook covers the persistent DuckDB analytics store for the
 > volumeMount, PVC, fail-fast validation. **Live production durability
 > closure for [NOD-192](/NOD/issues/NOD-192) is owned in [NOD-252](/NOD/issues/NOD-252)
 > (Render runtime) plus [NOD-253](/NOD/issues/NOD-253)** (application
-> writer-path enablement). See "Known production gap" below before
-> running probe 4.
+> writer-path enablement, shipped — see "Writer-path status" below).
 
-## Known production gap (read first)
+## Writer-path status (NOD-253 shipped)
 
-As of this runbook's commit, **no production code path constructs a
-file-backed `DuckDbClient` against `DUCKDB_PATH`**. `grep -rn
-'DuckDbClient::(new|open)' backend/` returns zero hits outside
-`#[cfg(test)]` calls to `DuckDbClient::in_memory()`. The startup
-`ensure_duckdb_storage_ready` probe (this issue) validates the
-directory is writable but never opens the DB file.
+The application-side writer is now plumbed end-to-end. Two production
+entry points construct a file-backed `DuckDbClient` against
+`DUCKDB_PATH`:
+
+- `run_duckdb_startup_probe` in `backend/src/runtime.rs` runs
+  `DuckDbClient::new` at boot (analytics/monolith modes) and crashloops
+  the pod on any open / `initialize_schema` / `record_sync_metrics` /
+  count-verify failure.
+- `POST /api/v1/analytics/duckdb/probe-write` in
+  `backend/src/handlers/analytics_v2.rs` exposes the same writer for
+  on-demand operator use (see §4a).
 
 Net effect on this runbook:
 
 - Probes 1–3 and 5 (PVC bound, env present, mount writable, persistence
-  across pod restart) are meaningful and must pass.
-- Probe 4 (`analytics.duckdb` appears after an analytics write)
-  **cannot pass with current code**. The application-side writer
-  enablement is tracked in [NOD-253](/NOD/issues/NOD-253). Until that
-  ships, probe 4 below is replaced with an explicit writability proof
-  that demonstrates the mount is usable but does **not** prove a
-  production write is persisted.
+  across pod restart) are unchanged and must pass.
+- Probe 4 (`analytics.duckdb` materializes after an analytics write) is
+  now meaningful and is satisfied either by the startup writer probe
+  or by hitting the §4a endpoint.
 
-When [NOD-253](/NOD/issues/NOD-253) ships, replace probe 4 with the
-real production write trigger from that issue's runbook section and
-re-run the full sequence on a redeploy.
-
-To re-verify this gap still holds against any checkout:
+To verify the writer path is still wired against any checkout:
 
 ```bash
-# Expect: no matches outside #[cfg(test)] in_memory() calls
+# Expect: matches in runtime.rs (run_duckdb_startup_probe) and
+# analytics_v2.rs (probe-write handler), beyond #[cfg(test)] usage.
 git grep -nE 'DuckDbClient::(new|open)' backend/
 git grep -n 'DuckDbClient::in_memory' backend/
 ```
 
-If the first command starts returning matches in non-test code, the
-write-path is now plumbed and probe 4 below should be swapped back to
-the real `analytics.duckdb` materialization expectation.
+If the first command stops returning non-test matches, the write-path
+has regressed — restore the writer wiring before re-running probe 4.
 
 ## Canonical configuration
 
@@ -117,12 +114,28 @@ kubectl exec -n ndith-production "$POD" -- sh -c \
 Expected: the directory is owned by group `2000` (the pod's `fsGroup`),
 the runtime UID is `1000`, and the touch/ls/rm cycle succeeds.
 
-### 4. Writability proof (interim — see "Known production gap")
+### 4. `analytics.duckdb` materializes after the startup writer probe
 
-Until [NOD-253](/NOD/issues/NOD-253) lands a real production writer,
-use a `kubectl exec` write probe to prove the disk is writable by the
-runtime UID/GID. **This proves the volume works, not that analytics
-writes are persisted.**
+The `run_duckdb_startup_probe` task in `backend/src/runtime.rs` opens
+`DUCKDB_PATH` and writes a row through `record_sync_metrics` on every
+boot in analytics/monolith modes. After a successful rollout, the
+file must exist on the PVC:
+
+```bash
+kubectl exec -n ndith-production "$POD" -- ls -lh /var/lib/ndith/analytics
+```
+
+Expected: the directory listing includes a non-zero
+`analytics.duckdb`. If it is missing or zero-byte after a clean boot,
+the pod either crashlooped on the startup probe or failed to find the
+mount — check the backend logs for `DuckDB analytics storage probe
+passed` (storage validation) and the writer-probe success log line
+referenced in §4a, then inspect PVC binding and pod
+`fsGroup`/`runAsUser`.
+
+If you need an additional sanity check that the runtime UID/GID can
+write to the mount path itself (independent of DuckDB), the legacy
+`kubectl exec` write probe is still safe to run:
 
 ```bash
 kubectl exec -n ndith-production "$POD" -- sh -c '
@@ -136,23 +149,7 @@ kubectl exec -n ndith-production "$POD" -- sh -c '
 
 Expected: `echo` writes the file, `ls` shows it owned by the runtime
 user with non-zero size, `cat` returns the timestamp string, `rm`
-removes it. Failure of any step means the mount is not writable —
-inspect the PVC binding and the pod's `fsGroup`/`runAsUser`.
-
-```bash
-kubectl exec -n ndith-production "$POD" -- ls -lh /var/lib/ndith/analytics
-```
-
-Expected (current state, until [NOD-253](/NOD/issues/NOD-253) ships):
-the directory listing does **not** include `analytics.duckdb`. The
-DuckDB file legitimately does not exist because no production code
-opens it yet. Once [NOD-253](/NOD/issues/NOD-253) lands a real writer,
-replace this section with:
-
-> Hit the writer trigger from [NOD-253](/NOD/issues/NOD-253) (e.g.
-> startup heartbeat or HTTP request that fans out to the analytics
-> service); then `kubectl exec ... -- ls -lh /var/lib/ndith/analytics`
-> shows a non-zero `analytics.duckdb`.
+removes it.
 
 ### 4a. Force a deterministic writer probe (single API action)
 
@@ -173,31 +170,30 @@ Expected response:
 
 ### 5. Persistence across pod restart
 
-Until [NOD-253](/NOD/issues/NOD-253) ships, persistence is verified
-against the writability-probe artifact rather than `analytics.duckdb`.
-Place a marker file on the PVC, restart the deployment, and confirm
-the marker survives:
+Persistence is now verified against `analytics.duckdb` itself, since
+the startup writer probe materializes (and the §4a endpoint can extend)
+the real DB file on the PVC. `stat` it, restart the deployment, and
+confirm the file survives:
 
 ```bash
-kubectl exec -n ndith-production "$POD" -- sh -c \
-  'echo "persist-probe $(date -u +%Y%m%dT%H%M%SZ)" \
-     > /var/lib/ndith/analytics/.persist_probe'
 kubectl exec -n ndith-production "$POD" -- stat \
-  -c '%y %s %n' /var/lib/ndith/analytics/.persist_probe
+  -c '%y %s %n' /var/lib/ndith/analytics/analytics.duckdb
 kubectl rollout restart deployment/ndith-api -n ndith-production
 kubectl rollout status deployment/ndith-api -n ndith-production --timeout=300s
 NEW_POD=$(kubectl get pod -n ndith-production -l app=ndith-api \
   -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n ndith-production "$NEW_POD" -- stat \
-  -c '%y %s %n' /var/lib/ndith/analytics/.persist_probe
-kubectl exec -n ndith-production "$NEW_POD" -- rm \
-  /var/lib/ndith/analytics/.persist_probe
+  -c '%y %s %n' /var/lib/ndith/analytics/analytics.duckdb
 ```
 
-Expected: the `.persist_probe` file (mtime, size, content) survives
-the rollout. After [NOD-253](/NOD/issues/NOD-253) ships, replace this
-with the same `stat` sequence against `analytics.duckdb` to prove the
-real DB file persists.
+Expected: the `analytics.duckdb` file survives the rollout — same
+inode-stable mtime/size or a strictly larger size if the new pod's
+startup writer probe appended a row. A missing or zero-byte file on
+the new pod indicates a non-persistent volume binding.
+
+For a belt-and-braces check that does not depend on the DB file, drop
+a `.persist_probe` marker on the PVC alongside the `stat` calls; it
+should also survive the rollout.
 
 ## Failure modes the backend now catches at startup
 

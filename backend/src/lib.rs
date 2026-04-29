@@ -860,6 +860,10 @@ fn add_analytics_routes(router: Router<AppState>) -> Router<AppState> {
             get(handlers::analytics_v2::get_system_health_handler),
         )
         .route(
+            "/analytics/duckdb/probe-write",
+            post(handlers::analytics_v2::run_duckdb_writer_probe_handler),
+        )
+        .route(
             "/analytics/trends",
             get(handlers::analytics_v2::get_trend_summary_handler),
         )

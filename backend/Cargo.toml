@@ -110,7 +110,7 @@ edition = "2021"
 [features]
 default = ["full-platform", "graph-ladybugdb"]
 full-platform = ["analytics", "news"]
-analytics = ["dep:ndith-analytics"]
+analytics = ["dep:ndith-analytics", "dep:duckdb"]
 news = ["dep:ndith-news"]
 render-api = []
 graph-ladybugdb = ["analytics", "ndith-analytics/graph-ladybugdb"]
@@ -164,6 +164,7 @@ rand = { workspace = true }
 sha2 = { workspace = true }
 reqwest = { workspace = true }
 rust_decimal = { workspace = true }
+duckdb = { workspace = true, optional = true }
 
 # Monitoring
 prometheus = { workspace = true }

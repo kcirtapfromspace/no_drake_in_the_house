@@ -726,6 +726,7 @@ pub fn create_news_router(state: AppState) -> Router {
         .with_state(state)
 }
 
+#[allow(dead_code)]
 fn create_scoped_service_router(state: AppState, protected_routes: Router<AppState>) -> Router {
     let auth_service = state.auth_service.clone();
     let metrics = state.metrics.clone();

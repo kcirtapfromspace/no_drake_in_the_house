@@ -184,6 +184,16 @@ backup:
     enabled: true
     bucket: "ndith-backups-prod"
 
+# Keep production containers on read-only root FS while DuckDB writes go to
+# the mounted persistence path (`backend.duckdb.mountPath`).
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
 security:
   networkPolicies:
     enabled: true

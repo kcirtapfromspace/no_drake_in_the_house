@@ -94,16 +94,15 @@ impl CircuitBreaker {
         self.last_failure_time = Some(std::time::Instant::now());
 
         match self.state {
-            CircuitBreakerState::Closed => {
-                if self.failure_count >= self.failure_threshold {
-                    self.state = CircuitBreakerState::Open;
-                    warn!(
-                        failure_count = self.failure_count,
-                        threshold = self.failure_threshold,
-                        "Circuit breaker opened due to failures"
-                    );
-                }
+            CircuitBreakerState::Closed if self.failure_count >= self.failure_threshold => {
+                self.state = CircuitBreakerState::Open;
+                warn!(
+                    failure_count = self.failure_count,
+                    threshold = self.failure_threshold,
+                    "Circuit breaker opened due to failures"
+                );
             }
+            CircuitBreakerState::Closed => {}
             CircuitBreakerState::HalfOpen => {
                 self.state = CircuitBreakerState::Open;
                 warn!("Circuit breaker reopened after failed recovery attempt");

@@ -36,6 +36,18 @@ When [NOD-253](/NOD/issues/NOD-253) ships, replace probe 4 with the
 real production write trigger from that issue's runbook section and
 re-run the full sequence on a redeploy.
 
+To re-verify this gap still holds against any checkout:
+
+```bash
+# Expect: no matches outside #[cfg(test)] in_memory() calls
+git grep -nE 'DuckDbClient::(new|open)' backend/
+git grep -n 'DuckDbClient::in_memory' backend/
+```
+
+If the first command starts returning matches in non-test code, the
+write-path is now plumbed and probe 4 below should be swapped back to
+the real `analytics.duckdb` materialization expectation.
+
 ## Canonical configuration
 
 | Field             | Value                                          |

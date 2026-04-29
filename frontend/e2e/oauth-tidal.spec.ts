@@ -229,7 +229,7 @@ test.describe('Tidal OAuth Integration', () => {
 
       // Set auth token to simulate authenticated state
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -273,7 +273,7 @@ test.describe('Tidal OAuth Integration', () => {
       });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -303,7 +303,7 @@ test.describe('Tidal OAuth Integration', () => {
       await mockTidalApiRoutes(page);
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -333,7 +333,7 @@ test.describe('Tidal OAuth Integration', () => {
       await mockTidalApiRoutes(page);
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -371,7 +371,7 @@ test.describe('Tidal OAuth Integration', () => {
       });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({

@@ -226,7 +226,7 @@ async function setupSettingsPage(page: Page, options: Parameters<typeof mockSpot
 
   // Set auth token so the app considers the user logged in
   await page.addInitScript(() => {
-    localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+    localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
     localStorage.setItem('user', JSON.stringify({
       id: 'test-user-123',
       email: 'test@example.com',
@@ -364,7 +364,7 @@ test.describe('Spotify OAuth Integration', () => {
 
       // Set auth token so the app considers the user logged in
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
       });
 
       // Navigate to the callback URL with code and state query params
@@ -386,7 +386,7 @@ test.describe('Spotify OAuth Integration', () => {
       await mockSpotifyApiRoutes(page, { connected: false, callbackError: true });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
       });
 
       await page.goto('/auth/callback/spotify?code=bad-code&state=bad-state');
@@ -406,7 +406,7 @@ test.describe('Spotify OAuth Integration', () => {
       await mockSpotifyApiRoutes(page, { connected: false });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
       });
 
       // Spotify redirects back with an error param when the user denies access
@@ -422,7 +422,7 @@ test.describe('Spotify OAuth Integration', () => {
       await mockSpotifyApiRoutes(page, { connected: false });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
       });
 
       // Navigate to callback without code or state

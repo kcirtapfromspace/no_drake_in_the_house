@@ -17,8 +17,12 @@ use crate::{NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunne
 use axum::Router;
 #[cfg(feature = "news")]
 use chrono::Duration;
+#[cfg(feature = "analytics")]
+use ndith_analytics::{databases::SyncMetrics, DuckDbClient};
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+#[cfg(feature = "analytics")]
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceMode {
@@ -92,6 +96,161 @@ impl ServiceMode {
     fn should_start_news_pipeline(self) -> bool {
         matches!(self, Self::Monolith | Self::News)
     }
+
+    /// Whether the backend running in this mode is expected to write
+    /// to the DuckDB analytics store on disk. Used to gate the
+    /// fail-fast `DUCKDB_PATH` validation on startup.
+    fn requires_duckdb_storage(self) -> bool {
+        matches!(self, Self::Monolith | Self::Analytics)
+    }
+}
+
+/// Fail-fast validation that the canonical DuckDB analytics path is
+/// configured and writable when the service is expected to run
+/// analytics writes. Returns `Err` with an explicit log so the pod
+/// crashlooops instead of silently writing nowhere (NOD-196).
+fn ensure_duckdb_storage_ready(mode: ServiceMode) -> Result<(), String> {
+    let required = mode.requires_duckdb_storage();
+    let path = match env::var("DUCKDB_PATH")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(p) => p.to_string(),
+        None => {
+            if required {
+                let msg = format!(
+                    "DUCKDB_PATH is not set, but service_mode={} requires a writable DuckDB store. \
+                     Set DUCKDB_PATH and mount a writable volume at its parent directory.",
+                    mode.as_str()
+                );
+                tracing::error!(service_mode = mode.as_str(), "{}", msg);
+                return Err(msg);
+            }
+            tracing::warn!(
+                service_mode = mode.as_str(),
+                "DUCKDB_PATH not set; skipping analytics storage probe (mode does not require it)"
+            );
+            return Ok(());
+        }
+    };
+
+    let db_path = std::path::PathBuf::from(&path);
+    let parent = db_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(|p| p.to_path_buf())
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+    if let Err(e) = std::fs::create_dir_all(&parent) {
+        let msg = format!(
+            "DUCKDB_PATH parent directory {} is not creatable: {}. \
+             Mount a writable volume at this path.",
+            parent.display(),
+            e
+        );
+        if required {
+            tracing::error!(service_mode = mode.as_str(), duckdb_path = %path, "{}", msg);
+            return Err(msg);
+        }
+        tracing::warn!(service_mode = mode.as_str(), duckdb_path = %path, "{}", msg);
+        return Ok(());
+    }
+
+    let probe = parent.join(".duckdb_writability_probe");
+    let write_result = std::fs::write(&probe, b"ok").and_then(|_| std::fs::remove_file(&probe));
+    if let Err(e) = write_result {
+        let msg = format!(
+            "DUCKDB_PATH parent directory {} is not writable by runtime UID/GID: {}. \
+             Check the mounted volume's fsGroup/permissions.",
+            parent.display(),
+            e
+        );
+        if required {
+            tracing::error!(service_mode = mode.as_str(), duckdb_path = %path, "{}", msg);
+            return Err(msg);
+        }
+        tracing::warn!(service_mode = mode.as_str(), duckdb_path = %path, "{}", msg);
+        return Ok(());
+    }
+
+    tracing::info!(
+        service_mode = mode.as_str(),
+        duckdb_path = %path,
+        duckdb_dir = %parent.display(),
+        "DuckDB analytics storage probe passed"
+    );
+    Ok(())
+}
+
+#[cfg(feature = "analytics")]
+async fn run_duckdb_startup_probe(mode: ServiceMode, duckdb_path: &str) -> Result<(), String> {
+    tracing::info!(
+        service_mode = mode.as_str(),
+        duckdb_path,
+        "DuckDB writer startup probe begin"
+    );
+
+    let client = DuckDbClient::new(duckdb_path).map_err(|e| {
+        format!(
+            "failed to open DuckDB at {} for startup probe: {}",
+            duckdb_path, e
+        )
+    })?;
+
+    client.initialize_schema().await.map_err(|e| {
+        format!(
+            "failed to initialize DuckDB schema at {} during startup probe: {}",
+            duckdb_path, e
+        )
+    })?;
+
+    let probe_sync_run_id = Uuid::new_v4();
+    client
+        .record_sync_metrics(SyncMetrics {
+            timestamp: chrono::Utc::now(),
+            platform: "startup_probe".to_string(),
+            sync_run_id: probe_sync_run_id,
+            artists_processed: 1,
+            api_calls_made: 1,
+            rate_limit_delays_ms: 0,
+            errors_count: 0,
+            duration_ms: 1,
+        })
+        .await
+        .map_err(|e| {
+            format!(
+                "failed to write DuckDB startup probe row at {}: {}",
+                duckdb_path, e
+            )
+        })?;
+
+    let probe_rows: i64 = client
+        .query(
+            "SELECT COUNT(*) FROM sync_metrics WHERE platform = ?",
+            &[&"startup_probe"],
+            |row| row.get(0),
+        )
+        .await
+        .map_err(|e| {
+            format!(
+                "failed to verify DuckDB startup probe row at {}: {}",
+                duckdb_path, e
+            )
+        })?
+        .into_iter()
+        .next()
+        .unwrap_or(0);
+
+    tracing::info!(
+        service_mode = mode.as_str(),
+        duckdb_path,
+        probe_rows,
+        probe_sync_run_id = %probe_sync_run_id,
+        "DuckDB writer startup probe succeeded"
+    );
+    Ok(())
 }
 
 pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Error>> {
@@ -124,6 +283,23 @@ pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Er
 
     validate_cors_config().map_err(|e| format!("CORS configuration error: {}", e))?;
     tracing::info!("CORS configuration validated");
+
+    ensure_duckdb_storage_ready(mode)
+        .map_err(|e| format!("DuckDB analytics storage validation failed: {}", e))?;
+
+    #[cfg(feature = "analytics")]
+    if mode.requires_duckdb_storage() {
+        let duckdb_path = env::var("DUCKDB_PATH")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                "DUCKDB_PATH missing after storage probe for required analytics mode".to_string()
+            })?;
+        run_duckdb_startup_probe(mode, &duckdb_path)
+            .await
+            .map_err(|e| format!("DuckDB startup writer probe failed: {}", e))?;
+    }
 
     let db_config = DatabaseConfig::default();
     tracing::info!("Initializing database: {}", db_config.url);
@@ -425,4 +601,140 @@ async fn initialize_full_platform_services(
 ) -> Option<Arc<BackfillOrchestrator>> {
     tracing::info!("News pipeline is disabled in this build");
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    /// `DUCKDB_PATH` is process-global; serialize tests that mutate it.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_duckdb_path<F: FnOnce()>(value: Option<&str>, f: F) {
+        let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let prev = env::var("DUCKDB_PATH").ok();
+        match value {
+            Some(v) => env::set_var("DUCKDB_PATH", v),
+            None => env::remove_var("DUCKDB_PATH"),
+        }
+        f();
+        match prev {
+            Some(v) => env::set_var("DUCKDB_PATH", v),
+            None => env::remove_var("DUCKDB_PATH"),
+        }
+    }
+
+    #[test]
+    fn analytics_mode_requires_duckdb_path() {
+        with_duckdb_path(None, || {
+            let err = ensure_duckdb_storage_ready(ServiceMode::Analytics).unwrap_err();
+            assert!(err.contains("DUCKDB_PATH is not set"));
+        });
+    }
+
+    #[test]
+    fn monolith_mode_requires_duckdb_path() {
+        with_duckdb_path(None, || {
+            assert!(ensure_duckdb_storage_ready(ServiceMode::Monolith).is_err());
+        });
+    }
+
+    #[test]
+    fn api_mode_tolerates_missing_duckdb_path() {
+        with_duckdb_path(None, || {
+            assert!(ensure_duckdb_storage_ready(ServiceMode::Api).is_ok());
+        });
+    }
+
+    #[test]
+    fn writable_path_passes_probe() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().join("analytics.duckdb");
+        with_duckdb_path(Some(db.to_str().unwrap()), || {
+            assert!(ensure_duckdb_storage_ready(ServiceMode::Analytics).is_ok());
+        });
+    }
+
+    /// Confirm that 0o555 actually blocks writes for this process. Returns
+    /// `false` when the caller has DAC override (typically root in CI
+    /// containers), so the unwritable-parent test can bail out cleanly.
+    #[cfg(unix)]
+    fn dac_enforces_readonly_dir(dir: &std::path::Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        let prev = std::fs::metadata(dir).expect("metadata").permissions();
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o555))
+            .expect("chmod 0o555");
+        let probe = dir.join(".dac_self_check");
+        let blocked = std::fs::write(&probe, b"x").is_err();
+        if !blocked {
+            let _ = std::fs::remove_file(&probe);
+        }
+        std::fs::set_permissions(dir, prev).expect("restore permissions");
+        blocked
+    }
+
+    /// NOD-248: cover the operationally important branch where
+    /// `DUCKDB_PATH` is configured but the parent directory is not
+    /// writable by the runtime UID. This is the failure mode that
+    /// catches a misconfigured PVC mount in production.
+    #[cfg(unix)]
+    #[test]
+    fn unwritable_parent_dir_fails_write_probe() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        if !dac_enforces_readonly_dir(dir.path()) {
+            eprintln!(
+                "skipping unwritable_parent_dir_fails_write_probe: \
+                 process has DAC override (likely root)"
+            );
+            return;
+        }
+        let parent_display = dir.path().display().to_string();
+        let db = dir.path().join("analytics.duckdb");
+        let db_str = db.to_str().expect("utf8 path").to_string();
+
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555))
+            .expect("chmod 0o555");
+
+        with_duckdb_path(Some(&db_str), || {
+            let err = ensure_duckdb_storage_ready(ServiceMode::Analytics).unwrap_err();
+            assert!(
+                err.contains(&parent_display),
+                "expected parent dir {parent_display} in error message, got: {err}"
+            );
+            assert!(
+                err.contains("not writable"),
+                "expected 'not writable' phrasing in error message, got: {err}"
+            );
+        });
+
+        // Restore write+exec so TempDir's Drop can remove children.
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755))
+            .expect("restore 0o755");
+    }
+
+    #[test]
+    fn non_directory_parent_fails_probe() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let not_a_dir = dir.path().join("not_a_dir");
+        std::fs::write(&not_a_dir, b"x").expect("create sentinel file");
+        let db = not_a_dir.join("analytics.duckdb");
+        with_duckdb_path(Some(db.to_str().unwrap()), || {
+            let err = ensure_duckdb_storage_ready(ServiceMode::Analytics).unwrap_err();
+            assert!(err.contains("not creatable"));
+        });
+    }
+
+    #[cfg(feature = "analytics")]
+    #[tokio::test]
+    async fn startup_writer_probe_creates_non_empty_duckdb_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().join("analytics.duckdb");
+        run_duckdb_startup_probe(ServiceMode::Analytics, db.to_str().unwrap())
+            .await
+            .expect("startup probe should write successfully");
+        let metadata = std::fs::metadata(&db).expect("duckdb file should exist");
+        assert!(metadata.len() > 0, "duckdb file should be non-empty");
+    }
 }

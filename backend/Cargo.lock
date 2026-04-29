@@ -5807,6 +5807,7 @@ dependencies = [
  "deadpool 0.10.0",
  "deadpool-redis",
  "dotenvy",
+ "duckdb",
  "fake",
  "futures",
  "hyper 1.7.0",

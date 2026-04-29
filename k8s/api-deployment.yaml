@@ -112,11 +112,18 @@ spec:
           mountPath: /tmp
         - name: cache
           mountPath: /app/cache
+        # Persistent DuckDB analytics store. Path must match
+        # DUCKDB_PATH in configmap.yaml.
+        - name: duckdb-data
+          mountPath: /var/lib/ndith/analytics
       volumes:
       - name: tmp
         emptyDir: {}
       - name: cache
         emptyDir: {}
+      - name: duckdb-data
+        persistentVolumeClaim:
+          claimName: ndith-duckdb-data
       nodeSelector:
         kubernetes.io/os: linux
       tolerations:

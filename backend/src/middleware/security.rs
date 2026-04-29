@@ -322,7 +322,7 @@ impl VulnerabilityScanner {
     ) -> Vec<VulnerabilityScanResult> {
         let results = self.scan_results.read().await;
         let mut sorted_results = results.clone();
-        sorted_results.sort_by_key(|b| std::cmp::Reverse(b.started_at));
+        sorted_results.sort_by_key(|scan| std::cmp::Reverse(scan.started_at));
 
         if let Some(limit) = limit {
             sorted_results.truncate(limit);

@@ -12,3 +12,7 @@ data:
   TOKEN_ROTATION_INTERVAL: "86400"
   METRICS_PORT: "9090"
   HEALTH_CHECK_INTERVAL: "30"
+  # Canonical DuckDB analytics store location. Mounted from the
+  # ndith-duckdb-data PVC (see k8s/duckdb-pvc.yaml). Must match the
+  # `volumeMounts.mountPath` in api-deployment.yaml.
+  DUCKDB_PATH: "/var/lib/ndith/analytics/analytics.duckdb"

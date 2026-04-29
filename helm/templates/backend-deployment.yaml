@@ -42,6 +42,17 @@ spec:
             {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
+          {{- if .Values.backend.duckdb.enabled }}
+          volumeMounts:
+            - name: duckdb-data
+              mountPath: {{ .Values.backend.duckdb.mountPath | quote }}
+          {{- end }}
+      {{- if .Values.backend.duckdb.enabled }}
+      volumes:
+        - name: duckdb-data
+          persistentVolumeClaim:
+            claimName: {{ include "ndith.fullname" . }}-duckdb
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

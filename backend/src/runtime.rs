@@ -17,8 +17,12 @@ use crate::{NewsPipelineConfig, NewsPipelineOrchestrator, ScheduledPipelineRunne
 use axum::Router;
 #[cfg(feature = "news")]
 use chrono::Duration;
+#[cfg(feature = "analytics")]
+use ndith_analytics::{databases::SyncMetrics, DuckDbClient};
 use std::{env, sync::Arc};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+#[cfg(feature = "analytics")]
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceMode {
@@ -106,10 +110,13 @@ impl ServiceMode {
 /// analytics writes. Returns `Err` with an explicit log so the pod
 /// crashlooops instead of silently writing nowhere (NOD-196).
 fn ensure_duckdb_storage_ready(mode: ServiceMode) -> Result<(), String> {
-    let raw = env::var("DUCKDB_PATH").ok();
     let required = mode.requires_duckdb_storage();
-
-    let path = match raw.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let path = match env::var("DUCKDB_PATH")
+        .ok()
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         Some(p) => p.to_string(),
         None => {
             if required {
@@ -177,6 +184,75 @@ fn ensure_duckdb_storage_ready(mode: ServiceMode) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(feature = "analytics")]
+async fn run_duckdb_startup_probe(mode: ServiceMode, duckdb_path: &str) -> Result<(), String> {
+    tracing::info!(
+        service_mode = mode.as_str(),
+        duckdb_path,
+        "DuckDB writer startup probe begin"
+    );
+
+    let client = DuckDbClient::new(duckdb_path).map_err(|e| {
+        format!(
+            "failed to open DuckDB at {} for startup probe: {}",
+            duckdb_path, e
+        )
+    })?;
+
+    client.initialize_schema().await.map_err(|e| {
+        format!(
+            "failed to initialize DuckDB schema at {} during startup probe: {}",
+            duckdb_path, e
+        )
+    })?;
+
+    let probe_sync_run_id = Uuid::new_v4();
+    client
+        .record_sync_metrics(SyncMetrics {
+            timestamp: chrono::Utc::now(),
+            platform: "startup_probe".to_string(),
+            sync_run_id: probe_sync_run_id,
+            artists_processed: 1,
+            api_calls_made: 1,
+            rate_limit_delays_ms: 0,
+            errors_count: 0,
+            duration_ms: 1,
+        })
+        .await
+        .map_err(|e| {
+            format!(
+                "failed to write DuckDB startup probe row at {}: {}",
+                duckdb_path, e
+            )
+        })?;
+
+    let probe_rows: i64 = client
+        .query(
+            "SELECT COUNT(*) FROM sync_metrics WHERE platform = ?",
+            &[&"startup_probe"],
+            |row| row.get(0),
+        )
+        .await
+        .map_err(|e| {
+            format!(
+                "failed to verify DuckDB startup probe row at {}: {}",
+                duckdb_path, e
+            )
+        })?
+        .into_iter()
+        .next()
+        .unwrap_or(0);
+
+    tracing::info!(
+        service_mode = mode.as_str(),
+        duckdb_path,
+        probe_rows,
+        probe_sync_run_id = %probe_sync_run_id,
+        "DuckDB writer startup probe succeeded"
+    );
+    Ok(())
+}
+
 pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
@@ -210,6 +286,20 @@ pub async fn run_service(mode: ServiceMode) -> Result<(), Box<dyn std::error::Er
 
     ensure_duckdb_storage_ready(mode)
         .map_err(|e| format!("DuckDB analytics storage validation failed: {}", e))?;
+
+    #[cfg(feature = "analytics")]
+    if mode.requires_duckdb_storage() {
+        let duckdb_path = env::var("DUCKDB_PATH")
+            .ok()
+            .map(|v| v.trim().to_string())
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                "DUCKDB_PATH missing after storage probe for required analytics mode".to_string()
+            })?;
+        run_duckdb_startup_probe(mode, &duckdb_path)
+            .await
+            .map_err(|e| format!("DuckDB startup writer probe failed: {}", e))?;
+    }
 
     let db_config = DatabaseConfig::default();
     tracing::info!("Initializing database: {}", db_config.url);
@@ -622,5 +712,29 @@ mod tests {
         // Restore write+exec so TempDir's Drop can remove children.
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755))
             .expect("restore 0o755");
+    }
+
+    #[test]
+    fn non_directory_parent_fails_probe() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let not_a_dir = dir.path().join("not_a_dir");
+        std::fs::write(&not_a_dir, b"x").expect("create sentinel file");
+        let db = not_a_dir.join("analytics.duckdb");
+        with_duckdb_path(Some(db.to_str().unwrap()), || {
+            let err = ensure_duckdb_storage_ready(ServiceMode::Analytics).unwrap_err();
+            assert!(err.contains("not creatable"));
+        });
+    }
+
+    #[cfg(feature = "analytics")]
+    #[tokio::test]
+    async fn startup_writer_probe_creates_non_empty_duckdb_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().join("analytics.duckdb");
+        run_duckdb_startup_probe(ServiceMode::Analytics, db.to_str().unwrap())
+            .await
+            .expect("startup probe should write successfully");
+        let metadata = std::fs::metadata(&db).expect("duckdb file should exist");
+        assert!(metadata.len() > 0, "duckdb file should be non-empty");
     }
 }

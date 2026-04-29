@@ -58,7 +58,7 @@ the real `analytics.duckdb` materialization expectation.
 | PVC name (Helm)   | `{release}-backend-duckdb`                     |
 | Access mode       | `ReadWriteOnce`                                |
 | StorageClass      | `fast-ssd`                                     |
-| Requested size    | `10Gi` (raw K8s) / `20Gi` (Helm production)    |
+| Requested size    | `20Gi` (raw K8s and Helm production)           |
 
 The path is sourced from `k8s/configmap.yaml` (raw manifests) and
 `backend.env.DUCKDB_PATH` in `helm/values.yaml` /
@@ -153,6 +153,23 @@ replace this section with:
 > startup heartbeat or HTTP request that fans out to the analytics
 > service); then `kubectl exec ... -- ls -lh /var/lib/ndith/analytics`
 > shows a non-zero `analytics.duckdb`.
+
+### 4a. Force a deterministic writer probe (single API action)
+
+Use this when you need an immediate proof write without waiting for
+background traffic.
+
+```bash
+curl -sS -X POST "https://<api-host>/api/v1/analytics/duckdb/probe-write" \
+  -H "Authorization: Bearer <admin-jwt>" \
+  -H "Content-Type: application/json"
+```
+
+Expected response:
+
+- `"success": true`
+- `"data.runbook_probe_rows"` increments on repeated calls
+- backend logs include `DuckDB writer runbook probe succeeded`
 
 ### 5. Persistence across pod restart
 

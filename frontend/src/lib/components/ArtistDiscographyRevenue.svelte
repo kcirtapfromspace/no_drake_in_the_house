@@ -145,8 +145,16 @@
     }
   }
 
+  export async function refreshRevenueData(): Promise<void> {
+    await loadRevenueData();
+  }
+
   onMount(() => {
-    prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } else {
+      prefersReducedMotion = false;
+    }
     loadRevenueData();
   });
 </script>

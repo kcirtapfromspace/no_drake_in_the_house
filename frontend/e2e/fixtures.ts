@@ -129,7 +129,7 @@ export const mockConnections = {
 async function mockAuthentication(page: Page) {
   // Set localStorage to simulate authenticated state
   await page.addInitScript(() => {
-    localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+    localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
     localStorage.setItem('user', JSON.stringify({
       id: 'test-user-123',
       email: 'test@example.com',
@@ -185,7 +185,7 @@ async function mockApiRoutes(page: Page) {
         contentType: 'application/json',
         body: JSON.stringify({
           user: mockUser,
-          token: 'mock-jwt-token-12345',
+          token: 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature',
         }),
       });
     } else {

@@ -19,19 +19,6 @@
   let connectionError: string | null = null;
   let connectionBannerTimeout: ReturnType<typeof setTimeout> | null = null;
 
-  interface AppleLibraryPreview {
-    tracks: Array<{ id: string; name?: string; artist?: string; album?: string }>;
-    albums: Array<{ id: string; name?: string; artist?: string }>;
-    playlists: Array<{ id: string; name?: string; track_count?: number }>;
-    tracksCount: number;
-    albumsCount: number;
-    artistsCount: number;
-    playlistsCount: number;
-    scannedAt?: string;
-  }
-
-  let appleLibrary: AppleLibraryPreview | null = null;
-  let appleLibraryError: string | null = null;
   let appleLibrarySyncPolling = false;
 
   interface AppleLibrarySyncStatus {
@@ -240,6 +227,7 @@
   const PROVIDER_SYNC_MAX_WAIT_MS = 1_200_000;
   const POLLED_SYNC_PLATFORMS = new Set(['spotify', 'tidal', 'youtube', 'youtube_music']);
   const PROVIDER_SYNC_ENDPOINTS: Record<ProviderSyncPlatform, string> = {
+    apple_music: '/api/v1/apple-music/library/sync-status',
     spotify: '/api/v1/connections/spotify/library/sync-status',
     tidal: '/api/v1/connections/tidal/library/sync-status',
     youtube: '/api/v1/connections/youtube/library/sync-status',

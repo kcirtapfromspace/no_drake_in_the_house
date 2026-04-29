@@ -360,21 +360,41 @@ impl UserService {
             owned_lists_updated as u32,
         );
 
-        // Anonymize audit log entries (keep for compliance but remove PII)
-        let audit_anonymized = sqlx::query!(
+        // Anonymize audit log entries (keep for compliance but remove PII).
+        // Support both migrated and legacy audit_log layouts.
+        let migrated_anonymize = sqlx::query(
             r#"
-            UPDATE audit_log 
-            SET user_id = NULL, 
-                ip_address = NULL, 
+            UPDATE audit_log
+            SET user_id = NULL,
+                ip_address = NULL,
                 user_agent = 'ANONYMIZED'
             WHERE user_id = $1
             "#,
-            user_id
         )
+        .bind(user_id)
         .execute(&mut *tx)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?
-        .rows_affected();
+        .await;
+
+        let audit_anonymized = match migrated_anonymize {
+            Ok(result) => result.rows_affected(),
+            Err(err) if Self::is_undefined_column_error(&err) => {
+                sqlx::query(
+                    r#"
+                    UPDATE audit_log
+                    SET actor_user_id = NULL,
+                        ip_address = NULL,
+                        user_agent = 'ANONYMIZED'
+                    WHERE actor_user_id = $1
+                    "#,
+                )
+                .bind(user_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?
+                .rows_affected()
+            }
+            Err(err) => return Err(AppError::DatabaseQueryFailed(err)),
+        };
         cleanup_summary.insert(
             "audit_entries_anonymized".to_string(),
             audit_anonymized as u32,
@@ -462,9 +482,9 @@ impl UserService {
 
     /// Export audit log data for user (limited to their own actions)
     async fn export_audit_data(&self, user_id: Uuid) -> Result<Vec<AuditLogExport>> {
-        let audit_entries = sqlx::query!(
+        let migrated_entries = sqlx::query_as::<_, (String, Option<String>, Option<DateTime<Utc>>)>(
             r#"
-            SELECT 
+            SELECT
                 action,
                 old_subject_type,
                 timestamp
@@ -473,20 +493,49 @@ impl UserService {
             ORDER BY timestamp DESC
             LIMIT 1000
             "#,
-            user_id
         )
+        .bind(user_id)
         .fetch_all(&self.db_pool)
-        .await
-        .map_err(AppError::DatabaseQueryFailed)?;
+        .await;
+
+        let audit_entries = match migrated_entries {
+            Ok(rows) => rows,
+            Err(err) if Self::is_undefined_column_error(&err) => {
+                sqlx::query_as::<_, (String, Option<String>, Option<DateTime<Utc>>)>(
+                    r#"
+                    SELECT
+                        action,
+                        subject_type,
+                        created_at
+                    FROM audit_log
+                    WHERE actor_user_id = $1
+                    ORDER BY created_at DESC
+                    LIMIT 1000
+                    "#,
+                )
+                .bind(user_id)
+                .fetch_all(&self.db_pool)
+                .await
+                .map_err(AppError::DatabaseQueryFailed)?
+            }
+            Err(err) => return Err(AppError::DatabaseQueryFailed(err)),
+        };
 
         Ok(audit_entries
             .into_iter()
-            .map(|row| AuditLogExport {
-                event_type: row.action,
-                timestamp: row.timestamp.unwrap_or_else(Utc::now),
-                details: row.old_subject_type,
+            .map(|(event_type, details, timestamp)| AuditLogExport {
+                event_type,
+                timestamp: timestamp.unwrap_or_else(Utc::now),
+                details,
             })
             .collect())
+    }
+
+    fn is_undefined_column_error(error: &sqlx::Error) -> bool {
+        match error {
+            sqlx::Error::Database(db_err) => db_err.code().as_deref() == Some("42703"),
+            _ => false,
+        }
     }
 }
 

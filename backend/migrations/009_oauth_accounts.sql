@@ -72,12 +72,12 @@ RETURNS TRIGGER AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
         INSERT INTO audit_log (
-            actor_user_id,
+            user_id,
             action,
-            subject_type,
-            subject_id,
+            old_subject_type,
+            old_subject_id,
             after_state,
-            created_at
+            timestamp
         ) VALUES (
             NEW.user_id,
             'oauth_account_created',
@@ -94,13 +94,13 @@ BEGIN
         RETURN NEW;
     ELSIF TG_OP = 'UPDATE' THEN
         INSERT INTO audit_log (
-            actor_user_id,
+            user_id,
             action,
-            subject_type,
-            subject_id,
+            old_subject_type,
+            old_subject_id,
             before_state,
             after_state,
-            created_at
+            timestamp
         ) VALUES (
             NEW.user_id,
             'oauth_account_updated',
@@ -125,12 +125,12 @@ BEGIN
         RETURN NEW;
     ELSIF TG_OP = 'DELETE' THEN
         INSERT INTO audit_log (
-            actor_user_id,
+            user_id,
             action,
-            subject_type,
-            subject_id,
+            old_subject_type,
+            old_subject_id,
             before_state,
-            created_at
+            timestamp
         ) VALUES (
             OLD.user_id,
             'oauth_account_deleted',
@@ -160,14 +160,14 @@ CREATE OR REPLACE FUNCTION audit_account_merge()
 RETURNS TRIGGER AS $$
 BEGIN
     INSERT INTO audit_log (
-        actor_user_id,
+        user_id,
         action,
-        subject_type,
-        subject_id,
+        old_subject_type,
+        old_subject_id,
         after_state,
         ip_address,
         user_agent,
-        created_at
+        timestamp
     ) VALUES (
         COALESCE(NEW.merged_by, NEW.primary_user_id),
         'account_merge',

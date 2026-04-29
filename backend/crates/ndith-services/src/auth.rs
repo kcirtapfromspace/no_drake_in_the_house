@@ -795,6 +795,15 @@ impl AuthService {
             tracing::warn!("Failed to record login metrics: {}", e);
         }
 
+        // Critical security event: do not silently ignore audit failures.
+        self.log_audit_event(
+            cached_user.user_id,
+            "user_login",
+            "user",
+            &cached_user.user_id.to_string(),
+        )
+        .await?;
+
         tracing::info!(
             user_id = %cached_user.user_id,
             email = %cached_user.email,
@@ -1300,25 +1309,52 @@ impl AuthService {
         .execute(&mut *tx)
         .await?;
 
-        // Audit log the token refresh
-        sqlx::query!(
+        let provider_resource_id = provider_type.to_string();
+        let audit_details = serde_json::json!({
+            "provider": provider_resource_id,
+            "expires_at": token_expires_at,
+            "has_refresh_token": new_tokens.refresh_token.is_some()
+        });
+
+        // Audit log the token refresh with compatibility for both
+        // legacy and migrated audit_log schemas.
+        let audit_insert = sqlx::query(
             r#"
-            INSERT INTO audit_log (user_id, action, resource_type, resource_id, details, timestamp)
+            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, details, timestamp)
             VALUES ($1, $2, $3, $4, $5, $6)
             "#,
-            user_id,
-            "oauth_tokens_refreshed",
-            "oauth_account",
-            provider_type.to_string(),
-            serde_json::json!({
-                "provider": provider_type.to_string(),
-                "expires_at": token_expires_at,
-                "has_refresh_token": new_tokens.refresh_token.is_some()
-            }),
-            now
         )
+        .bind(user_id)
+        .bind("oauth_tokens_refreshed")
+        .bind("oauth_account")
+        .bind(&provider_resource_id)
+        .bind(audit_details.clone())
+        .bind(now)
         .execute(&mut *tx)
-        .await?;
+        .await;
+
+        match audit_insert {
+            Ok(_) => {}
+            Err(err) if Self::is_undefined_column_error(&err) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO audit_log (
+                        actor_user_id, action, subject_type, subject_id, after_state, created_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    "#,
+                )
+                .bind(user_id)
+                .bind("oauth_tokens_refreshed")
+                .bind("oauth_account")
+                .bind(&provider_resource_id)
+                .bind(audit_details)
+                .bind(now)
+                .execute(&mut *tx)
+                .await?;
+            }
+            Err(err) => return Err(err.into()),
+        }
 
         tx.commit().await?;
 
@@ -1518,6 +1554,9 @@ impl AuthService {
         }
 
         let session = valid_session.ok_or_else(|| AppError::TokenInvalid)?;
+        let user_id = session.user_id.ok_or_else(|| AppError::Internal {
+            message: Some("Refresh token session missing user_id".to_string()),
+        })?;
 
         // Revoke the old refresh token (token rotation)
         sqlx::query!(
@@ -1528,8 +1567,13 @@ impl AuthService {
         .await?;
 
         // Generate new token pair
-        self.generate_token_pair(session.user_id.unwrap(), &session.email)
-            .await
+        let token_pair = self.generate_token_pair(user_id, &session.email).await?;
+
+        // Critical security event: do not silently ignore audit failures.
+        self.log_audit_event(user_id, "token_refresh", "user", &user_id.to_string())
+            .await?;
+
+        Ok(token_pair)
     }
 
     // Verify JWT token (tries RS256 first if configured, falls back to HS256)
@@ -2773,20 +2817,49 @@ impl AuthService {
         subject_type: &str,
         subject_id: &str,
     ) -> Result<()> {
-        sqlx::query!(
+        let primary_insert = sqlx::query(
             r#"
-            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, timestamp)
-            VALUES ($1, $2, $3, $4, NOW())
+            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, details, timestamp)
+            VALUES ($1, $2, $3, $4, $5, NOW())
             "#,
-            user_id,
-            action,
-            subject_type,
-            subject_id
         )
+        .bind(user_id)
+        .bind(action)
+        .bind(subject_type)
+        .bind(subject_id)
+        .bind(serde_json::json!({}))
         .execute(&self.db_pool)
-        .await?;
+        .await;
 
-        Ok(())
+        match primary_insert {
+            Ok(_) => Ok(()),
+            Err(err) if Self::is_undefined_column_error(&err) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO audit_log (
+                        actor_user_id, action, subject_type, subject_id, created_at
+                    )
+                    VALUES ($1, $2, $3, $4, NOW())
+                    "#,
+                )
+                .bind(user_id)
+                .bind(action)
+                .bind(subject_type)
+                .bind(subject_id)
+                .execute(&self.db_pool)
+                .await?;
+
+                Ok(())
+            }
+            Err(err) => Err(err.into()),
+        }
+    }
+
+    fn is_undefined_column_error(error: &sqlx::Error) -> bool {
+        match error {
+            sqlx::Error::Database(db_err) => db_err.code().as_deref() == Some("42703"),
+            _ => false,
+        }
     }
 
     // Helper methods
@@ -3125,10 +3198,43 @@ impl AuthService {
         .await?;
 
         // Log successful registration for security auditing in the same transaction
-        // Using existing audit logging pattern
-        self.log_audit_event(user_id, "user_registered", "user", &user_id.to_string())
-            .await
-            .ok();
+        let user_subject_id = user_id.to_string();
+        let registration_audit_insert = sqlx::query(
+            r#"
+            INSERT INTO audit_log (user_id, action, old_subject_type, old_subject_id, details, timestamp)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            "#,
+        )
+        .bind(user_id)
+        .bind("user_registered")
+        .bind("user")
+        .bind(&user_subject_id)
+        .bind(serde_json::json!({}))
+        .bind(now)
+        .execute(&mut *tx)
+        .await;
+
+        match registration_audit_insert {
+            Ok(_) => {}
+            Err(err) if Self::is_undefined_column_error(&err) => {
+                sqlx::query(
+                    r#"
+                    INSERT INTO audit_log (
+                        actor_user_id, action, subject_type, subject_id, created_at
+                    )
+                    VALUES ($1, $2, $3, $4, $5)
+                    "#,
+                )
+                .bind(user_id)
+                .bind("user_registered")
+                .bind("user")
+                .bind(&user_subject_id)
+                .bind(now)
+                .execute(&mut *tx)
+                .await?;
+            }
+            Err(err) => return Err(err.into()),
+        }
 
         // Commit transaction
         tx.commit().await?;

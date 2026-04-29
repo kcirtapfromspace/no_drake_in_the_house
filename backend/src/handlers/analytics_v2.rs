@@ -1792,29 +1792,61 @@ async fn get_business_metrics(db_pool: &sqlx::PgPool) -> (i64, i64) {
     (user_count, block_count)
 }
 
+/// Detect whether audit_log currently uses the legacy column layout.
+async fn audit_log_uses_legacy_columns(db_pool: &sqlx::PgPool) -> bool {
+    let column_presence: Option<(bool, bool)> = sqlx::query_as(
+        r#"
+        SELECT
+            EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'audit_log'
+                  AND column_name = 'actor_user_id'
+            ) AS has_actor_user_id,
+            EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'audit_log'
+                  AND column_name = 'created_at'
+            ) AS has_created_at
+        "#,
+    )
+    .fetch_optional(db_pool)
+    .await
+    .ok()
+    .flatten();
+
+    column_presence
+        .map(|(has_actor_user_id, has_created_at)| has_actor_user_id && has_created_at)
+        .unwrap_or(true)
+}
+
 /// Get API performance metrics from audit log
 /// Note: Detailed request telemetry (response times, error rates) requires
 /// additional instrumentation. Currently returns activity counts from audit_log.
 async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
-    // Query activity counts from audit_log (the available telemetry source)
-    let activity_stats: Option<(i64, i64)> = sqlx::query_as(
+    let use_legacy_columns = audit_log_uses_legacy_columns(&state.db_pool).await;
+    let activity_query = if use_legacy_columns {
         r#"
         SELECT
             COUNT(*) as total_actions,
             COUNT(DISTINCT actor_user_id) as unique_users
         FROM audit_log
         WHERE created_at > NOW() - INTERVAL '1 hour'
-        "#,
-    )
-    .fetch_optional(&state.db_pool)
-    .await
-    .ok()
-    .flatten();
+        "#
+    } else {
+        r#"
+        SELECT
+            COUNT(*) as total_actions,
+            COUNT(DISTINCT user_id) as unique_users
+        FROM audit_log
+        WHERE timestamp > NOW() - INTERVAL '1 hour'
+        "#
+    };
 
-    let (total_actions, unique_users) = activity_stats.unwrap_or((0, 0));
-
-    // Get action type breakdown from audit_log
-    let action_stats = sqlx::query_as::<_, (String, i64)>(
+    let action_query = if use_legacy_columns {
         r#"
         SELECT
             action,
@@ -1824,8 +1856,31 @@ async fn get_api_performance_metrics(state: &AppState) -> serde_json::Value {
         GROUP BY action
         ORDER BY action_count DESC
         LIMIT 10
-        "#,
-    )
+        "#
+    } else {
+        r#"
+        SELECT
+            action,
+            COUNT(*) as action_count
+        FROM audit_log
+        WHERE timestamp > NOW() - INTERVAL '1 hour'
+        GROUP BY action
+        ORDER BY action_count DESC
+        LIMIT 10
+        "#
+    };
+
+    // Query activity counts from audit_log (the available telemetry source)
+    let activity_stats: Option<(i64, i64)> = sqlx::query_as(activity_query)
+    .fetch_optional(&state.db_pool)
+    .await
+    .ok()
+    .flatten();
+
+    let (total_actions, unique_users) = activity_stats.unwrap_or((0, 0));
+
+    // Get action type breakdown from audit_log
+    let action_stats = sqlx::query_as::<_, (String, i64)>(action_query)
     .fetch_all(&state.db_pool)
     .await
     .unwrap_or_default();

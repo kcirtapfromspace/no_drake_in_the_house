@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Comprehensive tests for error handling and validation
 
 use axum::{

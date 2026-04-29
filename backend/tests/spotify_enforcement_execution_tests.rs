@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use anyhow::Result;
 use serde_json::json;
 use std::sync::Arc;

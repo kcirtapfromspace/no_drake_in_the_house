@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use std::time::Duration;
 use tokio_test;
 

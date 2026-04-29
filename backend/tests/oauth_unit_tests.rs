@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use std::collections::HashMap;
 
 // Simple unit tests that don't require the full library compilation

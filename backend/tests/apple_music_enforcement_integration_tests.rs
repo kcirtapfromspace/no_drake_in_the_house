@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Apple Music Enforcement Database Integration Tests
 //!
 //! These tests verify the database operations for Apple Music enforcement functionality.

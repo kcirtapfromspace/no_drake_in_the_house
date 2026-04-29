@@ -6,8 +6,7 @@ use crate::services::{
     AppleMusicConfig, AppleMusicService, NotificationService, TokenRefreshBackgroundJob,
 };
 use crate::{
-    create_pool,
-    create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
+    create_pool, create_redis_pool, create_router, run_migrations, validate_cors_config, AppState,
     AuditLoggingService, AuthService, BackfillOrchestrator, CircuitBreakerConfig,
     CircuitBreakerService, CreditsSyncService, DatabaseConfig, DnpListService, MonitoringConfig,
     MonitoringSystem, OrchestratorBuilder, PlatformSyncConfig, RateLimitService,
@@ -385,7 +384,10 @@ fn init_tracing() {
 #[cfg(feature = "news")]
 async fn initialize_full_platform_services(
     db_pool: sqlx::PgPool,
-) -> (Option<Arc<BackfillOrchestrator>>, Option<Arc<NewsPipelineOrchestrator>>) {
+) -> (
+    Option<Arc<BackfillOrchestrator>>,
+    Option<Arc<NewsPipelineOrchestrator>>,
+) {
     let news_config = NewsPipelineConfig::default();
     let news_pipeline = Arc::new(NewsPipelineOrchestrator::with_database(
         news_config,

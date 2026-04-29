@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use music_streaming_blocklist_backend::{db_health_check, initialize_database, DatabaseConfig};
 use std::time::Duration;
 

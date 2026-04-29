@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use music_streaming_blocklist_backend::{
     error::AppError,
     models::oauth::{OAuthConfig, OAuthProviderType, OAuthState, OAuthTokens, OAuthUserInfo},

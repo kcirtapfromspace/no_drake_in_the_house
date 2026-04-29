@@ -268,8 +268,7 @@ impl ConvexClient {
     ///
     /// Returns an error if the variable is not set.
     pub fn from_env() -> Result<Self> {
-        let url =
-            std::env::var("CONVEX_URL").context("CONVEX_URL environment variable not set")?;
+        let url = std::env::var("CONVEX_URL").context("CONVEX_URL environment variable not set")?;
         Ok(Self::new(url))
     }
 
@@ -449,11 +448,8 @@ impl ConvexClient {
         struct BatchArgs<'a> {
             articles: &'a [BatchArticleArgs],
         }
-        self.call_mutation(
-            "newsIngestion:batchIngestArticles",
-            &BatchArgs { articles },
-        )
-        .await
+        self.call_mutation("newsIngestion:batchIngestArticles", &BatchArgs { articles })
+            .await
     }
 
     /// Create an offense from research results.

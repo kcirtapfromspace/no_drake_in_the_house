@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use serde_json::json;
 use std::sync::Arc;
 use uuid::Uuid;

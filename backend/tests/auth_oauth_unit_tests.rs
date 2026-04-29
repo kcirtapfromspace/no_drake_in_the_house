@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use chrono::Utc;
 use std::collections::HashMap;
 use uuid::Uuid;

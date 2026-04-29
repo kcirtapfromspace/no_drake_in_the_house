@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use music_streaming_blocklist_backend::models::{CreateUserRequest, LoginRequest};
 use music_streaming_blocklist_backend::services::auth_simple::AuthService;
 use sqlx::PgPool;

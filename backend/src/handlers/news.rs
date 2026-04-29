@@ -15,6 +15,19 @@ use crate::models::AuthenticatedUser;
 use crate::{AppError, AppState, Result};
 use ndith_news::news_pipeline::{ArticleFilters, NewsRepository};
 
+type OffenseDetailRow = (
+    Uuid,
+    Uuid,
+    Option<Uuid>,
+    String,
+    String,
+    f64,
+    Option<String>,
+    bool,
+    String,
+    String,
+);
+
 /// Query parameters for listing articles
 #[derive(Debug, Deserialize)]
 pub struct ListArticlesQuery {
@@ -451,18 +464,7 @@ pub async fn get_offense_handler(
 ) -> Result<Json<serde_json::Value>> {
     tracing::info!(offense_id = %offense_id, "Get offense detail request");
 
-    let row: Option<(
-        Uuid,
-        Uuid,
-        Option<Uuid>,
-        String,
-        String,
-        f64,
-        Option<String>,
-        bool,
-        String,
-        String,
-    )> = sqlx::query_as(
+    let row: Option<OffenseDetailRow> = sqlx::query_as(
         r#"
         SELECT
             noc.id,

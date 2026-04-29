@@ -15,7 +15,7 @@
 use axum::{
     extract::{Path, RawQuery, State},
     response::{Json, Redirect},
-    routing::{any, delete, get, put},
+    routing::{delete, get, put},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -26,8 +26,11 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
+#[cfg(not(feature = "news"))]
+use axum::routing::any;
 #[cfg(any(feature = "analytics", feature = "news"))]
 use axum::routing::post;
+#[cfg(not(feature = "news"))]
 use axum::{http::StatusCode, response::IntoResponse};
 
 // ---- Root-local modules (handlers, middleware, metrics, monitoring stay here) ----
@@ -1041,6 +1044,7 @@ fn add_news_routes(router: Router<AppState>) -> Router<AppState> {
         .route("/news/*path", any(full_platform_unavailable))
 }
 
+#[cfg(not(feature = "news"))]
 async fn full_platform_unavailable() -> impl IntoResponse {
     (
         StatusCode::SERVICE_UNAVAILABLE,

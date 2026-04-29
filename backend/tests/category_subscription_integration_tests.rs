@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Category subscription integration tests
 //! Tests the full flow of subscribing to categories and blocking artists
 

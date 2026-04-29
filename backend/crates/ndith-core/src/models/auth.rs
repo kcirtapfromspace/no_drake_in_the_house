@@ -21,7 +21,10 @@ pub enum UserRole {
 impl UserRole {
     /// Check if this role has moderator-level access or higher
     pub fn is_moderator_or_higher(&self) -> bool {
-        matches!(self, UserRole::Moderator | UserRole::Admin | UserRole::Service)
+        matches!(
+            self,
+            UserRole::Moderator | UserRole::Admin | UserRole::Service
+        )
     }
 
     /// Check if this role has admin-level access
@@ -54,8 +57,8 @@ pub struct Claims {
     /// Email (optional for service-to-service JWTs)
     #[serde(default)]
     pub email: String,
-    pub exp: i64,    // expiration timestamp
-    pub iat: i64,    // issued at timestamp
+    pub exp: i64, // expiration timestamp
+    pub iat: i64, // issued at timestamp
     /// JWT ID for token tracking (optional for service-to-service JWTs)
     #[serde(default)]
     pub jti: String, // JWT ID for token tracking

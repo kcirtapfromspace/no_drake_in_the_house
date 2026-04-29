@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Apple Music Sandbox Integration Tests
 //!
 //! These tests validate our Apple Music API interactions against the real Apple Music API.

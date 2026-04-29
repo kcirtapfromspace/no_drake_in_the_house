@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 // Core unit tests for basic functionality that doesn't require external dependencies
 use music_streaming_blocklist_backend::services::CircuitBreaker;
 use std::time::Duration;

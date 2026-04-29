@@ -90,7 +90,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate to connections
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -155,7 +155,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -185,7 +185,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -210,7 +210,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -249,7 +249,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -313,7 +313,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -386,7 +386,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -459,7 +459,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -551,7 +551,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Rlc3QubG9jYWwiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.test-signature');
+        localStorage.setItem('auth_token', 'mock-auth-token-test-user-123');
         localStorage.setItem(
           'user',
           JSON.stringify({

@@ -563,4 +563,62 @@ mod tests {
             assert!(ensure_duckdb_storage_ready(ServiceMode::Analytics).is_ok());
         });
     }
+
+    /// Confirm that 0o555 actually blocks writes for this process. Returns
+    /// `false` when the caller has DAC override (typically root in CI
+    /// containers), so the unwritable-parent test can bail out cleanly.
+    #[cfg(unix)]
+    fn dac_enforces_readonly_dir(dir: &std::path::Path) -> bool {
+        use std::os::unix::fs::PermissionsExt;
+        let prev = std::fs::metadata(dir).expect("metadata").permissions();
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o555))
+            .expect("chmod 0o555");
+        let probe = dir.join(".dac_self_check");
+        let blocked = std::fs::write(&probe, b"x").is_err();
+        if !blocked {
+            let _ = std::fs::remove_file(&probe);
+        }
+        std::fs::set_permissions(dir, prev).expect("restore permissions");
+        blocked
+    }
+
+    /// NOD-248: cover the operationally important branch where
+    /// `DUCKDB_PATH` is configured but the parent directory is not
+    /// writable by the runtime UID. This is the failure mode that
+    /// catches a misconfigured PVC mount in production.
+    #[cfg(unix)]
+    #[test]
+    fn unwritable_parent_dir_fails_write_probe() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        if !dac_enforces_readonly_dir(dir.path()) {
+            eprintln!(
+                "skipping unwritable_parent_dir_fails_write_probe: \
+                 process has DAC override (likely root)"
+            );
+            return;
+        }
+        let parent_display = dir.path().display().to_string();
+        let db = dir.path().join("analytics.duckdb");
+        let db_str = db.to_str().expect("utf8 path").to_string();
+
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o555))
+            .expect("chmod 0o555");
+
+        with_duckdb_path(Some(&db_str), || {
+            let err = ensure_duckdb_storage_ready(ServiceMode::Analytics).unwrap_err();
+            assert!(
+                err.contains(&parent_display),
+                "expected parent dir {parent_display} in error message, got: {err}"
+            );
+            assert!(
+                err.contains("not writable"),
+                "expected 'not writable' phrasing in error message, got: {err}"
+            );
+        });
+
+        // Restore write+exec so TempDir's Drop can remove children.
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o755))
+            .expect("restore 0o755");
+    }
 }

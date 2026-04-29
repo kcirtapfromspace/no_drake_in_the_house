@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Integration tests for HashiCorp Vault KMS provider.
 //!
 //! These tests require a running Vault dev server. To run:

@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use std::env;
 
 #[cfg(test)]

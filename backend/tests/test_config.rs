@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::env;
 

@@ -630,4 +630,10 @@ export default defineSchema({
     .index("by_legacyKey", ["legacyKey"])
     .index("by_stripeEventId", ["stripeEventId"])
     .index("by_userId", ["userId"]),
+
+  oauthSyntheticProbeState: defineTable({
+    probeId: v.string(),
+    lastSuccessAt: v.optional(v.string()),
+    lastRunAt: v.string(),
+  }).index("by_probeId", ["probeId"]),
 });

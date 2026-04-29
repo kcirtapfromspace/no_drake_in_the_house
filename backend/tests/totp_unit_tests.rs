@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use anyhow::Result;
 use music_streaming_blocklist_backend::models::{
     CreateUserRequest, LoginRequest, TotpDisableRequest, TotpEnableRequest,

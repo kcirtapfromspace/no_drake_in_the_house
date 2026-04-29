@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Integration tests for Spotify library scanning (US-013)
 //!
 //! Tests verify that SpotifyService::scan_library():

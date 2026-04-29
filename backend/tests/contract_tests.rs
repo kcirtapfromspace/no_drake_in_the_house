@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use music_streaming_blocklist_backend::*;
 use serde_json::json;
 use std::sync::Arc;

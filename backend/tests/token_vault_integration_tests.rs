@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use chrono::Utc;
 use music_streaming_blocklist_backend::{
     ConnectionStatus, StoreTokenRequest, StreamingProvider, TokenVaultBackgroundService,

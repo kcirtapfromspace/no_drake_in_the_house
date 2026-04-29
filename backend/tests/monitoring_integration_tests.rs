@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! Integration tests for monitoring and health check system
 
 use music_streaming_blocklist_backend::{

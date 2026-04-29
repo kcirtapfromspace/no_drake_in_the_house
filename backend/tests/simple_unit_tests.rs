@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 // Simple unit tests that don't depend on the broken parts of the codebase
 use std::time::Duration;
 

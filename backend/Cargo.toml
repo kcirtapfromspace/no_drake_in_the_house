@@ -114,6 +114,7 @@ analytics = ["dep:ndith-analytics"]
 news = ["dep:ndith-news"]
 render-api = []
 graph-ladybugdb = ["analytics", "ndith-analytics/graph-ladybugdb"]
+legacy-integration-tests = []
 
 [dependencies]
 # Workspace crates

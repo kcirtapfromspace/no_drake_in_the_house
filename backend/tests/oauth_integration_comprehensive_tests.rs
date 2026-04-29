@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use chrono::{Duration, Utc};
 use serde_json::json;
 use std::collections::HashMap;

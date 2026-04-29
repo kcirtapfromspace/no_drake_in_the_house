@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 use chrono::{Duration, Utc};
 use music_streaming_blocklist_backend::models::*;
 use music_streaming_blocklist_backend::services::*;

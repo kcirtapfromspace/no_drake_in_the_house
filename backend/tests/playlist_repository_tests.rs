@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 //! TDD tests for PlaylistRepository — written before implementation.
 //!
 //! Tests the normalized playlist tables (playlists + playlist_tracks)

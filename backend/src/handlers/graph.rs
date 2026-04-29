@@ -13,6 +13,19 @@ use uuid::Uuid;
 use crate::models::AuthenticatedUser;
 use crate::{AppError, AppState, Result};
 
+type NetworkArtistRow = (
+    Uuid,
+    String,
+    Option<String>,
+    serde_json::Value,
+    i32,
+    String,
+    i32,
+    bool,
+);
+type CollaboratorRow = (Uuid, String, String, i32, Option<String>, Option<i32>);
+type PathResultRow = (Uuid, String, Option<String>, i32, Option<Uuid>, bool);
+
 /// Query parameters for network requests
 #[derive(Debug, Deserialize)]
 pub struct NetworkQuery {
@@ -139,7 +152,7 @@ pub async fn get_artist_network_handler(
 
     // Get collaborators using recursive CTE for depth traversal
     // Note: genres is stored inside metadata JSONB, not as a separate column
-    let network_artists: Vec<(Uuid, String, Option<String>, serde_json::Value, i32, String, i32, bool)> = sqlx::query_as(r#"
+    let network_artists: Vec<NetworkArtistRow> = sqlx::query_as(r#"
         WITH RECURSIVE network AS (
             -- Start from the center artist
             SELECT
@@ -251,7 +264,7 @@ pub async fn get_artist_network_handler(
                 "source": a1,
                 "target": a2,
                 "type": "collaborated_with",
-                "weight": (*count as f64).sqrt().max(1.0).min(5.0),
+                "weight": (*count as f64).sqrt().clamp(1.0, 5.0),
                 "metadata": {
                     "collaboration_type": collab_type,
                     "track_count": count
@@ -327,9 +340,8 @@ pub async fn get_collaborators_handler(
     tracing::info!(artist_id = %artist_id, "Get collaborators request");
 
     // Get collaborators from artist_collaborations table with track details
-    let collaborators: Vec<(Uuid, String, String, i32, Option<String>, Option<i32>)> =
-        sqlx::query_as(
-            r#"
+    let collaborators: Vec<CollaboratorRow> = sqlx::query_as(
+        r#"
         WITH collab_artists AS (
             SELECT
                 CASE
@@ -355,14 +367,14 @@ pub async fn get_collaborators_handler(
         ORDER BY ca.track_count DESC, a.canonical_name ASC
         LIMIT $2
     "#,
-        )
-        .bind(artist_id)
-        .bind(query.limit)
-        .fetch_all(&state.db_pool)
-        .await
-        .map_err(|e| AppError::Internal {
-            message: Some(e.to_string()),
-        })?;
+    )
+    .bind(artist_id)
+    .bind(query.limit)
+    .fetch_all(&state.db_pool)
+    .await
+    .map_err(|e| AppError::Internal {
+        message: Some(e.to_string()),
+    })?;
 
     // If no collaborations found in dedicated table, try track_credits
     let collaborators_list: Vec<serde_json::Value> = if collaborators.is_empty() {
@@ -478,7 +490,7 @@ pub async fn find_path_handler(
 
     // Use recursive CTE to find shortest path (BFS)
     // Limited to 6 hops max for performance
-    let path_result: Vec<(Uuid, String, Option<String>, i32, Option<Uuid>, bool)> = sqlx::query_as(r#"
+    let path_result: Vec<PathResultRow> = sqlx::query_as(r#"
         WITH RECURSIVE path_search AS (
             -- Start from source
             SELECT

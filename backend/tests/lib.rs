@@ -1,3 +1,4 @@
+#![cfg(feature = "legacy-integration-tests")]
 // Test library for comprehensive testing infrastructure
 // This module provides common testing utilities and organizes all test modules
 

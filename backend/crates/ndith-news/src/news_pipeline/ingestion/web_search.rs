@@ -96,7 +96,9 @@ impl WebSearchClient {
     pub fn from_env() -> Result<Self> {
         let api_key = std::env::var("FIRECRAWL_API_KEY")
             .or_else(|_| std::env::var("BRAVE_SEARCH_API_KEY"))
-            .context("Neither FIRECRAWL_API_KEY nor BRAVE_SEARCH_API_KEY environment variable is set")?;
+            .context(
+                "Neither FIRECRAWL_API_KEY nor BRAVE_SEARCH_API_KEY environment variable is set",
+            )?;
 
         Ok(Self::new(WebSearchConfig {
             api_key,
@@ -179,7 +181,7 @@ impl WebSearchClient {
             limit: self.config.max_results_per_query,
             sources: vec!["web".to_string(), "news".to_string()],
             tbs: Some("qdr:y".to_string()), // Last year
-            scrape_options: None, // Don't scrape to save credits
+            scrape_options: None,           // Don't scrape to save credits
         };
 
         let mut final_response = None;
@@ -196,9 +198,7 @@ impl WebSearchClient {
 
             if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if attempt == 3 {
-                    return Err(anyhow::anyhow!(
-                        "Firecrawl rate limited after 4 attempts"
-                    ));
+                    return Err(anyhow::anyhow!("Firecrawl rate limited after 4 attempts"));
                 }
                 let wait = response
                     .headers()
@@ -301,7 +301,9 @@ fn parse_loose_date(s: &str) -> Option<DateTime<Utc>> {
     }
     // Try date-only formats
     for fmt in &["%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%m/%d/%Y"] {
-        if let Ok(nd) = NaiveDateTime::parse_from_str(&format!("{} 00:00:00", s), &format!("{} %H:%M:%S", fmt)) {
+        if let Ok(nd) =
+            NaiveDateTime::parse_from_str(&format!("{} 00:00:00", s), &format!("{} %H:%M:%S", fmt))
+        {
             return Some(nd.and_utc());
         }
     }

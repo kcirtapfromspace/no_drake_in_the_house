@@ -208,9 +208,7 @@ impl AuthService {
             };
 
         if rsa_encoding_key.is_none() {
-            tracing::warn!(
-                "JWT_RSA_PRIVATE_KEY not configured -- Convex will reject HS256 tokens"
-            );
+            tracing::warn!("JWT_RSA_PRIVATE_KEY not configured -- Convex will reject HS256 tokens");
         }
 
         let auth_service = Self {

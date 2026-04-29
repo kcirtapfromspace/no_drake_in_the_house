@@ -56,7 +56,7 @@ async function mockTidalApiRoutes(page: import('@playwright/test').Page) {
   await blockExternalCdn(page);
 
   // Tidal authorize endpoint
-  await page.route('**/api/v1/connections/tidal/authorize', async (route) => {
+  await page.route('**/api/v1/oauth/tidal/authorize', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -197,7 +197,7 @@ test.describe('Tidal OAuth Integration', () => {
 
       // Intercept navigation to Tidal auth URL
       let authorizeRequestMade = false;
-      await authenticatedPage.route('**/api/v1/connections/tidal/authorize', async (route) => {
+      await authenticatedPage.route('**/api/v1/oauth/tidal/authorize', async (route) => {
         authorizeRequestMade = true;
         await route.fulfill({
           status: 200,
@@ -490,7 +490,7 @@ test.describe('Tidal OAuth Integration', () => {
 
       // Mock authorize to return already_connected
       await authenticatedPage.route(
-        '**/api/v1/connections/tidal/authorize',
+        '**/api/v1/oauth/tidal/authorize',
         async (route) => {
           await route.fulfill({
             status: 200,
@@ -554,7 +554,7 @@ test.describe('Tidal OAuth Integration', () => {
       // then return authorization URL after disconnect
       let authCallCount = 0;
       await authenticatedPage.route(
-        '**/api/v1/connections/tidal/authorize',
+        '**/api/v1/oauth/tidal/authorize',
         async (route) => {
           authCallCount++;
           if (authCallCount === 1) {

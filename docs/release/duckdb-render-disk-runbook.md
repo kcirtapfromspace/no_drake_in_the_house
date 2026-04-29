@@ -30,46 +30,45 @@ without per-environment overrides.
 > intended mode at a glance. Do **not** treat it as a runtime override
 > — flipping it on the analytics service has no effect.
 
-## Writer-path status ([NOD-253](/NOD/issues/NOD-253) shipped)
+## Known production gap (Staff review HIGH 1)
 
-The application-side writer is now plumbed end-to-end. Two production
-entry points construct a file-backed `DuckDbClient` against
-`DUCKDB_PATH`:
-
-- `run_duckdb_startup_probe` in `backend/src/runtime.rs` runs
-  `DuckDbClient::new` at boot (analytics/monolith modes) and crashloops
-  the service on any open / `initialize_schema` / `record_sync_metrics`
-  / count-verify failure. On Render that surfaces as the analytics
-  service failing its rollout health check rather than silently
-  writing nowhere.
-- `POST /api/v1/analytics/duckdb/probe-write` in
-  `backend/src/handlers/analytics_v2.rs` exposes the same writer for
-  on-demand operator use (see §4a).
+As of this runbook's commit, **no production code path constructs a
+file-backed `DuckDbClient` against `DUCKDB_PATH`**. `grep -rn
+'DuckDbClient::(new|open)' backend/` returns zero hits outside
+`#[cfg(test)]` calls to `DuckDbClient::in_memory()`. The startup
+`ensure_duckdb_storage_ready` probe (NOD-196) validates the directory
+is writable but never opens the DB file.
 
 Net effect on this runbook:
 
 - Probes 1–3 and 5 (env, mount, file-state-before, persistence) are
-  unchanged and must pass.
-- Probe 4 (`analytics.duckdb` materializes after an analytics write)
-  is now meaningful and is satisfied either by the startup writer
-  probe or by hitting the §4a endpoint.
+  meaningful and must pass.
+- Probe 4 (file appears after an analytics write) **cannot pass with
+  current code**. The "trigger one analytics write" step is
+  intentionally written below as a writability proof, not a production
+  write proof, until the writer wiring lands.
 
-Tracking: live-prod durability for [NOD-192](/NOD/issues/NOD-192) is
-closed once both lanes ship — NOD-252 (Render runtime: this runbook)
-and [NOD-253](/NOD/issues/NOD-253) (application writer-path) — per the
-CTO HIGH 1 scope split.
+Tracking: write-path wiring is the live-prod durability gap on
+[NOD-192](/NOD/issues/NOD-192). The CTO scope split (HIGH 1 decision)
+locked this as Option (B): **NOD-252 stays the infra-readiness lane,
+and application writer-path enablement is owned in
+[NOD-253](/NOD/issues/NOD-253) "Implement production DuckDB writer
+path in ndith-analytics-service".** When [NOD-253](/NOD/issues/NOD-253)
+ships, replace probe 4 below with the real production write trigger
+from that issue's runbook section and re-run the full sequence on a
+redeploy.
 
-To verify the writer path is still wired against any checkout:
+To re-verify this gap still holds against any checkout:
 
 ```bash
-# Expect: matches in runtime.rs (run_duckdb_startup_probe) and
-# analytics_v2.rs (probe-write handler), beyond #[cfg(test)] usage.
+# Expect: no matches outside #[cfg(test)] in_memory() calls
 git grep -nE 'DuckDbClient::(new|open)' backend/
 git grep -n 'DuckDbClient::in_memory' backend/
 ```
 
-If the first command stops returning non-test matches, the write-path
-has regressed — restore the writer wiring before re-running probe 4.
+If the first command starts returning matches in non-test code, the
+write-path is now plumbed and probe 4 below should be swapped back to
+the real `analytics.duckdb` materialization expectation.
 
 ## Pre-deploy checks (run from a workstation)
 
@@ -109,46 +108,22 @@ Expected: directory listing for `/var/lib/ndith/analytics` with the
 runtime user/group having write access. The directory itself is the
 disk mount point so it must exist immediately on first boot.
 
-### 3. DB file state before the service boots on a fresh disk
+### 3. DB file state before first analytics write
 
 ```bash
 ls -lah "$DUCKDB_PATH" || true
 ```
 
-Expected on a fresh disk **before the analytics service has booted**:
-`ls: cannot access ...: No such file or directory`. The `|| true`
-keeps the probe non-fatal so we still get a deterministic before/after
-pair against §4.
+Expected on a fresh disk: `ls: cannot access ...: No such file or
+directory`. The `|| true` keeps the probe non-fatal so we still get a
+deterministic before/after pair.
 
-Once the service has booted, the startup writer probe (§4) creates
-`analytics.duckdb` on first run, so this "missing file" expectation
-only holds against a brand-new disk that has never had the service
-running on top of it.
+### 4. Writability proof (interim — see "Known production gap")
 
-### 4. `analytics.duckdb` materializes after the startup writer probe
-
-The `run_duckdb_startup_probe` task in `backend/src/runtime.rs` opens
-`DUCKDB_PATH` and writes a row through `record_sync_metrics` on every
-boot in analytics/monolith modes. After a successful Render rollout,
-the file must exist on the disk:
-
-```bash
-ls -lah "$DUCKDB_PATH"
-stat -c '%y %s %n' "$DUCKDB_PATH"
-```
-
-Expected: a non-zero `analytics.duckdb` owned by the runtime
-user/group. If it is missing or zero-byte after a clean boot, the
-service either crashlooped on the startup probe or failed to find the
-mount — check the Render service logs for `DuckDB analytics storage
-probe passed` (storage validation, NOD-196) and the writer-probe
-success log line referenced in §4a, then inspect the disk attachment
-in the Render dashboard.
-
-If you need an additional sanity check that the runtime UID/GID can
-write to the mount path itself (independent of DuckDB), the legacy
-Render-shell write probe is still safe to run as a belt-and-braces
-disk-health check:
+Until a real production writer lands (see "Known production gap"
+above), use a Render-shell write probe to prove the disk is writable
+by the runtime UID/GID. **This proves the disk works, not that
+analytics writes are persisted.**
 
 ```bash
 TS=$(date -u +%Y%m%dT%H%M%SZ)
@@ -163,49 +138,33 @@ user with non-zero size, `cat` returns the timestamp string, `rm`
 removes it. Failure of any step means the mount is not writable —
 inspect the disk attachment in the Render dashboard.
 
-### 4a. Force a deterministic writer probe (single API action)
-
-Use this when you need an immediate proof write without waiting for
-background traffic or a fresh rollout:
-
 ```bash
-curl -sS -X POST "https://<api-host>/api/v1/analytics/duckdb/probe-write" \
-  -H "Authorization: Bearer <admin-jwt>" \
-  -H "Content-Type: application/json"
+ls -lah "$DUCKDB_PATH" || true
 ```
 
-Expected response:
+Expected (current state, until [NOD-253](/NOD/issues/NOD-253) ships):
+`No such file or directory`. The DuckDB file legitimately does not
+exist because no production code opens it yet. Once
+[NOD-253](/NOD/issues/NOD-253) lands a real writer, replace this
+section with:
 
-- `"success": true`
-- `"data.runbook_probe_rows"` increments on repeated calls
-- service logs include `DuckDB writer runbook probe succeeded`
+> Hit the writer trigger from [NOD-253](/NOD/issues/NOD-253); then
+> `ls -lah "$DUCKDB_PATH"` returns a non-zero `analytics.duckdb` file.
 
 ### 5. Persistence across rollout
 
-Persistence is now verified against `analytics.duckdb` itself, since
-the startup writer probe materializes (and the §4a endpoint can extend)
-the real DB file on the Render disk. Capture `stat` on the file before
-the rollout, redeploy `ndith-analytics` from the Render dashboard or
-CLI (manual deploy, not just a restart), and re-`stat` once the new
-instance is healthy:
+From the Render dashboard or CLI, redeploy `ndith-analytics` (manual
+deploy, not just a restart). After the new instance is healthy:
 
 ```bash
-stat -c '%y %s %n' "$DUCKDB_PATH"
-# ... trigger Render rollout and wait for healthy ...
 ls -lah "$DUCKDB_PATH"
-stat -c '%y %s %n' "$DUCKDB_PATH"
+stat "$DUCKDB_PATH"
 ```
 
-Expected: the `analytics.duckdb` file survives the rollout — same
-inode-stable mtime/size or a strictly larger size if the new instance's
-startup writer probe (§4) appended a row. A missing or zero-byte file
-on the new instance indicates the `ndith-analytics-duckdb` disk is not
-persisting — verify in the Render dashboard that the disk is attached
-and bound to the service across deploys.
-
-For a belt-and-braces check that does not depend on the DB file, drop
-a `.persist_probe` marker in `$(dirname "$DUCKDB_PATH")` alongside the
-`stat` calls; it should also survive the rollout.
+Expected: same file (mtime, size) as before the rollout. If size or
+mtime reset to a fresh file, the disk is not persisting — verify in
+the Render dashboard that the `ndith-analytics-duckdb` disk is
+attached and bound to the service across deploys.
 
 ## Failure modes the backend catches at startup
 
@@ -268,18 +227,16 @@ mutable `analytics-latest`). To pin to a known-good SHA:
 
 - **Disk size:** 10 GiB starter. The DuckDB single-file size is
   expected to grow roughly with retention × (rows/day × avg row size).
-  With the writer path now live ([NOD-253](/NOD/issues/NOD-253)), set
-  a Render dashboard alert when the disk reaches 70 % to leave headroom
-  for compaction.
+  Once a real writer is in place, set a Render dashboard alert when
+  the disk reaches 70 % to leave headroom for compaction.
 - **Backup:** **No backup story exists today.** The DuckDB file is a
-  live single point of data loss now that the writer path
-  ([NOD-253](/NOD/issues/NOD-253)) ships real rows on every boot. This
+  single point of data loss the moment a real write path lands. This
   is acceptable as a starter posture for a sync-metrics OLAP store
   (lossy is okay; analytics can be back-filled from PostgreSQL), but
-  it must be tracked. Schedule a `pg_dump`-equivalent snapshot job
-  (e.g. nightly `EXPORT DATABASE` to S3) before the table retention
-  exceeds what we can re-derive from Postgres — track as a follow-up
-  ticket on top of NOD-252 / [NOD-253](/NOD/issues/NOD-253).
+  it must be tracked. [NOD-253](/NOD/issues/NOD-253) (writer-path
+  enablement) should also schedule a `pg_dump`-equivalent
+  snapshot job (e.g. nightly `EXPORT DATABASE` to S3) before the table
+  retention exceeds what we can re-derive from Postgres.
 - **Monitoring:** add a Prometheus alert (or Render log alert) on the
   `DuckDB analytics storage validation failed` log line so a broken
   disk surfaces immediately rather than via empty dashboards.

@@ -167,7 +167,7 @@ impl CollaborationBuilder {
 
         // Top collaborators
         let mut top: Vec<_> = collaborator_counts.into_iter().collect();
-        top.sort_by(|a, b| b.1.cmp(&a.1));
+        top.sort_by_key(|t| std::cmp::Reverse(t.1));
         stats.top_collaborators = top.into_iter().take(10).collect();
 
         tracing::info!(
@@ -365,7 +365,7 @@ impl CollaborationBuilder {
             .filter(|e| e.source_id == artist_id.to_string())
             .map(|e| (e.target_id.clone(), e.track_count))
             .collect();
-        collaborator_counts.sort_by(|a, b| b.1.cmp(&a.1));
+        collaborator_counts.sort_by_key(|c| std::cmp::Reverse(c.1));
         let top_collaborators: Vec<_> = collaborator_counts.into_iter().take(5).collect();
 
         Ok(ArtistCollaborationStats {

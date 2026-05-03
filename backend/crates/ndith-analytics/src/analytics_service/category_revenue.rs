@@ -235,7 +235,7 @@ impl CategoryRevenueService {
         }
 
         // Sort by revenue descending
-        categories.sort_by(|a, b| b.simulated_revenue.cmp(&a.simulated_revenue));
+        categories.sort_by_key(|c| std::cmp::Reverse(c.simulated_revenue));
 
         // Get clean artist count and simulate their revenue
         let clean_stats = self.get_clean_artist_stats().await?;

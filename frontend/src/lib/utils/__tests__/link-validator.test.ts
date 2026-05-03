@@ -73,10 +73,10 @@ describe('Link Validator', () => {
 
       expect(result.status).toBe('archived');
       expect(result.resolvedUrl).toBe(
-        'https://web.archive.org/web/2024/https://deadlink.example.com/article',
+        'https://web.archive.org/web/2024*/https://deadlink.example.com/article',
       );
       expect(result.archivedUrl).toBe(
-        'https://web.archive.org/web/2024/https://deadlink.example.com/article',
+        'https://web.archive.org/web/2024*/https://deadlink.example.com/article',
       );
     });
 
@@ -173,7 +173,7 @@ describe('Link Validator', () => {
 
       expect(result.status).toBe('valid');
       expect(result.archivedUrl).toBe(
-        'https://web.archive.org/web/2024/https://valid.example.com',
+        'https://web.archive.org/web/2024*/https://valid.example.com',
       );
     });
 

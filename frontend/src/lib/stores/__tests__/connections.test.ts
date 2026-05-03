@@ -79,12 +79,11 @@ describe('connections store', () => {
 
   it('preserves previous connections on non-auth fetch failures', async () => {
     connectionsStore.set(existingState);
-    mockFetch.mockResolvedValue(
-      new Response(JSON.stringify({ message: 'backend unavailable' }), {
-        status: 500,
-        headers: { 'content-type': 'application/json' },
-      })
-    );
+    mockApiClient.authenticatedRequest.mockResolvedValue({
+      success: false,
+      message: 'backend unavailable',
+      error_code: 'HTTP_500',
+    });
 
     await connectionActions.fetchConnections();
 
@@ -95,12 +94,11 @@ describe('connections store', () => {
 
   it('clears connections on auth failures', async () => {
     connectionsStore.set(existingState);
-    mockFetch.mockResolvedValue(
-      new Response(JSON.stringify({ message: 'Unauthorized' }), {
-        status: 401,
-        headers: { 'content-type': 'application/json' },
-      })
-    );
+    mockApiClient.authenticatedRequest.mockResolvedValue({
+      success: false,
+      message: 'Unauthorized',
+      error_code: 'HTTP_401',
+    });
 
     await connectionActions.fetchConnections();
 
@@ -109,38 +107,33 @@ describe('connections store', () => {
   });
 
   it('maps health_status payloads into active connections', async () => {
-    mockFetch.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          connections: [
-            {
-              id: 'apple-1',
-              provider: 'apple_music',
-              provider_user_id: 'apple-user',
-              health_status: 'active',
-              expires_at: '2026-09-15T19:29:25.415161Z',
-              last_used_at: null,
-              error_message: null,
-              scopes: ['library-read'],
-            },
-            {
-              id: 'spotify-1',
-              provider: 'spotify',
-              provider_user_id: 'spotify-user',
-              health_status: 'needs_reauth',
-              expires_at: '2026-03-26T21:42:16.487656Z',
-              last_used_at: null,
-              error_message: 'reauth required',
-              scopes: ['user-library-read'],
-            },
-          ],
-        }),
-        {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }
-      )
-    );
+    mockApiClient.authenticatedRequest.mockResolvedValue({
+      success: true,
+      data: {
+        connections: [
+          {
+            id: 'apple-1',
+            provider: 'apple_music',
+            provider_user_id: 'apple-user',
+            health_status: 'active',
+            expires_at: '2026-09-15T19:29:25.415161Z',
+            last_used_at: null,
+            error_message: null,
+            scopes: ['library-read'],
+          },
+          {
+            id: 'spotify-1',
+            provider: 'spotify',
+            provider_user_id: 'spotify-user',
+            health_status: 'needs_reauth',
+            expires_at: '2026-03-26T21:42:16.487656Z',
+            last_used_at: null,
+            error_message: 'reauth required',
+            scopes: ['user-library-read'],
+          },
+        ],
+      },
+    });
 
     await connectionActions.fetchConnections();
 

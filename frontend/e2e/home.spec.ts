@@ -216,7 +216,7 @@ test.describe('Home Page', () => {
 
       // Set auth
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-token');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -273,7 +273,7 @@ test.describe('Home Page', () => {
       });
 
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-token');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem('user', JSON.stringify({ id: 'test', email: 'test@example.com' }));
       });
 

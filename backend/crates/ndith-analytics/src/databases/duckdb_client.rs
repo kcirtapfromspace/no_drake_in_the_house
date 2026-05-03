@@ -487,4 +487,71 @@ mod tests {
 
         client.record_sync_metrics(metrics).await.unwrap();
     }
+
+    #[tokio::test]
+    async fn test_persistent_reopen_read_write() {
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("analytics.duckdb");
+        let db_path_str = db_path.to_string_lossy().to_string();
+
+        let client_a = DuckDbClient::new(&db_path_str).unwrap();
+        client_a.initialize_schema().await.unwrap();
+        client_a
+            .record_sync_metrics(SyncMetrics {
+                timestamp: Utc::now(),
+                platform: "persistent_probe".to_string(),
+                sync_run_id: Uuid::new_v4(),
+                artists_processed: 10,
+                api_calls_made: 5,
+                rate_limit_delays_ms: 0,
+                errors_count: 0,
+                duration_ms: 250,
+            })
+            .await
+            .unwrap();
+        drop(client_a);
+
+        let client_b = DuckDbClient::new(&db_path_str).unwrap();
+        client_b.initialize_schema().await.unwrap();
+
+        let first_count: i64 = client_b
+            .query(
+                "SELECT COUNT(*) FROM sync_metrics WHERE platform = ?",
+                &[&"persistent_probe"],
+                |row| row.get(0),
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap_or(0);
+        assert_eq!(first_count, 1);
+
+        client_b
+            .record_sync_metrics(SyncMetrics {
+                timestamp: Utc::now(),
+                platform: "persistent_probe".to_string(),
+                sync_run_id: Uuid::new_v4(),
+                artists_processed: 20,
+                api_calls_made: 10,
+                rate_limit_delays_ms: 0,
+                errors_count: 0,
+                duration_ms: 500,
+            })
+            .await
+            .unwrap();
+
+        let second_count: i64 = client_b
+            .query(
+                "SELECT COUNT(*) FROM sync_metrics WHERE platform = ?",
+                &[&"persistent_probe"],
+                |row| row.get(0),
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .next()
+            .unwrap_or(0);
+        assert_eq!(second_count, 2);
+    }
 }

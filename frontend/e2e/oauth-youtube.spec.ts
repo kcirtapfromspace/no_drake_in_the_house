@@ -69,7 +69,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Mock YouTube authorize endpoint
       let authorizeCalled = false;
-      await page.route('**/api/v1/connections/youtube/authorize', async (route) => {
+      await page.route('**/api/v1/oauth/youtube/authorize', async (route) => {
         authorizeCalled = true;
         await route.fulfill({
           status: 200,
@@ -90,7 +90,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate to connections
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -155,7 +155,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -185,7 +185,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -210,7 +210,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -249,7 +249,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -313,7 +313,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -386,7 +386,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -459,7 +459,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({
@@ -551,7 +551,7 @@ test.describe('YouTube Music OAuth Integration', () => {
 
       // Authenticate and navigate
       await page.addInitScript(() => {
-        localStorage.setItem('auth_token', 'mock-jwt-token-12345');
+        localStorage.setItem('auth_token', 'mock-header.eyJpc3MiOiJodHRwczovL2FwaS5ub2RyYWtlaW50aGUuaG91c2UiLCJzdWIiOiJ0ZXN0LXVzZXItMTIzIn0.mock-signature');
         localStorage.setItem(
           'user',
           JSON.stringify({

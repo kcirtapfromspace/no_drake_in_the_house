@@ -22,6 +22,17 @@ backend:
   env:
     RUST_LOG: "warn"
     ENVIRONMENT: "production"
+    DUCKDB_PATH: "/var/lib/ndith/analytics/analytics.duckdb"
+
+  # Persistent DuckDB analytics storage (NOD-196).
+  duckdb:
+    enabled: true
+    mountPath: /var/lib/ndith/analytics
+    persistence:
+      size: 20Gi
+      storageClass: "fast-ssd"
+      accessModes:
+        - ReadWriteOnce
 
   autoscaling:
     enabled: true
@@ -172,6 +183,16 @@ backup:
   s3:
     enabled: true
     bucket: "ndith-backups-prod"
+
+# Keep production containers on read-only root FS while DuckDB writes go to
+# the mounted persistence path (`backend.duckdb.mountPath`).
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
 
 security:
   networkPolicies:

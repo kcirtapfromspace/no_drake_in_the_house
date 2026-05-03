@@ -8,7 +8,9 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
+use duckdb::{params, Connection};
 use serde::{Deserialize, Serialize};
+use std::env;
 use uuid::Uuid;
 
 use crate::models::AuthenticatedUser;
@@ -434,6 +436,138 @@ pub async fn get_system_health_handler(
             },
             "api_performance": api_metrics,
             "enforcement_performance": enforcement_metrics,
+            "checked_at": chrono::Utc::now().to_rfc3339()
+        }
+    })))
+}
+
+/// Trigger a deterministic DuckDB write probe for runbook verification.
+pub async fn run_duckdb_writer_probe_handler(
+    State(_state): State<AppState>,
+    _user: AuthenticatedUser,
+) -> Result<Json<serde_json::Value>> {
+    let duckdb_path = env::var("DUCKDB_PATH")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .ok_or_else(|| AppError::ConfigurationError {
+            message: "DUCKDB_PATH is not configured".to_string(),
+        })?;
+
+    tracing::info!(
+        duckdb_path = %duckdb_path,
+        "DuckDB writer runbook probe begin"
+    );
+
+    let probe_sync_run_id = Uuid::new_v4();
+    let probe_sync_run_id_for_write = probe_sync_run_id;
+    let duckdb_path_for_write = duckdb_path.clone();
+
+    let runbook_probe_rows =
+        tokio::task::spawn_blocking(move || -> std::result::Result<i64, String> {
+            let conn = Connection::open(&duckdb_path_for_write).map_err(|e| {
+                format!(
+                    "DuckDB probe failed to open {}: {}",
+                    duckdb_path_for_write, e
+                )
+            })?;
+
+            conn.execute(
+                r#"
+                CREATE TABLE IF NOT EXISTS sync_metrics (
+                    timestamp VARCHAR NOT NULL,
+                    platform VARCHAR NOT NULL,
+                    sync_run_id VARCHAR NOT NULL,
+                    artists_processed INTEGER DEFAULT 0,
+                    api_calls_made INTEGER DEFAULT 0,
+                    rate_limit_delays_ms BIGINT DEFAULT 0,
+                    errors_count INTEGER DEFAULT 0,
+                    duration_ms BIGINT DEFAULT 0
+                )
+                "#,
+                [],
+            )
+            .map_err(|e| {
+                format!(
+                    "DuckDB probe failed to initialize schema at {}: {}",
+                    duckdb_path_for_write, e
+                )
+            })?;
+
+            conn.execute(
+                r#"
+                INSERT INTO sync_metrics
+                (timestamp, platform, sync_run_id, artists_processed, api_calls_made,
+                 rate_limit_delays_ms, errors_count, duration_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+                params![
+                    chrono::Utc::now().to_rfc3339(),
+                    "runbook_probe",
+                    probe_sync_run_id_for_write.to_string(),
+                    1,
+                    1,
+                    0_i64,
+                    0,
+                    1_i64
+                ],
+            )
+            .map_err(|e| {
+                format!(
+                    "DuckDB probe failed to insert row at {}: {}",
+                    duckdb_path_for_write, e
+                )
+            })?;
+
+            let mut stmt = conn
+                .prepare("SELECT COUNT(*) FROM sync_metrics WHERE platform = ?")
+                .map_err(|e| {
+                    format!(
+                        "DuckDB probe failed to prepare verification query at {}: {}",
+                        duckdb_path_for_write, e
+                    )
+                })?;
+            let mut rows = stmt.query(params!["runbook_probe"]).map_err(|e| {
+                format!(
+                    "DuckDB probe failed to execute verification query at {}: {}",
+                    duckdb_path_for_write, e
+                )
+            })?;
+
+            match rows.next().map_err(|e| {
+                format!(
+                    "DuckDB probe failed to fetch verification result at {}: {}",
+                    duckdb_path_for_write, e
+                )
+            })? {
+                Some(row) => row.get::<_, i64>(0).map_err(|e| {
+                    format!(
+                        "DuckDB probe failed to read verification row count at {}: {}",
+                        duckdb_path_for_write, e
+                    )
+                }),
+                None => Ok(0),
+            }
+        })
+        .await
+        .map_err(|e| AppError::Internal {
+            message: Some(format!("DuckDB runbook probe worker failed: {}", e)),
+        })?
+        .map_err(|e| AppError::Internal { message: Some(e) })?;
+
+    tracing::info!(
+        duckdb_path = %duckdb_path,
+        probe_sync_run_id = %probe_sync_run_id,
+        runbook_probe_rows,
+        "DuckDB writer runbook probe succeeded"
+    );
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "data": {
+            "duckdb_path": duckdb_path,
+            "probe_sync_run_id": probe_sync_run_id,
+            "runbook_probe_rows": runbook_probe_rows,
             "checked_at": chrono::Utc::now().to_rfc3339()
         }
     })))

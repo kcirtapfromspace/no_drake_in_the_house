@@ -663,8 +663,7 @@ mod tests {
     fn dac_enforces_readonly_dir(dir: &std::path::Path) -> bool {
         use std::os::unix::fs::PermissionsExt;
         let prev = std::fs::metadata(dir).expect("metadata").permissions();
-        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o555))
-            .expect("chmod 0o555");
+        std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o555)).expect("chmod 0o555");
         let probe = dir.join(".dac_self_check");
         let blocked = std::fs::write(&probe, b"x").is_err();
         if !blocked {

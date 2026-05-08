@@ -1,0 +1,29 @@
+name: Release Merge-Event Contract
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/release/merge-event-automation.md'
+      - 'scripts/release/merge_event_poller.py'
+      - '.github/workflows/release-merge-event-contract.yml'
+      - 'Makefile'
+
+permissions:
+  contents: read
+
+jobs:
+  self-test:
+    name: Replay-safety self-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run merge-event handler self-test
+        run: make release-merge-event-self-test

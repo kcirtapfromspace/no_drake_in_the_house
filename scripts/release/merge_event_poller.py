@@ -8,9 +8,12 @@ to drive event-driven wakeups; once the webhook lands, the handler logic
 here is the canonical reference for the control-plane implementation.
 
 The script is intentionally side-effect-light by default:
-    --dry-run    : plan transitions and comments, do not call APIs (default)
-    --apply      : actually call the issue API
-    --self-test  : run the replay-safety demo and exit non-zero on failure
+    --self-test          : run the replay-safety demo and exit non-zero on failure
+    --event-json X --links-json Y
+                         : dry-run plan from on-disk fixture inputs
+    --from-paperclip ID  : pull live linked-issue state from the Paperclip API
+                           and live PR state from GitHub, then dry-run plan
+    --apply              : not implemented; this is the contract reference
 
 Idempotency is the contract:
     key = f"merge-event:{repo}:{number}:{merge_commit_sha}"
@@ -21,7 +24,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
+import subprocess
 import sys
+import urllib.request
 from dataclasses import dataclass, field
 from typing import Iterable
 
@@ -216,6 +223,171 @@ def _self_test() -> int:
     return 0
 
 
+# --- Live state collection ----------------------------------------------------
+#
+# These helpers are intentionally read-only. The shim never writes to either
+# Paperclip or GitHub; it only assembles the inputs that handle() consumes.
+
+_PR_URL_RE = re.compile(
+    r"https?://github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>\d+)"
+)
+
+
+def _paperclip_get(path: str) -> dict:
+    base = os.environ["PAPERCLIP_API_URL"].rstrip("/")
+    token = os.environ["PAPERCLIP_API_KEY"]
+    req = urllib.request.Request(
+        f"{base}{path}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    with urllib.request.urlopen(req) as resp:
+        return json.load(resp)
+
+
+def _paperclip_find_issue(identifier: str) -> dict:
+    company = os.environ["PAPERCLIP_COMPANY_ID"]
+    listing = _paperclip_get(
+        f"/api/companies/{company}/issues?q={identifier}"
+    )
+    rows = listing if isinstance(listing, list) else listing.get("issues") or []
+    match = next((r for r in rows if r.get("identifier") == identifier), None)
+    if not match:
+        raise SystemExit(f"no issue found for identifier {identifier!r}")
+    return _paperclip_get(f"/api/issues/{match['id']}")
+
+
+def _gh_pr_view(owner: str, repo: str, number: int) -> dict:
+    out = subprocess.check_output(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            f"{owner}/{repo}",
+            "--json",
+            "state,mergedAt,mergedBy,mergeCommit,headRefOid,url",
+        ],
+        text=True,
+    )
+    return json.loads(out)
+
+
+def _build_event_from_live(maintainer_issue: dict) -> MergeEvent | None:
+    body = maintainer_issue.get("description") or ""
+    m = _PR_URL_RE.search(body)
+    if not m:
+        raise SystemExit(
+            "no PR URL found in maintainer-task description; cannot resolve event"
+        )
+    owner, repo, number = m["owner"], m["repo"], int(m["number"])
+    pr = _gh_pr_view(owner, repo, number)
+    if pr.get("state") != "MERGED":
+        return None
+    merge_commit = (pr.get("mergeCommit") or {}).get("oid") or ""
+    merged_by = (pr.get("mergedBy") or {}).get("login") or "unknown"
+    return MergeEvent(
+        repo=f"{owner}/{repo}",
+        number=number,
+        url=pr.get("url") or f"https://github.com/{owner}/{repo}/pull/{number}",
+        head_sha=pr.get("headRefOid") or "",
+        merge_commit_sha=merge_commit,
+        merged_at=pr.get("mergedAt") or "",
+        merged_by=merged_by,
+    )
+
+
+def _build_links_from_live(maintainer_issue: dict) -> list[LinkedIssue]:
+    """Walk the relatedWork graph rooted at the maintainer task.
+
+    Roles are inferred by graph position:
+      - the maintainer task itself = "maintainer_task"
+      - each outbound mention = "merge_blocked"
+      - each issue any merge-blocked lane `blocks` (one hop further) = "qa_downstream"
+    """
+    links: list[LinkedIssue] = []
+    links.append(
+        LinkedIssue(
+            identifier=maintainer_issue["identifier"],
+            role="maintainer_task",
+            status=maintainer_issue.get("status") or "unknown",
+            assignee=maintainer_issue.get("assigneeAgentId"),
+        )
+    )
+
+    related = maintainer_issue.get("relatedWork") or {}
+    seen: set[str] = {maintainer_issue["identifier"]}
+    for entry in related.get("outbound") or []:
+        issue = entry.get("issue") or {}
+        ident = issue.get("identifier")
+        if not ident or ident in seen:
+            continue
+        # Skip references to policy/parent docs that are clearly not blockers.
+        if (issue.get("status") or "").lower() == "done":
+            continue
+        seen.add(ident)
+        links.append(
+            LinkedIssue(
+                identifier=ident,
+                role="merge_blocked",
+                status=issue.get("status") or "unknown",
+                assignee=issue.get("assigneeAgentId"),
+            )
+        )
+        # Hop one further: anything this merge-blocked lane `blocks` is QA-downstream.
+        try:
+            full = _paperclip_get(f"/api/issues/{issue['id']}")
+        except Exception:  # pragma: no cover - best-effort
+            continue
+        for downstream in full.get("blocks") or []:
+            d_ident = downstream.get("identifier")
+            if not d_ident or d_ident in seen:
+                continue
+            seen.add(d_ident)
+            links.append(
+                LinkedIssue(
+                    identifier=d_ident,
+                    role="qa_downstream",
+                    status=downstream.get("status") or "unknown",
+                    assignee=downstream.get("assigneeAgentId"),
+                )
+            )
+    return links
+
+
+def _from_paperclip(identifier: str) -> int:
+    issue = _paperclip_find_issue(identifier)
+    event = _build_event_from_live(issue)
+    links = _build_links_from_live(issue)
+
+    print(f"# Live dry-run for {identifier} ({issue.get('title')})")
+    print()
+    print("## Linked issues (graph walk)")
+    for link in links:
+        print(f"  - {link.identifier} [{link.role}] status={link.status}")
+    print()
+
+    if event is None:
+        print("## PR state: not merged yet")
+        print(
+            "  No merge event to fire. The shim would re-poll on the next cycle."
+        )
+        return 0
+
+    print("## Merge event")
+    print(f"  url: {event.url}")
+    print(f"  merge_commit_sha: {event.merge_commit_sha}")
+    print(f"  merged_at: {event.merged_at}")
+    print(f"  merged_by: {event.merged_by}")
+    print(f"  idempotency_key: {event.idempotency_key}")
+    print()
+
+    print("## Planned transitions (dry-run)")
+    result = handle(event, links, dedupe_store=set())
+    print(_format_plan(result))
+    return 0
+
+
 def _format_plan(result: HandlerResult) -> str:
     if result.is_noop():
         return f"no-op ({result.skipped_reason})"
@@ -244,6 +416,16 @@ def main(argv: list[str] | None = None) -> int:
         type=str,
         help="path to a linked-issues JSON file: list of {identifier, role, status, assignee}",
     )
+    p.add_argument(
+        "--from-paperclip",
+        type=str,
+        metavar="IDENTIFIER",
+        help=(
+            "pull live linked-issue state from Paperclip + live PR state from "
+            "GitHub for the given maintainer-task identifier (e.g. NOD-378), "
+            "then dry-run the plan"
+        ),
+    )
     args = p.parse_args(argv)
 
     if args.self_test:
@@ -257,9 +439,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    if args.from_paperclip:
+        return _from_paperclip(args.from_paperclip)
+
     if not args.event_json or not args.links_json:
         print(
-            "usage: --self-test, OR --event-json X --links-json Y for a dry-run plan",
+            "usage: --self-test, OR --from-paperclip IDENTIFIER, "
+            "OR --event-json X --links-json Y for a dry-run plan",
             file=sys.stderr,
         )
         return 2

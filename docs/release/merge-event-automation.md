@@ -186,7 +186,34 @@ The reference shim at `scripts/release/merge_event_poller.py` ships with a
 3. Exits non-zero if either assertion fails.
 
 `make release-merge-event-self-test` wraps the invocation. Running the
-self-test is the contractual proof of replay-safety for this lane.
+self-test is the contractual proof of replay-safety for this lane. The
+GitHub Actions workflow `.github/workflows/release-merge-event-contract.yml`
+runs it on every PR that touches the contract files (this doc, the shim,
+the workflow, or the Makefile target), so contract regressions block merge.
+
+## Live dry-run against the pilot chain
+
+To verify the contract against real issue and PR state without writing
+anything, run:
+
+```bash
+python3 scripts/release/merge_event_poller.py --from-paperclip NOD-378
+```
+
+The shim will:
+
+1. Fetch the maintainer-task issue from the Paperclip API.
+2. Walk its `relatedWork.outbound` to find merge-blocked lanes, then walk
+   each merge-blocked lane's `blocks:` to find QA-downstream lanes.
+3. Extract the PR URL from the maintainer-task description and call
+   `gh pr view` to get live PR state.
+4. If the PR is not merged: print "no event to fire" and exit 0.
+5. If the PR is merged: assemble the canonical event and print the dry-run
+   plan (transitions, wakes, idempotency key) — without any writes.
+
+Operational use: run this from a routine on a tight cadence as the
+fallback for the missing webhook subscription. The dry-run output is the
+input the control-plane handler will eventually consume.
 
 ## Failure modes
 

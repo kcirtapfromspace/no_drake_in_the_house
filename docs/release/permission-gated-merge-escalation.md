@@ -5,7 +5,9 @@ mergeable, but the agent or runtime identity attempting the merge lacks
 `MergePullRequest` permission on the upstream repo.
 
 Tracking: NOD-394 (this policy), NOD-378 (worked example), NOD-347 (no-delta
-silence on blocked lanes), NOD-370 (maintainer-side merge assist pattern).
+silence on blocked lanes), NOD-370 (maintainer-side merge assist pattern),
+NOD-397 (post-merge automation contract — see
+[merge-event-automation.md](merge-event-automation.md)).
 
 ## Why this exists
 
@@ -267,3 +269,14 @@ QA Engineer:
 - Wait for `PostMerge_Proof` evidence (runtime proof published) before
   starting verification. Do not begin on `Merged` alone — the deploy/smoke
   step is what makes the live environment ready.
+
+## Post-merge automation
+
+Once a maintainer merges the PR, the post-merge transitions (clearing the
+maintainer task, posting merge SHA evidence, waking Release and QA) are
+defined as the **Merge Event Automation Contract** in
+[merge-event-automation.md](merge-event-automation.md). Until the
+control-plane webhook handler ships, the polling shim at
+`scripts/release/merge_event_poller.py` plus the dedupe key
+`merge-event:<repo>:<number>:<merge_commit_sha>` are the contract reference
+and replay-safety proof (`make release-merge-event-self-test`).

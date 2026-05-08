@@ -424,6 +424,10 @@ perf-load:
 		echo "   Run 'make dev' first, then start backend with 'cd backend && cargo run'"; \
 	fi
 
+# Release workflow contract tests
+release-merge-event-self-test:
+	@python3 scripts/release/merge_event_poller.py --self-test
+
 # Tilt development commands
 tilt-setup:
 	@echo "🎯 Setting up Minikube + Tilt environment..."

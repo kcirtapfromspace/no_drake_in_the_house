@@ -191,6 +191,34 @@ GitHub Actions workflow `.github/workflows/release-merge-event-contract.yml`
 runs it on every PR that touches the contract files (this doc, the shim,
 the workflow, or the Makefile target), so contract regressions block merge.
 
+## Determinism notes — listing-endpoint malformed JSON
+
+The Paperclip API does not currently expose a per-identifier issue endpoint;
+identifier-to-id resolution must go through the listing endpoint
+(`/api/companies/{companyId}/issues?q=<identifier>`). That endpoint is known
+(NOD-363) to occasionally emit unescaped C0 control characters in unrelated
+issue text fields, which breaks a strict `json.loads` on the full-list
+response.
+
+The shim mitigates this with a two-step lookup:
+
+1. **Strict parse first** — fast path; returns the row whose `identifier`
+   matches and proceeds.
+2. **Regex salvage on JSONDecodeError** — scan the raw bytes for the row
+   containing `"identifier":"<identifier>"` and extract its `"id":"<uuid>"`
+   field directly. The salvage is bounded to a 4 KiB window around the
+   match so it cannot cross row boundaries.
+3. **Per-issue GET** — both paths finish by calling `/api/issues/{id}`,
+   which returns a single record and has not been observed to emit
+   malformed JSON for any row in the project.
+
+The replay-safety self-test asserts the salvage path on a synthetic
+malformed listing payload, so any regression in the determinism mitigation
+is caught by `make release-merge-event-self-test` (CI gate). When NOD-363
+ships and the listing endpoint becomes strict-JSON-clean, the salvage path
+becomes a defense-in-depth no-op rather than a routine code path; it is
+still kept in CI as a regression guard.
+
 ## Live dry-run against the pilot chain
 
 To verify the contract against real issue and PR state without writing

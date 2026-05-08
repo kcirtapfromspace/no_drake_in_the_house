@@ -208,6 +208,34 @@ def _self_test() -> int:
                 f"got {t.wake!r}"
             )
 
+    # Determinism: the listing salvage path must extract the right id even
+    # when the listing payload would fail strict json.loads (NOD-363 risk).
+    malformed_listing = (
+        b'[{"id":"11111111-1111-1111-1111-111111111111",'
+        b'"identifier":"NOD-OTHER","description":"clean"},'
+        b'{"id":"5450ac9d-9120-40c5-8e3d-e73c988ce6d5",'
+        b'"identifier":"NOD-378","description":"corrupt\x01here"}]'
+    )
+    try:
+        json.loads(malformed_listing)
+        failures.append(
+            "salvage fixture: strict json.loads unexpectedly accepted "
+            "the C0-control-char payload; fixture is no longer adversarial"
+        )
+    except json.JSONDecodeError:
+        pass
+    salvaged = _salvage_issue_id_from_listing(malformed_listing, "NOD-378")
+    if salvaged != "5450ac9d-9120-40c5-8e3d-e73c988ce6d5":
+        failures.append(
+            f"salvage path: expected NOD-378 id "
+            f"5450ac9d-9120-40c5-8e3d-e73c988ce6d5, got {salvaged!r}"
+        )
+    miss = _salvage_issue_id_from_listing(malformed_listing, "NOD-NOT-PRESENT")
+    if miss is not None:
+        failures.append(
+            f"salvage path: expected None for missing identifier, got {miss!r}"
+        )
+
     if failures:
         print("SELF-TEST FAILED:", file=sys.stderr)
         for f in failures:
@@ -220,6 +248,7 @@ def _self_test() -> int:
         f"  second run: 0 transitions (skipped: "
         f"{second.skipped_reason})"
     )
+    print("  salvage path: extracted id from malformed listing, ignored miss")
     return 0
 
 
@@ -233,7 +262,7 @@ _PR_URL_RE = re.compile(
 )
 
 
-def _paperclip_get(path: str) -> dict:
+def _paperclip_get_bytes(path: str) -> bytes:
     base = os.environ["PAPERCLIP_API_URL"].rstrip("/")
     token = os.environ["PAPERCLIP_API_KEY"]
     req = urllib.request.Request(
@@ -241,19 +270,96 @@ def _paperclip_get(path: str) -> dict:
         headers={"Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(req) as resp:
-        return json.load(resp)
+        return resp.read()
+
+
+def _paperclip_get(path: str) -> dict:
+    return json.loads(_paperclip_get_bytes(path))
+
+
+# Regex used when the broad listing endpoint emits malformed JSON (see
+# NOD-363: unescaped C0 control chars in historical text fields can break a
+# strict json.loads on the full-list response). We salvage just the one row
+# whose identifier we want, extract its id, and then call the per-issue
+# endpoint, which has never been observed to emit malformed JSON.
+_ID_FIELD_RE = re.compile(rb'"id"\s*:\s*"(?P<id>[0-9a-f-]{36})"')
+
+
+def _salvage_issue_id_from_listing(payload: bytes, identifier: str) -> str | None:
+    """Find the issue row matching identifier and pull its `id` UUID.
+
+    Walks the byte payload to find `"identifier":"<identifier>"` (escaped
+    if needed), then scans backwards/forwards inside the surrounding row
+    object for the nearest `"id":"<uuid>"`. Returns None if not found.
+    """
+    needle = f'"identifier":"{identifier}"'.encode()
+    pos = payload.find(needle)
+    if pos == -1:
+        return None
+    # Walk backwards to the row's opening `{`. Limit to a reasonable window
+    # so we cannot walk into a previous row's id.
+    window_start = max(0, pos - 4096)
+    open_brace = payload.rfind(b"{", window_start, pos)
+    if open_brace == -1:
+        return None
+    # Match on the FIRST `"id":"..."` after the row's `{` and at-or-before
+    # the identifier we matched. That is the row's own id.
+    row_prefix = payload[open_brace:pos]
+    m = _ID_FIELD_RE.search(row_prefix)
+    if not m:
+        # Fallback: try a small window after the identifier (some payload
+        # orderings put `id` after `identifier`).
+        row_suffix = payload[pos : pos + 4096]
+        m = _ID_FIELD_RE.search(row_suffix)
+        if not m:
+            return None
+    return m.group("id").decode()
 
 
 def _paperclip_find_issue(identifier: str) -> dict:
+    """Resolve an issue identifier to its full record.
+
+    Determinism contract: the broad listing endpoint can occasionally emit
+    malformed JSON when an unrelated issue carries unescaped C0 control
+    characters in its text fields (NOD-363). We therefore:
+      1. Fetch the listing as bytes.
+      2. Try a strict json.loads first (fast path).
+      3. On JSONDecodeError, regex-salvage the matching row's `id` UUID
+         from the raw bytes and use it.
+      4. Always finish with a per-issue GET on /api/issues/{id}, which
+         returns a single record and has not been observed to emit
+         malformed JSON for any row in the project.
+    """
     company = os.environ["PAPERCLIP_COMPANY_ID"]
-    listing = _paperclip_get(
+    payload = _paperclip_get_bytes(
         f"/api/companies/{company}/issues?q={identifier}"
     )
-    rows = listing if isinstance(listing, list) else listing.get("issues") or []
-    match = next((r for r in rows if r.get("identifier") == identifier), None)
-    if not match:
+    issue_id: str | None = None
+    try:
+        listing = json.loads(payload)
+    except json.JSONDecodeError as e:
+        issue_id = _salvage_issue_id_from_listing(payload, identifier)
+        if issue_id is None:
+            raise SystemExit(
+                f"listing endpoint returned malformed JSON and no row for "
+                f"identifier {identifier!r} could be salvaged: {e}. See "
+                f"docs/release/merge-event-automation.md (Determinism notes) "
+                f"for the NOD-363 background."
+            ) from e
+    else:
+        rows = listing if isinstance(listing, list) else listing.get("issues") or []
+        match = next((r for r in rows if r.get("identifier") == identifier), None)
+        if match is not None:
+            issue_id = match.get("id")
+        else:
+            # Strict parse succeeded but identifier missing — likely the
+            # filter dropped it; salvage anyway from the raw bytes in case
+            # the in-memory dict-walk skipped a row with an odd shape.
+            issue_id = _salvage_issue_id_from_listing(payload, identifier)
+
+    if not issue_id:
         raise SystemExit(f"no issue found for identifier {identifier!r}")
-    return _paperclip_get(f"/api/issues/{match['id']}")
+    return _paperclip_get(f"/api/issues/{issue_id}")
 
 
 def _gh_pr_view(owner: str, repo: str, number: int) -> dict:

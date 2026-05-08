@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/release/merge-event-automation.md'
+      - 'docs/release/permission-gated-merge-escalation.md'
       - 'scripts/release/merge_event_poller.py'
       - '.github/workflows/release-merge-event-contract.yml'
       - 'Makefile'

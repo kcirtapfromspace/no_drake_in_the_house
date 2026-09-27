@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/render-frontend-image.yml
       - frontend/**
+      - scripts/deployment/test-nginx-wake.py
       - render.yaml
   workflow_dispatch:
     inputs:
@@ -81,6 +82,9 @@ jobs:
             GIT_SHA=${{ github.sha }}
           cache-from: type=gha,scope=render-frontend-image
           cache-to: type=gha,mode=max,scope=render-frontend-image
+
+      - name: Verify cold-start proxy behavior
+        run: python3 scripts/deployment/test-nginx-wake.py --image "${IMAGE_REPO}:${{ steps.vars.outputs.short_sha }}" --use-image-files
 
       - name: Resolve Render frontend service id
         id: render_service

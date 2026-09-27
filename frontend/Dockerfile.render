@@ -33,6 +33,7 @@ RUN apk add --no-cache curl gettext
 COPY nginx-render.conf.template /etc/nginx/templates/default.conf.template
 COPY render-entrypoint.sh /usr/local/bin/render-entrypoint.sh
 COPY --from=builder /app/public /usr/share/nginx/html
+COPY warming.html /usr/share/nginx/warming.html
 
 RUN chmod +x /usr/local/bin/render-entrypoint.sh
 

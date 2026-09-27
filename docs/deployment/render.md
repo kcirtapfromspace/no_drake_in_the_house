@@ -1,5 +1,7 @@
 # Render deployment
 
+> Historical hosting guide. As of 2026-09-27, the live app runs on [AWS ECS](aws-ecs.md). The image workflows retain their Render names, but current releases must use ARM64 images and the AWS deployment process. Do not trigger legacy Render hooks for the live app.
+
 This repo includes a production-focused Render Blueprint at `render.yaml`.
 
 It provisions:

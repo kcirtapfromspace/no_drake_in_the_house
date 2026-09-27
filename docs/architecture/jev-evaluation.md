@@ -1,6 +1,6 @@
 # Jev evidence evaluation architecture
 
-Implemented on `codex/jev-evaluation-core`, 2026-09-27. This is a local implementation and validation record; no application deployment or production data migration was performed.
+Implemented on `codex/jev-evaluation-core`, 2026-09-27. This document describes the implementation contract. See the separate [AWS/Convex release record](../deployment/2026-09-27-jev-release.md) for deployed components, verification and remaining blockers.
 
 ## Contract
 
@@ -84,7 +84,7 @@ The skill and lockfile are in the repository. `AGENTS.md` directs future evaluat
 | Rust research service | `CONVEX_URL`, optional `CONVEX_SITE_URL`, matching `NDITH_SERVICE_KEY`, existing acquisition/provider configuration |
 | Web frontend | Existing `VITE_CONVEX_URL`; no Jev or service key in any `VITE_*` variable |
 
-The key from the user-designated 1Password item was injected into a child process for the synthetic live test. It was not written to an environment file, committed, printed, or configured in a remote deployment. A key in a local shell does not configure Convex.
+The key from the user-designated 1Password item was injected into a child process for the synthetic live test, then configured server-side on the verified live Convex deployment during the authorized release. It was not written to an environment file, committed or printed. A key in a local shell does not configure Convex.
 
 Rollout requires an authenticated Convex deployment and coordinated Convex/Rust/frontend releases:
 
@@ -96,7 +96,7 @@ Rollout requires an authenticated Convex deployment and coordinated Convex/Rust/
 6. Review historical records before relying on the catalog: existing `verified` rows are not retroactively proven independently reviewed. This change does not rewrite production offenses or reset historically incorrect research freshness timestamps. Plan a backed-up reconciliation for those records.
 7. Observe failed-job codes, retries, queue age, reviewer disagreements, source truncation and token usage before expanding acquisition volume.
 
-The generated API files now use Convex's official JS/declaration layout; conflicting handwritten `.ts` versions were removed. The local declarations were regenerated with the installed official template because no `CONVEX_DEPLOYMENT` is configured. Run normal authenticated Convex code generation during staging deployment.
+The generated API files now use Convex's official JS/declaration layout; conflicting handwritten `.ts` versions were removed. Authenticated official code generation and type checking completed against `scrupulous-emu-861` before release.
 
 ## Verification and limitations
 
@@ -108,4 +108,4 @@ Eight synthetic cases do not measure real-world precision, recall, demographic p
 
 Current limits: one selected incident/passage and one published category per evaluation; 24,000-character source cap; no automatic re-evaluation of a completed URL under the same submitter/model/policy key when a page changes; no global research spend cap; the artist review panel shows the latest 30 jobs, with a separate paginated global `reviewQueue` API for `needs_review`. Research queuing is service-authorized and URL-idempotent, not a general public API. Source fetching is delegated to Firecrawl; local hostname checks are not a DNS-rebinding defense for a future direct fetcher.
 
-No provider writes, production deployment, real OAuth flow, full-platform Linux image or live Stripe payment was tested by this implementation. The remaining build-audit findings continue to apply where the following record does not explicitly address them.
+The local implementation checks did not exercise provider writes, real OAuth or live Stripe payments. Subsequent Linux image builds and production deployment checks are recorded separately in the release record. The remaining build-audit findings continue to apply where that record does not explicitly address them.

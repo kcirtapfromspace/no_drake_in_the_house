@@ -1,6 +1,6 @@
 # Jev implementation verification — 2026-09-27
 
-Branch: `codex/jev-evaluation-core`. Original audited revision: `f2c320ac44f236dde3629d5e2369549f5625d746`. These results describe local working-tree changes, not a remote release.
+Branch: `codex/jev-evaluation-core`. Original audited revision: `f2c320ac44f236dde3629d5e2369549f5625d746`. These results describe implementation checks. Subsequent deployment checks are recorded in the [AWS/Convex release record](../deployment/2026-09-27-jev-release.md).
 
 | Check | Result |
 | --- | --- |
@@ -18,7 +18,7 @@ Branch: `codex/jev-evaluation-core`. Original audited revision: `f2c320ac44f236d
 
 The live fixture uses `jev-1.13.0` with 9,529 input tokens in the recorded run. It includes music idioms, victim attribution, commentary, lyrics, another person's crime, a fraud charge, dismissal, and source prompt injection. Responses and local wall-clock timings are retained in [the JSON artifact](2026-09-27-jev-synthetic.json). Timings are observations from eight local requests, not an SLA or a load test. The test sends only synthetic text about “Example Singer.”
 
-The supplied 1Password key was read into a process environment for this test. No credential was stored in the repository, printed, or set on a deployment. Tests of the Convex worker use mocked providers; no remote Convex deployment or Firecrawl integration was exercised.
+The supplied 1Password key was read into a process environment for this test. No credential was stored in the repository or printed. Tests of the Convex worker use mocked providers; the synthetic run does not exercise remote Convex scheduling or Firecrawl. Later server-side key configuration and deployment are documented in the separate release record.
 
 ## Repeatable commands
 

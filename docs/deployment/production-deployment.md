@@ -1,5 +1,7 @@
 # Production Deployment Guide
 
+> This is a generic Kubernetes deployment guide, not the current live topology. The verified production environment and release procedure are documented in [AWS ECS deployment](aws-ecs.md).
+
 This document outlines the comprehensive production deployment process for the NDITH music streaming blocklist manager.
 
 ## Prerequisites

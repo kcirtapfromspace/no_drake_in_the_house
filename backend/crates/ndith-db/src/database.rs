@@ -463,3 +463,16 @@ pub struct RedisHealthStatus {
     pub details: Option<serde_json::Value>,
     pub error: Option<String>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn redis_pool_supports_tls_urls() {
+        // Exercise the same pool construction as startup without opening a socket.
+        RedisConfig::from_url("rediss://localhost:6380")
+            .create_pool(Some(Runtime::Tokio1))
+            .expect("production Redis URLs require TLS support");
+    }
+}

@@ -1,5 +1,5 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { getCurrentUser, nowIso, upsertCurrentUserFromIdentity } from "./lib/auth";
 
 export const current = query({
@@ -40,7 +40,7 @@ export const linkedAccounts = query({
   },
 });
 
-export const attachAuthSubject = mutation({
+export const attachAuthSubject = internalMutation({
   args: {
     legacyUserId: v.string(),
     authSubject: v.string(),

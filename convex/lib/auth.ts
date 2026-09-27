@@ -70,6 +70,12 @@ export async function upsertCurrentUserFromIdentity(ctx: MutationCtx) {
   const emailVerified = identity.emailVerified ?? false;
 
   if (existingBySubject) {
+    if (email && email !== existingBySubject.email) {
+      const emailOwner = await ctx.db.query("users").withIndex("by_email", q => q.eq("email", email)).unique();
+      if (emailOwner && emailOwner._id !== existingBySubject._id) {
+        throw new ConvexError("This email belongs to an existing account. Sign in with its linked identity.");
+      }
+    }
     await ctx.db.patch(existingBySubject._id, {
       email,
       emailVerified,
@@ -90,6 +96,10 @@ export async function upsertCurrentUserFromIdentity(ctx: MutationCtx) {
   }
 
   if (matchedUser) {
+    // Email is not account-linking proof. A verified identity may claim only an unbound legacy row.
+    if (!emailVerified || matchedUser.authSubject) {
+      throw new ConvexError("This email belongs to an existing account. Sign in with its linked identity.");
+    }
     await ctx.db.patch(matchedUser._id, {
       authSubject,
       email,

@@ -33,12 +33,14 @@ crons.daily(
   "promote-classifications-to-offenses",
   { hourUTC: 2, minuteUTC: 30 },
   internal.offensePipeline.promoteClassifications,
+  {},
 );
 
 crons.daily(
   "rebuild-offending-artist-index",
   { hourUTC: 2, minuteUTC: 45 },
   internal.offensePipeline.rebuildOffendingArtistIndex,
+  {},
 );
 
 crons.daily(

@@ -95,7 +95,7 @@ export const list = query({
         .query("categorySubscriptions")
         .withIndex("by_userId", (q) => q.eq("userId", user._id))
         .collect(),
-      ctx.db.query("artistOffenses").take(2000),
+      ctx.db.query("artistOffenses").withIndex("by_status", q => q.eq("status", "verified")).take(2000),
     ]);
 
     const subscribed = new Set(subscriptions.map((subscription) => subscription.category));
@@ -195,7 +195,7 @@ export const blockedArtists = query({
       return [];
     }
 
-    const offenses = await ctx.db.query("artistOffenses").take(2000);
+    const offenses = await ctx.db.query("artistOffenses").withIndex("by_status", q => q.eq("status", "verified")).take(2000);
     const matching = offenses.filter((offense) =>
       categories.includes(normalizeCategoryKey(offense.category)),
     );

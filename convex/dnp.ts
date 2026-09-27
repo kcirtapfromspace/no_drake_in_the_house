@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, mutation, query, type MutationCtx } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { nowIso, requireCurrentUser } from "./lib/auth";
 import {
   decryptToken,
@@ -22,7 +22,7 @@ async function resolveArtistByQuery(ctx: any, searchQuery: string) {
       artist.canonicalName.toLowerCase() === searchQuery.toLowerCase(),
   );
 
-  return exact ?? matches[0] ?? null;
+  return exact ?? null;
 }
 
 async function hydrateEntries(ctx: any, blocks: Doc<"userArtistBlocks">[]) {
@@ -325,7 +325,7 @@ export const searchSpotifyArtists = action({
   },
   handler: async (ctx, args) => {
     const connection: any = await ctx.runQuery(
-      api.enforcement._getConnection,
+      internal.enforcement._getConnection,
       { provider: "spotify" },
     );
 

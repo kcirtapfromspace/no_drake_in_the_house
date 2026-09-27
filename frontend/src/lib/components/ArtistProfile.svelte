@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import EvidenceEvaluationStatus from './EvidenceEvaluationStatus.svelte';
+  import EvidenceReviewPanel from './EvidenceReviewPanel.svelte';
   import { slide } from 'svelte/transition';
   import {
     getStatusColor,
@@ -252,7 +254,7 @@
   let evidenceUrl = '';
   let evidenceCategory = '';
   let evidenceSubmitting = false;
-  let evidenceResult: { verified: boolean; category?: string; credibilityScore?: number; reason?: string } | null = null;
+  let evidenceResult: { verified: boolean; accepted?: boolean; jobId?: string; category?: string; credibilityScore?: number; reason?: string } | null = null;
   let evidenceAutoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
   // DNP state
@@ -661,7 +663,7 @@
       if (result.success && result.data) {
         evidenceResult = result.data;
       } else {
-        evidenceResult = { verified: false, reason: result.message || 'Verification failed' };
+        evidenceResult = { verified: false, reason: result.message || 'Submission failed' };
       }
       if (evidenceResult?.verified) {
         evidenceAutoCloseTimer = setTimeout(() => closeEvidenceModal(), 3000);
@@ -953,6 +955,7 @@
     <!-- Main Content -->
     <main class="profile__main" role="tabpanel">
       {#if activeTab === 'evidence'}
+        <EvidenceReviewPanel {artistId} on:reviewed={loadArtist} />
         <!-- Evidence Timeline — Full-width feed -->
         <div class="ev-header">
           <h2 class="ev-title">
@@ -1514,7 +1517,10 @@
             </button>
           </div>
 
-          {#if evidenceResult}
+          {#if evidenceResult?.accepted && evidenceResult.jobId}
+            <EvidenceEvaluationStatus jobId={evidenceResult.jobId} />
+            <button type="button" class="ev-modal__result-close" on:click={closeEvidenceModal}>Close</button>
+          {:else if evidenceResult}
             <div class="ev-modal__result {evidenceResult.verified ? 'ev-modal__result--success' : 'ev-modal__result--fail'}">
               {#if evidenceResult.verified}
                 <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1531,7 +1537,7 @@
                 <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p class="ev-modal__result-text">{evidenceResult.reason || 'Could not verify this URL'}</p>
+                <p class="ev-modal__result-text">{evidenceResult.reason || 'Could not submit this URL'}</p>
               {/if}
               <button type="button" class="ev-modal__result-close" on:click={closeEvidenceModal}>Close</button>
             </div>

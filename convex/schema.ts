@@ -13,6 +13,21 @@ const legacyFields = {
 const blob = v.optional(v.any());
 
 export default defineSchema({
+  evaluationJobs: defineTable({
+    createdAt: v.string(), updatedAt: v.string(), key: v.string(), artistId: v.id("artists"),
+    submittedByUserId: v.optional(v.id("users")), sourceUrl: v.string(),
+    sourceText: v.optional(v.string()), sourceTitle: v.optional(v.string()), sourceHash: v.optional(v.string()), sourceTruncated: v.optional(v.boolean()),
+    origin: v.union(v.literal("user"), v.literal("research")), policyVersion: v.string(), model: v.string(),
+    status: v.union(v.literal("queued"), v.literal("running"), v.literal("retry_wait"), v.literal("needs_review"), v.literal("no_support"), v.literal("failed"), v.literal("approved"), v.literal("rejected")),
+    attempts: v.number(), generation: v.number(), leaseUntil: v.optional(v.number()), nextAttemptAt: v.optional(v.number()),
+    lastError: v.optional(v.string()), decision: v.optional(v.any()),
+    reviewedByUserId: v.optional(v.id("users")), reviewedAt: v.optional(v.string()), reviewReason: v.optional(v.string()), offenseId: v.optional(v.id("artistOffenses")),
+  }).index("by_key", ["key"]).index("by_status", ["status"])
+    .index("by_artistId", ["artistId"]).index("by_submittedByUserId", ["submittedByUserId"]),
+
+  evaluationQuotas: defineTable({ userId: v.id("users"), day: v.string(), attempts: v.number() })
+    .index("by_userId_and_day", ["userId", "day"]),
+
   users: defineTable({
     ...legacyFields,
     ...lifecycleFields,
@@ -67,6 +82,8 @@ export default defineSchema({
     status: v.optional(v.string()),
     lastInvestigatedAt: v.optional(v.string()),
     investigationStatus: v.optional(v.string()),
+    researchGeneration: v.optional(v.number()),
+    researchStartedAt: v.optional(v.number()),
     researchQualityScore: v.optional(v.number()),
     sourcesSearched: v.optional(v.array(v.string())),
     researchIterations: v.optional(v.number()),
@@ -170,7 +187,8 @@ export default defineSchema({
     .index("by_artistId", ["artistId"])
     .index("by_category", ["category"])
     .index("by_status", ["status"])
-    .index("by_artistId_and_category", ["artistId", "category"]),
+    .index("by_artistId_and_category", ["artistId", "category"])
+    .index("by_artistId_and_status", ["artistId", "status"]),
 
   offenseEvidence: defineTable({
     ...legacyFields,

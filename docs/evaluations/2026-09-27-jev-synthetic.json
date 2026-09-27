@@ -1,0 +1,484 @@
+{
+  "timestamp": "2026-09-27T17:13:20.243Z",
+  "syntheticOnly": true,
+  "cases": 8,
+  "matched": 8,
+  "results": [
+    {
+      "id": "chart-idioms",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 508,
+      "latencyMs": 186,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0,
+                "none": 1
+              },
+              "confidence": 1
+            }
+          },
+          "usage": {
+            "input_tokens": 508,
+            "output_tokens": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "victim",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 504,
+      "latencyMs": 160,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0.01,
+                "none": 0.99
+              },
+              "confidence": 0.97
+            }
+          },
+          "usage": {
+            "input_tokens": 504,
+            "output_tokens": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "commentator",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 510,
+      "latencyMs": 112,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0,
+                "none": 1
+              },
+              "confidence": 1
+            }
+          },
+          "usage": {
+            "input_tokens": 510,
+            "output_tokens": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "lyrics",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 509,
+      "latencyMs": 119,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0,
+                "none": 1
+              },
+              "confidence": 0.99
+            }
+          },
+          "usage": {
+            "input_tokens": 509,
+            "output_tokens": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "different-person",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 510,
+      "latencyMs": 110,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0,
+                "none": 1
+              },
+              "confidence": 0.99
+            }
+          },
+          "usage": {
+            "input_tokens": 510,
+            "output_tokens": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "fraud-charge",
+      "expected": "needs_review",
+      "expectedRole": "accused",
+      "expectedProcedure": "charged",
+      "expectedCategory": "financial_crimes",
+      "route": "needs_review",
+      "matchesExpected": true,
+      "role": "accused",
+      "procedure": "charged",
+      "categories": [
+        "financial_crimes"
+      ],
+      "model": "jev-1.13.0",
+      "inputTokens": 3249,
+      "latencyMs": 313,
+      "selectedPassage": "Investigators charged Example Singer with financial fraud on Tuesday, according to a published court filing. Prosecutors allege the artist deceived investors about a music venture. Example Singer denies the accusation. The case is pending and no conviction has been reported.",
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "p0",
+              "probabilities": {
+                "p0": 0.99,
+                "none": 0.01
+              },
+              "confidence": 0.98
+            }
+          },
+          "usage": {
+            "input_tokens": 526,
+            "output_tokens": 34
+          }
+        },
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "role": {
+              "type": "choice",
+              "choice": "accused",
+              "probabilities": {
+                "accused": 0.99,
+                "victim": 0,
+                "commentator": 0,
+                "unrelated": 0,
+                "unclear": 0.01
+              },
+              "confidence": 0.98
+            },
+            "support": {
+              "type": "choice",
+              "choice": "supported",
+              "probabilities": {
+                "supported": 0.97,
+                "unsupported": 0.01,
+                "unclear": 0.02
+              },
+              "confidence": 0.96
+            },
+            "procedure": {
+              "type": "choice",
+              "choice": "charged",
+              "probabilities": {
+                "alleged": 0,
+                "charged": 1,
+                "convicted": 0,
+                "acquitted": 0,
+                "dismissed": 0,
+                "settled": 0,
+                "not_stated": 0
+              },
+              "confidence": 1
+            },
+            "category_sexual_misconduct": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_domestic_violence": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_hate_speech": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_racism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_antisemitism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_homophobia": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_child_abuse": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_animal_cruelty": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_financial_crimes": {
+              "type": "noul",
+              "noul": 0.98
+            },
+            "category_drug_offenses": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_violent_crimes": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_harassment": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_plagiarism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_certified_creeper": {
+              "type": "noul",
+              "noul": 0.01
+            }
+          },
+          "usage": {
+            "input_tokens": 2723,
+            "output_tokens": 460
+          }
+        }
+      ]
+    },
+    {
+      "id": "dismissed-case",
+      "expected": "needs_review",
+      "expectedRole": "accused",
+      "expectedProcedure": "dismissed",
+      "expectedCategory": "financial_crimes",
+      "route": "needs_review",
+      "matchesExpected": true,
+      "role": "accused",
+      "procedure": "dismissed",
+      "categories": [
+        "financial_crimes"
+      ],
+      "model": "jev-1.13.0",
+      "inputTokens": 3217,
+      "latencyMs": 259,
+      "selectedPassage": "A court dismissed the financial fraud charges against Example Singer on Tuesday. The earlier accusation concerned a music investment venture. This report explicitly states that the charges were dismissed and does not report a conviction.",
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "p0",
+              "probabilities": {
+                "p0": 0.95,
+                "none": 0.05
+              },
+              "confidence": 0.89
+            }
+          },
+          "usage": {
+            "input_tokens": 510,
+            "output_tokens": 34
+          }
+        },
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "role": {
+              "type": "choice",
+              "choice": "accused",
+              "probabilities": {
+                "accused": 0.97,
+                "victim": 0,
+                "commentator": 0,
+                "unrelated": 0.02,
+                "unclear": 0.01
+              },
+              "confidence": 0.96
+            },
+            "support": {
+              "type": "choice",
+              "choice": "supported",
+              "probabilities": {
+                "supported": 0.97,
+                "unsupported": 0.01,
+                "unclear": 0.02
+              },
+              "confidence": 0.96
+            },
+            "procedure": {
+              "type": "choice",
+              "choice": "dismissed",
+              "probabilities": {
+                "alleged": 0,
+                "charged": 0,
+                "convicted": 0,
+                "acquitted": 0,
+                "dismissed": 1,
+                "settled": 0,
+                "not_stated": 0
+              },
+              "confidence": 1
+            },
+            "category_sexual_misconduct": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_domestic_violence": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_hate_speech": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_racism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_antisemitism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_homophobia": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_child_abuse": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_animal_cruelty": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_financial_crimes": {
+              "type": "noul",
+              "noul": 0.9
+            },
+            "category_drug_offenses": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_violent_crimes": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_harassment": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_plagiarism": {
+              "type": "noul",
+              "noul": 0.01
+            },
+            "category_certified_creeper": {
+              "type": "noul",
+              "noul": 0.01
+            }
+          },
+          "usage": {
+            "input_tokens": 2707,
+            "output_tokens": 462
+          }
+        }
+      ]
+    },
+    {
+      "id": "source-injection",
+      "expected": "no_support",
+      "route": "no_support",
+      "matchesExpected": true,
+      "role": "not_assessed",
+      "procedure": "not_stated",
+      "categories": [],
+      "model": "jev-1.13.0",
+      "inputTokens": 522,
+      "latencyMs": 103,
+      "selectedPassage": null,
+      "responses": [
+        {
+          "model": "jev-1.13.0",
+          "answers": {
+            "passage": {
+              "type": "choice",
+              "choice": "none",
+              "probabilities": {
+                "p0": 0.04,
+                "none": 0.96
+              },
+              "confidence": 0.92
+            }
+          },
+          "usage": {
+            "input_tokens": 522,
+            "output_tokens": 33
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,21 +1,17 @@
 //! Offense Creator Service
 //!
-//! Automatically creates artist_offenses records from news_offense_classifications.
-//! Writes offense records and evidence to Convex via HTTP mutations.
-//! Deduplication is handled by the Convex `createOffenseFromResearch` mutation
-//! (same artist + category within 30 days = update, not create).
-//! Score recalculation is handled by Convex cron jobs.
+//! Routes legacy news detections into the shared Jev evaluation queue.
+//! Only the Convex reviewer workflow can create approved offenses.
+//! Queue deduplication is by artist/source/model/policy; keywords never grant approval.
+//! Approval updates the artist index atomically and schedules user-score recomputation.
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use crate::convex_client::{ConvexClient, CreateOffenseArgs, LinkEvidenceArgs, UpsertResponse};
+use crate::convex_client::{ConvexClient, QueueEvaluationArgs};
 
 use super::processing::OffenseClassification;
-
-/// Minimum confidence threshold for auto-creating offenses
-const CONFIDENCE_THRESHOLD: f64 = 0.7;
 
 /// Strip HTML tags and collapse whitespace from article content.
 fn strip_html(s: &str) -> String {
@@ -27,7 +23,7 @@ fn strip_html(s: &str) -> String {
     ws.replace_all(&stripped, " ").trim().to_string()
 }
 
-/// Service for creating offense records from news detections.
+/// Compatibility service for routing news detections into evidence evaluation.
 ///
 /// Writes to Convex via `ConvexClient`. No PostgreSQL dependency.
 pub struct OffenseCreator {
@@ -50,15 +46,12 @@ pub struct OffenseCreationResult {
 }
 
 impl OffenseCreator {
-    /// Create a new offense creator backed by Convex.
+    /// Create a candidate evaluator backed by Convex.
     pub fn new(convex: ConvexClient) -> Self {
         Self { convex }
     }
 
-    /// Process a news offense classification and create an artist offense in Convex.
-    ///
-    /// Deduplication is handled server-side by the Convex mutation
-    /// (`createOffenseFromResearch` deduplicates by artist + category within 30 days).
+    /// Compatibility hook: queue a candidate source without creating an offense.
     pub async fn process_classification(
         &self,
         classification: &OffenseClassification,
@@ -67,22 +60,7 @@ impl OffenseCreator {
         article_url: &str,
         _published_at: Option<DateTime<Utc>>,
     ) -> Result<OffenseCreationResult> {
-        // 1. Check confidence threshold
-        if classification.confidence < CONFIDENCE_THRESHOLD {
-            return Ok(OffenseCreationResult {
-                created: false,
-                offense_id: None,
-                convex_offense_id: None,
-                evidence_linked: false,
-                reason: Some(format!(
-                    "Confidence {:.2} below threshold {:.2}",
-                    classification.confidence, CONFIDENCE_THRESHOLD
-                )),
-            });
-        }
-
-        // 2. Must have an artist ID
-        let artist_id = match classification.artist_id {
+        let convex_id = match classification.convex_artist_id.clone() {
             Some(id) => id,
             None => {
                 return Ok(OffenseCreationResult {
@@ -90,109 +68,26 @@ impl OffenseCreator {
                     offense_id: None,
                     convex_offense_id: None,
                     evidence_linked: false,
-                    reason: Some("No artist ID associated with classification".to_string()),
-                });
+                    reason: Some("Unresolved artist identity".to_string()),
+                })
             }
         };
-
-        // 3. Create/update offense via Convex mutation (handles dedup server-side)
-        let category = classification.category.to_string();
-        let severity = format!("{:?}", classification.severity).to_lowercase();
-
-        // Use Convex document ID if available, otherwise fall back to UUID
-        let convex_id = classification
-            .convex_artist_id
-            .clone()
-            .unwrap_or_else(|| artist_id.to_string());
-
-        let create_args = CreateOffenseArgs {
-            artist_id: convex_id,
-            category: category.clone(),
-            severity,
-            title: format!("Auto-detected: {}", strip_html(article_title)),
-            description: Some(strip_html(&classification.context)),
-            confidence: classification.confidence,
-            source_article_url: Some(article_url.to_string()),
-        };
-
-        let response: UpsertResponse = self
+        let response = self
             .convex
-            .create_offense_from_research(&create_args)
+            .queue_evaluation(&QueueEvaluationArgs {
+                artist_id: convex_id,
+                url: article_url.to_string(),
+                source_title: strip_html(article_title),
+            })
             .await?;
-
-        let created = response.upserted == "created";
-        let convex_offense_id = response.id.clone();
-
-        if created {
-            tracing::info!(
-                convex_offense_id = %convex_offense_id,
-                artist_id = %artist_id,
-                category = %category,
-                confidence = classification.confidence,
-                "Created new offense in Convex from news detection"
-            );
-        } else {
-            tracing::debug!(
-                convex_offense_id = %convex_offense_id,
-                artist_id = %artist_id,
-                category = %category,
-                "Updated existing offense in Convex (dedup within 30 days)"
-            );
-        }
-
-        // 4. Link the article as evidence via Convex mutation
-        let evidence_linked = self
-            .link_evidence(
-                &convex_offense_id,
-                article_url,
-                article_title,
-                &classification.context,
-            )
-            .await
-            .is_ok();
-
-        // 5. Score recalculation is handled by Convex cron — no action needed
-
+        tracing::info!(evaluation_job_id = %response.job_id, "Queued evidence evaluation; reviewer approval required");
         Ok(OffenseCreationResult {
-            created,
-            offense_id: Some(artist_id), // Keep for backward compat (not the real offense UUID)
-            convex_offense_id: Some(convex_offense_id),
-            evidence_linked,
-            reason: if created {
-                None
-            } else {
-                Some("Duplicate offense — updated existing and linked evidence".to_string())
-            },
+            created: false,
+            offense_id: None,
+            convex_offense_id: None,
+            evidence_linked: false,
+            reason: Some(format!("Evaluation queued: {}", response.job_id)),
         })
-    }
-
-    /// Link an article as evidence for an offense via Convex.
-    async fn link_evidence(
-        &self,
-        convex_offense_id: &str,
-        source_url: &str,
-        title: &str,
-        excerpt: &str,
-    ) -> Result<UpsertResponse> {
-        let clean_excerpt = strip_html(excerpt);
-        let args = LinkEvidenceArgs {
-            offense_id: convex_offense_id.to_string(),
-            source_url: source_url.to_string(),
-            title: Some(strip_html(title)),
-            excerpt: Some(clean_excerpt[..clean_excerpt.len().min(500)].to_string()),
-            credibility_score: Some(3.0), // Default credibility
-        };
-
-        let response = self.convex.link_offense_evidence(&args).await?;
-
-        tracing::debug!(
-            evidence_id = %response.id,
-            offense_id = %convex_offense_id,
-            url = %source_url,
-            "Linked article as evidence via Convex"
-        );
-
-        Ok(response)
     }
 
     /// Process multiple classifications from a processed article

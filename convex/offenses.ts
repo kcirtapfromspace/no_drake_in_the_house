@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { nowIso, requireCurrentUser } from "./lib/auth";
+import { nowIso, requireCurrentUser, requireOwner } from "./lib/auth";
 
 export const listByArtist = query({
   args: {
@@ -347,12 +347,14 @@ export const verifyOffense = mutation({
     offenseId: v.id("artistOffenses"),
   },
   handler: async (ctx, args) => {
-    const { user } = await requireCurrentUser(ctx);
+    const { user } = await requireOwner(ctx);
     const offense = await ctx.db.get(args.offenseId);
     if (!offense) {
       throw new ConvexError("Offense not found.");
     }
 
+    if (offense.submittedByUserId === user._id) throw new ConvexError("Independent review required.");
+    if (offense.metadata?.evaluationId) throw new ConvexError("Use the evaluation review workflow.");
     const now = nowIso();
 
     // Mark offense as verified

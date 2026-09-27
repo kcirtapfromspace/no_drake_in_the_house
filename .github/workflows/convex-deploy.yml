@@ -8,6 +8,21 @@ on:
       - 'package.json'
       - 'package-lock.json'
   workflow_dispatch:
+    inputs:
+      operation:
+        description: Release operation
+        type: choice
+        options: [deploy, preflight, render_deploy]
+        default: deploy
+      service:
+        description: Render service for an explicit deployment
+        type: choice
+        options: [ndith-news, ndith-backend, ndith-frontend]
+        default: ndith-news
+      image_sha:
+        description: Full commit SHA of the published image
+        type: string
+        required: false
 
 jobs:
   deploy:
@@ -21,13 +36,43 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 20
+        node-version: 22
         cache: npm
 
     - name: Install dependencies
       run: npm ci
 
     - name: Deploy Convex functions
-      run: npx convex deploy
+      if: ${{ github.event_name != 'workflow_dispatch' || inputs.operation == 'deploy' }}
+      run: npx convex deploy --typecheck enable
       env:
         CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+    - name: Confirm live Convex target
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight' }}
+      run: |
+        python3 - <<'PYCODE'
+        import os
+        expected = "https://scrupulous-emu-861.convex.cloud"
+        if os.environ.get("CONVEX_URL", "").rstrip("/") != expected:
+            raise SystemExit("CONVEX_URL does not match the verified live frontend deployment")
+        print("Convex URL matches the verified live target")
+        PYCODE
+        npx convex env list --names-only
+      env:
+        CONVEX_URL: ${{ secrets.CONVEX_URL }}
+        CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+
+    - name: Inspect Render release targets
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight' }}
+      run: python3 scripts/deployment/render-release.py inspect
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+
+    - name: Deploy selected immutable Render image
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'render_deploy' }}
+      run: python3 scripts/deployment/render-release.py deploy --service "$RELEASE_SERVICE" --sha "$RELEASE_SHA"
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RELEASE_SERVICE: ${{ inputs.service }}
+        RELEASE_SHA: ${{ inputs.image_sha }}

@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
-import { mutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { nowIso } from "./lib/auth";
+import { enqueueEvidence } from "./evaluations";
 
 /**
  * Ingestion mutations called by the Rust backend to sync processed
@@ -20,7 +21,7 @@ function resolveArtistId(raw: string | undefined): Id<"artists"> | undefined {
   return raw as Id<"artists">;
 }
 
-export const ingestArticle = mutation({
+export const ingestArticle = internalMutation({
   args: {
     legacyKey: v.string(),
     url: v.string(),
@@ -82,7 +83,7 @@ export const ingestArticle = mutation({
   },
 });
 
-export const ingestEntities = mutation({
+export const ingestEntities = internalMutation({
   args: {
     articleId: v.id("newsArticles"),
     entities: v.array(
@@ -138,11 +139,16 @@ export const ingestEntities = mutation({
       }
     }
 
+    for (const artistId of new Set(args.entities.flatMap(entity => entity.artistId ? [entity.artistId] : []))) {
+      await enqueueEvidence(ctx, { artistId, url: article.url, sourceText: article.content || article.summary,
+        sourceTitle: article.title });
+    }
+
     return { articleId: args.articleId, inserted, updated, total: args.entities.length };
   },
 });
 
-export const ingestClassification = mutation({
+export const ingestClassification = internalMutation({
   args: {
     legacyKey: v.string(),
     articleId: v.id("newsArticles"),
@@ -162,6 +168,8 @@ export const ingestClassification = mutation({
     }
 
     const now = nowIso();
+    if (args.artistId) await enqueueEvidence(ctx, { artistId: args.artistId, url: article.url,
+      sourceText: article.content, sourceTitle: article.title });
 
     // Dedup by legacyKey
     const existing = await ctx.db
@@ -177,8 +185,8 @@ export const ingestClassification = mutation({
         category: args.category,
         severity: args.severity,
         confidence: args.confidence,
-        humanVerified: args.humanVerified,
-        verifiedByUserId: args.verifiedByUserId,
+        humanVerified: false,
+        verifiedByUserId: undefined,
         metadata: args.metadata ?? existing.metadata,
         updatedAt: now,
       });
@@ -193,8 +201,8 @@ export const ingestClassification = mutation({
       category: args.category,
       severity: args.severity,
       confidence: args.confidence,
-      humanVerified: args.humanVerified ?? false,
-      verifiedByUserId: args.verifiedByUserId,
+      humanVerified: false,
+      verifiedByUserId: undefined,
       metadata: args.metadata ?? {},
       createdAt: now,
       updatedAt: now,
@@ -204,7 +212,7 @@ export const ingestClassification = mutation({
   },
 });
 
-export const updateArticleStatus = mutation({
+export const updateArticleStatus = internalMutation({
   args: {
     articleId: v.id("newsArticles"),
     processingStatus: v.string(),
@@ -236,7 +244,7 @@ export const updateArticleStatus = mutation({
   },
 });
 
-export const batchIngestArticles = mutation({
+export const batchIngestArticles = internalMutation({
   args: {
     articles: v.array(
       v.object({
@@ -335,6 +343,16 @@ export const batchIngestArticles = mutation({
         articlesCreated++;
       }
 
+      // Every identified artist is evaluated, even when the keyword classifier found nothing.
+      const candidateIds = new Set([
+        ...(articleData.entities ?? []).map((entity) => resolveArtistId(entity.artistId)),
+        ...(articleData.classifications ?? []).map((classification) => resolveArtistId(classification.artistId)),
+      ].filter((id): id is Id<"artists"> => Boolean(id)));
+      for (const artistId of candidateIds) {
+        await enqueueEvidence(ctx, { artistId, url: articleData.url,
+          sourceText: articleData.content, sourceTitle: articleData.title });
+      }
+
       // Insert entities
       if (articleData.entities) {
         for (const entity of articleData.entities) {
@@ -389,7 +407,7 @@ export const batchIngestArticles = mutation({
               category: cls.category,
               severity: cls.severity,
               confidence: cls.confidence,
-              humanVerified: cls.humanVerified,
+              humanVerified: false,
               metadata: cls.metadata ?? existingCls.metadata,
               updatedAt: now,
             });
@@ -402,7 +420,7 @@ export const batchIngestArticles = mutation({
               category: cls.category,
               severity: cls.severity,
               confidence: cls.confidence,
-              humanVerified: cls.humanVerified ?? false,
+              humanVerified: false,
               metadata: cls.metadata ?? {},
               createdAt: now,
               updatedAt: now,
@@ -427,125 +445,7 @@ export const batchIngestArticles = mutation({
 /*  US-003: Write offense records and evidence to Convex              */
 /* ------------------------------------------------------------------ */
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-export const createOffenseFromResearch = mutation({
-  args: {
-    artistId: v.id("artists"),
-    category: v.string(),
-    severity: v.string(),
-    title: v.string(),
-    description: v.optional(v.string()),
-    confidence: v.number(),
-    sourceArticleUrl: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const artist = await ctx.db.get(args.artistId);
-    if (!artist) {
-      throw new ConvexError("Artist not found.");
-    }
-
-    const now = nowIso();
-    const thirtyDaysAgo = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
-
-    // Dedup: same artist + category within the last 30 days -> update existing
-    const candidates = await ctx.db
-      .query("artistOffenses")
-      .withIndex("by_artistId_and_category", (q) =>
-        q.eq("artistId", args.artistId).eq("category", args.category),
-      )
-      .take(100);
-
-    const recent = candidates.find((o) => o.createdAt >= thirtyDaysAgo);
-
-    if (recent) {
-      await ctx.db.patch(recent._id, {
-        severity: args.severity,
-        title: args.title,
-        description: args.description ?? recent.description,
-        confidence: args.confidence,
-        sourceArticleUrl: args.sourceArticleUrl,
-        updatedAt: now,
-      });
-      return { id: recent._id, upserted: "updated" as const };
-    }
-
-    // Create new offense
-    const legacyKey = `research:offense:${args.artistId}:${args.category}:${Date.now()}`;
-    const id: Id<"artistOffenses"> = await ctx.db.insert("artistOffenses", {
-      legacyKey,
-      artistId: args.artistId,
-      category: args.category,
-      severity: args.severity,
-      title: args.title,
-      description: args.description ?? "",
-      confidence: args.confidence,
-      sourceArticleUrl: args.sourceArticleUrl,
-      metadata: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return { id, upserted: "created" as const };
-  },
-});
-
-export const linkOffenseEvidence = mutation({
-  args: {
-    offenseId: v.id("artistOffenses"),
-    sourceUrl: v.string(),
-    title: v.optional(v.string()),
-    excerpt: v.optional(v.string()),
-    credibilityScore: v.optional(v.number()),
-  },
-  handler: async (ctx, args) => {
-    const offense = await ctx.db.get(args.offenseId);
-    if (!offense) {
-      throw new ConvexError("Offense not found.");
-    }
-
-    const now = nowIso();
-
-    // Dedup by offenseId + sourceUrl
-    const existing = await ctx.db
-      .query("offenseEvidence")
-      .withIndex("by_offenseId_and_url", (q) =>
-        q.eq("offenseId", args.offenseId).eq("url", args.sourceUrl),
-      )
-      .unique();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        title: args.title ?? existing.title,
-        excerpt: args.excerpt ?? existing.excerpt,
-        credibilityScore: args.credibilityScore ?? existing.credibilityScore,
-        updatedAt: now,
-      });
-      return { id: existing._id, upserted: "updated" as const };
-    }
-
-    const legacyKey = `research:evidence:${args.offenseId}:${Date.now()}`;
-    const id: Id<"offenseEvidence"> = await ctx.db.insert("offenseEvidence", {
-      legacyKey,
-      offenseId: args.offenseId,
-      url: args.sourceUrl,
-      title: args.title,
-      excerpt: args.excerpt,
-      credibilityScore: args.credibilityScore,
-      metadata: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return { id, upserted: "created" as const };
-  },
-});
-
-/* ------------------------------------------------------------------ */
-/*  US-004: Write research quality scores to Convex                   */
-/* ------------------------------------------------------------------ */
-
-export const updateArtistResearchQuality = mutation({
+export const updateArtistResearchQuality = internalMutation({
   args: {
     artistId: v.id("artists"),
     qualityScore: v.number(),

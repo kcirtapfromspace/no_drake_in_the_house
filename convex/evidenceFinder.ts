@@ -7,6 +7,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { serviceAuthHeaders } from "./lib/serviceAuth";
+import { researchCoolingDown } from "./researchLifecycle";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -120,7 +121,6 @@ export const _resolveOrCreateArtist = internalMutation({
       (a) => a.canonicalName.toLowerCase() === args.name.toLowerCase(),
     );
     if (exact) return exact._id;
-    if (matches.length > 0) return matches[0]._id;
 
     // Create a new artist record
     const now = new Date().toISOString();
@@ -184,7 +184,7 @@ export const _filterArtistsNeedingInvestigation = internalQuery({
 
     for (const id of args.artistIds) {
       const artist = await ctx.db.get(id as Id<"artists">);
-      if (!artist) continue;
+      if (!artist || researchCoolingDown(artist)) continue;
 
       if (!artist.lastInvestigatedAt) {
         neverInvestigated.push(id);
@@ -196,30 +196,6 @@ export const _filterArtistsNeedingInvestigation = internalQuery({
 
     // Priority: never investigated first, then stale
     return [...neverInvestigated, ...stale];
-  },
-});
-
-/**
- * Mark an artist as investigated.
- */
-export const _markArtistInvestigated = internalMutation({
-  args: {
-    artistId: v.id("artists"),
-    status: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const now = new Date().toISOString();
-    const patch: Record<string, string> = {
-      investigationStatus: args.status,
-      updatedAt: now,
-    };
-    // Only stamp lastInvestigatedAt on terminal statuses, NOT "in_progress".
-    // Setting it early prevents retries from re-investigating failed artists
-    // because _filterArtistsNeedingInvestigation skips recently-stamped ones.
-    if (args.status !== "in_progress") {
-      patch.lastInvestigatedAt = now;
-    }
-    await ctx.db.patch(args.artistId, patch);
   },
 });
 
@@ -375,11 +351,11 @@ export const investigateLibraryArtists = internalAction({
               continue;
             }
 
-            // Mark as in_progress
-            await ctx.runMutation(
-              internal.evidenceFinder._markArtistInvestigated,
-              { artistId, status: "in_progress" },
+            // Claim this acquisition attempt; the completion callback owns freshness.
+            const generation: number | null = await ctx.runMutation(
+              internal.researchLifecycle.start, { artistId },
             );
+            if (generation === null) { checkpoint.skipped++; continue; }
 
             try {
               // Call the Rust backend research endpoint with artist name + Convex ID
@@ -390,8 +366,10 @@ export const investigateLibraryArtists = internalAction({
                 body: JSON.stringify({
                   artist_name: artistInfo.canonicalName,
                   artist_id: artistId,
+                  research_generation: generation,
                 }),
-                redirect: "follow",
+                redirect: "error",
+                signal: AbortSignal.timeout(30_000),
               });
 
               if (response.ok) {
@@ -401,8 +379,8 @@ export const investigateLibraryArtists = internalAction({
                   result.offenses_detected ?? result.total_offenses_detected ?? 0;
 
                 await ctx.runMutation(
-                  internal.evidenceFinder._markArtistInvestigated,
-                  { artistId, status: "completed" },
+                  internal.researchLifecycle.queued,
+                  { artistId, generation },
                 );
               } else {
                 const body = await response.text().catch(() => "");
@@ -411,8 +389,8 @@ export const investigateLibraryArtists = internalAction({
                 );
                 checkpoint.failed++;
                 await ctx.runMutation(
-                  internal.evidenceFinder._markArtistInvestigated,
-                  { artistId, status: "failed" },
+                  internal.researchLifecycle.complete,
+                  { artistId, generation, success: false },
                 );
               }
             } catch (err: any) {
@@ -421,8 +399,8 @@ export const investigateLibraryArtists = internalAction({
               );
               checkpoint.failed++;
               await ctx.runMutation(
-                internal.evidenceFinder._markArtistInvestigated,
-                { artistId, status: "failed" },
+                internal.researchLifecycle.complete,
+                { artistId, generation, success: false },
               );
             }
 
@@ -550,6 +528,7 @@ export const _getArtistsByInvestigationAge = internalQuery({
       .order("asc")) {
       // Skip recently investigated artists
       if (a.lastInvestigatedAt && a.lastInvestigatedAt >= cutoff) break;
+      if (researchCoolingDown(a)) continue;
 
       candidates.push({
         artistId: a._id,
@@ -622,10 +601,10 @@ export const cycleArtistInventory = internalAction({
           return;
         }
 
-        await ctx.runMutation(
-          internal.evidenceFinder._markArtistInvestigated,
-          { artistId, status: "in_progress" },
+        const generation: number | null = await ctx.runMutation(
+          internal.researchLifecycle.start, { artistId },
         );
+        if (generation === null) { skipped++; continue; }
 
         if (backendUrl) {
           try {
@@ -637,8 +616,10 @@ export const cycleArtistInventory = internalAction({
               body: JSON.stringify({
                 artist_name: canonicalName,
                 artist_id: artistId,
+                  research_generation: generation,
               }),
-              redirect: "follow",
+              redirect: "error",
+                signal: AbortSignal.timeout(30_000),
             });
 
             if (response.ok) {
@@ -647,8 +628,8 @@ export const cycleArtistInventory = internalAction({
               offensesFound +=
                 result.offenses_detected ?? result.total_offenses_detected ?? 0;
               await ctx.runMutation(
-                internal.evidenceFinder._markArtistInvestigated,
-                { artistId, status: "completed" },
+                internal.researchLifecycle.queued,
+                { artistId, generation },
               );
             } else {
               const body = await response.text().catch(() => "");
@@ -657,8 +638,8 @@ export const cycleArtistInventory = internalAction({
               );
               failed++;
               await ctx.runMutation(
-                internal.evidenceFinder._markArtistInvestigated,
-                { artistId, status: "failed" },
+                internal.researchLifecycle.complete,
+                { artistId, generation, success: false },
               );
             }
           } catch (err: any) {
@@ -667,18 +648,18 @@ export const cycleArtistInventory = internalAction({
             );
             failed++;
             await ctx.runMutation(
-              internal.evidenceFinder._markArtistInvestigated,
-              { artistId, status: "failed" },
+              internal.researchLifecycle.complete,
+              { artistId, generation, success: false },
             );
           }
 
           // Small delay between research calls
           await new Promise((r) => setTimeout(r, INTER_ARTIST_DELAY_MS));
         } else {
-          // No backend URL — mark as investigated so we cycle past this artist
+          // Missing backend is a failed acquisition, never a successful investigation.
           await ctx.runMutation(
-            internal.evidenceFinder._markArtistInvestigated,
-            { artistId, status: "no_backend" },
+            internal.researchLifecycle.complete,
+            { artistId, generation, success: false },
           );
           skipped++;
         }

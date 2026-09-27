@@ -11,6 +11,11 @@ on:
       - scripts/publish-render-backend-image.sh
   workflow_dispatch:
     inputs:
+      service:
+        description: Service image to publish
+        type: choice
+        options: [all, ndith-backend, ndith-news, ndith-analytics, ndith-graph]
+        default: all
       deploy_to_render:
         description: Trigger the Render deploy hook after publishing
         required: false
@@ -73,9 +78,20 @@ jobs:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
 
     steps:
+      - name: Select requested service
+        id: selected
+        env:
+          REQUESTED_SERVICE: ${{ inputs.service || 'all' }}
+          MATRIX_SERVICE: ${{ matrix.service.render_service_name }}
+        run: |
+          if [ "$REQUESTED_SERVICE" = all ] || [ "$REQUESTED_SERVICE" = "$MATRIX_SERVICE" ]; then
+            echo 'enabled=true' >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
+        if: steps.selected.outputs.enabled == 'true'
 
       - name: Free disk space for Rust native builds
+        if: steps.selected.outputs.enabled == 'true'
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
@@ -85,9 +101,11 @@ jobs:
           df -h
 
       - name: Set up Docker Buildx
+        if: steps.selected.outputs.enabled == 'true'
         uses: docker/setup-buildx-action@v3
 
       - name: Derive build variables
+        if: steps.selected.outputs.enabled == 'true'
         id: vars
         shell: bash
         run: |
@@ -102,6 +120,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
+        if: steps.selected.outputs.enabled == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -109,6 +128,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push backend image
+        if: steps.selected.outputs.enabled == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./backend
@@ -128,7 +148,7 @@ jobs:
 
       - name: Deploy to Render
         id: render_deploy
-        if: ${{ matrix.service.use_deploy_hook && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
+        if: ${{ steps.selected.outputs.enabled == 'true' && matrix.service.use_deploy_hook && env.RENDER_DEPLOY_HOOK_URL != '' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name != 'workflow_dispatch' || github.event.inputs.deploy_to_render != 'false') }}
         shell: bash
         env:
           IMG_TAG: ${{ matrix.service.sha_tag_prefix }}${{ steps.vars.outputs.short_sha }}
@@ -138,6 +158,7 @@ jobs:
           echo "Render deploy triggered."
 
       - name: Summarize published tags
+        if: steps.selected.outputs.enabled == 'true'
         run: |
           echo "Published ${{ matrix.service.label }} image tags:"
           echo "${{ steps.vars.outputs.tags }}"

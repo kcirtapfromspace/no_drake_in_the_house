@@ -1,7 +1,9 @@
 import { v } from "convex/values";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { normalizedSeverity } from "./lib/evaluationPolicy";
+import { enqueueEvidence } from "./evaluations";
 
 const severityWeight: Record<string, number> = {
   minor: 1,
@@ -30,66 +32,43 @@ function computeGrade(offenderRatio: number): string {
   return "A+";
 }
 
-/**
- * Rebuild the offendingArtistIndex from all verified/active artistOffenses.
- * Idempotent — deletes stale rows and upserts current ones.
- */
+/** Update one artist atomically with a review. Only explicitly approved records qualify. */
+export async function refreshArtistIndex(ctx: MutationCtx, artistId: Id<"artists">) {
+  let offenseCount = 0;
+  let highest = "minor";
+  let severityTotal = 0;
+  const categories = new Set<string>();
+  for await (const offense of ctx.db.query("artistOffenses").withIndex("by_artistId_and_status", q => q.eq("artistId", artistId).eq("status", "verified"))) {
+    const severity = normalizedSeverity(offense.severity);
+    offenseCount++;
+    highest = highestSeverity(highest, severity);
+    severityTotal += severityWeight[severity];
+    categories.add(offense.category);
+  }
+  const existing = await ctx.db.query("offendingArtistIndex").withIndex("by_artistId", q => q.eq("artistId", artistId)).unique();
+  if (!offenseCount) {
+    if (existing) await ctx.db.delete(existing._id);
+    return;
+  }
+  const now = new Date().toISOString();
+  const values = { offenseCount, highestSeverity: highest, severityTotal, categories: [...categories], updatedAt: now };
+  if (existing) await ctx.db.patch(existing._id, values);
+  else await ctx.db.insert("offendingArtistIndex", { ...values, artistId, legacyKey: `offense_idx:${artistId}`, createdAt: now });
+}
+
+export const rebuildArtistIndex = internalMutation({
+  args: { artistId: v.id("artists") },
+  handler: async (ctx, args) => { await refreshArtistIndex(ctx, args.artistId); },
+});
+
+/** Paginated scheduling avoids silently dropping artists after a fixed scan limit. */
 export const rebuildOffendingArtistIndex = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    // Load offenses (bounded to avoid read limits)
-    const allOffenses = await ctx.db.query("artistOffenses").take(2000);
-
-    // Group by artist
-    const byArtist = new Map<
-      string,
-      { offenseCount: number; highest: string; severityTotal: number; categories: Set<string> }
-    >();
-
-    for (const offense of allOffenses) {
-      const aid = offense.artistId as string;
-      const existing = byArtist.get(aid);
-      const weight = severityWeight[offense.severity] ?? 2;
-
-      if (existing) {
-        existing.offenseCount++;
-        existing.highest = highestSeverity(existing.highest, offense.severity);
-        existing.severityTotal += weight;
-        existing.categories.add(offense.category);
-      } else {
-        byArtist.set(aid, {
-          offenseCount: 1,
-          highest: offense.severity,
-          severityTotal: weight,
-          categories: new Set([offense.category]),
-        });
-      }
-    }
-
-    // Delete all existing index rows
-    const existingRows = await ctx.db.query("offendingArtistIndex").take(2000);
-    for (const row of existingRows) {
-      await ctx.db.delete(row._id);
-    }
-
-    // Insert fresh rows
-    const now = new Date().toISOString();
-    let inserted = 0;
-    for (const [artistId, data] of byArtist) {
-      await ctx.db.insert("offendingArtistIndex", {
-        legacyKey: `offense_idx:${artistId}`,
-        createdAt: now,
-        updatedAt: now,
-        artistId: artistId as Id<"artists">,
-        offenseCount: data.offenseCount,
-        highestSeverity: data.highest,
-        severityTotal: data.severityTotal,
-        categories: [...data.categories],
-      });
-      inserted++;
-    }
-
-    return { indexed: inserted };
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("artists").paginate({ cursor: args.cursor ?? null, numItems: 25 });
+    for (const artist of page.page) await ctx.scheduler.runAfter(0, internal.offensePipeline.rebuildArtistIndex, { artistId: artist._id });
+    if (!page.isDone) await ctx.scheduler.runAfter(1000, internal.offensePipeline.rebuildOffendingArtistIndex, { cursor: page.continueCursor });
+    return { scheduled: page.page.length, isDone: page.isDone };
   },
 });
 
@@ -361,110 +340,21 @@ export const _getTracksByArtist = internalQuery({
  * nothing was converting them into the artistOffenses table that drives
  * all block list counts and the offendingArtistIndex.
  */
+/** Legacy classifications are candidates for Jev, never automatically promoted offenses. */
 export const promoteClassifications = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const CONFIDENCE_THRESHOLD = 0.7;
-    const now = new Date().toISOString();
-
-    // Load classifications (bounded to avoid read limits)
-    const allClassifications = await ctx.db
-      .query("newsOffenseClassifications")
-      .take(2000);
-
-    const eligible = allClassifications.filter(
-      (c) =>
-        c.artistId &&
-        ((c.confidence ?? 0) >= CONFIDENCE_THRESHOLD || c.humanVerified === true),
-    );
-
-    // Load existing artistOffenses for dedup
-    const existingOffenses = await ctx.db.query("artistOffenses").take(2000);
-    const offenseKeys = new Set(
-      existingOffenses.map((o) => `${o.artistId}:${o.category}`),
-    );
-
-    let promoted = 0;
-    let skipped = 0;
-
-    for (const cls of eligible) {
-      const dedupKey = `${cls.artistId}:${cls.category}`;
-      if (offenseKeys.has(dedupKey)) {
-        skipped++;
-        continue;
-      }
-
-      // Fetch article for title/description
-      const article = await ctx.db.get(cls.articleId);
-      const title = article?.title ?? `${cls.category} offense`;
-      const description =
-        article?.summary ??
-        article?.content?.slice(0, 500) ??
-        `Auto-detected from news classification.`;
-
-      // Create the artistOffenses record
-      const offenseId = await ctx.db.insert("artistOffenses", {
-        legacyKey: `auto:offense:${cls.artistId}:${cls.category}:${Date.now()}`,
-        createdAt: now,
-        updatedAt: now,
-        artistId: cls.artistId! as Id<"artists">,
-        category: cls.category,
-        severity: cls.severity,
-        title,
-        description,
-        incidentDate: article?.publishedAt,
-        incidentDateApproximate: true,
-        status: "auto_detected",
-        proceduralState: undefined,
-        arrested: false,
-        charged: false,
-        convicted: false,
-        settled: false,
-        verifiedAt: cls.humanVerified ? now : undefined,
-        verifiedByUserId: cls.verifiedByUserId,
-        submittedByUserId: undefined,
-        metadata: {
-          sourceClassificationId: cls._id,
-          confidence: cls.confidence,
-          autoPromoted: true,
-        },
-      });
-
-      // Link article as evidence
-      if (article) {
-        await ctx.db.insert("offenseEvidence", {
-          legacyKey: `auto:evidence:${offenseId}:${cls.articleId}`,
-          createdAt: now,
-          updatedAt: now,
-          offenseId,
-          url: article.url,
-          sourceName: undefined,
-          sourceType: "news_article",
-          title: article.title,
-          excerpt: article.summary ?? article.content?.slice(0, 300),
-          publishedDate: article.publishedAt,
-          archivedUrl: undefined,
-          isPrimarySource: true,
-          credibilityScore: cls.confidence,
-          submittedByUserId: undefined,
-          metadata: {},
-        });
-      }
-
-      offenseKeys.add(dedupKey);
-      promoted++;
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db.query("newsOffenseClassifications").paginate({ cursor: args.cursor ?? null, numItems: 25 });
+    let queued = 0;
+    for (const candidate of page.page) {
+      if (!candidate.artistId) continue;
+      const article = await ctx.db.get(candidate.articleId);
+      if (!article) continue;
+      await enqueueEvidence(ctx, { artistId: candidate.artistId, url: article.url, sourceText: article.content, sourceTitle: article.title });
+      queued++;
     }
-
-    // If we promoted anything, rebuild the index
-    if (promoted > 0) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.offensePipeline.rebuildOffendingArtistIndex,
-        {},
-      );
-    }
-
-    return { promoted, skipped, totalEligible: eligible.length };
+    if (!page.isDone) await ctx.scheduler.runAfter(1000, internal.offensePipeline.promoteClassifications, { cursor: page.continueCursor });
+    return { queued, promoted: 0, isDone: page.isDone };
   },
 });
 

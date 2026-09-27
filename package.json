@@ -8,16 +8,22 @@
     "convex:deploy": "convex deploy",
     "migrate:convex": "tsx scripts/convex/migrate-postgres-to-convex.ts",
     "probe:oauth": "tsx scripts/oauth-probes/run.ts",
-    "lint": "npm run lint --prefix frontend"
+    "lint": "npm run lint --prefix frontend",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config convex/vitest.config.ts",
+    "eval:jev": "tsx scripts/evaluation/run-jev.ts"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.15.5",
-    "convex": "^1.34.1",
+    "convex": "^1.46.0",
+    "convex-test": "^0.0.60",
     "dotenv": "^16.5.0",
     "pg": "^8.16.3",
     "tsx": "^4.20.6",
-    "typescript": "5.9"
+    "typescript": "5.9",
+    "vitest": "^5.0.2"
   },
   "dependencies": {
     "jose": "^6.2.2",

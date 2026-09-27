@@ -1,18 +1,16 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type QueryCtx, type MutationCtx } from "./_generated/server";
 import { buildSerializedBloomFilter } from "./lib/bloom";
 import { nowIso } from "./lib/auth";
 
-async function buildArtistPayload(ctx: any) {
-  const [artists, offenses, blocks] = await Promise.all([
+async function buildArtistPayload(ctx: QueryCtx | MutationCtx) {
+  const [artists, offenses] = await Promise.all([
     ctx.db.query("artists").collect(),
-    ctx.db.query("artistOffenses").collect(),
-    ctx.db.query("userArtistBlocks").collect(),
+    ctx.db.query("artistOffenses").withIndex("by_status", q => q.eq("status", "verified")).collect(),
   ]);
 
   const includedArtistIds = new Set<string>();
   offenses.forEach((offense: any) => includedArtistIds.add(offense.artistId));
-  blocks.forEach((block: any) => includedArtistIds.add(block.artistId));
 
   return artists
     .filter((artist: any) => includedArtistIds.has(artist._id))

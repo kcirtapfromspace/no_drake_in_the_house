@@ -11,12 +11,13 @@ const _computeGrade = query({
     playlistId: v.string(),
   },
   handler: async (ctx, args) => {
-    const allOffenses = await ctx.db.query("artistOffenses").collect();
+    const allOffenses = await ctx.db.query("artistOffenses").withIndex("by_status", q => q.eq("status", "verified")).collect();
     const offendingArtistIds = new Set(
       allOffenses.map((o) => o.artistId as string),
     );
 
-    const allTracks = await ctx.db.query("userLibraryTracks").collect();
+    const { user } = await requireCurrentUser(ctx);
+    const allTracks = await ctx.db.query("userLibraryTracks").withIndex("by_user_provider", q => q.eq("userId", user._id).eq("provider", args.provider)).collect();
     const tracks = allTracks.filter(
       (t) =>
         t.provider === args.provider && t.playlistName === args.playlistId,
@@ -432,7 +433,7 @@ export const _getPlaylistAnalysis = query({
     const { user } = await requireCurrentUser(ctx);
 
     // Get all offending artist IDs
-    const allOffenses = await ctx.db.query("artistOffenses").collect();
+    const allOffenses = await ctx.db.query("artistOffenses").withIndex("by_status", q => q.eq("status", "verified")).collect();
     const offendingArtistIds = new Set(
       allOffenses.map((o) => o.artistId as string),
     );

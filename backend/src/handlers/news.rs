@@ -1041,6 +1041,8 @@ pub struct TriggerResearchRequest {
     pub artist_name: String,
     /// Convex artist document ID (passed from evidenceFinder for quality score writes)
     pub artist_id: Option<String>,
+    /// Fences the acquisition completion callback against expired or newer attempts.
+    pub research_generation: Option<u64>,
 }
 
 /// Manually trigger research for a specific artist (legacy UUID-path version).
@@ -1143,6 +1145,7 @@ pub async fn trigger_research_handler(
     let db_pool = state.db_pool.clone();
     let name_for_task = artist_name.clone();
     let convex_artist_id = body.artist_id.clone();
+    let research_generation = body.research_generation;
 
     // Get the news pipeline from state for article processing + Convex writes
     #[cfg(feature = "news")]
@@ -1165,7 +1168,7 @@ pub async fn trigger_research_handler(
 
         let mut researcher = ArtistResearcher::new(
             db_pool,
-            convex,
+            convex.clone(),
             ArtistResearcherConfig {
                 target_quality: 50.0,
                 ..Default::default()
@@ -1184,7 +1187,7 @@ pub async fn trigger_research_handler(
             researcher = researcher.with_news_pipeline(pipeline);
         }
 
-        match researcher
+        let succeeded = match researcher
             .research_artist(artist_id, &name_for_task, convex_artist_id.as_deref())
             .await
         {
@@ -1196,6 +1199,7 @@ pub async fn trigger_research_handler(
                     quality = result.final_quality_score,
                     "Background research completed"
                 );
+                true
             }
             Err(e) => {
                 tracing::error!(
@@ -1203,6 +1207,17 @@ pub async fn trigger_research_handler(
                     error = %e,
                     "Background research failed"
                 );
+                false
+            }
+        };
+        if let (Some(artist_id), Some(generation)) =
+            (convex_artist_id.as_deref(), research_generation)
+        {
+            if let Err(error) = convex
+                .complete_research(artist_id, generation, succeeded)
+                .await
+            {
+                tracing::error!(error = %error, "Research completion callback failed; acquisition lease will expire");
             }
         }
     });

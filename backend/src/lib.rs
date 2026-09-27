@@ -26,12 +26,10 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 
-#[cfg(not(feature = "news"))]
-use axum::routing::any;
 #[cfg(any(feature = "analytics", feature = "news"))]
 use axum::routing::post;
-#[cfg(not(feature = "news"))]
-use axum::{http::StatusCode, response::IntoResponse};
+#[cfg(any(not(feature = "news"), not(feature = "analytics")))]
+use axum::{http::StatusCode, routing::any};
 
 // ---- Root-local modules (handlers, middleware, metrics, monitoring stay here) ----
 pub mod backfill_orchestrator;
@@ -1049,13 +1047,13 @@ fn add_news_routes(router: Router<AppState>) -> Router<AppState> {
         .route("/news/*path", any(full_platform_unavailable))
 }
 
-#[cfg(not(feature = "news"))]
-async fn full_platform_unavailable() -> impl IntoResponse {
+#[cfg(any(not(feature = "news"), not(feature = "analytics")))]
+async fn full_platform_unavailable() -> impl axum::response::IntoResponse {
     (
         StatusCode::SERVICE_UNAVAILABLE,
         Json(serde_json::json!({
             "error": "full_platform_unavailable",
-            "message": "This Render API build does not include graph, analytics, or news services."
+            "message": "This service build does not include the requested optional feature."
         })),
     )
 }
@@ -1131,7 +1129,9 @@ async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> Result<St
 }
 
 #[cfg(not(feature = "full-platform"))]
-async fn prometheus_metrics_endpoint(State(state): State<AppState>) -> impl IntoResponse {
+async fn prometheus_metrics_endpoint(
+    State(state): State<AppState>,
+) -> impl axum::response::IntoResponse {
     metrics_endpoint(State(state)).await
 }
 

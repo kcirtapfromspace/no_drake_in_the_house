@@ -5,7 +5,7 @@
 //! offense records, and research quality scores directly into Convex.
 //!
 //! The client reads `CONVEX_URL` from the environment and calls the public
-//! Convex HTTP API (`POST /api/mutation`). Retries transient failures up to
+//! authenticated HTTP ingress (`POST /research/ingest`). Retries transient failures up to
 //! 3 times with exponential backoff.
 
 use anyhow::{Context, Result};
@@ -163,35 +163,6 @@ pub struct IngestClassificationArgs {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Arguments for `newsIngestion:createOffenseFromResearch`.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateOffenseArgs {
-    pub artist_id: String,
-    pub category: String,
-    pub severity: String,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    pub confidence: f64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_article_url: Option<String>,
-}
-
-/// Arguments for `newsIngestion:linkOffenseEvidence`.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkEvidenceArgs {
-    pub offense_id: String,
-    pub source_url: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub excerpt: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub credibility_score: Option<f64>,
-}
-
 /// Arguments for `newsIngestion:updateArtistResearchQuality`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -200,6 +171,20 @@ pub struct UpdateResearchQualityArgs {
     pub quality_score: f64,
     pub sources_searched: Vec<String>,
     pub research_iterations: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueEvaluationArgs {
+    pub artist_id: String,
+    pub url: String,
+    pub source_title: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueuedEvaluationResponse {
+    pub job_id: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -250,13 +235,15 @@ pub struct UpdatedResponse {
 /// This struct is `Clone + Send + Sync` and safe to share across async tasks.
 #[derive(Clone)]
 pub struct ConvexClient {
-    /// The base URL of the Convex deployment (e.g. `https://scrupulous-emu-861.convex.cloud`).
+    /// The base URL of the Convex deployment (e.g. `https://example.convex.site`).
     base_url: String,
     /// Reusable reqwest HTTP client.
     http: Client,
+    /// Shared ingress credential; never logged or sent to a public mutation.
+    service_key: String,
 }
 
-/// The request body sent to `POST /api/mutation`.
+/// The request body sent to the authenticated `POST /research/ingest` route.
 #[derive(Serialize)]
 struct MutationRequest<'a> {
     path: &'a str,
@@ -269,19 +256,56 @@ impl ConvexClient {
     /// Returns an error if the variable is not set.
     pub fn from_env() -> Result<Self> {
         let url = std::env::var("CONVEX_URL").context("CONVEX_URL environment variable not set")?;
-        Ok(Self::new(url))
+        let key = std::env::var("NDITH_SERVICE_KEY")
+            .context("NDITH_SERVICE_KEY is required for research ingress")?;
+        anyhow::ensure!(!key.is_empty(), "NDITH_SERVICE_KEY must not be empty");
+        let mut client = Self::new(std::env::var("CONVEX_SITE_URL").unwrap_or(url));
+        client.service_key = key;
+        Ok(client)
     }
 
     /// Create a new client with an explicit deployment URL.
     pub fn new(base_url: String) -> Self {
-        let base_url = base_url.trim_end_matches('/').to_string();
+        let base_url = base_url
+            .trim_end_matches('/')
+            .replace(".convex.cloud", ".convex.site");
 
         let http = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .build()
             .expect("Failed to build HTTP client");
 
-        Self { base_url, http }
+        Self {
+            base_url,
+            http,
+            service_key: std::env::var("NDITH_SERVICE_KEY").unwrap_or_default(),
+        }
+    }
+
+    pub async fn queue_evaluation(
+        &self,
+        args: &QueueEvaluationArgs,
+    ) -> Result<QueuedEvaluationResponse> {
+        self.call_mutation("evaluations:enqueueResearch", args)
+            .await
+    }
+
+    /// Report completion of acquisition; never approves an evaluation or offense.
+    pub async fn complete_research(
+        &self,
+        artist_id: &str,
+        generation: u64,
+        success: bool,
+    ) -> Result<()> {
+        let _: serde_json::Value = self
+            .call_mutation(
+                "researchLifecycle:complete",
+                &serde_json::json!({
+                    "artistId": artist_id, "generation": generation, "success": success
+                }),
+            )
+            .await?;
+        Ok(())
     }
 
     // -------------------------------------------------------------------
@@ -306,7 +330,11 @@ impl ConvexClient {
             args: args_value,
         };
 
-        let url = format!("{}/api/mutation", self.base_url);
+        anyhow::ensure!(
+            !self.service_key.is_empty(),
+            "NDITH_SERVICE_KEY is required for research ingress"
+        );
+        let url = format!("{}/research/ingest", self.base_url);
         let mut last_err: Option<anyhow::Error> = None;
 
         for attempt in 0..=MAX_RETRIES {
@@ -325,6 +353,7 @@ impl ConvexClient {
                 .http
                 .post(&url)
                 .header("Content-Type", "application/json")
+                .bearer_auth(&self.service_key)
                 .json(&body)
                 .send()
                 .await
@@ -452,27 +481,6 @@ impl ConvexClient {
             .await
     }
 
-    /// Create an offense from research results.
-    ///
-    /// Calls `newsIngestion:createOffenseFromResearch`. Deduplicates by
-    /// artist + category within 30 days.
-    pub async fn create_offense_from_research(
-        &self,
-        args: &CreateOffenseArgs,
-    ) -> Result<UpsertResponse> {
-        self.call_mutation("newsIngestion:createOffenseFromResearch", args)
-            .await
-    }
-
-    /// Link evidence to an existing offense.
-    ///
-    /// Calls `newsIngestion:linkOffenseEvidence`. Deduplicates by
-    /// offense ID + source URL.
-    pub async fn link_offense_evidence(&self, args: &LinkEvidenceArgs) -> Result<UpsertResponse> {
-        self.call_mutation("newsIngestion:linkOffenseEvidence", args)
-            .await
-    }
-
     /// Update research quality score for an artist.
     ///
     /// Calls `newsIngestion:updateArtistResearchQuality`.
@@ -502,13 +510,13 @@ mod tests {
     #[test]
     fn test_new_trims_trailing_slash() {
         let client = ConvexClient::new("https://example.convex.cloud/".to_string());
-        assert_eq!(client.base_url, "https://example.convex.cloud");
+        assert_eq!(client.base_url, "https://example.convex.site");
     }
 
     #[test]
     fn test_new_no_trailing_slash() {
         let client = ConvexClient::new("https://example.convex.cloud".to_string());
-        assert_eq!(client.base_url, "https://example.convex.cloud");
+        assert_eq!(client.base_url, "https://example.convex.site");
     }
 
     #[test]
@@ -624,40 +632,6 @@ mod tests {
         assert_eq!(resp.entities_inserted, 5);
         assert_eq!(resp.classifications_inserted, 2);
         assert_eq!(resp.total_articles, 4);
-    }
-
-    #[test]
-    fn test_create_offense_args_serialization() {
-        let args = CreateOffenseArgs {
-            artist_id: "artist_123".to_string(),
-            category: "domestic_violence".to_string(),
-            severity: "high".to_string(),
-            title: "Arrested for assault".to_string(),
-            description: Some("Details here".to_string()),
-            confidence: 0.85,
-            source_article_url: Some("https://example.com/article".to_string()),
-        };
-        let json = serde_json::to_value(&args).unwrap();
-        assert_eq!(json["artistId"], "artist_123");
-        assert_eq!(json["category"], "domestic_violence");
-        assert_eq!(json["confidence"], 0.85);
-        assert_eq!(json["sourceArticleUrl"], "https://example.com/article");
-    }
-
-    #[test]
-    fn test_link_evidence_args_serialization() {
-        let args = LinkEvidenceArgs {
-            offense_id: "offense_456".to_string(),
-            source_url: "https://news.example.com".to_string(),
-            title: Some("Breaking News".to_string()),
-            excerpt: None,
-            credibility_score: Some(0.9),
-        };
-        let json = serde_json::to_value(&args).unwrap();
-        assert_eq!(json["offenseId"], "offense_456");
-        assert_eq!(json["sourceUrl"], "https://news.example.com");
-        assert_eq!(json["credibilityScore"], 0.9);
-        assert!(json.get("excerpt").is_none());
     }
 
     #[test]

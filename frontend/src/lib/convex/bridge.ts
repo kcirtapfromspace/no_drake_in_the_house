@@ -371,6 +371,23 @@ export async function maybeHandleConvexRoute<T = unknown>(
       return ok(result) as BridgedApiResponse<T>;
     }
 
+    const evaluationMatch = matchPath(pathname, /^\/api\/v1\/evaluations\/([^/]+)$/);
+    if (method === 'GET' && evaluationMatch) {
+      return ok(await convexQuery(anyApi.evaluations.get, { jobId: parseId(evaluationMatch[1]) })) as BridgedApiResponse<T>;
+    }
+    const artistEvaluations = matchPath(pathname, /^\/api\/v1\/artists\/([^/]+)\/evaluations$/);
+    if (method === 'GET' && artistEvaluations) {
+      return ok(await convexQuery(anyApi.evaluations.listForArtist, { artistId: parseId(artistEvaluations[1]) })) as BridgedApiResponse<T>;
+    }
+    const reviewMatch = matchPath(pathname, /^\/api\/v1\/evaluations\/([^/]+)\/(review|retry)$/);
+    if (method === 'POST' && reviewMatch) {
+      const jobId = parseId(reviewMatch[1]);
+      const result = reviewMatch[2] === 'retry'
+        ? await convexMutation(anyApi.evaluations.retry, { jobId })
+        : await convexMutation(anyApi.evaluations.review, { jobId, approve: data?.approve, reason: data?.reason, category: data?.category, severity: data?.severity, proceduralState: data?.proceduralState, excerpt: data?.excerpt });
+      return ok(result) as BridgedApiResponse<T>;
+    }
+
     const offenseByIdMatch = matchPath(pathname, /^\/api\/v1\/offenses\/([^/]+)$/);
     if (offenseByIdMatch && method === 'GET') {
       const offenseId = parseId(offenseByIdMatch[1]);

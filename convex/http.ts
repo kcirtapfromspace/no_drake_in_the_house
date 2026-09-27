@@ -1,8 +1,11 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
+import { ingest } from "./researchIngress";
 
 const http = httpRouter();
+
+http.route({ path: "/research/ingest", method: "POST", handler: ingest });
 
 http.route({
   path: "/extension/signed-update",

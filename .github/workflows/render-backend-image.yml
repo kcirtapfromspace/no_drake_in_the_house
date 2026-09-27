@@ -11,6 +11,11 @@ on:
       - scripts/publish-render-backend-image.sh
   workflow_dispatch:
     inputs:
+      platform:
+        description: Target container architecture
+        type: choice
+        options: [linux/amd64, linux/arm64]
+        default: linux/amd64
       service:
         description: Service image to publish
         type: choice
@@ -27,7 +32,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: render-backend-image-${{ github.ref }}
+  group: render-backend-image-${{ github.ref }}-${{ inputs.service || 'all' }}-${{ inputs.platform || 'linux/amd64' }}
   cancel-in-progress: true
 
 env:
@@ -36,7 +41,7 @@ env:
 jobs:
   publish:
     name: Publish ${{ matrix.service.label }} Image
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.platform == 'linux/arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -133,7 +138,7 @@ jobs:
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          platforms: linux/amd64
+          platforms: ${{ inputs.platform || 'linux/amd64' }}
           push: true
           provenance: false
           sbom: false

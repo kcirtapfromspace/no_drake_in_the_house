@@ -1,0 +1,23 @@
+{
+  "httpStatus": 200,
+  "status": "no_support",
+  "jobId": "q17bn1trrmhqrbdh3pxzh423998f64cd",
+  "attempts": 1,
+  "generation": 1,
+  "model": "jev-1.13.0",
+  "policyVersion": "evidence-v1",
+  "sourceHash": "501163a337a390daff29572904e37ff8ac77f2bae033bb922b0572506030679d",
+  "sourceTruncated": false,
+  "lastError": null,
+  "offenseId": null,
+  "createdAt": "2026-09-27T18:52:19.006Z",
+  "updatedAt": "2026-09-27T18:52:19.335Z",
+  "decisionRoute": "no_support",
+  "deployment": "scrupulous-emu-861",
+  "trigger": "Authenticated research HTTP ingress; scheduled Convex worker",
+  "sourceUrl": "https://example.com/ndith-deployment-smoke-2026-09-27",
+  "sourceTitle": "Deployment smoke test — synthetic non-evidence",
+  "sourceText": "This is a synthetic deployment connectivity check, not a news article or evidence. Drake is a recording artist. This text contains no allegation, legal proceeding, misconduct claim, or report about harm.",
+  "expectedRoute": "no_support",
+  "note": "One labeled diagnostic job retained. No offense or reviewer approval created; source fetching and Rust acquisition were not exercised."
+}

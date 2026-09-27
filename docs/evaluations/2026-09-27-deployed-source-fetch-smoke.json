@@ -1,0 +1,21 @@
+{
+  "status": "no_support",
+  "attempts": 1,
+  "generation": 1,
+  "model": "jev-1.13.0",
+  "policyVersion": "evidence-v1",
+  "sourceHash": "5945db6fd8137aa377638814ca9bb1ac0a663fd90a97f11f86c3f5c09cfb40e3",
+  "sourceTruncated": false,
+  "lastError": null,
+  "offenseId": null,
+  "createdAt": "2026-09-27T19:11:53.290Z",
+  "updatedAt": "2026-09-27T19:11:54.274Z",
+  "jobId": "q17bcph76jqrd0j1336hqdbnex8f6k9f",
+  "decisionRoute": "no_support",
+  "httpStatus": 200,
+  "deployment": "scrupulous-emu-861",
+  "trigger": "Authenticated research HTTP ingress; scheduled Convex worker; URL-only source fetched through Firecrawl",
+  "sourceUrl": "https://example.com/?ndith-deployment-check=2026-09-27",
+  "expectedRoute": "no_support",
+  "note": "Harmless public example page used as a diagnostic source; no supplied source text. One job retained for provenance. No offense or reviewer approval created. Rust research discovery and human approval were not exercised."
+}

@@ -18,6 +18,16 @@ The live Convex deployment is labelled **dev** by Convex. The project's default 
 
 Frontend proxies to Cloud Map services under `production.ndith.sst`, using runtime DNS resolution so idle services do not prevent nginx from starting. Preserve the live entrypoint, warming behavior, OAuth/JWKS routes and upstream environment when building images. Backend and News normally scale to zero; Frontend normally has one task.
 
+Cold upstream responses remain HTTP 503 with `Retry-After: 10`. An internal nginx mirror calls the existing wake function for the routed service, including for browser `fetch` and Convex requests. Wake calls contain only the allowlisted service name; client credentials, cookies, query parameters and bodies are excluded. Successful wake responses are cached per service for 30 seconds. Healthy and authorization-denied upstream responses do not trigger wake-up. Deployments without `WAKE_URL` keep the 503 behavior without calling an external service.
+
+The frontend image workflow exercises these behaviors against local HTTP stubs, including an unresolved upstream hostname. To repeat the packaged-image check:
+
+```sh
+python3 scripts/deployment/test-nginx-wake.py --image FRONTEND_IMAGE_REFERENCE --use-image-files
+```
+
+Without `--use-image-files`, the test mounts the current checkout's nginx template, entrypoint and warming page into an existing frontend image. Containers and mock servers are removed after the check.
+
 ## Publish and roll out
 
 1. Run the checks in [the verification record](../evaluations/2026-09-27-verification.md). Commit and push the intended release branch. Keep infrastructure-only follow-ups distinct from the application image revision.
@@ -55,6 +65,6 @@ Pause legacy research ingestion during the coordinated Convex and News release. 
 
 Use the previous task ARN from the deployment receipt with `aws ecs update-service --cluster ... --service ... --task-definition ...`, specifying the same profile/region. Confirm stability and restore the original desired count. Do not overwrite mutable image tags as a rollback mechanism. A frontend rollback is independent of data, but a legacy News rollback requires a compatible Convex contract; do not restart unauthenticated legacy ingestion.
 
-On 2026-09-27, the existing Upstash database rejected PING with a temporary rate-limit error before the Rust API could start. Aurora connected and migrations completed; Redis was the startup blocker. Restoring provider access/quota is required before API and News readiness can pass. Do not replace the database, change its plan, or bypass the Redis dependency as an incidental deployment action.
+On 2026-09-27, the existing Upstash database initially rejected PING with a temporary rate-limit error. After the user restored access, a fresh TLS connection succeeded at 18:37 UTC. The first new Rust images then exposed missing Redis TLS build features. The workspace now enables `tokio-rustls-comp`, and `ndith-db` tests production `rediss://` pool construction. Keep certificate validation and TLS enabled; do not downgrade the connection URL, replace the database or change its billing as an incidental deployment action.
 
 See [the Jev release record](2026-09-27-jev-release.md) for actual revisions, completed checks and outstanding work.
